@@ -35,5 +35,17 @@ function send_verification_email(array $config, string $recipient, string $code)
     $mail->isHTML(false);
     $mail->Subject = 'Your Z.C. commonplace verification code';
     $mail->Body = "Your 6-digit email verification code is: {$code}\n\nThis code expires in 10 minutes. If you did not create this account, you can ignore this email.";
-    $mail->send();
+    try {
+        $mail->send();
+    } catch (Throwable $error) {
+        if (stripos($error->getMessage(), 'could not authenticate') !== false ||
+            stripos($error->getMessage(), 'authentication') !== false) {
+            throw new RuntimeException(
+                'Gmail rejected the configured SMTP sender credentials. In config/config.php, mail.username and mail.from must be the Gmail account sending the verification email, and mail.app_password must be that account\'s Google App Password. The new user\'s email is the recipient; their registration password cannot be used as Gmail SMTP credentials.',
+                0,
+                $error
+            );
+        }
+        throw $error;
+    }
 }
