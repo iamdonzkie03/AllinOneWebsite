@@ -25,7 +25,7 @@ $modules = [
 <meta name="description" content="Explore Zamboanga City's history and culture, photography, community news, marketplace, entertainment and public affairs.">
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="stylesheet" href="public/assets/css/site.css">
-</head>
+<style>.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}.hero-photo-caption{position:absolute;left:28px;bottom:25px;color:#f8e9eb;font-size:10px;font-weight:800;letter-spacing:2.5px;text-shadow:0 2px 8px #000;z-index:1}.home-art-photo .art-stamp{z-index:2;background:rgba(10,8,10,.48)}@media(max-width:560px){.hero-photo-caption{left:18px;bottom:17px;font-size:8px;letter-spacing:1.5px}}</style>\n</head>
 <body>
 <div class="topbar"><div class="wrap"><span>ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY</span><span>Local perspectives. Shared with care.</span></div></div>
 <header><div class="wrap nav">
@@ -42,7 +42,7 @@ $modules = [
 <div class="hero-actions"><a class="btn" href="#zamboanga">Explore our heritage</a><a class="btn light" href="public/register.php">Become a contributor ↗</a></div>
 <div class="hero-note"><span class="hero-note-dot"></span>Independent community contributions · Administrator-reviewed publishing</div>
 </div>
-<div class="hero-art home-art" role="img" aria-label="Abstract black and maroon artwork inspired by Zamboanga's maritime heritage"><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div></div>
+<div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage collage featuring Fort Pilar, the Philippine flag, a traditional vinta, and Yakan-inspired textile patterns"><img class="hero-photo" src="public/assets/images/zamboanga-hero.png" alt="Fort Pilar, Philippine flag, traditional vinta, and Yakan-inspired patterns in a dramatic Zamboanga heritage collage" fetchpriority="high"><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
 </div></section>
 
 <section class="section culture-section" id="zamboanga"><div class="wrap">
