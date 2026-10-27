@@ -29,7 +29,7 @@ $modules = [
 <body>
 <div class="topbar"><div class="wrap"><span>ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY</span><span>Local perspectives. Shared with care.</span></div></div>
 <header><div class="wrap nav">
-<a class="brand" href="index.php">commonplace<span>.</span></a>
+<a class="brand" href="index.php">Z.C. commonplace<span>.</span></a>
 <nav class="navlinks">
 <a href="#modules">Explore</a><a href="#zamboanga">History & Culture</a><a href="#latest">Latest stories</a>
 <a href="public/login.php">Sign in</a><a class="btn" href="public/register.php">Join the community</a>
@@ -83,7 +83,7 @@ $modules = [
 
 <section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="public/register.php">Apply for a creator account ↗</a></div></section>
 </main>
-<footer><div class="wrap footer-grid"><div><a class="brand" href="index.php">commonplace<span>.</span></a><p>Zamboanga stories, culture, creativity and community — shared with care.</p><p>© <?=date('Y')?> Commonplace. Community publishing with administrator review.</p></div><div><b>Explore</b><a href="?category=creative-arts-photography#latest">Creative Arts and Photography</a><a href="?category=news-connect#latest">News Connect</a><a href="?category=marketplace#latest">Marketplace</a></div><div><b>Discover</b><a href="?category=entertainment-politics#latest">Entertainment & Politics</a><a href="?category=history-culture#latest">History & Culture</a><a href="#zamboanga">Zamboanga heritage slideshow</a></div></div></footer>
+<footer><div class="wrap footer-grid"><div><a class="brand" href="index.php">Z.C. commonplace<span>.</span></a><p>Zamboanga stories, culture, creativity and community — shared with care.</p><p>© <?=date('Y')?> Z.C. commonplace. Community publishing with administrator review.</p></div><div><b>Explore</b><a href="?category=creative-arts-photography#latest">Creative Arts and Photography</a><a href="?category=news-connect#latest">News Connect</a><a href="?category=marketplace#latest">Marketplace</a></div><div><b>Discover</b><a href="?category=entertainment-politics#latest">Entertainment & Politics</a><a href="?category=history-culture#latest">History & Culture</a><a href="#zamboanga">Zamboanga heritage slideshow</a></div></div></footer>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
 $(function(){
