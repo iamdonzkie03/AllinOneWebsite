@@ -19,19 +19,18 @@ CREATE TABLE users (
 
 CREATE TABLE categories (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE,
-  slug VARCHAR(120) NOT NULL UNIQUE,
+  name VARCHAR(120) NOT NULL UNIQUE,
+  slug VARCHAR(140) NOT NULL UNIQUE,
   description VARCHAR(255) NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
 
 INSERT INTO categories(name, slug, description) VALUES
-('Creative Arts','creative-arts','Art, design, photography and creative work'),
-('E-Commerce','e-commerce','Products, makers and independent shops'),
-('Property Listing','property-listing','Homes, rentals, land and commercial spaces'),
-('Blog','blog','Essays, guides and perspectives'),
-('Entertainment','entertainment','Film, music, television and culture'),
-('News','news','Sports, celebrities, politics and current affairs');
+('Creative Arts and Photography','creative-arts-photography','Photography, visual art, design and creative work'),
+('News Connect','news-connect','Community updates, civic stories and current affairs'),
+('Marketplace','marketplace','Products, makers, services and listings'),
+('Entertainment & Politics','entertainment-politics','Entertainment, public figures, political discussion and analysis'),
+('History & Culture','history-culture','Zamboanga heritage, Chavacano identity and living traditions');
 
 CREATE TABLE content (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
