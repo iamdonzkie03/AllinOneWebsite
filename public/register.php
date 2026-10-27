@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
+require_once __DIR__ . '/../app/mailer.php';
 $error='';
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     verify_csrf();
@@ -19,15 +20,13 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $stmt->execute([$fullName,$email,password_hash($password,PASSWORD_DEFAULT),$credentials,$mobile,$nickname,$birthdate,$birthplace]);
             $userId=(int)$pdo->lastInsertId(); $code=(string)random_int(100000,999999);
             $pdo->prepare("INSERT INTO email_verification_codes(user_id,code_hash,expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 10 MINUTE))")->execute([$userId,password_hash($code,PASSWORD_DEFAULT)]);
-            $pdo->commit();
-            $subject='Your Z.C. commonplace verification code';
-            $body="Your 6-digit email verification code is: {$code}\n\nThis code expires in 10 minutes. If you did not create this account, you can ignore this email.";
-            $headers="From: ".($config['mail']['from']??'no-reply@localhost')."\r\nContent-Type: text/plain; charset=UTF-8";
-            if (!mail($email,$subject,$body,$headers)) {
-                $pdo->prepare("DELETE FROM users WHERE id=?")->execute([$userId]);
-                $error='We could not send the verification email. Please try again later or contact the site administrator to configure outgoing email.';
-            } else {
+            try {
+                send_verification_email($config, $email, $code);
+                $pdo->commit();
                 header('Location: verify-email.php?email='.rawurlencode($email)); exit;
+            } catch (Throwable $mailError) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $error='We could not send the verification email. Check Gmail SMTP configuration and try again. Details: '.e($mailError->getMessage());
             }
         } catch (PDOException $ex) {
             if ($pdo->inTransaction()) $pdo->rollBack();
