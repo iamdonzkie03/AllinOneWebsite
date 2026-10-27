@@ -1,19 +1,50 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
-$error=''; $success='';
+$error='';
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     verify_csrf();
-    $name=trim((string)($_POST['full_name']??'')); $email=strtolower(trim((string)($_POST['email']??'')));
-    $password=(string)($_POST['password']??''); $credentials=trim((string)($_POST['credential_notes']??''));
-    if ($name==='' || !filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($password)<12 || strlen($credentials)<20) {
-        $error='Enter your name, a valid email, a password of at least 12 characters, and contributor credentials/details (at least 20 characters).';
+    $last=trim((string)($_POST['lastname']??'')); $first=trim((string)($_POST['firstname']??''));
+    $middle=trim((string)($_POST['middle_initial']??'')); $nickname=trim((string)($_POST['nickname']??''));
+    $birthdate=trim((string)($_POST['birthdate']??'')); $birthplace=trim((string)($_POST['birthplace']??''));
+    $email=strtolower(trim((string)($_POST['email']??''))); $password=(string)($_POST['password']??'');
+    $credentials=trim((string)($_POST['credential_notes']??''));
+    $validDate=$birthdate!=='' && DateTime::createFromFormat('Y-m-d',$birthdate) && DateTime::createFromFormat('Y-m-d',$birthdate)->format('Y-m-d')===$birthdate && $birthdate<=date('Y-m-d');
+    if ($last==='' || $first==='' || strlen($middle)>5 || $nickname==='' || !$validDate || $birthplace==='' ||
+        !filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($password)<12 || strlen($credentials)<20) {
+        $error='Please complete all fields. Use a valid birthdate, a password of at least 12 characters, and contributor credentials/purpose of at least 20 characters.';
     } else {
+        $fullName=trim($last.', '.$first.($middle!==''?' '.$middle.'.':''));
         try {
-            $stmt=$pdo->prepare("INSERT INTO users(full_name,email,password_hash,role,account_status,credential_notes) VALUES(?,?,?,'creator','pending',?)");
-            $stmt->execute([$name,$email,password_hash($password,PASSWORD_DEFAULT),$credentials]);
-            $success='Registration received. A System Administrator will review your account details before you can access your personal workspace. You may sign in after approval.';
-        } catch (PDOException $ex) { $error='That email may already be registered. Please try another email.'; }
+            $pdo->beginTransaction();
+            $stmt=$pdo->prepare("INSERT INTO users(full_name,email,password_hash,role,account_status,credential_notes,lastname,firstname,middle_initial,nickname,birthdate,birthplace,email_verified_at) VALUES(?,?,?,'creator','pending',?,?,?,?,?,?,?,NULL)");
+            $stmt->execute([$fullName,$email,password_hash($password,PASSWORD_DEFAULT),$credentials,$last,$first,$middle,$nickname,$birthdate,$birthplace]);
+            $userId=(int)$pdo->lastInsertId(); $code=(string)random_int(100000,999999);
+            $pdo->prepare("INSERT INTO email_verification_codes(user_id,code_hash,expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 10 MINUTE))")->execute([$userId,password_hash($code,PASSWORD_DEFAULT)]);
+            $pdo->commit();
+            $subject='Your Z.C. commonplace verification code';
+            $body="Your 6-digit email verification code is: {$code}\n\nThis code expires in 10 minutes. If you did not create this account, you can ignore this email.";
+            $headers="From: ".($config['mail']['from']??'no-reply@localhost')."\r\nContent-Type: text/plain; charset=UTF-8";
+            if (!mail($email,$subject,$body,$headers)) {
+                $pdo->prepare("DELETE FROM users WHERE id=?")->execute([$userId]);
+                $error='We could not send the verification email. Please try again later or contact the site administrator to configure outgoing email.';
+            } else {
+                header('Location: verify-email.php?email='.rawurlencode($email)); exit;
+            }
+        } catch (PDOException $ex) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $error='That email may already be registered, or registration is temporarily unavailable.';
+        }
     }
 }
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Apply for a creator account</title><link rel="stylesheet" href="assets/css/site.css"></head><body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header><main class="wrap" style="max-width:760px;padding:48px 0"><div class="panel"><div class="eyebrow">Join the community</div><h1 style="font:42px Georgia,serif;margin:8px 0">Create your space.</h1><p class="muted">Creator accounts are reviewed by the System Administrator before access is granted. Provide a short explanation of your contribution or creator credentials. Do not submit passwords or sensitive identity numbers in this field.</p><?php if($error):?><p style="color:#f18b95"><?=e($error)?></p><?php endif;?><?php if($success):?><p><?=e($success)?></p><a class="btn" href="login.php">Go to sign in</a><a class="btn light" href="../index.php">Return to homepage</a><?php else: ?><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><div class="form-grid"><div class="full"><label for="full_name">Full name</label><input class="field" id="full_name" name="full_name" required maxlength="160"></div><div class="full"><label for="email">Email address</label><input class="field" id="email" type="email" name="email" required maxlength="190"></div><div class="full"><label for="credential_notes">Contributor credentials / purpose</label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Tell the administrator what you plan to contribute, your area of interest, portfolio or public creator links (if any)."></textarea></div><div class="full"><label for="password">Password (minimum 12 characters)</label><input class="field" id="password" type="password" name="password" minlength="12" required autocomplete="new-password"></div></div><p><button class="btn" type="submit">Submit for approval</button></p></form><?php endif;?></div></main></body></html>
+?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create an account</title><link rel="stylesheet" href="assets/css/site.css"></head><body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header><main class="wrap" style="max-width:760px;padding:48px 0"><div class="panel"><div class="eyebrow">Join the community</div><h1 style="font:42px Georgia,serif;margin:8px 0">Create your account.</h1><p class="muted">Verify your email address with a 6-digit code before signing in. Creator access remains subject to System Administrator review. Do not include passwords or sensitive identity numbers in contributor credentials.</p><?php if($error):?><p style="color:#a33"><?=e($error)?></p><?php endif;?><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><div class="form-grid">
+<div><label for="lastname">Lastname</label><input class="field" id="lastname" name="lastname" required maxlength="100" autocomplete="family-name"></div>
+<div><label for="firstname">Firstname</label><input class="field" id="firstname" name="firstname" required maxlength="100" autocomplete="given-name"></div>
+<div><label for="middle_initial">Middle Initial</label><input class="field" id="middle_initial" name="middle_initial" maxlength="5" autocomplete="additional-name"></div>
+<div><label for="nickname">Nickname</label><input class="field" id="nickname" name="nickname" required maxlength="80"></div>
+<div><label for="birthdate">Birthdate</label><input class="field" id="birthdate" type="date" name="birthdate" required max="<?=e(date('Y-m-d'))?>"></div>
+<div><label for="birthplace">Birthplace</label><input class="field" id="birthplace" name="birthplace" required maxlength="180"></div>
+<div class="full"><label for="email">Email Address</label><input class="field" id="email" type="email" name="email" required maxlength="190" autocomplete="email"></div>
+<div class="full"><label for="credential_notes">Contributor credentials / purpose</label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Describe what you plan to contribute, your interests, experience, portfolio or public creator links."></textarea></div>
+<div class="full"><label for="password">Password (minimum 12 characters)</label><input class="field" id="password" type="password" name="password" minlength="12" required autocomplete="new-password"></div>
+</div><p><button class="btn" type="submit">Create Account</button></p></form></div></main></body></html>
