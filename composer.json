@@ -1,0 +1,12 @@
+{
+  "name": "zc-commonplace/website",
+  "description": "Z.C. commonplace community website",
+  "type": "project",
+  "require": {
+    "php": ">=8.0",
+    "phpmailer/phpmailer": "^6.10"
+  },
+  "config": {
+    "sort-packages": true
+  }
+}
