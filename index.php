@@ -42,7 +42,7 @@ $modules = [
 <div class="hero-actions"><a class="btn" href="#zamboanga">Explore our heritage</a><a class="btn light" href="public/register.php">Become a contributor ↗</a></div>
 <div class="hero-note"><span class="hero-note-dot"></span>Independent community contributions · Administrator-reviewed publishing</div>
 </div>
-<div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage collage featuring Fort Pilar, the Philippine flag, a traditional vinta, and Yakan-inspired textile patterns"><img class="hero-photo" src="https://commons.wikimedia.org/wiki/Special:FilePath/Vinta_at_Zamboanga_City_Tourism_Office,_Mar_2026.jpg?width=1600" alt="Traditional colorful vinta boat at the Zamboanga City Tourism Office, representing Zamboanga City maritime heritage" fetchpriority="high"><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
+<div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage collage featuring Fort Pilar, the Philippine flag, a traditional vinta, and Yakan-inspired textile patterns"><img class="hero-photo" src="public/assets/images/Z.C.%20Commonplace_%20Zamboanga%20Stories.png" alt="Z.C. Commonplace Zamboanga Stories hero artwork featuring Zamboanga City heritage and culture" fetchpriority="high"><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
 </div></section>
 
 <section class="section culture-section" id="zamboanga"><div class="wrap">
