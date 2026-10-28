@@ -24,11 +24,10 @@ $firebaseReady = !empty($firebase['api_key']) && !empty($firebase['auth_domain']
 <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
 <div class="form-grid">
 <div class="full"><label for="full_name">Full Name (Lastname, Firstname, Middle Name)</label><input class="field" id="full_name" name="full_name" required maxlength="200" autocomplete="name" placeholder="Dela Cruz, Juan, Santos"></div>
-<div><label for="mobile_no">Contact/Mobile No. (+63)</label><input class="field" id="mobile_no" name="mobile_no" type="tel" required maxlength="16" autocomplete="tel" placeholder="+63 9XX XXX XXXX"></div>
+<div><label for="mobile_no">Contact/Mobile No. (+63)</label><input class="field" id="mobile_no" name="mobile_no" type="tel" required maxlength="16" autocomplete="tel" inputmode="tel" placeholder="+63 9XX XXXX XXX"></div>
 <div><label for="nickname">Nickname</label><input class="field" id="nickname" name="nickname" required maxlength="80"></div>
 <div><label for="birthdate">Birthdate</label><input class="field" id="birthdate" type="date" name="birthdate" required max="<?=e(date('Y-m-d'))?>"></div>
 <div><label for="birthplace">Birthplace</label><input class="field" id="birthplace" name="birthplace" required maxlength="180"></div>
-<div class="full"><label for="email">Email Address (for account contact)</label><input class="field" id="email" type="email" name="email" required maxlength="190" autocomplete="email"></div>
 <div class="full"><label for="credential_notes">Contributor credentials / purpose</label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Describe what you plan to contribute, your interests, experience, portfolio or public creator links."></textarea></div>
 </div>
 <div id="recaptcha-container" style="margin:16px 0"></div>
@@ -53,6 +52,26 @@ $firebaseReady = !empty($firebase['api_key']) && !empty($firebase['auth_domain']
   const auth = firebase.auth();
   auth.useDeviceLanguage();
   const form = document.getElementById('registration-form');
+  const phoneInput = form.elements.mobile_no;
+  const formatPhone = (value) => {
+    let digits = value.replace(/\D/g, '');
+    if (digits.startsWith('0063')) digits = digits.slice(4);
+    else if (digits.startsWith('63')) digits = digits.slice(2);
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    digits = digits.slice(0, 10);
+    const parts = [];
+    if (digits.length) parts.push(digits.slice(0, 3));
+    if (digits.length > 3) parts.push(digits.slice(3, 7));
+    if (digits.length > 7) parts.push(digits.slice(7, 10));
+    return '+63' + (parts.length ? ' ' + parts.join(' ') : '');
+  };
+  phoneInput.addEventListener('input', () => {
+    phoneInput.value = formatPhone(phoneInput.value);
+    try { phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length); } catch (_) {}
+  });
+  phoneInput.addEventListener('focus', () => {
+    if (!phoneInput.value.trim()) phoneInput.value = '+63 ';
+  });
   const message = document.getElementById('message');
   const sendButton = document.getElementById('send-code');
   const verifyButton = document.getElementById('verify-code');
