@@ -23,8 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = (string)($_POST['password'] ?? '');
     $confirm = (string)($_POST['confirm_password'] ?? '');
 
-    if (strlen($password) < 12) {
-        $error = 'Your password must be at least 12 characters long.';
+    if (strlen($password) < 10) {
+        $error = 'Your password must be at least 10 characters long.';
+    } elseif (!preg_match('/[A-Z]/', $password)) {
+        $error = 'Your password must include at least one uppercase letter.';
+    } elseif (!preg_match('/[0-9]/', $password)) {
+        $error = 'Your password must include at least one number.';
+    } elseif (!preg_match('/[^a-zA-Z0-9]/', $password)) {
+        $error = 'Your password must include at least one symbol.';
     } elseif ($password !== $confirm) {
         $error = 'The passwords do not match.';
     } else {
@@ -40,6 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create account password</title><link rel="stylesheet" href="assets/css/site.css"></head>
 <body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header>
-<main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Email verified</div><h1 style="font:40px Georgia,serif">Create your password.</h1><p class="muted">Your email address has been verified. Create a password of at least 12 characters to finish setting up your account.</p><p class="muted">Verified email: <?=e((string)$user['email'])?></p>
+<main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Email verified</div><h1 style="font:40px Georgia,serif">Create your password.</h1><p class="muted">Your email address has been verified. Create a password with at least 10 characters, including an uppercase letter, a number, and a symbol.</p><p class="muted">Verified email: <?=e((string)$user['email'])?></p>
 <?php if ($error): ?><p style="color:#a33"><?=e($error)?></p><?php endif; ?>
-<form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><p><label for="password">Password (minimum 12 characters)</label><input class="field" id="password" type="password" name="password" minlength="12" required autocomplete="new-password"></p><p><label for="confirm_password">Confirm password</label><input class="field" id="confirm_password" type="password" name="confirm_password" minlength="12" required autocomplete="new-password"></p><button class="btn" type="submit">Save Password</button></form></div></main></body></html>
+<form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><p><label for="password">Password (minimum 10 characters; uppercase, number, and symbol required)</label><input class="field" id="password" type="password" name="password" minlength="10" required autocomplete="new-password"></p><p><label for="confirm_password">Confirm password</label><input class="field" id="confirm_password" type="password" name="confirm_password" minlength="10" required autocomplete="new-password"></p><button class="btn" type="submit">Save Password</button></form></div></main></body></html>
