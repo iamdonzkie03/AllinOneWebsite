@@ -9,7 +9,7 @@ if ($userId < 1) {
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT id, email, phone_verified_at FROM users WHERE id = ? LIMIT 1');
+$stmt = $pdo->prepare('SELECT id, phone_verified_at FROM users WHERE id = ? LIMIT 1');
 $stmt->execute([$userId]);
 $user = $stmt->fetch();
 if (!$user || empty($user['phone_verified_at'])) {
@@ -46,6 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create account password</title><link rel="stylesheet" href="assets/css/site.css"></head>
 <body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header>
-<main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Phone verified</div><h1 style="font:40px Georgia,serif">Create your password.</h1><p class="muted">Your mobile number has been verified. Create a password with at least 10 characters, including an uppercase letter, a number, and a symbol.</p><p class="muted">Account email: <?=e((string)$user['email'])?></p>
+<main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Phone verified</div><h1 style="font:40px Georgia,serif">Create your password.</h1><p class="muted">Your mobile number has been verified. Create a password with at least 10 characters, including an uppercase letter, a number, and a symbol.</p>
 <?php if ($error): ?><p style="color:#a33"><?=e($error)?></p><?php endif; ?>
 <form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><p><label for="password">Password (minimum 10 characters; uppercase, number, and symbol required)</label><input class="field" id="password" type="password" name="password" minlength="10" required autocomplete="new-password"></p><p><label for="confirm_password">Confirm password</label><input class="field" id="confirm_password" type="password" name="confirm_password" minlength="10" required autocomplete="new-password"></p><button class="btn" type="submit">Save Password</button></form></div></main></body></html>
