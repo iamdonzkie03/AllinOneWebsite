@@ -38,14 +38,27 @@ function send_verification_email(array $config, string $recipient, string $code)
     try {
         $mail->send();
     } catch (Throwable $error) {
-        if (stripos($error->getMessage(), 'could not authenticate') !== false ||
-            stripos($error->getMessage(), 'authentication') !== false) {
+        // Preserve the SMTP response for troubleshooting while redacting credentials.
+        $smtpDetail = trim((string)$mail->ErrorInfo);
+        $exceptionDetail = trim($error->getMessage());
+        $detail = $smtpDetail !== '' ? $smtpDetail : $exceptionDetail;
+        $detail = str_ireplace(
+            [(string)$mailConfig['app_password'], (string)$mailConfig['username']],
+            ['[REDACTED]', '[SENDER EMAIL]'],
+            $detail
+        );
+
+        if (stripos($exceptionDetail, 'could not authenticate') !== false ||
+            stripos($exceptionDetail, 'authentication') !== false ||
+            stripos($detail, '535') !== false ||
+            stripos($detail, '5.7.8') !== false) {
             throw new RuntimeException(
-                'Gmail rejected the configured SMTP sender credentials. In config/config.php, mail.username and mail.from must be the Gmail account sending the verification email, and mail.app_password must be that account\'s Google App Password. The new user\'s email is the recipient; their registration password cannot be used as Gmail SMTP credentials.',
+                'Gmail SMTP authentication failed. Verify mail.username is the full sending Gmail address and mail.app_password is a current Google App Password for that same account. SMTP detail: ' . $detail,
                 0,
                 $error
             );
         }
-        throw $error;
+
+        throw new RuntimeException('Could not send verification email. SMTP detail: ' . $detail, 0, $error);
     }
 }
