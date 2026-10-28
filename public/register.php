@@ -85,7 +85,8 @@ $firebaseReady = !empty($firebase['api_key']) && !empty($firebase['auth_domain']
     return /^\+639\d{9}$/.test(v) ? v : '';
   };
   sendButton.addEventListener('click', async () => {
-    if (!form.reportValidity()) return;
+    // Validate only the phone number at this stage. Other required registration fields
+    // are validated when the user submits the completed registration after SMS verification.
     const phone = normalizePhone(form.elements.mobile_no.value);
     if (!phone) { say('Enter a valid Philippine mobile number, such as +639171234567.', true); return; }
     form.elements.mobile_no.value = phone;
