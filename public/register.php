@@ -17,7 +17,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         try {
             $pdo->beginTransaction();
             $stmt=$pdo->prepare("INSERT INTO users(full_name,email,password_hash,role,account_status,credential_notes,mobile_no,nickname,birthdate,birthplace,email_verified_at) VALUES(?,?,?,'creator','pending',?,?,?,?,?,NULL)");
-            $temporaryPasswordHash=password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);\n            $stmt->execute([$fullName,$email,$temporaryPasswordHash,$credentials,$mobile,$nickname,$birthdate,$birthplace]);
+            $temporaryPasswordHash=password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
+            $stmt->execute([$fullName,$email,$temporaryPasswordHash,$credentials,$mobile,$nickname,$birthdate,$birthplace]);
             $userId=(int)$pdo->lastInsertId(); $code=(string)random_int(100000,999999);
             $pdo->prepare("INSERT INTO email_verification_codes(user_id,code_hash,expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 10 MINUTE))")->execute([$userId,password_hash($code,PASSWORD_DEFAULT)]);
             try {
