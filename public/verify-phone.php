@@ -23,13 +23,12 @@ $mobile = trim((string)($_POST['mobile_no'] ?? ''));
 $nickname = trim((string)($_POST['nickname'] ?? ''));
 $birthdate = trim((string)($_POST['birthdate'] ?? ''));
 $birthplace = trim((string)($_POST['birthplace'] ?? ''));
-$email = strtolower(trim((string)($_POST['email'] ?? '')));
 $credentials = trim((string)($_POST['credential_notes'] ?? ''));
 $date = DateTime::createFromFormat('!Y-m-d', $birthdate);
 $validDate = $date instanceof DateTime && $date->format('Y-m-d') === $birthdate && $birthdate <= date('Y-m-d');
 if ($fullName === '' || strlen($fullName) > 200 || $nickname === '' || strlen($nickname) > 80 ||
     !$validDate || $birthplace === '' || strlen($birthplace) > 180 ||
-    !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($credentials) < 20 || strlen($credentials) > 3000 ||
+    strlen($credentials) < 20 || strlen($credentials) > 3000 ||
     !preg_match('/^\+639[0-9]{9}$/', $mobile)) {
     json_response(422, ['ok'=>false,'error'=>'Please complete all fields and use a valid Philippine mobile number (+63). Contributor credentials/purpose must be at least 20 characters.']);
 }
@@ -56,12 +55,14 @@ if ($httpStatus !== 200 || !is_array($firebaseUser) || !preg_match('/^\+639[0-9]
 
 try {
     $pdo->beginTransaction();
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ? OR mobile_no = ? LIMIT 1');
-    $stmt->execute([$email, $verifiedPhone]);
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE mobile_no = ? LIMIT 1');
+    $stmt->execute([$verifiedPhone]);
     if ($stmt->fetch()) {
         $pdo->rollBack();
-        json_response(409, ['ok'=>false,'error'=>'That email address or mobile number is already registered.']);
+        json_response(409, ['ok'=>false,'error'=>'That mobile number is already registered.']);
     }
+    // The current database schema requires a unique email, so phone-only accounts use a non-contact placeholder.
+    $email = preg_replace('/[^0-9]/', '', $verifiedPhone) . '@phone.local';
     $temporaryPasswordHash = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO users(full_name,email,password_hash,role,account_status,credential_notes,mobile_no,nickname,birthdate,birthplace,email_verified_at,phone_verified_at) VALUES(?,?,?,'creator','pending',?,?,?,?,?,NULL,NOW())");
     $stmt->execute([$fullName,$email,$temporaryPasswordHash,$credentials,$verifiedPhone,$nickname,$birthdate,$birthplace]);
@@ -72,7 +73,7 @@ try {
     json_response(200, ['ok'=>true,'redirect'=>'set-password.php']);
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    json_response(409, ['ok'=>false,'error'=>'That email address or mobile number may already be registered, or registration is temporarily unavailable.']);
+    json_response(409, ['ok'=>false,'error'=>'That mobile number may already be registered, or registration is temporarily unavailable.']);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     json_response(500, ['ok'=>false,'error'=>'Registration could not be completed. Please try again.']);
