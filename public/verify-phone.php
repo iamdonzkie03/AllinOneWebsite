@@ -18,7 +18,11 @@ if ($apiKey === '' || !function_exists('curl_init')) json_response(503, ['ok'=>f
 $idToken = trim((string)($_POST['firebase_id_token'] ?? ''));
 if ($idToken === '' || strlen($idToken) > 10000) json_response(400, ['ok'=>false,'error'=>'Phone verification token is missing.']);
 
-$fullName = trim((string)($_POST['full_name'] ?? ''));
+$lastName = trim((string)($_POST['lastname'] ?? ''));
+$firstName = trim((string)($_POST['firstname'] ?? ''));
+$middleName = trim((string)($_POST['middlename'] ?? ''));
+$suffix = trim((string)($_POST['suffix'] ?? ''));
+$fullName = implode(', ', array_values(array_filter([$lastName, $firstName, $middleName, $suffix], static fn(string $part): bool => $part !== '')));
 $mobile = trim((string)($_POST['mobile_no'] ?? ''));
 $nickname = trim((string)($_POST['nickname'] ?? ''));
 $birthdate = trim((string)($_POST['birthdate'] ?? ''));
@@ -26,7 +30,7 @@ $birthplace = trim((string)($_POST['birthplace'] ?? ''));
 $credentials = trim((string)($_POST['credential_notes'] ?? ''));
 $date = DateTime::createFromFormat('!Y-m-d', $birthdate);
 $validDate = $date instanceof DateTime && $date->format('Y-m-d') === $birthdate && $birthdate <= date('Y-m-d');
-if ($fullName === '' || strlen($fullName) > 200 || $nickname === '' || strlen($nickname) > 80 ||
+if ($lastName === '' || strlen($lastName) > 80 || $firstName === '' || strlen($firstName) > 80 || strlen($middleName) > 80 || strlen($suffix) > 20 || $fullName === '' || strlen($fullName) > 200 || $nickname === '' || strlen($nickname) > 80 ||
     !$validDate || $birthplace === '' || strlen($birthplace) > 180 ||
     strlen($credentials) < 20 || strlen($credentials) > 3000 ||
     !preg_match('/^\+639[0-9]{9}$/', $mobile)) {
