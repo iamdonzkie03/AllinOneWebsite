@@ -3,128 +3,131 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 
 $error = '';
-$firebase = $config['firebase'] ?? [];
-$firebaseReady = !empty($firebase['api_key']) && !empty($firebase['auth_domain']) && !empty($firebase['project_id']) && !empty($firebase['app_id']);
+$old = ['lastname'=>'','firstname'=>'','middlename'=>'','suffix'=>'','mobile_no'=>'','nickname'=>'','birthdate'=>'','birthplace'=>'','email'=>'','credential_notes'=>''];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try { verify_csrf(); } catch (Throwable $e) { $error = 'Your session expired. Refresh the page and try again.'; }
+    foreach ($old as $key => $_) $old[$key] = trim((string)($_POST[$key] ?? ''));
+    $last = $old['lastname']; $first = $old['firstname']; $middle = $old['middlename']; $suffix = $old['suffix'];
+    $mobile = preg_replace('/[\s().-]/', '', $old['mobile_no']) ?? '';
+    if (preg_match('/^09[0-9]{9}$/', $mobile)) $mobile = '+63' . substr($mobile, 1);
+    elseif (preg_match('/^9[0-9]{9}$/', $mobile)) $mobile = '+63' . $mobile;
+    $email = strtolower($old['email']);
+    $birthdate = $old['birthdate']; $birthplace = $old['birthplace']; $credentials = $old['credential_notes'];
+    $date = DateTime::createFromFormat('!Y-m-d', $birthdate);
+    $validDate = $date instanceof DateTime && $date->format('Y-m-d') === $birthdate && $birthdate <= date('Y-m-d');
+    if ($error === '' && ($last === '' || strlen($last)>80 || $first === '' || strlen($first)>80 || strlen($middle)>80 || strlen($suffix)>20 ||
+        !preg_match('/^\+639[0-9]{9}$/', $mobile) || $old['nickname']==='' || strlen($old['nickname'])>80 || !$validDate ||
+        $birthplace==='' || strlen($birthplace)>180 || !filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>190 ||
+        strlen($credentials)<20 || strlen($credentials)>3000)) {
+        $error = 'Please complete all required fields, enter a valid Philippine mobile number and email address, and provide at least 20 characters for contributor credentials/purpose.';
+    }
+    if ($error === '') {
+        $fullName = implode(', ', array_values(array_filter([$last,$first,$middle,$suffix], static fn(string $v): bool => $v !== '')));
+        $mail = $config['mail'] ?? [];
+        $smtpReady = !empty($mail['host']) && !empty($mail['username']) && !empty($mail['password']) && !empty($mail['from']);
+        $userId = 0;
+        try {
+            $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+            $stmt->execute([$email]);
+            if ($stmt->fetch()) throw new RuntimeException('That email address is already registered. Please sign in or use another email.');
+            $stmt = $pdo->prepare('SELECT id FROM users WHERE mobile_no = ? LIMIT 1');
+            $stmt->execute([$mobile]);
+            if ($stmt->fetch()) throw new RuntimeException('That mobile number is already registered.');
+            $pdo->beginTransaction();
+            $temporaryHash = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users(full_name,email,password_hash,role,account_status,credential_notes,mobile_no,nickname,birthdate,birthplace,email_verified_at,phone_verified_at,lastname,firstname,middlename,suffix) VALUES(?,?,?,'creator','pending',?,?,?,?,?,NULL,NULL,?,?,?,?)");
+            $stmt->execute([$fullName,$email,$temporaryHash,$credentials,$mobile,$old['nickname'],$birthdate,$birthplace,$last,$first,$middle,$suffix]);
+            $userId = (int)$pdo->lastInsertId();
+            $code = (string)random_int(100000,999999);
+            $stmt = $pdo->prepare("INSERT INTO email_verification_codes(user_id,code_hash,expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 10 MINUTE))");
+            $stmt->execute([$userId,password_hash($code,PASSWORD_DEFAULT)]);
+            $pdo->commit();
+
+            $subject = 'Your Z.C. commonplace verification code';
+            $body = "Hello {$first},\n\nYour six-digit Z.C. commonplace email verification code is: {$code}\n\nThis code expires in 10 minutes. If you did not request this, you can ignore this email.";
+            $sent = false;
+            if ($smtpReady && is_file(__DIR__ . '/../vendor/autoload.php')) {
+                require_once __DIR__ . '/../vendor/autoload.php';
+                if (class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+                    $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+                    $mailer->isSMTP();
+                    $mailer->Host = (string)$mail['host'];
+                    $mailer->SMTPAuth = true;
+                    $mailer->Username = (string)$mail['username'];
+                    $mailer->Password = (string)$mail['password'];
+                    $mailer->Port = (int)($mail['port'] ?? 587);
+                    $encryption = strtolower((string)($mail['encryption'] ?? 'tls'));
+                    if ($encryption === 'ssl' || $encryption === 'smtps') $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                    elseif ($encryption === 'tls' || $encryption === 'starttls') $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                    $mailer->CharSet = 'UTF-8';
+                    $mailer->setFrom((string)$mail['from'], (string)($mail['from_name'] ?? 'Z.C. commonplace'));
+                    $mailer->addAddress($email, $fullName);
+                    $mailer->Subject = $subject;
+                    $mailer->Body = $body;
+                    $sent = $mailer->send();
+                }
+            } elseif (!$smtpReady) {
+                $from = (string)($mail['from'] ?? '');
+                if ($from !== '') {
+                    $headers = "From: " . $from . "\r\nContent-Type: text/plain; charset=UTF-8";
+                    $sent = @mail($email, $subject, $body, $headers);
+                }
+            }
+            if (!$sent) {
+                $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
+                $error = 'We could not send the verification email. Configure SMTP in config/config.php (mail host, username, password, sender, and port), then try again.';
+            } else {
+                header('Location: verify-email.php?email=' . rawurlencode($email));
+                exit;
+            }
+        } catch (RuntimeException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $error = $e->getMessage();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            if ($userId > 0) { try { $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]); } catch (Throwable $ignored) {} }
+            error_log('Registration email verification error: ' . $e->getMessage());
+            $error = 'Registration could not be completed. Check the email/SMTP configuration and database migration, then try again.';
+        }
+    }
+}
 ?><!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Create an account</title><link rel="stylesheet" href="assets/css/site.css">
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create an account</title><link rel="stylesheet" href="assets/css/site.css"></head>
 <body>
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header>
 <main class="wrap" style="max-width:760px;padding:48px 0"><div class="panel">
 <div class="eyebrow">Join the community</div><h1 style="font:42px Georgia,serif;margin:8px 0">Create your account.</h1>
-<p class="muted">Verify your Philippine mobile number with a six-digit SMS code. After phone verification, you will create your password. Creator access remains subject to System Administrator review. Do not include passwords or sensitive identity numbers in contributor credentials.</p>
-<?php if (!$firebaseReady): ?><p style="color:#a33">Phone verification is not configured yet. Add your Firebase Web app settings to config/config.php using config/config.example.php as a guide.</p><?php endif; ?>
-<p id="message" role="status" aria-live="polite"></p>
-<form id="registration-form">
-<input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+<p class="muted">Verify your email address with a six-digit code before creating your password. Creator access remains subject to System Administrator review. Do not include passwords or sensitive identity numbers in contributor credentials.</p>
+<?php if ($error): ?><p role="alert" style="color:#a33"><?=e($error)?></p><?php endif; ?>
+<form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
 <div class="form-grid">
-<input type="hidden" id="full_name" name="full_name" value=""><div><label for="lastname">Lastname</label><input class="field" id="lastname" name="lastname" required maxlength="80" autocomplete="family-name" placeholder="Dela Cruz"></div><div><label for="firstname">Firstname</label><input class="field" id="firstname" name="firstname" required maxlength="80" autocomplete="given-name" placeholder="Juan"></div><div><label for="middlename">Middlename</label><input class="field" id="middlename" name="middlename" maxlength="80" autocomplete="additional-name" placeholder="Santos (optional)"></div><div><label for="suffix">Suffix</label><input class="field" id="suffix" name="suffix" maxlength="20" placeholder="Jr., Sr., III (optional)"></div>
-<div><label for="mobile_no">Contact/Mobile No. (+63)</label><input class="field" id="mobile_no" name="mobile_no" type="tel" required maxlength="16" autocomplete="tel" inputmode="tel" placeholder="+63 9XX XXXX XXX"></div>
-<div><label for="nickname">Nickname</label><input class="field" id="nickname" name="nickname" required maxlength="80"></div>
-<div><label for="birthdate">Birthdate</label><input class="field" id="birthdate" type="date" name="birthdate" required max="<?=e(date('Y-m-d'))?>"></div>
-<div><label for="birthplace">Birthplace</label><input class="field" id="birthplace" name="birthplace" required maxlength="180"></div>
-<div class="full"><label for="credential_notes">Contributor credentials / purpose</label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Describe what you plan to contribute, your interests, experience, portfolio or public creator links."></textarea></div>
+<div><label for="lastname">Lastname</label><input class="field" id="lastname" name="lastname" required maxlength="80" autocomplete="family-name" value="<?=e($old['lastname'])?>"></div>
+<div><label for="firstname">Firstname</label><input class="field" id="firstname" name="firstname" required maxlength="80" autocomplete="given-name" value="<?=e($old['firstname'])?>"></div>
+<div><label for="middlename">Middlename</label><input class="field" id="middlename" name="middlename" maxlength="80" autocomplete="additional-name" value="<?=e($old['middlename'])?>" placeholder="Optional"></div>
+<div><label for="suffix">Suffix</label><input class="field" id="suffix" name="suffix" maxlength="20" value="<?=e($old['suffix'])?>" placeholder="Jr., Sr., III (optional)"></div>
+<div><label for="mobile_no">Contact/Mobile No. (+63)</label><input class="field" id="mobile_no" name="mobile_no" type="tel" required maxlength="20" autocomplete="tel" inputmode="tel" placeholder="+63 9XX XXXX XXX" value="<?=e($old['mobile_no'])?>"></div>
+<div><label for="nickname">Nickname</label><input class="field" id="nickname" name="nickname" required maxlength="80" value="<?=e($old['nickname'])?>"></div>
+<div><label for="birthdate">Birthdate</label><input class="field" id="birthdate" type="date" name="birthdate" required max="<?=e(date('Y-m-d'))?>" value="<?=e($old['birthdate'])?>"></div>
+<div><label for="birthplace">Birthplace</label><input class="field" id="birthplace" name="birthplace" required maxlength="180" value="<?=e($old['birthplace'])?>"></div>
+<div class="full"><label for="email">Email Address</label><input class="field" id="email" type="email" name="email" required maxlength="190" autocomplete="email" value="<?=e($old['email'])?>"></div>
+<div class="full"><label for="credential_notes">Contributor credentials / purpose</label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Describe what you plan to contribute, your interests, experience, portfolio or public creator links."><?=e($old['credential_notes'])?></textarea></div>
 </div>
-<div id="recaptcha-container" style="margin:16px 0"></div>
-<p><button class="btn" id="send-code" type="button" <?=!$firebaseReady?'disabled':''?>>Send SMS Verification Code</button></p>
-<div id="code-section" hidden>
-<p><label for="code">Six-digit SMS verification code</label><input class="field" id="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code"></p>
-<button class="btn" id="verify-code" type="button">Verify Phone and Continue</button>
-</div>
-</form>
-</div></main>
+<p><button class="btn" type="submit">Send Email Verification Code</button></p>
+</form></div></main>
 <script>
 (() => {
-  const ready = <?=json_encode($firebaseReady)?>;
-  if (!ready) return;
-  const firebaseConfig = <?=json_encode([
-      'apiKey' => (string)($firebase['api_key'] ?? ''),
-      'authDomain' => (string)($firebase['auth_domain'] ?? ''),
-      'projectId' => (string)($firebase['project_id'] ?? ''),
-      'appId' => (string)($firebase['app_id'] ?? ''),
-  ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  auth.useDeviceLanguage();
-  const form = document.getElementById('registration-form');
-  const phoneInput = form.elements.mobile_no;
-  const formatPhone = (value) => {
-    let digits = value.replace(/\D/g, '');
-    if (digits.startsWith('0063')) digits = digits.slice(4);
-    else if (digits.startsWith('63')) digits = digits.slice(2);
-    if (digits.startsWith('0')) digits = digits.slice(1);
-    digits = digits.slice(0, 10);
-    const parts = [];
-    if (digits.length) parts.push(digits.slice(0, 3));
-    if (digits.length > 3) parts.push(digits.slice(3, 7));
-    if (digits.length > 7) parts.push(digits.slice(7, 10));
-    return '+63' + (parts.length ? ' ' + parts.join(' ') : '');
-  };
-  phoneInput.addEventListener('input', () => {
-    phoneInput.value = formatPhone(phoneInput.value);
-    try { phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length); } catch (_) {}
-  });
-  phoneInput.addEventListener('focus', () => {
-    if (!phoneInput.value.trim()) phoneInput.value = '+63 ';
-  });
-  const message = document.getElementById('message');
-  const sendButton = document.getElementById('send-code');
-  const verifyButton = document.getElementById('verify-code');
-  let confirmation = null;
-  let verifier = null;
-  const say = (text, bad = false) => { message.textContent = text; message.style.color = bad ? '#a33' : 'inherit'; };
-  const normalizePhone = (value) => {
-    let v = value.trim().replace(/[\s().-]/g, '');
-    if (/^09\d{9}$/.test(v)) v = '+63' + v.slice(1);
-    else if (/^9\d{9}$/.test(v)) v = '+63' + v;
-    return /^\+639\d{9}$/.test(v) ? v : '';
-  };
-  sendButton.addEventListener('click', async () => {
-    // Validate only the phone number at this stage. Other required registration fields
-    // are validated when the user submits the completed registration after SMS verification.
-    const phone = normalizePhone(form.elements.mobile_no.value);
-    if (!phone) { say('Enter a valid Philippine mobile number, such as +639171234567.', true); return; }
-    form.elements.mobile_no.value = phone;
-    sendButton.disabled = true;
-    try {
-      if (!verifier) verifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {size: 'normal'});
-      await verifier.render();
-      confirmation = await auth.signInWithPhoneNumber(phone, verifier);
-      document.getElementById('code-section').hidden = false;
-      document.getElementById('code').focus();
-      say('SMS sent to ' + phone + '. Enter the six-digit code. The SMS may incur carrier charges.');
-    } catch (err) {
-      say(err.message || 'Could not send the SMS. Check Firebase phone authentication settings and try again.', true);
-      if (verifier) { try { verifier.clear(); } catch (_) {} verifier = null; }
-    } finally { sendButton.disabled = false; }
-  });
-  verifyButton.addEventListener('click', async () => {
-    const code = document.getElementById('code').value.trim();
-    if (!confirmation) { say('Send the SMS code first.', true); return; }
-    if (!/^\d{6}$/.test(code)) { say('Enter the six-digit SMS code.', true); return; }
-    verifyButton.disabled = true;
-    try {
-      const result = await confirmation.confirm(code);
-      const token = await result.user.getIdToken(true);
-      const data = new FormData(form);
-      const nameParts = [form.elements.lastname.value.trim(), form.elements.firstname.value.trim(), form.elements.middlename.value.trim(), form.elements.suffix.value.trim()].filter(Boolean);
-      data.set('full_name', nameParts.join(', '));
-      data.set('firebase_id_token', token);
-      data.set('mobile_no', result.user.phoneNumber || form.elements.mobile_no.value);
-      const response = await fetch('verify-phone.php', {method:'POST', body:data, credentials:'same-origin', headers:{'Accept':'application/json'}});
-      const body = await response.json();
-      if (!response.ok || !body.ok) throw new Error(body.error || 'Could not complete registration.');
-      window.location.href = body.redirect;
-    } catch (err) {
-      say(err.message || 'The code is invalid or expired. Please try again.', true);
-      verifyButton.disabled = false;
-    }
-  });
+ const input = document.getElementById('mobile_no');
+ input.addEventListener('input', () => {
+   let digits = input.value.replace(/\D/g,'');
+   if (digits.startsWith('0063')) digits = digits.slice(4);
+   else if (digits.startsWith('63')) digits = digits.slice(2);
+   if (digits.startsWith('0')) digits = digits.slice(1);
+   digits = digits.slice(0,10);
+   const parts=[]; if(digits.length) parts.push(digits.slice(0,3)); if(digits.length>3) parts.push(digits.slice(3,7)); if(digits.length>7) parts.push(digits.slice(7,10));
+   input.value = '+63' + (parts.length ? ' ' + parts.join(' ') : '');
+ });
 })();
 </script>
 </body></html>
