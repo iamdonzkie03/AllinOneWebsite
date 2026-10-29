@@ -17,6 +17,16 @@ return [
         'project_id' => 'allinoneweb-fd1e3',
         'app_id' => '1:213895413580:web:b976884b8d2cf165d0d9e9',
     ],
+    // Configure SMTP locally. Do not commit real SMTP credentials.
+    'mail' => [
+        'host' => 'smtp.gmail.com',
+        'port' => 587,
+        'username' => '',
+        'password' => '',
+        'encryption' => 'tls',
+        'from' => '',
+        'from_name' => 'Z.C. commonplace',
+    ],
     'app' => [
         'name' => 'Commonplace',
         'base_url' => 'http://localhost/allinoneweb',
