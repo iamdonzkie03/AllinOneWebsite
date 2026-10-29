@@ -23,7 +23,7 @@ $firebaseReady = !empty($firebase['api_key']) && !empty($firebase['auth_domain']
 <form id="registration-form">
 <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
 <div class="form-grid">
-<div class="full"><label for="full_name">Full Name (Lastname, Firstname, Middle Name)</label><input class="field" id="full_name" name="full_name" required maxlength="200" autocomplete="name" placeholder="Dela Cruz, Juan, Santos"></div>
+<input type="hidden" id="full_name" name="full_name" value="">\n<div><label for="lastname">Lastname</label><input class="field" id="lastname" name="lastname" required maxlength="80" autocomplete="family-name" placeholder="Dela Cruz"></div>\n<div><label for="firstname">Firstname</label><input class="field" id="firstname" name="firstname" required maxlength="80" autocomplete="given-name" placeholder="Juan"></div>\n<div><label for="middlename">Middlename</label><input class="field" id="middlename" name="middlename" maxlength="80" autocomplete="additional-name" placeholder="Santos (optional)"></div>\n<div><label for="suffix">Suffix</label><input class="field" id="suffix" name="suffix" maxlength="20" placeholder="Jr., Sr., III (optional)"></div>
 <div><label for="mobile_no">Contact/Mobile No. (+63)</label><input class="field" id="mobile_no" name="mobile_no" type="tel" required maxlength="16" autocomplete="tel" inputmode="tel" placeholder="+63 9XX XXXX XXX"></div>
 <div><label for="nickname">Nickname</label><input class="field" id="nickname" name="nickname" required maxlength="80"></div>
 <div><label for="birthdate">Birthdate</label><input class="field" id="birthdate" type="date" name="birthdate" required max="<?=e(date('Y-m-d'))?>"></div>
@@ -112,6 +112,8 @@ $firebaseReady = !empty($firebase['api_key']) && !empty($firebase['auth_domain']
       const result = await confirmation.confirm(code);
       const token = await result.user.getIdToken(true);
       const data = new FormData(form);
+      const nameParts = [form.elements.lastname.value.trim(), form.elements.firstname.value.trim(), form.elements.middlename.value.trim(), form.elements.suffix.value.trim()].filter(Boolean);
+      data.set('full_name', nameParts.join(', '));
       data.set('firebase_id_token', token);
       data.set('mobile_no', result.user.phoneNumber || form.elements.mobile_no.value);
       const response = await fetch('verify-phone.php', {method:'POST', body:data, credentials:'same-origin', headers:{'Accept':'application/json'}});
