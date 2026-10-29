@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->fetch()) throw new RuntimeException('That mobile number is already registered.');
             $pdo->beginTransaction();
             $temporaryHash = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO users(full_name,email,password_hash,role,account_status,credential_notes,mobile_no,nickname,birthdate,birthplace,email_verified_at,phone_verified_at,lastname,firstname,middlename,suffix) VALUES(?,?,?,'creator','pending',?,?,?,?,?,NULL,NULL,?,?,?,?)");
+            $stmt = $pdo->prepare("INSERT INTO users(full_name,email,password_hash,role,account_status,credential_notes,mobile_no,nickname,birthdate,birthplace,email_verified_at,lastname,firstname,middlename,suffix) VALUES(?,?,?,'creator','pending',?,?,?,?,?,NULL,?,?,?,?)");
             $stmt->execute([$fullName,$email,$temporaryHash,$credentials,$mobile,$old['nickname'],$birthdate,$birthplace,$last,$first,$middle,$suffix]);
             $userId = (int)$pdo->lastInsertId();
             $code = (string)random_int(100000,999999);
