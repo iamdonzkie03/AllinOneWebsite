@@ -12,10 +12,10 @@ return [
     'firebase' => [
         // Web app configuration values from Firebase Console > Project settings > Your apps.
         // Firebase Web API keys identify the project; do not put service-account private keys here.
-        'api_key' => 'your-firebase-web-api-key',
-        'auth_domain' => 'your-project-id.firebaseapp.com',
-        'project_id' => 'your-firebase-project-id',
-        'app_id' => 'your-firebase-web-app-id',
+        'api_key' => 'AIzaSyAnXVP2H3zHNd4Tw2IxPVoou6Xe_qXGJW0',
+        'auth_domain' => 'allinoneweb-fd1e3.firebaseapp.com',
+        'project_id' => 'allinoneweb-fd1e3',
+        'app_id' => '1:213895413580:web:b976884b8d2cf165d0d9e9',
     ],
     'app' => [
         'name' => 'Commonplace',
