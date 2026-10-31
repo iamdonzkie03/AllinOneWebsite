@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  const sync = () => { hidden.value = boxes.map(box => box.value).join(''); };
  boxes.forEach((box,index) => {
    box.addEventListener('input', () => {
-     const digit = box.value.replace(/\\D/g,'').slice(-1);
+     const digit = box.value.replace(/\D/g,'').slice(-1);
      box.value = digit;
      sync();
      if (digit && index < boxes.length-1) boxes[index+1].focus();
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
      if (event.key === 'ArrowRight' && index < boxes.length-1) { event.preventDefault(); boxes[index+1].focus(); }
    });
    box.addEventListener('paste', event => {
-     const digits = (event.clipboardData || window.clipboardData).getData('text').replace(/\\D/g,'').slice(0,6);
+     const digits = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
      if (!digits) return;
      event.preventDefault();
      boxes.forEach((item,i) => item.value = digits[i] || '');
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  });
  form.addEventListener('submit', event => {
    sync();
-   if (!/^\\d{6}$/.test(hidden.value)) {
+   if (!/^\d{6}$/.test(hidden.value)) {
      event.preventDefault();
      boxes.find(box => !box.value)?.focus();
    }
