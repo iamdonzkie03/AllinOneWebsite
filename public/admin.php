@@ -143,7 +143,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .profile-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:clamp(9px,1.5vh,14px)}
 .profile-modal-head h2{margin:0 0 4px;font-size:18px;color:#fff}
 .profile-modal-head p{margin:0;color:var(--muted);font-size:11px}
-.profile-modal-close{flex:0 0 32px;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font-size:20px;cursor:pointer}
+.profile-modal-close{flex:0 0 32px;width:32px;height:32px;display:grid;place-items:center;box-sizing:border-box;padding:0;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font-size:20px;line-height:1;cursor:pointer}
 .profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}
 .profile-form-field{display:grid;gap:4px;min-width:0}
 .profile-form-field.full{grid-column:1/-1}
@@ -153,8 +153,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .profile-form-field input[readonly]{color:#a99da1;background:#120f11}
 .profile-password-input-wrap{position:relative;display:flex;align-items:center}
 .profile-password-input-wrap input{padding-right:42px}
-.profile-password-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:30px;height:30px;padding:5px;border:0;border-radius:6px;background:transparent;color:#bbaeb2;cursor:pointer}
-.profile-password-toggle:hover,.profile-password-toggle:focus-visible{color:#fff;background:rgba(255,255,255,.08);outline:1px solid rgba(184,50,63,.5)}
+.profile-password-toggle,.profile-password-toggle:hover,.profile-password-toggle:focus,.profile-password-toggle:focus-visible,.profile-password-toggle:active{position:absolute;right:7px;top:50%;transform:translateY(-50%) !important;translate:0 0 !important;scale:1 !important;display:grid;place-items:center;box-sizing:border-box;width:30px;height:30px;min-width:30px;min-height:30px;padding:5px;border:0;border-radius:6px;background:transparent;color:#bbaeb2;cursor:pointer;transition:none !important}
+.profile-password-toggle:hover,.profile-password-toggle:focus-visible{transform:translateY(-50%) !important;translate:0 0 !important;scale:1 !important;color:#fff;background:rgba(255,255,255,.08);outline:1px solid rgba(184,50,63,.5)}
 .profile-password-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .profile-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:12px}
 @media(max-height:720px){.profile-modal-card{padding:10px 16px}.profile-modal-head{margin-bottom:8px}.profile-form-grid{gap:6px 10px}.profile-form-field input{padding:7px 9px}.profile-password-meter{margin-top:4px}.profile-password-rules{margin-top:5px;gap:3px 8px}.profile-password-help{margin:4px 0;font-size:10px}.profile-modal-actions{margin-top:8px}}
