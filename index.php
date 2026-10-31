@@ -26,12 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
     if (!$loginUser || !password_verify($password, $loginUser['password_hash'])) $loginError = 'Invalid email/mobile number or password.';
     elseif ($loginUser['account_status'] !== 'approved') $loginError = 'Your account is awaiting administrator approval or is not currently active.';
     else {
-        session_regenerate_id(true);
+        $targetContext = ($loginUser['role'] === 'system_admin') ? 'admin' : 'creator';
+        switch_app_session_context($targetContext);
         unset($loginUser['password_hash']);
         $_SESSION['user'] = $loginUser;
         $_SESSION['login_progress'] = true;
-        $_SESSION['login_redirect'] = ($loginUser['role'] === 'system_admin' ? 'public/admin.php' : 'public/workspace.php');
-        header('Location: index.php');
+        $_SESSION['login_redirect'] = ($targetContext === 'admin' ? 'public/admin.php' : 'public/workspace.php');
+        header('Location: index.php?session_context=' . $targetContext);
         exit;
     }
 }
