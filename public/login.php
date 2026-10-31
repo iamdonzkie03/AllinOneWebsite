@@ -9,4 +9,22 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
  elseif ($user['account_status']!=='approved') $error='Your account is awaiting administrator approval or is not currently active.';
  else { session_regenerate_id(true); unset($user['password_hash']); $_SESSION['user']=$user; header('Location: '.($user['role']==='system_admin'?'admin.php':'workspace.php')); exit; }
 }
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in</title><link rel="stylesheet" href="assets/css/site.css"></head><body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a></div></header><main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Welcome back</div><h1 style="font:40px Georgia,serif">Sign in</h1><?php if($error):?><p style="color:#a33"><?=e($error)?></p><?php endif;?><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><p><label>Email or Contact/Mobile No.</label><input class="field" type="text" name="login" required autocomplete="username" placeholder="+63 917 1234 567"></p><p><label>Password</label><input class="field" type="password" name="password" required></p><button class="btn">Sign in</button></form></div></main></body></html>
+?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in</title><link rel="stylesheet" href="assets/css/site.css"></head><body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a></div></header><main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Welcome back</div><h1 style="font:40px Georgia,serif">Sign in</h1><?php if($error):?><p style="color:#a33"><?=e($error)?></p><?php endif;?><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><p><label for="login">Email or Contact/Mobile No.</label><input class="field" id="login" type="text" name="login" required autocomplete="username" inputmode="text" placeholder="Enter email or tap to enter +63 mobile number"></p><p><label>Password</label><input class="field" type="password" name="password" required></p><button class="btn">Sign in</button></form></div></main><script>
+(() => {
+  const field = document.getElementById('login');
+  const prefix = '+63';
+  field.addEventListener('focus', () => {
+    if (field.value.trim() === '') {
+      field.value = prefix;
+      field.setSelectionRange(field.value.length, field.value.length);
+    }
+  });
+  field.addEventListener('input', () => {
+    const value = field.value;
+    // If the user starts entering an email address, remove the mobile prefix.
+    if (/[A-Za-z@_]/.test(value) && value.startsWith(prefix)) {
+      field.value = value.slice(prefix.length).trimStart();
+    }
+  });
+})();
+</script></body></html>
