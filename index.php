@@ -61,7 +61,7 @@ $modules = [
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="stylesheet" href="public/assets/css/site.css">
 <style>.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}.hero-photo-caption{position:absolute;left:28px;bottom:25px;color:#f8e9eb;font-size:10px;font-weight:800;letter-spacing:2.5px;text-shadow:0 2px 8px #000;z-index:1}.home-art-photo .art-stamp{z-index:2;background:rgba(10,8,10,.48)}@media(max-width:560px){.hero-photo-caption{left:18px;bottom:17px;font-size:8px;letter-spacing:1.5px}}
-.signin-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.78);backdrop-filter:blur(7px)}
+.register-modal{position:fixed;inset:0;z-index:1001;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.82);backdrop-filter:blur(7px)}\n.register-modal.is-open{display:flex}.register-dialog{position:relative;width:min(100%,900px);height:min(90vh,900px);overflow:hidden;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.6)}.register-dialog iframe{display:block;width:100%;height:100%;border:0;background:#100b0e}.register-close{position:absolute;right:12px;top:10px;z-index:2;width:38px;height:38px;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:#241219;color:#fff;font-size:25px;cursor:pointer;box-shadow:0 2px 12px #0008}\n.signin-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.78);backdrop-filter:blur(7px)}
 .signin-modal.is-open{display:flex}
 .signin-dialog{position:relative;width:min(100%,480px);max-height:calc(100vh - 44px);overflow:auto;background:#160d11;color:#f7edf0;border:1px solid rgba(190,75,98,.35);border-radius:18px;padding:34px;box-shadow:0 24px 90px rgba(0,0,0,.55)}
 .signin-dialog h2{font:38px Georgia,serif;margin:7px 0 20px}
@@ -81,7 +81,7 @@ $modules = [
 <a class="brand" href="index.php">Z.C. commonplace<span>.</span></a>
 <nav class="navlinks">
 <a href="#modules">Explore</a><a href="#zamboanga">History & Culture</a><a href="#latest">Latest stories</a>
-<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="public/register.php">Join the community</a>
+<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the community</a>
 </nav></div></header>
 <main>
 <section class="hero home-hero"><div class="wrap hero-grid"><div>
@@ -133,7 +133,7 @@ $modules = [
 <section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="public/register.php">Apply for a creator account ↗</a></div></section>
 </main>
 
-<div class="signin-modal<?= $loginError !== '' ? ' is-open' : '' ?>" id="sign-in-modal" aria-hidden="<?= $loginError !== '' ? 'false' : 'true' ?>">
+<div class="register-modal" id="create-account-modal" aria-hidden="true"><div class="register-dialog" role="dialog" aria-modal="true" aria-label="Create an Account"><button type="button" class="register-close" id="close-create-account" aria-label="Close create account">×</button><iframe src="public/register.php" title="Create an Account" loading="lazy"></iframe></div></div>\n\n<div class="signin-modal<?= $loginError !== '' ? ' is-open' : '' ?>" id="sign-in-modal" aria-hidden="<?= $loginError !== '' ? 'false' : 'true' ?>">
 <div class="signin-dialog" role="dialog" aria-modal="true" aria-labelledby="signin-title">
 <button type="button" class="signin-close" id="close-sign-in" aria-label="Close sign in">×</button>
 <div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
@@ -216,6 +216,14 @@ $modules = [
   const loginField = document.getElementById('signin-login');
   const loginLabel = document.getElementById('signin-login-label');
   const methodRadios = document.querySelectorAll('input[name="login_method"]');
+  const registerModal = document.getElementById('create-account-modal');
+  const openRegister = document.getElementById('open-create-account');
+  const closeRegister = document.getElementById('close-create-account');
+  function showRegisterModal(){if(!registerModal)return;registerModal.classList.add('is-open');registerModal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
+  function hideRegisterModal(){if(!registerModal)return;registerModal.classList.remove('is-open');registerModal.setAttribute('aria-hidden','true');document.body.style.overflow='';if(openRegister)openRegister.focus();}
+  if(openRegister)openRegister.addEventListener('click',event=>{event.preventDefault();showRegisterModal();});
+  if(closeRegister)closeRegister.addEventListener('click',hideRegisterModal);
+  if(registerModal)registerModal.addEventListener('click',event=>{if(event.target===registerModal)hideRegisterModal();});
 
   if (!modal || !openButton || !closeButton || !loginField || !loginLabel) return;
 
@@ -243,6 +251,7 @@ $modules = [
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && modal.classList.contains('is-open')) hideSignInModal();
+    if (event.key === 'Escape' && registerModal && registerModal.classList.contains('is-open')) hideRegisterModal();
   });
 
   function updateLoginMethod() {
