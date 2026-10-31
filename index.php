@@ -151,7 +151,17 @@ $modules = [
     <div class="eyebrow">Authentication complete</div>
     <h2>Sign in successful</h2>
     <p>Taking you to your designated page…</p>
-    <div class="login-progress-track"><span id="login-progress-bar"></span></div>
+    <div class="login-progress-voyage" aria-label="Sign-in progress">
+      <div class="login-progress-track"><span id="login-progress-bar"></span></div>
+      <svg class="login-vinta" id="login-vinta" viewBox="0 0 64 48" role="img" aria-label="Colorful vinta sailing across the progress bar">
+        <path d="M31 4 L31 33" stroke="#f4e9df" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M29 7 L10 26 L29 26 Z" fill="#d84b62" stroke="#f7d9df" stroke-width="1"/>
+        <path d="M33 7 L53 26 L33 26 Z" fill="#e6b94f" stroke="#f7e8bf" stroke-width="1"/>
+        <path d="M30 11 L30 26 L17 26 Z" fill="#287c83" opacity=".95"/>
+        <path d="M6 34 Q31 39 58 34 L51 43 Q31 47 13 42 Z" fill="#f3e6d7" stroke="#8d3045" stroke-width="1.5"/>
+        <path d="M4 45 Q18 42 31 45 T60 45" fill="none" stroke="#6db4bd" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
     <div class="login-progress-caption"><span>Preparing your workspace</span><span id="login-progress-percent">0%</span></div>
   </div>
 </div>
@@ -160,26 +170,31 @@ $modules = [
 .login-progress-card{width:min(100%,430px);padding:36px 32px;text-align:center;color:#f7edf0;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.55)}
 .login-progress-check{width:54px;height:54px;margin:0 auto 18px;display:grid;place-items:center;border-radius:50%;background:rgba(119,171,126,.16);border:1px solid rgba(119,171,126,.55);color:#a9d8ae;font-size:28px}
 .login-progress-card h2{font:34px Georgia,serif;margin:8px 0 10px}.login-progress-card p{color:#c9b9bf;margin:0 0 24px}
+.login-progress-voyage{position:relative;margin-top:34px;padding-top:0}
 .login-progress-track{height:9px;overflow:hidden;border-radius:99px;background:#39232b;border:1px solid rgba(255,255,255,.08)}
-.login-progress-track span{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#7f1830,#d44c68);transition:width 1.15s cubic-bezier(.22,.8,.25,1)}
+.login-progress-track span{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#7f1830,#d44c68)}
+.login-vinta{position:absolute;left:0;top:-31px;width:42px;height:32px;overflow:visible;transform:translateX(-50%);filter:drop-shadow(0 3px 3px rgba(0,0,0,.4));will-change:left}
 .login-progress-caption{display:flex;justify-content:space-between;gap:12px;margin-top:10px;color:#bdaab1;font-size:11px;letter-spacing:.4px}
-@media(prefers-reduced-motion:reduce){.login-progress-track span{transition:none}}
+@media(prefers-reduced-motion:reduce){.login-vinta{transition:none}}
 </style>
 <script>
 (() => {
   const bar = document.getElementById('login-progress-bar');
+  const boat = document.getElementById('login-vinta');
   const percent = document.getElementById('login-progress-percent');
-  if (!bar || !percent) return;
+  const track = document.querySelector('.login-progress-track');
+  if (!bar || !boat || !percent || !track) return;
   const started = performance.now();
-  const duration = 1200;
+  const duration = 2000;
   function animate(now) {
     const value = Math.min(100, Math.round(((now - started) / duration) * 100));
     bar.style.width = value + '%';
+    boat.style.left = value + '%';
     percent.textContent = value + '%';
     if (value < 100) requestAnimationFrame(animate);
   }
   requestAnimationFrame(animate);
-  window.setTimeout(() => { window.location.replace('<?=e($loginRedirect)?>'); }, 1350);
+  window.setTimeout(() => { window.location.replace('<?=e($loginRedirect)?>'); }, 2150);
 })();
 </script>
 <?php endif; ?>
