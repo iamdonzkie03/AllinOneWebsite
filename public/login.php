@@ -9,12 +9,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = (string)($_POST['password'] ?? '');
 
     if ($method === 'mobile') {
-        $mobile = preg_replace('/[\\s().-]/', '', $loginInput) ?? '';
-        if (preg_match('/^09[0-9]{9}$/', $mobile)) {
-            $mobile = '+63' . substr($mobile, 1);
-        } elseif (preg_match('/^9[0-9]{9}$/', $mobile)) {
-            $mobile = '+63' . $mobile;
+        $mobileDigits = preg_replace('/\\D/', '', $loginInput) ?? '';
+        // Normalize pasted or typed country codes to exactly one +63 prefix.
+        while (str_starts_with($mobileDigits, '63')) {
+            $mobileDigits = substr($mobileDigits, 2);
         }
+        if (str_starts_with($mobileDigits, '0')) {
+            $mobileDigits = substr($mobileDigits, 1);
+        }
+        $mobile = '+63' . $mobileDigits;
         $stmt = $pdo->prepare("SELECT id,full_name,email,password_hash,role,account_status FROM users WHERE mobile_no=? LIMIT 1");
         $stmt->execute([$mobile]);
     } else {
@@ -125,14 +128,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (selected !== 'mobile') return;
 
     let digits = field.value.replace(/\\D/g, '');
-    if (digits.startsWith('0063')) digits = digits.slice(4);
-    else if (digits.startsWith('63')) digits = digits.slice(2);
-    else if (digits.startsWith('0')) digits = digits.slice(1);
+
+    // Strip every duplicated country-code prefix, then the optional local zero.
+    while (digits.startsWith('63')) digits = digits.slice(2);
+    if (digits.startsWith('0')) digits = digits.slice(1);
     digits = digits.slice(0, 10);
 
-    field.value = prefix + digits;
-    const caret = Math.max(prefix.length, field.value.length);
-    field.setSelectionRange(caret, caret);
+    const normalized = prefix + digits;
+    if (field.value !== normalized) {
+      field.value = normalized;
+      const caret = Math.max(prefix.length, normalized.length);
+      field.setSelectionRange(caret, caret);
+    }
   });
 })();
 </script>
