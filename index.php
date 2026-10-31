@@ -251,7 +251,28 @@ $modules = [
   function hideRegisterModal(){if(!registerModal)return;clearRegisterForm();registerModal.classList.remove('is-open');registerModal.setAttribute('aria-hidden','true');document.body.style.overflow='';const trigger=document.querySelector('[data-open-create-account], #open-create-account');if(trigger)trigger.focus();}
   openRegisterButtons.forEach(button=>button.addEventListener('click',event=>{event.preventDefault();hideSignInModal();showRegisterModal();}));
   if(closeRegister)closeRegister.addEventListener('click',hideRegisterModal);
-  if(registerModal)registerModal.addEventListener('click',event=>{if(event.target===registerModal)hideRegisterModal();});
+  if(registerModal) {
+    registerModal.addEventListener('click',event=>{if(event.target===registerModal)hideRegisterModal();});
+    const registerFrame = registerModal.querySelector('iframe');
+    const bindRegisterEscape = () => {
+      try {
+        const frameDocument = registerFrame && registerFrame.contentDocument;
+        if (!frameDocument || frameDocument.documentElement.dataset.escapeBound === '1') return;
+        frameDocument.documentElement.dataset.escapeBound = '1';
+        frameDocument.addEventListener('keydown', event => {
+          if (event.key === 'Escape' && registerModal.classList.contains('is-open')) {
+            event.preventDefault();
+            event.stopPropagation();
+            hideRegisterModal();
+          }
+        }, true);
+      } catch (error) { /* Ignore an unavailable iframe document. */ }
+    };
+    if (registerFrame) {
+      registerFrame.addEventListener('load', bindRegisterEscape);
+      bindRegisterEscape();
+    }
+  }
 
   if (!modal || !openButton || !closeButton || !loginField || !loginLabel) return;
 
