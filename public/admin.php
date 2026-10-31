@@ -69,11 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $delete->execute($ids);
             // Post/Redirect/Get prevents browser form-resubmission prompts after deletion.
             // Successful deletion is confirmed by the refreshed account list, not a page alert.
-            header('Location: ' . adminUrl('user-accounts'));
+            header('Location: ' . adminUrl('user-accounts'), true, 303);
             exit;
         } else {
             $message = 'Select at least one account to delete.';
-            header('Location: ' . adminUrl('user-accounts'));
+            header('Location: ' . adminUrl('user-accounts'), true, 303);
             exit;
         }
     }
