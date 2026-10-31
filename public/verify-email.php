@@ -42,9 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?><!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verify email</title><link rel="stylesheet" href="assets/css/site.css"></head>
-<body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header>
-<main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Email verification</div><h1 style="font:40px Georgia,serif">Check your inbox.</h1><p class="muted">Enter the six-digit code sent to your email address. The code expires after 10 minutes.</p>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verify email</title><link rel="stylesheet" href="assets/css/site.css"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100b0e}body>header{display:none!important}main.wrap{box-sizing:border-box;width:100%;max-width:none;height:100%;padding:22px 26px!important;overflow:hidden}main.wrap>.panel{box-sizing:border-box;height:100%;padding:26px;overflow:auto}h1{font:36px Georgia,serif!important;margin:8px 0 12px}.muted{font-size:13px;line-height:1.5}form p{margin:14px 0}input.field{box-sizing:border-box;width:100%}@media(max-width:560px){main.wrap{padding:12px!important}main.wrap>.panel{padding:18px}}</style></head>
+<body><main class="wrap"><div class="panel"><div class="eyebrow">Email verification</div><h1>Check your inbox.</h1><p class="muted">Enter the six-digit code sent to your email address. The code expires after 10 minutes.</p>
 <?php if ($error): ?><p role="alert" style="color:#a33"><?=e($error)?></p><?php endif; ?>
 <form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
 <p><label for="email">Email Address</label><input class="field" id="email" type="email" name="email" required maxlength="190" autocomplete="email" value="<?=e($email)?>"></p>
