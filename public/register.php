@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 
 $error = '';
+$captchaFailed = false;
 if (!isset($_SESSION['register_captcha']) || !is_array($_SESSION['register_captcha'])) $_SESSION['register_captcha'] = ['a' => random_int(2, 9), 'b' => random_int(1, 9)];
 $captchaQuestion = (int)$_SESSION['register_captcha']['a'] . ' + ' . (int)$_SESSION['register_captcha']['b'];
 $old = ['lastname'=>'','firstname'=>'','middlename'=>'','suffix'=>'','mobile_no'=>'','nickname'=>'','birthdate'=>'','birthplace'=>'','email'=>'','credential_notes'=>''];
@@ -12,7 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $captchaExpected = (int)($_SESSION['register_captcha']['a'] ?? 0) + (int)($_SESSION['register_captcha']['b'] ?? 0);
     $captchaProvided = trim((string)($_POST['captcha_answer'] ?? ''));
     unset($_SESSION['register_captcha']);
-    if ($error === '' && ($captchaProvided === '' || !ctype_digit($captchaProvided) || (int)$captchaProvided !== $captchaExpected)) $error = 'Captcha verification failed. Please solve the new challenge and try again.';
+    if ($error === '' && ($captchaProvided === '' || !ctype_digit($captchaProvided) || (int)$captchaProvided !== $captchaExpected)) {
+        $captchaFailed = true;
+        $error = 'The answer was incorrect. A new security challenge has been generated.';
+        do {
+            $newCaptcha = ['a' => random_int(2, 9), 'b' => random_int(1, 9)];
+        } while ($newCaptcha['a'] === (int)($_SESSION['register_captcha']['a'] ?? 0) && $newCaptcha['b'] === (int)($_SESSION['register_captcha']['b'] ?? 0));
+        $_SESSION['register_captcha'] = $newCaptcha;
+    }
     foreach ($old as $key => $_) $old[$key] = trim((string)($_POST[$key] ?? ''));
     $last = $old['lastname']; $first = $old['firstname']; $middle = $old['middlename']; $suffix = $old['suffix'];
     $mobile = preg_replace('/[\s().-]/', '', $old['mobile_no']) ?? '';
@@ -151,7 +159,7 @@ main.wrap form .btn{padding:10px 18px}
 </div>
 <p><button class="btn" id="sendVerification" type="button">Send Email Verification Code</button></p>
 </form></div></main>
-<div class="captcha-backdrop" id="captchaModal" role="dialog" aria-modal="true" aria-labelledby="captchaTitle"><div class="captcha-card"><h2 id="captchaTitle">Security check</h2><p>Please solve this quick captcha before we send your email verification code.</p><div class="captcha-equation"><?=e($captchaQuestion)?> = ?</div><input class="captcha-answer" id="captchaInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="Captcha answer"><div class="captcha-actions"><button type="button" class="captcha-cancel" id="captchaCancel">Cancel</button><button type="button" class="captcha-continue" id="captchaContinue">Verify</button></div></div></div>
+<div class="captcha-backdrop" id="captchaModal" role="dialog" aria-modal="true" aria-labelledby="captchaTitle"><div class="captcha-card"><h2 id="captchaTitle"><?= $captchaFailed ? 'New security challenge' : 'Security check' ?></h2><p id="captchaMessage"><?= $captchaFailed ? 'That answer did not match. Please solve this different challenge to continue.' : 'Please solve this quick captcha before we send your email verification code.' ?></p><div class="captcha-equation"><?=e($captchaQuestion)?> = ?</div><input class="captcha-answer" id="captchaInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="Captcha answer"><div class="captcha-actions"><button type="button" class="captcha-cancel" id="captchaCancel">Cancel</button><button type="button" class="captcha-continue" id="captchaContinue">Verify</button></div></div></div>
 <div class="register-loading" id="registerLoading" aria-live="polite"><div class="loading-orbit"></div><div class="loading-dots"><i></i><i></i><i></i></div><strong>Sending verification email…</strong></div>
 <script>
 (() => {
@@ -161,6 +169,7 @@ main.wrap form .btn{padding:10px 18px}
  const captchaAnswer = document.getElementById('captchaAnswer');
  const loading = document.getElementById('registerLoading');
  document.getElementById('sendVerification').addEventListener('click', () => { captchaInput.value=''; captchaModal.classList.add('is-open'); setTimeout(() => captchaInput.focus(), 50); });
+ <?php if ($captchaFailed): ?>captchaModal.classList.add('is-open');<?php endif; ?>
  document.getElementById('captchaCancel').addEventListener('click', () => captchaModal.classList.remove('is-open'));
  document.getElementById('captchaContinue').addEventListener('click', () => {
    if (!/^\\d{1,2}$/.test(captchaInput.value.trim())) { captchaInput.focus(); return; }
