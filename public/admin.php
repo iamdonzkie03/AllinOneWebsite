@@ -2,6 +2,9 @@
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 $admin = require_admin();
+$nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1');
+$nicknameStmt->execute([(int)$admin['id']]);
+$adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
 $section = (string)($_GET['section'] ?? 'dashboard');
 $allowedSections = ['dashboard', 'page-management', 'media-management', 'plugins', 'user-accounts'];
@@ -83,7 +86,7 @@ function adminUrl(string $section): string { return 'admin.php?section=' . rawur
     </div>
     <a class="<?=navActive($section,'user-accounts')?>" href="<?=e(adminUrl('user-accounts'))?>"><span class="nav-icon">♙</span>User Accounts <span class="status"><?=count($pendingUsers)?></span></a>
   </nav>
-  <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($admin['full_name'] ?? 'System Administrator')?></strong><br><span class="muted">System Administrator</span></div>
+  <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
 </aside>
 <main class="admin-main">
 <?php if($message):?><div class="panel" style="margin-bottom:20px"><?=e($message)?></div><?php endif;?>
