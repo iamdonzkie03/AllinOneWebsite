@@ -137,21 +137,23 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-profile-name{display:block;margin:2px 0 5px;color:#fff;font-size:16px;font-weight:700;overflow-wrap:anywhere}
 .admin-profile-role{display:block;color:#c8bec1;font-size:11px}
 .admin-profile-edit{width:100%;margin-top:15px;justify-content:center;font-size:12px!important}
-.profile-modal{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(7px)}
+.profile-modal{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,.78);backdrop-filter:blur(7px);overflow:hidden}
 .profile-modal[hidden]{display:none}
-.profile-modal-card{width:min(520px,100%);max-height:90vh;overflow:auto;padding:26px;border:1px solid rgba(184,50,63,.45);border-radius:19px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 25px 90px rgba(0,0,0,.65)}
-.profile-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}
-.profile-modal-head h2{margin:0 0 6px;font-size:19px;color:#fff}
-.profile-modal-head p{margin:0;color:var(--muted);font-size:12px}
-.profile-modal-close{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font-size:20px;cursor:pointer}
-.profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.profile-form-field{display:grid;gap:7px}
+.profile-modal-card{box-sizing:border-box;width:min(680px,100%);max-height:calc(100dvh - 24px);overflow:hidden;padding:clamp(12px,2.2vh,20px) clamp(14px,2.5vw,22px);border:1px solid rgba(184,50,63,.45);border-radius:16px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 25px 90px rgba(0,0,0,.65)}
+.profile-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:clamp(9px,1.5vh,14px)}
+.profile-modal-head h2{margin:0 0 4px;font-size:18px;color:#fff}
+.profile-modal-head p{margin:0;color:var(--muted);font-size:11px}
+.profile-modal-close{flex:0 0 32px;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font-size:20px;cursor:pointer}
+.profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}
+.profile-form-field{display:grid;gap:4px;min-width:0}
 .profile-form-field.full{grid-column:1/-1}
-.profile-form-field label{color:#d9cdd1;font-size:12px}
-.profile-form-field input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:#171115;color:#fff;font:13px Ubuntu,sans-serif}
+.profile-form-field label{color:#d9cdd1;font-size:11px}
+.profile-form-field input{width:100%;min-width:0;box-sizing:border-box;padding:8px 10px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:#171115;color:#fff;font:12px Ubuntu,sans-serif}
 .profile-form-field input:focus{outline:2px solid rgba(184,50,63,.5);border-color:#a83248}
 .profile-form-field input[readonly]{color:#a99da1;background:#120f11}
-.profile-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}
+.profile-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:12px}
+@media(max-height:720px){.profile-modal-card{padding:10px 16px}.profile-modal-head{margin-bottom:8px}.profile-form-grid{gap:6px 10px}.profile-form-field input{padding:7px 9px}.profile-password-meter{margin-top:4px}.profile-password-rules{margin-top:5px;gap:3px 8px}.profile-password-help{margin:4px 0;font-size:10px}.profile-modal-actions{margin-top:8px}}
+@media(max-width:420px){.profile-modal{padding:7px}.profile-modal-card{max-height:calc(100dvh - 14px);padding:10px}.profile-form-grid{gap:7px}.profile-form-field input{padding:7px 6px;font-size:11px}.profile-form-field label{font-size:10px}.profile-password-rules{font-size:10px}}
 .profile-password-meter{margin-top:9px}
 .profile-password-track{height:7px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.12)}
 .profile-password-fill{display:block;width:0;height:100%;border-radius:99px;background:#d94a62;transition:width .2s,background .2s}
@@ -162,7 +164,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .profile-password-rules span.valid::before{content:'✓';color:#83dba6}
 .profile-password-help{color:var(--muted);font-size:11px;line-height:1.5}
 
-@media(max-width:560px){.profile-form-grid{grid-template-columns:1fr}.profile-form-field.full{grid-column:auto}}
+/* Keep the profile form in a compact two-column layout so the complete modal fits without scrolling. */
 .account-status-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.76);backdrop-filter:blur(5px)}
 .account-status-modal-card{width:min(420px,100%);padding:32px 26px;text-align:center;border:1px solid rgba(184,50,63,.42);border-radius:20px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .account-status-modal-icon{width:52px;height:52px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;background:rgba(54,164,105,.16);border:1px solid rgba(91,205,145,.45);color:#83e0ac;font-size:27px;font-weight:800}
