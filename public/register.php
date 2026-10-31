@@ -128,6 +128,7 @@ main.wrap form .btn{padding:10px 18px}
 .captcha-backdrop.is-open,.register-loading.is-open{display:flex}
 .captcha-card{width:min(390px,calc(100% - 36px));box-sizing:border-box;padding:28px;background:#1c1117;border:1px solid rgba(255,255,255,.16);border-radius:16px;text-align:center;box-shadow:0 22px 70px #000b;color:#fff}
 .captcha-card h2{font:26px Georgia,serif;margin:0 0 10px}.captcha-card p{color:#cbbfc4;font-size:13px}
+.required-mark{color:#ff4545;font-weight:700;margin-left:3px}
 .btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.35)}
 .captcha-error{color:#ff4545!important;font-weight:700!important;text-shadow:0 0 8px rgba(255,45,45,.18)}
 .captcha-equation{font-size:25px;font-weight:700;letter-spacing:2px;margin:18px 0;color:#f0c6d2}
@@ -141,20 +142,20 @@ main.wrap form .btn{padding:10px 18px}
 <body>
 <main class="wrap"><div class="panel">
 <div class="eyebrow">Join the community</div><h1 style="font:42px Georgia,serif;margin:8px 0">Create your account.</h1>
-<p class="muted">Verify your email address with a six-digit code, then create your password to activate your account. No administrator approval is required. Do not include passwords or sensitive identity numbers in contributor credentials.</p>
+<p class="muted">Verify your email address with a six-digit code, then create your password to activate your account. Do not include passwords or sensitive identity numbers in contributor credentials. All fields marked with asterisk (*) are required.</p>
 <?php if ($error && !$captchaFailed): ?><p role="alert" style="color:#a33"><?=e($error)?></p><?php endif; ?>
 <form method="post" id="registerForm"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="captcha_answer" id="captchaAnswer">
 <div class="form-grid">
-<div><label for="lastname">Lastname</label><input class="field" id="lastname" name="lastname" required maxlength="80" autocomplete="family-name" value="<?=e($old['lastname'])?>"></div>
-<div><label for="firstname">Firstname</label><input class="field" id="firstname" name="firstname" required maxlength="80" autocomplete="given-name" value="<?=e($old['firstname'])?>"></div>
+<div><label for="lastname">Lastname <span class="required-mark" aria-hidden="true">*</span></label><input class="field" id="lastname" name="lastname" required maxlength="80" autocomplete="family-name" value="<?=e($old['lastname'])?>"></div>
+<div><label for="firstname">Firstname <span class="required-mark" aria-hidden="true">*</span></label><input class="field" id="firstname" name="firstname" required maxlength="80" autocomplete="given-name" value="<?=e($old['firstname'])?>"></div>
 <div><label for="middlename">Middlename</label><input class="field" id="middlename" name="middlename" maxlength="80" autocomplete="additional-name" value="<?=e($old['middlename'])?>" placeholder="Optional"></div>
 <div><label for="suffix">Suffix</label><input class="field" id="suffix" name="suffix" maxlength="20" value="<?=e($old['suffix'])?>" placeholder="Jr., Sr., III (optional)"></div>
-<div><label for="mobile_no">Contact/Mobile No. (+63)</label><input class="field" id="mobile_no" name="mobile_no" type="tel" required maxlength="20" autocomplete="tel" inputmode="tel" placeholder="+63 9XX XXXX XXX" value="<?=e($old['mobile_no'])?>"></div>
-<div><label for="nickname">Nickname</label><input class="field" id="nickname" name="nickname" required maxlength="80" value="<?=e($old['nickname'])?>"></div>
-<div><label for="birthdate">Birthdate</label><input class="field" id="birthdate" type="date" name="birthdate" required max="<?=e(date('Y-m-d'))?>" value="<?=e($old['birthdate'])?>"></div>
-<div><label for="birthplace">Birthplace</label><input class="field" id="birthplace" name="birthplace" required maxlength="180" value="<?=e($old['birthplace'])?>"></div>
-<div class="full"><label for="email">Email Address</label><input class="field" id="email" type="email" name="email" required maxlength="190" autocomplete="email" value="<?=e($old['email'])?>"></div>
-<div class="full"><label for="credential_notes">Contributor credentials / purpose</label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Describe what you plan to contribute, your interests, experience, portfolio or public creator links."><?=e($old['credential_notes'])?></textarea></div>
+<div><label for="mobile_no">Contact/Mobile No. (+63) <span class="required-mark" aria-hidden="true">*</span></label><input class="field" id="mobile_no" name="mobile_no" type="tel" required maxlength="20" autocomplete="tel" inputmode="tel" placeholder="+63 9XX XXXX XXX" value="<?=e($old['mobile_no'])?>"></div>
+<div><label for="nickname">Nickname <span class="required-mark" aria-hidden="true">*</span></label><input class="field" id="nickname" name="nickname" required maxlength="80" value="<?=e($old['nickname'])?>"></div>
+<div><label for="birthdate">Birthdate <span class="required-mark" aria-hidden="true">*</span></label><input class="field" id="birthdate" type="date" name="birthdate" required max="<?=e(date('Y-m-d'))?>" value="<?=e($old['birthdate'])?>"></div>
+<div><label for="birthplace">Birthplace <span class="required-mark" aria-hidden="true">*</span></label><input class="field" id="birthplace" name="birthplace" required maxlength="180" value="<?=e($old['birthplace'])?>"></div>
+<div class="full"><label for="email">Email Address <span class="required-mark" aria-hidden="true">*</span></label><input class="field" id="email" type="email" name="email" required maxlength="190" autocomplete="email" value="<?=e($old['email'])?>"></div>
+<div class="full"><label for="credential_notes">Contributor credentials / purpose <span class="required-mark" aria-hidden="true">*</span></label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Describe what you plan to contribute, your interests, experience, portfolio or public creator links."><?=e($old['credential_notes'])?></textarea></div>
 </div>
 <p><button class="btn" id="sendVerification" type="button" disabled>Send Email Verification Code</button></p>
 </form></div></main>
