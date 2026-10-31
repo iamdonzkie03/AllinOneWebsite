@@ -67,9 +67,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $marks = implode(',', array_fill(0, count($ids), '?'));
             $delete = $pdo->prepare("DELETE FROM users WHERE id IN ($marks) AND role<>'system_admin'");
             $delete->execute($ids);
-            $message = $delete->rowCount() . ' user account(s) deleted.';
-        } else $message = 'Select at least one account to delete.';
-        $section = 'user-accounts';
+            // Post/Redirect/Get prevents browser form-resubmission prompts after deletion.
+            // Successful deletion is confirmed by the refreshed account list, not a page alert.
+            header('Location: ' . adminUrl('user-accounts'));
+            exit;
+        } else {
+            $message = 'Select at least one account to delete.';
+            header('Location: ' . adminUrl('user-accounts'));
+            exit;
+        }
     }
     if ($action === 'toggle_user_status') {
         $next = (string)($_POST['next_status'] ?? '') === 'approved' ? 'approved' : 'suspended';
