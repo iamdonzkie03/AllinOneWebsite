@@ -85,3 +85,38 @@ function verify_csrf(): void {
         http_response_code(419); exit('Invalid security token. Refresh and try again.');
     }
 }
+
+/**
+ * Sign-in CSRF tokens are stateless so two independent role logins submitted
+ * from separate tabs cannot invalidate one another through shared PHP session
+ * state. The signature is derived from server-only application configuration.
+ */
+function signin_csrf_secret(): string {
+    global $config;
+    $material = json_encode($config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    return hash('sha256', is_string($material) ? $material : (string)$config['app']['session_name']);
+}
+function signin_csrf_token(): string {
+    $payload = time() . '.' . bin2hex(random_bytes(16));
+    $signature = hash_hmac('sha256', $payload, signin_csrf_secret());
+    return $payload . '.' . $signature;
+}
+function verify_signin_csrf(): void {
+    $sent = $_POST['csrf'] ?? '';
+    if (!is_string($sent)) {
+        http_response_code(419);
+        exit('Invalid security token. Refresh and try again.');
+    }
+    $parts = explode('.', $sent);
+    if (count($parts) !== 3 || !ctype_digit($parts[0])) {
+        http_response_code(419);
+        exit('Invalid security token. Refresh and try again.');
+    }
+    $issuedAt = (int)$parts[0];
+    $payload = $parts[0] . '.' . $parts[1];
+    $expected = hash_hmac('sha256', $payload, signin_csrf_secret());
+    if ($issuedAt > time() || time() - $issuedAt > 7200 || !hash_equals($expected, $parts[2])) {
+        http_response_code(419);
+        exit('Invalid security token. Refresh and try again.');
+    }
+}
