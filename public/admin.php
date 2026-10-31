@@ -44,9 +44,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $values[] = (int)$admin['id'];
                 $profileUpdate = $pdo->prepare($sql);
                 $profileUpdate->execute($values);
+                $passwordWasChanged = $password !== '';
+                if ($passwordWasChanged) {
+                    $_SESSION = [];
+                    if (ini_get('session.use_cookies')) {
+                        $cookie = session_get_cookie_params();
+                        setcookie(session_name(), '', time() - 42000, $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly']);
+                    }
+                    session_destroy();
+                    header('Location: ../index.php?profile_password_updated=1#sign-in-modal');
+                    exit;
+                }
                 $adminProfile = array_merge($adminProfile, ['full_name'=>$fullName,'lastname'=>$last,'firstname'=>$first,'middlename'=>$middleInitial,'suffix'=>$suffix,'email'=>$email,'nickname'=>$nickname,'mobile_no'=>$mobile]);
                 $adminNickname = $nickname;
-                $message = 'Your profile has been updated.';
+                $message = 'Account successfully updated';
             }
         }
     }
