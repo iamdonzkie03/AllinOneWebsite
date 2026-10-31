@@ -27,13 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([password_hash($password,PASSWORD_DEFAULT),$userId]);
         unset($_SESSION['password_setup_user_id']);
         session_regenerate_id(true);
-        header('Location: login.php?password_created=1');
+        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Account verified</title></head><body><script>if(window.parent && window.parent !== window){window.parent.location.href="../index.php?signin=1&registered=1";}else{window.location.href="../index.php?signin=1&registered=1";}</script></body></html>';
         exit;
     }
 }
 ?><!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create account password</title><link rel="stylesheet" href="assets/css/site.css"></head>
-<body><header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header>
-<main class="wrap" style="max-width:560px;padding:48px 0"><div class="panel"><div class="eyebrow">Email verified</div><h1 style="font:40px Georgia,serif">Create your password.</h1><p class="muted">Your email address has been verified. Create a password with at least 10 characters, including an uppercase letter, a number, and a symbol.</p><p class="muted">Verified email: <?=e((string)$user['email'])?></p>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create account password</title><link rel="stylesheet" href="assets/css/site.css"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100b0e}body>header{display:none!important}main.wrap{box-sizing:border-box;width:100%;max-width:none;height:100%;padding:22px 26px!important;overflow:hidden}main.wrap>.panel{box-sizing:border-box;height:100%;padding:26px;overflow:auto}h1{font:36px Georgia,serif!important;margin:8px 0 12px}.muted{font-size:13px;line-height:1.5}form p{margin:14px 0}input.field{box-sizing:border-box;width:100%}@media(max-width:560px){main.wrap{padding:12px!important}main.wrap>.panel{padding:18px}}</style></head>
+<body><main class="wrap"><div class="panel"><div class="eyebrow">Email verified</div><h1>Create your password.</h1><p class="muted">Your email address has been verified. Create a password with at least 10 characters, including an uppercase letter, a number, and a symbol.</p><p class="muted">Verified email: <?=e((string)$user['email'])?></p>
 <?php if ($error): ?><p role="alert" style="color:#a33"><?=e($error)?></p><?php endif; ?>
 <form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><p><label for="password">Password (minimum 10 characters; uppercase, number, and symbol required)</label><input class="field" id="password" type="password" name="password" minlength="10" required autocomplete="new-password"></p><p><label for="confirm_password">Confirm password</label><input class="field" id="confirm_password" type="password" name="confirm_password" minlength="10" required autocomplete="new-password"></p><button class="btn" type="submit">Save Password</button></form></div></main></body></html>
