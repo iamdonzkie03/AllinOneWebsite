@@ -90,7 +90,7 @@ $modules = [
 <div class="eyebrow">One city. Many stories.</div>
 <h1>Zamboanga,<br><em>through our eyes.</em></h1>
 <p>A digital home for the city's history, culture, creative talent, community news, marketplace, entertainment and public conversation.</p>
-<div class="hero-actions"><a class="btn" href="#zamboanga">Explore our heritage</a><a class="btn light" href="public/register.php">Become a contributor ↗</a></div>
+<div class="hero-actions"><a class="btn" href="#zamboanga">Explore our heritage</a><a class="btn light" href="#create-account-modal" data-open-create-account>Become a contributor ↗</a></div>
 <div class="hero-note"><span class="hero-note-dot"></span>Independent community contributions · Administrator-reviewed publishing</div>
 </div>
 <div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage collage featuring Fort Pilar, the Philippine flag, a traditional vinta, and Yakan-inspired textile patterns"><img class="hero-photo" src="public/assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png" alt="Sunset vinta sailing by the historic fort in Zamboanga" fetchpriority="high"><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
@@ -129,10 +129,10 @@ $modules = [
 <section class="section" id="latest"><div class="wrap"><div class="section-head"><div><div class="eyebrow">Community publishing</div><h2><?= $category || $search ? 'Search results' : 'Latest approved posts' ?></h2><p class="muted">Only content approved by the System Administrator appears on this public page.</p></div>
 <form class="searchbar" method="get"><input name="q" value="<?=e($search)?>" placeholder="Search stories, creators and listings…" aria-label="Search public content"><?php if($category!==''): ?><input type="hidden" name="category" value="<?=e($category)?>"><?php endif; ?><button class="btn">Search</button></form></div>
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
-<div class="cards"><?php if (!$items): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="public/register.php">Join as a contributor</a></div><?php endif; ?>
+<div class="cards"><?php if (!$items): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
 <?php foreach($items as $i=>$item): ?><article class="story"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?=e(strtoupper($item['category_name']))?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span><?= $item['price']!==null ? '₱'.number_format((float)$item['price'],2) : 'Read more ↗' ?></span></div><?php if(!empty($item['body'])): ?><details class="story-details"><summary>Read story</summary><p><?=nl2br(e($item['body']))?></p></details><?php endif; ?></div></article><?php endforeach; ?></div></div></section>
 
-<section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="public/register.php">Apply for a creator account ↗</a></div></section>
+<section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="#create-account-modal" data-open-create-account>Apply for a creator account ↗</a></div></section>
 </main>
 
 <div class="register-modal" id="create-account-modal" aria-hidden="true"><div class="register-dialog" role="dialog" aria-modal="true" aria-label="Create an Account"><button type="button" class="register-close" id="close-create-account" aria-label="Close create account">×</button><iframe src="public/register.php" title="Create an Account" loading="lazy"></iframe></div></div>
@@ -221,11 +221,11 @@ $modules = [
   const loginLabel = document.getElementById('signin-login-label');
   const methodRadios = document.querySelectorAll('input[name="login_method"]');
   const registerModal = document.getElementById('create-account-modal');
-  const openRegister = document.getElementById('open-create-account');
+  const openRegisterButtons = document.querySelectorAll('[data-open-create-account], #open-create-account');
   const closeRegister = document.getElementById('close-create-account');
-  function showRegisterModal(){if(!registerModal)return;registerModal.classList.add('is-open');registerModal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
-  function hideRegisterModal(){if(!registerModal)return;registerModal.classList.remove('is-open');registerModal.setAttribute('aria-hidden','true');document.body.style.overflow='';if(openRegister)openRegister.focus();}
-  if(openRegister)openRegister.addEventListener('click',event=>{event.preventDefault();showRegisterModal();});
+  function showRegisterModal(){if(!registerModal)return;registerModal.classList.add('is-open');registerModal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(closeRegister)closeRegister.focus();}
+  function hideRegisterModal(){if(!registerModal)return;registerModal.classList.remove('is-open');registerModal.setAttribute('aria-hidden','true');document.body.style.overflow='';const trigger=document.querySelector('[data-open-create-account], #open-create-account');if(trigger)trigger.focus();}
+  openRegisterButtons.forEach(button=>button.addEventListener('click',event=>{event.preventDefault();hideSignInModal();showRegisterModal();}));
   if(closeRegister)closeRegister.addEventListener('click',hideRegisterModal);
   if(registerModal)registerModal.addEventListener('click',event=>{if(event.target===registerModal)hideRegisterModal();});
 
@@ -247,6 +247,7 @@ $modules = [
 
   openButton.addEventListener('click', event => {
     event.preventDefault();
+    hideRegisterModal();
     showSignInModal();
   });
   closeButton.addEventListener('click', hideSignInModal);
