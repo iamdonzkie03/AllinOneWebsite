@@ -227,7 +227,28 @@ $modules = [
   const openRegisterButtons = document.querySelectorAll('[data-open-create-account], #open-create-account');
   const closeRegister = document.getElementById('close-create-account');
   function showRegisterModal(){if(!registerModal)return;registerModal.classList.add('is-open');registerModal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';if(closeRegister)closeRegister.focus();}
-  function hideRegisterModal(){if(!registerModal)return;registerModal.classList.remove('is-open');registerModal.setAttribute('aria-hidden','true');document.body.style.overflow='';const trigger=document.querySelector('[data-open-create-account], #open-create-account');if(trigger)trigger.focus();}
+  function clearRegisterForm(){
+    const frame = registerModal ? registerModal.querySelector('iframe') : null;
+    try {
+      const doc = frame && frame.contentDocument;
+      if (!doc) return;
+      const form = doc.getElementById('registerForm');
+      if (form) form.reset();
+      const captchaInput = doc.getElementById('captchaInput');
+      const captchaAnswer = doc.getElementById('captchaAnswer');
+      const captchaModal = doc.getElementById('captchaModal');
+      const loading = doc.getElementById('registerLoading');
+      const sendButton = doc.getElementById('sendVerification');
+      if (captchaInput) captchaInput.value = '';
+      if (captchaAnswer) captchaAnswer.value = '';
+      if (captchaModal) captchaModal.classList.remove('is-open');
+      if (loading) loading.classList.remove('is-open');
+      if (sendButton) sendButton.disabled = true;
+      const message = doc.querySelector('main [role="alert"]');
+      if (message) message.remove();
+    } catch (error) { /* Same-origin frame is expected; ignore if it is unavailable. */ }
+  }
+  function hideRegisterModal(){if(!registerModal)return;clearRegisterForm();registerModal.classList.remove('is-open');registerModal.setAttribute('aria-hidden','true');document.body.style.overflow='';const trigger=document.querySelector('[data-open-create-account], #open-create-account');if(trigger)trigger.focus();}
   openRegisterButtons.forEach(button=>button.addEventListener('click',event=>{event.preventDefault();hideSignInModal();showRegisterModal();}));
   if(closeRegister)closeRegister.addEventListener('click',hideRegisterModal);
   if(registerModal)registerModal.addEventListener('click',event=>{if(event.target===registerModal)hideRegisterModal();});
