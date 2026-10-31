@@ -94,10 +94,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?><!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create an account</title><link rel="stylesheet" href="assets/css/site.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create an account</title><link rel="stylesheet" href="assets/css/site.css">
+<style>
+html,body{width:100%;height:100%;margin:0;overflow:hidden}
+body{background:#100b0e}
+body>header{display:none!important}
+main.wrap{box-sizing:border-box;width:100%;max-width:none;height:100%;overflow:hidden;padding:22px 26px!important}
+main.wrap>.panel{box-sizing:border-box;height:100%;padding:20px 24px;overflow:hidden}
+main.wrap h1{font-size:34px!important;margin:4px 0 8px!important}
+main.wrap .muted{font-size:12px;line-height:1.45;margin:0 0 12px}
+.form-grid{gap:10px 16px}
+.form-grid label{display:block;font-size:12px;margin-bottom:4px}
+.form-grid .field{box-sizing:border-box;min-height:36px;padding:8px 10px;font-size:13px}
+.form-grid textarea.field{height:66px;min-height:66px;resize:none}
+main.wrap form>p{margin:10px 0 0}
+main.wrap form .btn{padding:10px 18px}
+@media(max-width:560px){main.wrap{padding:12px!important}main.wrap>.panel{padding:14px 16px}main.wrap h1{font-size:27px!important}.form-grid{gap:7px 10px}.form-grid .field{min-height:32px;padding:6px 8px;font-size:12px}.form-grid label{font-size:11px}.form-grid textarea.field{height:56px;min-height:56px}}
+</style></head>
 <body>
-<header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header>
-<main class="wrap" style="max-width:760px;padding:48px 0"><div class="panel">
+<main class="wrap"><div class="panel">
 <div class="eyebrow">Join the community</div><h1 style="font:42px Georgia,serif;margin:8px 0">Create your account.</h1>
 <p class="muted">Verify your email address with a six-digit code, then create your password to activate your account. No administrator approval is required. Do not include passwords or sensitive identity numbers in contributor credentials.</p>
 <?php if ($error): ?><p role="alert" style="color:#a33"><?=e($error)?></p><?php endif; ?>
