@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->beginTransaction();
                 try {
                     $pdo->prepare('UPDATE email_verification_codes SET used_at = NOW() WHERE id = ?')->execute([(int)$record['id']]);
-                    $pdo->prepare('UPDATE users SET email_verified_at = NOW() WHERE id = ?')->execute([(int)$user['id']]);
+                    $pdo->prepare('UPDATE users SET email_verified_at = NOW(), account_status = 'approved' WHERE id = ?')->execute([(int)$user['id']]);
                     $pdo->commit();
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) $pdo->rollBack();
