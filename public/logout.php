@@ -1,4 +1,21 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
-$_SESSION=[];if(ini_get('session.use_cookies')){$p=session_get_cookie_params();setcookie(session_name(),'',time()-42000,$p['path'],$p['domain'],$p['secure'],$p['httponly']);}session_destroy();header('Location: ../index.php');exit;
+
+// Only clear the session selected by ?scope=admin or ?scope=creator.
+// The other role uses a different cookie name and remains signed in.
+$_SESSION = [];
+if (ini_get('session.use_cookies')) {
+    $params = session_get_cookie_params();
+    setcookie(session_name(), '', [
+        'expires' => time() - 42000,
+        'path' => $params['path'] ?: '/',
+        'domain' => $params['domain'],
+        'secure' => $params['secure'],
+        'httponly' => $params['httponly'],
+        'samesite' => 'Lax',
+    ]);
+}
+session_destroy();
+header('Location: ../index.php');
+exit;
