@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 $admin = require_admin();
-$profileStmt = $pdo->prepare('SELECT full_name,nickname,email,mobile_no FROM users WHERE id = ? LIMIT 1');
+$profileStmt = $pdo->prepare('SELECT full_name,nickname,email,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE id = ? LIMIT 1');
 $profileStmt->execute([(int)$admin['id']]);
 $adminProfile = $profileStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 $adminNickname = trim((string)($adminProfile['nickname'] ?? '')) ?: 'Administrator';
@@ -16,19 +16,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
     if ($action === 'update_admin_profile') {
-        $fullName = trim((string)($_POST['full_name'] ?? ''));
+        $last = trim((string)($_POST['lastname'] ?? ''));
+        $first = trim((string)($_POST['firstname'] ?? ''));
+        $middleInitial = trim((string)($_POST['middle_initial'] ?? ''));
+        $suffix = trim((string)($_POST['suffix'] ?? ''));
+        $email = strtolower(trim((string)($_POST['email'] ?? '')));
         $nickname = trim((string)($_POST['nickname'] ?? ''));
-        $mobile = trim((string)($_POST['mobile_no'] ?? ''));
-        if ($fullName === '' || $nickname === '') {
-            $message = 'Full name and nickname are required.';
+        $mobile = preg_replace('/[\\s().-]/', '', trim((string)($_POST['mobile_no'] ?? ''))) ?? '';
+        $password = (string)($_POST['new_password'] ?? '');
+        $fullName = implode(', ', array_values(array_filter([$last, $first, $middleInitial, $suffix], static fn(string $v): bool => $v !== '')));
+        $passwordValid = strlen($password) >= 10 && preg_match('/[A-Z]/', $password) && preg_match('/[0-9]/', $password) && preg_match('/[^A-Za-z0-9]/', $password);
+        if ($last === '' || $first === '' || $nickname === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190 ||
+            strlen($last)>80 || strlen($first)>80 || strlen($middleInitial)>10 || strlen($suffix)>20 || strlen($nickname)>80 ||
+            ($mobile !== '' && !preg_match('/^\\+639[0-9]{9}$/', $mobile)) ||
+            ($password !== '' && !$passwordValid)) {
+            $message = 'Please check the required profile fields, Philippine mobile number, and password requirements.';
         } else {
-            $profileUpdate = $pdo->prepare('UPDATE users SET full_name=?,nickname=?,mobile_no=? WHERE id=? AND role=\'system_admin\'');
-            $profileUpdate->execute([$fullName, $nickname, $mobile !== '' ? $mobile : null, (int)$admin['id']]);
-            $adminProfile['full_name'] = $fullName;
-            $adminProfile['nickname'] = $nickname;
-            $adminProfile['mobile_no'] = $mobile;
-            $adminNickname = $nickname;
-            $message = 'Your profile has been updated.';
+            $duplicateEmail = $pdo->prepare('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1');
+            $duplicateEmail->execute([$email, (int)$admin['id']]);
+            if ($duplicateEmail->fetchColumn()) {
+                $message = 'That email address is already in use by another account.';
+            } else {
+                $sql = 'UPDATE users SET full_name=?,lastname=?,firstname=?,middlename=?,suffix=?,email=?,nickname=?,mobile_no=?';
+                $values = [$fullName,$last,$first,$middleInitial,$suffix,$email,$nickname,$mobile !== '' ? $mobile : null];
+                if ($password !== '') { $sql .= ',password_hash=?'; $values[] = password_hash($password, PASSWORD_DEFAULT); }
+                $sql .= ' WHERE id=? AND role=\'system_admin\'';
+                $values[] = (int)$admin['id'];
+                $profileUpdate = $pdo->prepare($sql);
+                $profileUpdate->execute($values);
+                $adminProfile = array_merge($adminProfile, ['full_name'=>$fullName,'lastname'=>$last,'firstname'=>$first,'middlename'=>$middleInitial,'suffix'=>$suffix,'email'=>$email,'nickname'=>$nickname,'mobile_no'=>$mobile]);
+                $adminNickname = $nickname;
+                $message = 'Your profile has been updated.';
+            }
         }
     }
     if ($action === 'delete_selected_users') {
@@ -133,6 +152,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .profile-form-field input:focus{outline:2px solid rgba(184,50,63,.5);border-color:#a83248}
 .profile-form-field input[readonly]{color:#a99da1;background:#120f11}
 .profile-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}
+.profile-password-meter{margin-top:9px}
+.profile-password-track{height:7px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.12)}
+.profile-password-fill{display:block;width:0;height:100%;border-radius:99px;background:#d94a62;transition:width .2s,background .2s}
+.profile-password-status{display:flex;justify-content:space-between;gap:8px;margin-top:6px;color:#bbaeb2;font-size:11px}
+.profile-password-rules{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:10px;color:#a99da1;font-size:11px}
+.profile-password-rules span::before{content:'○';margin-right:6px}
+.profile-password-rules span.valid{color:#83dba6}
+.profile-password-rules span.valid::before{content:'✓';color:#83dba6}
+.profile-password-help{color:var(--muted);font-size:11px;line-height:1.5}
+
 @media(max-width:560px){.profile-form-grid{grid-template-columns:1fr}.profile-form-field.full{grid-column:auto}}
 .account-status-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.76);backdrop-filter:blur(5px)}
 .account-status-modal-card{width:min(420px,100%);padding:32px 26px;text-align:center;border:1px solid rgba(184,50,63,.42);border-radius:20px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.6)}
@@ -215,10 +244,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
       <input type="hidden" name="action" value="update_admin_profile">
       <div class="profile-form-grid">
-        <div class="profile-form-field full"><label for="profile-full-name">Full name</label><input id="profile-full-name" name="full_name" type="text" maxlength="160" required value="<?=e($adminProfile['full_name'] ?? '')?>"></div>
-        <div class="profile-form-field"><label for="profile-nickname">Nickname</label><input id="profile-nickname" name="nickname" type="text" maxlength="80" required value="<?=e($adminProfile['nickname'] ?? '')?>"></div>
-        <div class="profile-form-field"><label for="profile-mobile">Mobile number</label><input id="profile-mobile" name="mobile_no" type="tel" maxlength="30" value="<?=e($adminProfile['mobile_no'] ?? '')?>"></div>
-        <div class="profile-form-field full"><label for="profile-email">Email address</label><input id="profile-email" type="email" readonly value="<?=e($adminProfile['email'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-lastname">Lastname *</label><input id="profile-lastname" name="lastname" type="text" maxlength="80" required value="<?=e($adminProfile['lastname'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-firstname">Firstname *</label><input id="profile-firstname" name="firstname" type="text" maxlength="80" required value="<?=e($adminProfile['firstname'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-middle">Middle Initial</label><input id="profile-middle" name="middle_initial" type="text" maxlength="10" value="<?=e($adminProfile['middlename'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-suffix">Suffix</label><input id="profile-suffix" name="suffix" type="text" maxlength="20" value="<?=e($adminProfile['suffix'] ?? '')?>"></div>
+        <div class="profile-form-field full"><label for="profile-email">Email Address *</label><input id="profile-email" name="email" type="email" maxlength="190" required value="<?=e($adminProfile['email'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-nickname">Nickname *</label><input id="profile-nickname" name="nickname" type="text" maxlength="80" required value="<?=e($adminProfile['nickname'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-mobile">Contact/Mobile No. (+63)</label><input id="profile-mobile" name="mobile_no" type="tel" maxlength="20" placeholder="+63 9XX XXXX XXX" value="<?=e($adminProfile['mobile_no'] ?? '')?>"></div>
+        <div class="profile-form-field full"><label for="profile-password">New Password</label><input id="profile-password" name="new_password" type="password" minlength="10" autocomplete="new-password" placeholder="Leave blank to keep current password"><div class="profile-password-meter"><div class="profile-password-track"><span class="profile-password-fill" id="profile-password-fill"></span></div><div class="profile-password-status"><span id="profile-password-label">Password strength: Not entered</span><span id="profile-password-percent">0%</span></div></div><div class="profile-password-rules" id="profile-password-rules"><span data-rule="length">At least 10 characters</span><span data-rule="uppercase">At least 1 uppercase</span><span data-rule="number">At least 1 number</span><span data-rule="symbol">At least 1 symbol</span></div><p class="profile-password-help">Your password must meet all four requirements. Leave this field blank if you do not want to change it.</p></div>
       </div>
       <div class="profile-modal-actions"><button type="button" class="btn light" id="cancel-profile-modal">Cancel</button><button type="submit" class="btn">Save changes</button></div>
     </form>
@@ -284,6 +317,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php endif; ?>
 <?php endif;?>
 <script>
+(()=>{const password=document.getElementById('profile-password');if(!password)return;const fill=document.getElementById('profile-password-fill');const label=document.getElementById('profile-password-label');const percent=document.getElementById('profile-password-percent');const rules={length:v=>v.length>=10,uppercase:v=>/[A-Z]/.test(v),number:v=>/[0-9]/.test(v),symbol:v=>/[^A-Za-z0-9]/.test(v)};const update=()=>{const v=password.value;let score=0;Object.entries(rules).forEach(([key,test])=>{const ok=test(v);if(ok)score++;document.querySelector('[data-rule="'+key+'"]')?.classList.toggle('valid',ok);});const pct=Math.round(score/4*100);fill.style.width=pct+'%';fill.style.background=pct===100?'#55c987':pct>=50?'#d6a34b':'#d94a62';percent.textContent=pct+'%';label.textContent=!v?'Password strength: Not entered':pct===100?'Password strength: Strong':pct>=50?'Password strength: Moderate':'Password strength: Weak';};password.addEventListener('input',update);update();const mobile=document.getElementById('profile-mobile');mobile?.addEventListener('input',()=>{let digits=mobile.value.replace(/\\D/g,'');if(digits.startsWith('0063'))digits=digits.slice(4);else if(digits.startsWith('63'))digits=digits.slice(2);if(digits.startsWith('0'))digits=digits.slice(1);digits=digits.slice(0,10);const groups=[digits.slice(0,3),digits.slice(3,7),digits.slice(7,10)].filter(Boolean);mobile.value='+63'+(groups.length?' '+groups.join(' '):'');});const form=document.getElementById('profile-update-form');form?.addEventListener('submit',e=>{if(password.value&&!Object.values(rules).every(test=>test(password.value))){e.preventDefault();password.focus();update();}});})();
 (()=>{const modal=document.getElementById('profile-modal');const open=document.getElementById('open-profile-modal');const close=document.getElementById('close-profile-modal');const cancel=document.getElementById('cancel-profile-modal');if(!modal||!open)return;const hide=()=>{modal.hidden=true;open.focus();};open.addEventListener('click',()=>{modal.hidden=false;document.getElementById('profile-full-name')?.focus();});close?.addEventListener('click',hide);cancel?.addEventListener('click',hide);modal.addEventListener('click',e=>{if(e.target===modal)hide();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});})();
 (()=>{const toggle=document.getElementById('settings-menu-toggle');const submenu=document.getElementById('settings-submenu');if(toggle&&submenu){toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!open));submenu.classList.toggle('is-open',!open);});}})();
 (()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
