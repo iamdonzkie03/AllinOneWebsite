@@ -142,6 +142,71 @@ $modules = [
 <p><label for="signin-password">Password</label><input class="field" id="signin-password" type="password" name="password" required autocomplete="current-password"></p>
 <button class="btn" type="submit">Sign in</button></form></div></div>
 <footer><div class="wrap footer-grid"><div><a class="brand" href="index.php">Z.C. commonplace<span>.</span></a><p>Zamboanga stories, culture, creativity and community — shared with care.</p><p>© <?=date('Y')?> Z.C. commonplace. Community publishing with administrator review.</p></div><div><b>Explore</b><a href="?category=creative-arts-photography#latest">Creative Arts and Photography</a><a href="?category=news-connect#latest">News Connect</a><a href="?category=marketplace#latest">Marketplace</a></div><div><b>Discover</b><a href="?category=entertainment-politics#latest">Entertainment & Politics</a><a href="?category=history-culture#latest">History & Culture</a><a href="#zamboanga">Zamboanga heritage slideshow</a></div></div></footer>
+<script>
+(() => {
+  const modal = document.getElementById('sign-in-modal');
+  const openButton = document.getElementById('open-sign-in');
+  const closeButton = document.getElementById('close-sign-in');
+  const loginField = document.getElementById('signin-login');
+  const loginLabel = document.getElementById('signin-login-label');
+  const methodRadios = document.querySelectorAll('input[name="login_method"]');
+
+  if (!modal || !openButton || !closeButton || !loginField || !loginLabel) return;
+
+  function showSignInModal() {
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    window.setTimeout(() => loginField.focus(), 40);
+  }
+
+  function hideSignInModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    openButton.focus();
+  }
+
+  openButton.addEventListener('click', event => {
+    event.preventDefault();
+    showSignInModal();
+  });
+  closeButton.addEventListener('click', hideSignInModal);
+  modal.addEventListener('click', event => {
+    if (event.target === modal) hideSignInModal();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && modal.classList.contains('is-open')) hideSignInModal();
+  });
+
+  function updateLoginMethod() {
+    const isMobile = document.querySelector('input[name="login_method"]:checked').value === 'mobile';
+    loginLabel.textContent = isMobile ? 'Contact/Mobile No. (+63)' : 'Email Address';
+    loginField.type = isMobile ? 'tel' : 'email';
+    loginField.inputMode = isMobile ? 'tel' : 'email';
+    loginField.placeholder = isMobile ? '+63 9XX XXXX XXX' : 'Enter your email address';
+    loginField.maxLength = isMobile ? 20 : 190;
+    if (!isMobile && loginField.value.trim() === '+63') loginField.value = '';
+  }
+  methodRadios.forEach(radio => radio.addEventListener('change', updateLoginMethod));
+
+  loginField.addEventListener('input', () => {
+    if (document.querySelector('input[name="login_method"]:checked').value !== 'mobile') return;
+    let digits = loginField.value.replace(/\D/g, '');
+    if (digits.startsWith('0063')) digits = digits.slice(4);
+    else if (digits.startsWith('63')) digits = digits.slice(2);
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    digits = digits.slice(0, 10);
+    const groups = [];
+    if (digits.length) groups.push(digits.slice(0, 3));
+    if (digits.length > 3) groups.push(digits.slice(3, 7));
+    if (digits.length > 7) groups.push(digits.slice(7, 10));
+    loginField.value = '+63' + (groups.length ? ' ' + groups.join(' ') : '');
+  });
+
+  if (modal.classList.contains('is-open')) showSignInModal();
+})();
+</script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
 $(function(){
