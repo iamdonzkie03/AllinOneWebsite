@@ -13,13 +13,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $captchaExpected = (int)($_SESSION['register_captcha']['a'] ?? 0) + (int)($_SESSION['register_captcha']['b'] ?? 0);
     $captchaProvided = trim((string)($_POST['captcha_answer'] ?? ''));
     unset($_SESSION['register_captcha']);
-    if ($error === '' && ($captchaProvided === '' || !ctype_digit($captchaProvided) || (int)$captchaProvided !== $captchaExpected)) {
+    if ($captchaProvided === '' || !ctype_digit($captchaProvided) || (int)$captchaProvided !== $captchaExpected) {
         $captchaFailed = true;
         $error = 'The answer was incorrect. A new security challenge has been generated.';
-        do {
-            $newCaptcha = ['a' => random_int(2, 9), 'b' => random_int(1, 9)];
-        } while ($newCaptcha['a'] === (int)($_SESSION['register_captcha']['a'] ?? 0) && $newCaptcha['b'] === (int)($_SESSION['register_captcha']['b'] ?? 0));
-        $_SESSION['register_captcha'] = $newCaptcha;
+        $_SESSION['register_captcha'] = ['a' => random_int(2, 9), 'b' => random_int(1, 9)];
     }
     foreach ($old as $key => $_) $old[$key] = trim((string)($_POST[$key] ?? ''));
     $last = $old['lastname']; $first = $old['firstname']; $middle = $old['middlename']; $suffix = $old['suffix'];
@@ -169,7 +166,10 @@ main.wrap form .btn{padding:10px 18px}
  const captchaAnswer = document.getElementById('captchaAnswer');
  const loading = document.getElementById('registerLoading');
  document.getElementById('sendVerification').addEventListener('click', () => { captchaInput.value=''; captchaModal.classList.add('is-open'); setTimeout(() => captchaInput.focus(), 50); });
- <?php if ($captchaFailed): ?>captchaModal.classList.add('is-open');<?php endif; ?>
+ <?php if ($captchaFailed): ?>
+ captchaModal.classList.add('is-open');
+ captchaInput.value = '';
+ <?php endif; ?>
  document.getElementById('captchaCancel').addEventListener('click', () => captchaModal.classList.remove('is-open'));
  document.getElementById('captchaContinue').addEventListener('click', () => {
    if (!/^\\d{1,2}$/.test(captchaInput.value.trim())) { captchaInput.focus(); return; }
