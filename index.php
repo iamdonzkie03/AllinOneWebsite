@@ -29,7 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
         session_regenerate_id(true);
         unset($loginUser['password_hash']);
         $_SESSION['user'] = $loginUser;
-        header('Location: ' . ($loginUser['role'] === 'system_admin' ? 'public/admin.php' : 'public/workspace.php'));
+        $_SESSION['login_progress'] = true;
+        $_SESSION['login_redirect'] = ($loginUser['role'] === 'system_admin' ? 'public/admin.php' : 'public/workspace.php');
+        header('Location: index.php');
         exit;
     }
 }
