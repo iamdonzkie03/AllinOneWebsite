@@ -32,10 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($user['account_status'] !== 'approved') {
         $error = 'Your account is awaiting administrator approval or is not currently active.';
     } else {
-        session_regenerate_id(true);
+        $targetContext = ($user['role'] === 'system_admin') ? 'admin' : 'creator';
+        switch_app_session_context($targetContext);
         unset($user['password_hash']);
         $_SESSION['user'] = $user;
-        header('Location: ' . ($user['role'] === 'system_admin' ? 'admin.php' : 'workspace.php'));
+        header('Location: ' . ($targetContext === 'admin' ? 'admin.php' : 'workspace.php'));
         exit;
     }
 }
