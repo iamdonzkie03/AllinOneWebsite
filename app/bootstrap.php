@@ -66,8 +66,25 @@ function e(?string $value): string {
 }
 function current_user(): ?array { return $_SESSION['user'] ?? null; }
 function require_login(): array {
+    global $pdo;
     $user = current_user();
-    if (!$user) { header('Location: login.php'); exit; }
+    if (!$user) { header('Location: ../index.php#sign-in-modal'); exit; }
+
+    // Revalidate the account on every protected request so deleted or disabled
+    // accounts cannot continue using an existing creator/admin session.
+    $check = $pdo->prepare('SELECT id, account_status FROM users WHERE id = ? LIMIT 1');
+    $check->execute([(int)($user['id'] ?? 0)]);
+    $account = $check->fetch(PDO::FETCH_ASSOC);
+    if (!$account || ($account['account_status'] ?? '') !== 'approved') {
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $cookie = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000, $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly']);
+        }
+        session_destroy();
+        header('Location: ../index.php?account_removed=1#sign-in-modal');
+        exit;
+    }
     return $user;
 }
 function require_admin(): array {
