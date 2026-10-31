@@ -170,10 +170,10 @@ $modules = [
 .login-progress-card{width:min(100%,430px);padding:36px 32px;text-align:center;color:#f7edf0;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.55)}
 .login-progress-check{width:54px;height:54px;margin:0 auto 18px;display:grid;place-items:center;border-radius:50%;background:rgba(119,171,126,.16);border:1px solid rgba(119,171,126,.55);color:#a9d8ae;font-size:28px}
 .login-progress-card h2{font:34px Georgia,serif;margin:8px 0 10px}.login-progress-card p{color:#c9b9bf;margin:0 0 24px}
-.login-progress-voyage{position:relative;margin-top:34px;padding-top:0}
-.login-progress-track{height:9px;overflow:hidden;border-radius:99px;background:#39232b;border:1px solid rgba(255,255,255,.08)}
+.login-progress-voyage{position:relative;height:52px;margin-top:24px;padding:0;overflow:visible}
+.login-progress-track{position:absolute;left:0;right:0;bottom:5px;height:9px;overflow:hidden;border-radius:99px;background:#39232b;border:1px solid rgba(255,255,255,.08);z-index:1}
 .login-progress-track span{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#7f1830,#d44c68)}
-.login-vinta{position:absolute;left:0;top:-31px;width:42px;height:32px;overflow:visible;transform:translateX(-50%);filter:drop-shadow(0 3px 3px rgba(0,0,0,.4));will-change:left}
+.login-vinta{position:absolute;display:block;left:0;top:0;width:58px;height:44px;max-width:none;overflow:visible;transform:none;z-index:3;visibility:visible;opacity:1;filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));will-change:left;pointer-events:none}
 .login-progress-caption{display:flex;justify-content:space-between;gap:12px;margin-top:10px;color:#bdaab1;font-size:11px;letter-spacing:.4px}
 @media(prefers-reduced-motion:reduce){.login-vinta{transition:none}}
 </style>
@@ -188,12 +188,18 @@ $modules = [
   const duration = 2000;
   function animate(now) {
     const value = Math.min(100, Math.round(((now - started) / duration) * 100));
+    const travelDistance = Math.max(0, track.parentElement.clientWidth - boat.getBoundingClientRect().width);
     bar.style.width = value + '%';
-    boat.style.left = value + '%';
+    boat.style.left = (travelDistance * value / 100) + 'px';
     percent.textContent = value + '%';
     if (value < 100) requestAnimationFrame(animate);
   }
   requestAnimationFrame(animate);
+  window.addEventListener('resize', () => {
+    const value = Math.min(100, Math.round(((performance.now() - started) / duration) * 100));
+    const travelDistance = Math.max(0, track.parentElement.clientWidth - boat.getBoundingClientRect().width);
+    boat.style.left = (travelDistance * value / 100) + 'px';
+  });
   window.setTimeout(() => { window.location.replace('<?=e($loginRedirect)?>'); }, 2150);
 })();
 </script>
