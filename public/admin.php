@@ -113,6 +113,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-panel .table button,.admin-panel .table .btn,.admin-panel .table a.btn,.admin-panel .user-toggle,.admin-panel .user-actions button{font-size:12px}
 .users-table-controls select,.users-table-controls input{font-size:12px}
 .pending-email-verification{font-size:12px}
+/* Collapsible Settings menu behavior */
+.admin-nav button.settings-nav{width:100%;font:inherit;text-align:left;cursor:pointer}
+.admin-nav .settings-nav-label{flex:1}
+.admin-nav .settings-chevron{margin-left:auto;font-size:17px;line-height:1;transition:transform .22s ease}
+.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
+.admin-subnav.settings-subnav[hidden]{display:none}
+.admin-subnav.settings-subnav{overflow:hidden;animation:settings-submenu-in .2s ease-out}
+@keyframes settings-submenu-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 /* Settings menu: glassmorphism surface with neumorphic depth */
 .admin-nav a.settings-nav{
   position:relative;isolation:isolate;overflow:hidden;
@@ -168,8 +176,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-label">Administration</div>
   <nav class="admin-nav" aria-label="Administrator menu">
     <a class="<?=navActive($section,'dashboard')?>" href="<?=e(adminUrl('dashboard'))?>"><span class="nav-icon">⌂</span>Dashboard</a>
-    <a class="settings-nav<?=in_array($section,['page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('page-management'))?>"><span class="nav-icon">⚙</span>Settings</a>
-    <div class="admin-subnav settings-subnav">
+    <button class="settings-nav<?=in_array($section,['page-management','media-management','plugins'],true)?' active':''?>" id="settings-menu-toggle" type="button" aria-expanded="<?=in_array($section,['page-management','media-management','plugins'],true)?'true':'false'?>" aria-controls="settings-submenu"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></button>
+    <div class="admin-subnav settings-subnav" id="settings-submenu"<?=in_array($section,['page-management','media-management','plugins'],true)?'':' hidden'?>>
       <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
       <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
       <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
@@ -224,6 +232,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted">This section is now included in the System Administrator menu. Its management tools can be connected here as the corresponding storage and database structure is confirmed.</p><div class="admin-note">Navigation is ready. No page, media, or plugin records have been changed by this update.</div></section>
 <?php endif;?>
 <script>
+(()=>{const toggle=document.getElementById('settings-menu-toggle');const submenu=document.getElementById('settings-submenu');if(toggle&&submenu){toggle.addEventListener('click',()=>{const expanded=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!expanded));submenu.hidden=expanded;});}})();
 (()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
 </script>
 </main></div></body></html>
