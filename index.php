@@ -1,6 +1,35 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
+
+$loginError = '';
+$loginMethod = (string)($_POST['login_method'] ?? 'email');
+$loginValue = trim((string)($_POST['login'] ?? ''));
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '') === 'sign_in') {
+    verify_csrf();
+    $password = (string)($_POST['password'] ?? '');
+    if ($loginMethod === 'mobile') {
+        $digits = preg_replace('/\\D/', '', $loginValue) ?? '';
+        if (str_starts_with($digits, '0063')) $digits = substr($digits, 4);
+        elseif (str_starts_with($digits, '63')) $digits = substr($digits, 2);
+        if (str_starts_with($digits, '0')) $digits = substr($digits, 1);
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,email,password_hash,role,account_status FROM users WHERE mobile_no=? LIMIT 1");
+        $stmtLogin->execute(['+63' . $digits]);
+    } else {
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,email,password_hash,role,account_status FROM users WHERE email=? LIMIT 1");
+        $stmtLogin->execute([strtolower($loginValue)]);
+    }
+    $loginUser = $stmtLogin->fetch();
+    if (!$loginUser || !password_verify($password, $loginUser['password_hash'])) $loginError = 'Invalid email/mobile number or password.';
+    elseif ($loginUser['account_status'] !== 'approved') $loginError = 'Your account is awaiting administrator approval or is not currently active.';
+    else {
+        session_regenerate_id(true);
+        unset($loginUser['password_hash']);
+        $_SESSION['user'] = $loginUser;
+        header('Location: ' . ($loginUser['role'] === 'system_admin' ? 'public/admin.php' : 'public/workspace.php'));
+        exit;
+    }
+}
 $search = trim((string)($_GET['q'] ?? ''));
 $category = trim((string)($_GET['category'] ?? ''));
 $sql = "SELECT c.*, cat.name AS category_name, cat.slug AS category_slug, u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id JOIN users u ON u.id=c.owner_id WHERE c.status='published' AND cat.is_active=1";
@@ -25,14 +54,28 @@ $modules = [
 <meta name="description" content="Explore Zamboanga City's history and culture, photography, community news, marketplace, entertainment and public affairs.">
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="stylesheet" href="public/assets/css/site.css">
-<style>.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}.hero-photo-caption{position:absolute;left:28px;bottom:25px;color:#f8e9eb;font-size:10px;font-weight:800;letter-spacing:2.5px;text-shadow:0 2px 8px #000;z-index:1}.home-art-photo .art-stamp{z-index:2;background:rgba(10,8,10,.48)}@media(max-width:560px){.hero-photo-caption{left:18px;bottom:17px;font-size:8px;letter-spacing:1.5px}}</style>\n</head>
+<style>.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}.hero-photo-caption{position:absolute;left:28px;bottom:25px;color:#f8e9eb;font-size:10px;font-weight:800;letter-spacing:2.5px;text-shadow:0 2px 8px #000;z-index:1}.home-art-photo .art-stamp{z-index:2;background:rgba(10,8,10,.48)}@media(max-width:560px){.hero-photo-caption{left:18px;bottom:17px;font-size:8px;letter-spacing:1.5px}}
+.signin-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.78);backdrop-filter:blur(7px)}
+.signin-modal.is-open{display:flex}
+.signin-dialog{position:relative;width:min(100%,480px);max-height:calc(100vh - 44px);overflow:auto;background:#160d11;color:#f7edf0;border:1px solid rgba(190,75,98,.35);border-radius:18px;padding:34px;box-shadow:0 24px 90px rgba(0,0,0,.55)}
+.signin-dialog h2{font:38px Georgia,serif;margin:7px 0 20px}
+.signin-dialog label{display:block;margin:0 0 7px;font-size:13px}
+.signin-dialog .field{width:100%;box-sizing:border-box}
+.signin-dialog .signin-close{position:absolute;right:17px;top:13px;border:0;background:transparent;color:#f7edf0;font-size:28px;cursor:pointer}
+.signin-dialog .signin-methods{display:flex;gap:22px;margin:8px 0 18px}
+.signin-dialog .signin-methods label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.signin-dialog .signin-methods input{accent-color:#a52b45}
+.signin-dialog .signin-error{color:#ff9eae;background:rgba(160,35,60,.14);border:1px solid rgba(220,80,105,.3);padding:10px 12px;border-radius:8px;font-size:13px}
+.signin-dialog .btn{margin-top:8px}
+@media(max-width:560px){.signin-dialog{padding:27px 22px}.signin-dialog h2{font-size:32px}}
+</style>\n</head>
 <body>
 <div class="topbar"><div class="wrap"><span>ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY</span><span>Local perspectives. Shared with care.</span></div></div>
 <header><div class="wrap nav">
 <a class="brand" href="index.php">Z.C. commonplace<span>.</span></a>
 <nav class="navlinks">
 <a href="#modules">Explore</a><a href="#zamboanga">History & Culture</a><a href="#latest">Latest stories</a>
-<a href="public/login.php">Sign in</a><a class="btn" href="public/register.php">Join the community</a>
+<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="public/register.php">Join the community</a>
 </nav></div></header>
 <main>
 <section class="hero home-hero"><div class="wrap hero-grid"><div>
@@ -83,6 +126,21 @@ $modules = [
 
 <section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="public/register.php">Apply for a creator account ↗</a></div></section>
 </main>
+
+<div class="signin-modal<?= $loginError !== '' ? ' is-open' : '' ?>" id="sign-in-modal" aria-hidden="<?= $loginError !== '' ? 'false' : 'true' ?>">
+<div class="signin-dialog" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+<button type="button" class="signin-close" id="close-sign-in" aria-label="Close sign in">×</button>
+<div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
+<?php if ($loginError !== ''): ?><p class="signin-error" role="alert"><?=e($loginError)?></p><?php endif; ?>
+<form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
+<fieldset style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600">Sign in using</legend><div class="signin-methods">
+<label><input type="radio" name="login_method" value="email" <?= $loginMethod !== 'mobile' ? 'checked' : '' ?>> Email</label>
+<label><input type="radio" name="login_method" value="mobile" <?= $loginMethod === 'mobile' ? 'checked' : '' ?>> Contact/Mobile No.</label>
+</div></fieldset>
+<p><label id="signin-login-label" for="signin-login"><?= $loginMethod === 'mobile' ? 'Contact/Mobile No. (+63)' : 'Email Address' ?></label>
+<input class="field" id="signin-login" type="<?= $loginMethod === 'mobile' ? 'tel' : 'email' ?>" name="login" required maxlength="190" autocomplete="username" inputmode="<?= $loginMethod === 'mobile' ? 'tel' : 'email' ?>" placeholder="<?= $loginMethod === 'mobile' ? '+63 9XX XXXX XXX' : 'Enter your email address' ?>" value="<?=e($loginValue)?>"></p>
+<p><label for="signin-password">Password</label><input class="field" id="signin-password" type="password" name="password" required autocomplete="current-password"></p>
+<button class="btn" type="submit">Sign in</button></form></div></div>
 <footer><div class="wrap footer-grid"><div><a class="brand" href="index.php">Z.C. commonplace<span>.</span></a><p>Zamboanga stories, culture, creativity and community — shared with care.</p><p>© <?=date('Y')?> Z.C. commonplace. Community publishing with administrator review.</p></div><div><b>Explore</b><a href="?category=creative-arts-photography#latest">Creative Arts and Photography</a><a href="?category=news-connect#latest">News Connect</a><a href="?category=marketplace#latest">Marketplace</a></div><div><b>Discover</b><a href="?category=entertainment-politics#latest">Entertainment & Politics</a><a href="?category=history-culture#latest">History & Culture</a><a href="#zamboanga">Zamboanga heritage slideshow</a></div></div></footer>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
