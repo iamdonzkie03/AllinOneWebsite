@@ -97,12 +97,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   choices.forEach(choice => choice.addEventListener('change', updateMethod));
+
   field.addEventListener('focus', () => {
     const selected = document.querySelector('input[name="login_method"]:checked').value;
-    if (selected === 'mobile' && !field.value.trim()) field.value = prefix;
-    if (selected === 'mobile' && field.value === prefix) {
-      field.setSelectionRange(field.value.length, field.value.length);
+    if (selected === 'mobile' && !field.value.startsWith(prefix)) field.value = prefix;
+    if (selected === 'mobile' && field.value.length <= prefix.length) {
+      field.setSelectionRange(prefix.length, prefix.length);
     }
+  });
+
+  // Keep +63 fixed: users can edit only the digits after the country code.
+  field.addEventListener('beforeinput', event => {
+    const selected = document.querySelector('input[name="login_method"]:checked').value;
+    if (selected !== 'mobile' || !event.inputType.startsWith('delete')) return;
+    const start = field.selectionStart ?? 0;
+    const end = field.selectionEnd ?? start;
+    if ((start < prefix.length && end > 0) ||
+        (event.inputType === 'deleteContentBackward' && start <= prefix.length && end === start) ||
+        (event.inputType === 'deleteContentForward' && start < prefix.length && end === start)) {
+      event.preventDefault();
+      field.setSelectionRange(prefix.length, prefix.length);
+    }
+  });
+
+  field.addEventListener('input', () => {
+    const selected = document.querySelector('input[name="login_method"]:checked').value;
+    if (selected !== 'mobile') return;
+
+    let digits = field.value.replace(/\\D/g, '');
+    if (digits.startsWith('0063')) digits = digits.slice(4);
+    else if (digits.startsWith('63')) digits = digits.slice(2);
+    else if (digits.startsWith('0')) digits = digits.slice(1);
+    digits = digits.slice(0, 10);
+
+    field.value = prefix + digits;
+    const caret = Math.max(prefix.length, field.value.length);
+    field.setSelectionRange(caret, caret);
   });
 })();
 </script>
