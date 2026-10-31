@@ -127,12 +127,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));
   border-color:rgba(184,50,63,.35);color:#fff
 }
-.admin-nav .settings-menu-row{display:flex;align-items:stretch;gap:0}
-.admin-nav .settings-menu-row>a.settings-nav{flex:1;min-width:0}
-.admin-nav .settings-toggle{width:42px;flex:0 0 42px;display:flex;align-items:center;justify-content:center;margin-left:-5px;border:1px solid transparent;border-radius:10px;background:transparent;color:#c8bec1;cursor:pointer;transition:background .2s,color .2s}
-.admin-nav .settings-toggle:hover{background:rgba(255,255,255,.045);color:#fff}
-.admin-nav .settings-chevron{display:block;font-size:17px;line-height:1;transform:rotate(0);transition:transform .25s ease}
-.admin-nav .settings-toggle[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
+.admin-nav .settings-menu-row{position:relative;display:flex;align-items:center;width:100%;min-height:46px}
+.admin-nav .settings-menu-row>a.settings-nav{flex:1;min-width:0;padding-right:44px}
+.admin-nav .settings-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:30px;height:30px;display:grid;place-items:center;padding:0;border:0;border-radius:8px;background:transparent;color:#c8bec1;cursor:pointer;z-index:2;transition:background .2s,color .2s}
+.admin-nav .settings-toggle:hover{background:rgba(255,255,255,.08);color:#fff}
+.admin-nav .settings-chevron{display:block;width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .25s ease}
+.admin-nav .settings-toggle[aria-expanded="true"] .settings-chevron{transform:translateY(2px) rotate(225deg)}
+.admin-nav .settings-nav-label{flex:1}
 .admin-subnav.settings-subnav{display:grid;overflow:hidden;max-height:0;opacity:0;transform:translateY(-5px);margin-top:0;margin-bottom:0;transition:max-height .28s ease,opacity .22s ease,transform .22s ease,margin .22s ease}
 .admin-subnav.settings-subnav.is-open{max-height:180px;opacity:1;transform:translateY(0);margin-top:7px;margin-bottom:10px}
 @media(prefers-reduced-motion:reduce){.admin-subnav.settings-subnav,.admin-nav .settings-chevron{transition:none}}
@@ -152,7 +153,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <div class="settings-menu-group">
       <div class="settings-menu-row">
         <a class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('settings'))?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span></a>
-        <button class="settings-toggle" id="settings-menu-toggle" type="button" aria-label="Toggle Settings submenu" aria-expanded="<?=in_array($section,['settings','page-management','media-management','plugins'],true)?'true':'false'?>" aria-controls="settings-submenu"><span class="settings-chevron" aria-hidden="true">⌄</span></button>
+        <button class="settings-toggle" id="settings-menu-toggle" type="button" aria-label="Toggle Settings submenu" aria-expanded="<?=in_array($section,['settings','page-management','media-management','plugins'],true)?'true':'false'?>" aria-controls="settings-submenu"><span class="settings-chevron" aria-hidden="true"></span></button>
       </div>
       <div class="admin-subnav settings-subnav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' is-open':''?>" id="settings-submenu">
         <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
