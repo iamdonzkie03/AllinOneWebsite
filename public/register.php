@@ -128,6 +128,7 @@ main.wrap form .btn{padding:10px 18px}
 .captcha-backdrop.is-open,.register-loading.is-open{display:flex}
 .captcha-card{width:min(390px,calc(100% - 36px));box-sizing:border-box;padding:28px;background:#1c1117;border:1px solid rgba(255,255,255,.16);border-radius:16px;text-align:center;box-shadow:0 22px 70px #000b;color:#fff}
 .captcha-card h2{font:26px Georgia,serif;margin:0 0 10px}.captcha-card p{color:#cbbfc4;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.35)}
 .captcha-error{color:#ff4545!important;font-weight:700!important;text-shadow:0 0 8px rgba(255,45,45,.18)}
 .captcha-equation{font-size:25px;font-weight:700;letter-spacing:2px;margin:18px 0;color:#f0c6d2}
 .captcha-answer{width:120px;text-align:center;font-size:20px;padding:10px;border-radius:8px;border:1px solid #76515f;background:#100b0e;color:#fff}
@@ -155,7 +156,7 @@ main.wrap form .btn{padding:10px 18px}
 <div class="full"><label for="email">Email Address</label><input class="field" id="email" type="email" name="email" required maxlength="190" autocomplete="email" value="<?=e($old['email'])?>"></div>
 <div class="full"><label for="credential_notes">Contributor credentials / purpose</label><textarea class="field" id="credential_notes" name="credential_notes" rows="4" minlength="20" maxlength="3000" required placeholder="Describe what you plan to contribute, your interests, experience, portfolio or public creator links."><?=e($old['credential_notes'])?></textarea></div>
 </div>
-<p><button class="btn" id="sendVerification" type="button">Send Email Verification Code</button></p>
+<p><button class="btn" id="sendVerification" type="button" disabled>Send Email Verification Code</button></p>
 </form></div></main>
 <div class="captcha-backdrop<?= $captchaFailed ? ' is-open' : '' ?>" id="captchaModal" role="dialog" aria-modal="true" aria-labelledby="captchaTitle"><div class="captcha-card"><h2 id="captchaTitle"><?= $captchaFailed ? 'New security challenge' : 'Security check' ?></h2><p id="captchaMessage"<?= $captchaFailed ? ' class="captcha-error" role="alert"' : '' ?>><?= $captchaFailed ? e($error) : 'Please solve this quick captcha before we send your email verification code.' ?></p><div class="captcha-equation"><?=e($captchaQuestion)?> = ?</div><input class="captcha-answer" id="captchaInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="Captcha answer"><div class="captcha-actions"><button type="button" class="captcha-cancel" id="captchaCancel">Cancel</button><button type="button" class="captcha-continue" id="captchaContinue">Verify</button></div></div></div>
 <div class="register-loading" id="registerLoading" aria-live="polite"><div class="loading-orbit"></div><div class="loading-dots"><i></i><i></i><i></i></div><strong>Sending verification email…</strong></div>
@@ -166,7 +167,20 @@ main.wrap form .btn{padding:10px 18px}
  const captchaInput = document.getElementById('captchaInput');
  const captchaAnswer = document.getElementById('captchaAnswer');
  const loading = document.getElementById('registerLoading');
- document.getElementById('sendVerification').addEventListener('click', () => { captchaInput.value=''; captchaModal.classList.add('is-open'); setTimeout(() => captchaInput.focus(), 50); });
+ const sendVerification = document.getElementById('sendVerification');
+ const updateVerificationButton = () => {
+   const requiredFields = Array.from(form.querySelectorAll('[required]'));
+   const allRequiredEntered = requiredFields.every(field => field.value.trim() !== '');
+   sendVerification.disabled = !(allRequiredEntered && form.checkValidity());
+ };
+ form.addEventListener('input', updateVerificationButton);
+ form.addEventListener('change', updateVerificationButton);
+ updateVerificationButton();
+ sendVerification.addEventListener('click', () => {
+   updateVerificationButton();
+   if (sendVerification.disabled || !form.reportValidity()) return;
+   captchaInput.value=''; captchaModal.classList.add('is-open'); setTimeout(() => captchaInput.focus(), 50);
+ });
  document.getElementById('captchaCancel').addEventListener('click', () => captchaModal.classList.remove('is-open'));
  document.getElementById('captchaContinue').addEventListener('click', () => {
    if (!/^\d{1,2}$/.test(captchaInput.value.trim())) { captchaInput.focus(); return; }
