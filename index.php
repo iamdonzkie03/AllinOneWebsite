@@ -9,7 +9,7 @@ unset($_SESSION['login_progress'], $_SESSION['login_redirect']);
 $loginMethod = (string)($_POST['login_method'] ?? 'email');
 $loginValue = trim((string)($_POST['login'] ?? ''));
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '') === 'sign_in') {
-    verify_csrf();
+    verify_signin_csrf();
     $password = (string)($_POST['password'] ?? '');
     if ($loginMethod === 'mobile') {
         $digits = preg_replace('/\\D/', '', $loginValue) ?? '';
@@ -138,7 +138,7 @@ $modules = [
 <button type="button" class="signin-close" id="close-sign-in" aria-label="Close sign in">×</button>
 <div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
 <?php if ($loginError !== ''): ?><p class="signin-error" role="alert"><?=e($loginError)?></p><?php endif; ?>
-<form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
+<form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(signin_csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
 <fieldset style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600">Sign in using</legend><div class="signin-methods">
 <label><input type="radio" name="login_method" value="email" <?= $loginMethod !== 'mobile' ? 'checked' : '' ?>> Email</label>
 <label><input type="radio" name="login_method" value="mobile" <?= $loginMethod === 'mobile' ? 'checked' : '' ?>> Contact/Mobile No.</label>
