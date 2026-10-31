@@ -57,8 +57,16 @@ function adminUrl(string $section): string { return 'admin.php?section=' . rawur
 ?><!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>System Administrator | Z.C. Commonplace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css">
 <style>
+/* Keep the entire System Administrator interface in Ubuntu. */
+.admin-shell,.admin-shell *,.admin-shell *::before,.admin-shell *::after,
+body:has(.admin-shell),body:has(.admin-shell) *{
+  font-family:'Ubuntu',sans-serif !important;
+}
 .admin-shell{min-height:calc(100vh - 82px);display:grid;grid-template-columns:250px minmax(0,1fr)}
 .admin-sidebar{background:rgba(9,9,11,.92);border-right:1px solid var(--line);padding:28px 16px;position:sticky;top:82px;height:calc(100vh - 82px);overflow:auto}
 .admin-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);padding:0 13px;margin:8px 0 12px}
