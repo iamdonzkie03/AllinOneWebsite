@@ -113,60 +113,26 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-panel .table button,.admin-panel .table .btn,.admin-panel .table a.btn,.admin-panel .user-toggle,.admin-panel .user-actions button{font-size:12px}
 .users-table-controls select,.users-table-controls input{font-size:12px}
 .pending-email-verification{font-size:12px}
-/* Collapsible Settings menu behavior */
-.admin-nav button.settings-nav{width:100%;font:inherit;text-align:left;cursor:pointer}
+/* Collapsible Settings menu — match the Dashboard and User Accounts links */
+.admin-nav button.settings-nav{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:12px 13px;border:1px solid transparent;border-radius:12px;
+  background:transparent;color:#c8bec1;font-family:inherit;font-size:13px;
+  font-weight:400;line-height:normal;text-align:left;cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  transition:background .2s ease,border-color .2s ease,color .2s ease;
+}
+.admin-nav button.settings-nav:hover{background:rgba(255,255,255,.035);color:#fff}
+.admin-nav button.settings-nav.active{
+  background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));
+  border-color:rgba(184,50,63,.35);color:#fff
+}
 .admin-nav .settings-nav-label{flex:1}
 .admin-nav .settings-chevron{margin-left:auto;font-size:17px;line-height:1;transition:transform .22s ease}
 .admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
 .admin-subnav.settings-subnav[hidden]{display:none}
 .admin-subnav.settings-subnav{overflow:hidden;animation:settings-submenu-in .2s ease-out}
 @keyframes settings-submenu-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
-/* Settings menu: glassmorphism surface with neumorphic depth */
-.admin-nav a.settings-nav{
-  position:relative;isolation:isolate;overflow:hidden;
-  border:1px solid rgba(255,255,255,.16);
-  background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.035));
-  box-shadow:inset 1px 1px 2px rgba(255,255,255,.16),inset -1px -1px 3px rgba(0,0,0,.28),5px 5px 14px rgba(0,0,0,.28),-3px -3px 10px rgba(255,255,255,.025);
-  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  transition:background .22s ease,border-color .22s ease,box-shadow .22s ease,transform .22s ease;
-}
-.admin-nav a.settings-nav::before{
-  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
-  background:linear-gradient(115deg,rgba(255,255,255,.12),transparent 48%,rgba(128,20,39,.12));
-  opacity:.65;
-}
-.admin-nav a.settings-nav:hover{
-  border-color:rgba(230,185,196,.42);
-  background:linear-gradient(135deg,rgba(255,255,255,.19),rgba(128,20,39,.13));
-  box-shadow:inset 1px 1px 3px rgba(255,255,255,.2),inset -2px -2px 4px rgba(0,0,0,.25),7px 7px 18px rgba(0,0,0,.34),-3px -3px 11px rgba(255,255,255,.035);
-  transform:translateY(-1px);
-}
-.admin-nav a.settings-nav.active{
-  border-color:rgba(204,94,116,.55);
-  background:linear-gradient(135deg,rgba(150,35,57,.34),rgba(255,255,255,.075));
-  box-shadow:inset 1px 1px 3px rgba(255,255,255,.18),inset -2px -2px 5px rgba(0,0,0,.3),0 0 18px rgba(128,20,39,.2),5px 5px 14px rgba(0,0,0,.3);
-}
-.admin-nav a.settings-nav .nav-icon{filter:drop-shadow(0 0 5px rgba(230,185,196,.32))}
-.admin-subnav.settings-subnav{
-  margin-top:7px;margin-bottom:12px;padding:9px 8px 9px 12px;
-  border:1px solid rgba(255,255,255,.1);border-left:1px solid rgba(255,255,255,.16);
-  border-radius:13px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018));
-  box-shadow:inset 1px 1px 3px rgba(255,255,255,.09),inset -2px -2px 5px rgba(0,0,0,.24),4px 5px 13px rgba(0,0,0,.2);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-}
-.admin-subnav.settings-subnav a{
-  border-radius:9px;border:1px solid transparent;
-  transition:background .2s ease,border-color .2s ease,box-shadow .2s ease;
-}
-.admin-subnav.settings-subnav a:hover{
-  background:rgba(255,255,255,.075);border-color:rgba(255,255,255,.1);
-  box-shadow:inset 1px 1px 2px rgba(255,255,255,.1),2px 2px 6px rgba(0,0,0,.2);
-}
-.admin-subnav.settings-subnav a.active{
-  color:#fff;border-color:rgba(204,94,116,.28);
-  background:linear-gradient(100deg,rgba(128,20,39,.28),rgba(255,255,255,.055));
-  box-shadow:inset 1px 1px 2px rgba(255,255,255,.1),inset -1px -1px 3px rgba(0,0,0,.2);
-}
 @media(max-width:850px){.admin-shell{grid-template-columns:1fr}.admin-sidebar{position:relative;top:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-subnav{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 8px 0;padding:8px 0 0;border-left:0;border-top:1px solid var(--line)}.admin-main{padding-top:25px}}
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
 </style></head><body>
