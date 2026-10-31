@@ -74,6 +74,7 @@ $modules = [
 .signin-dialog .signin-methods label{display:flex;align-items:center;gap:8px;cursor:pointer}
 .signin-dialog .signin-methods input{accent-color:#a52b45}
 .signin-dialog .signin-error{color:#ff9eae;background:rgba(160,35,60,.14);border:1px solid rgba(220,80,105,.3);padding:10px 12px;border-radius:8px;font-size:13px}
+.signin-dialog .signin-success{color:#b9e5c0;background:rgba(65,145,86,.13);border:1px solid rgba(119,190,135,.3);padding:10px 12px;border-radius:8px;font-size:13px}
 .signin-dialog .btn{margin-top:8px}
 @media(max-width:560px){.signin-dialog{padding:27px 22px}.signin-dialog h2{font-size:32px}}
 </style>
@@ -142,6 +143,7 @@ $modules = [
 <div class="signin-dialog" role="dialog" aria-modal="true" aria-labelledby="signin-title">
 <button type="button" class="signin-close" id="close-sign-in" aria-label="Close sign in">×</button>
 <div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
+<?php if ((string)($_GET['registered'] ?? '') === '1'): ?><p class="signin-success" role="status">Your email is verified and your password is set. You can now sign in.</p><?php endif; ?>
 <?php if ($loginError !== ''): ?><p class="signin-error" role="alert"><?=e($loginError)?></p><?php endif; ?>
 <form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(signin_csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
 <fieldset style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600">Sign in using</legend><div class="signin-methods">
