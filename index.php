@@ -3,6 +3,9 @@ declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
 $loginError = '';
+$showLoginProgress = !empty($_SESSION['login_progress']);
+$loginRedirect = (string)($_SESSION['login_redirect'] ?? 'public/workspace.php');
+unset($_SESSION['login_progress'], $_SESSION['login_redirect']);
 $loginMethod = (string)($_POST['login_method'] ?? 'email');
 $loginValue = trim((string)($_POST['login'] ?? ''));
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '') === 'sign_in') {
@@ -141,6 +144,45 @@ $modules = [
 <input class="field" id="signin-login" type="<?= $loginMethod === 'mobile' ? 'tel' : 'email' ?>" name="login" required maxlength="190" autocomplete="username" inputmode="<?= $loginMethod === 'mobile' ? 'tel' : 'email' ?>" placeholder="<?= $loginMethod === 'mobile' ? '+63 9XX XXXX XXX' : 'Enter your email address' ?>" value="<?=e($loginValue)?>"></p>
 <p><label for="signin-password">Password</label><input class="field" id="signin-password" type="password" name="password" required autocomplete="current-password"></p>
 <button class="btn" type="submit">Sign in</button></form></div></div>
+<?php if ($showLoginProgress): ?>
+<div class="login-progress-overlay" role="status" aria-live="polite" aria-label="Sign in successful. Redirecting to your page.">
+  <div class="login-progress-card">
+    <div class="login-progress-check" aria-hidden="true">✓</div>
+    <div class="eyebrow">Authentication complete</div>
+    <h2>Sign in successful</h2>
+    <p>Taking you to your designated page…</p>
+    <div class="login-progress-track"><span id="login-progress-bar"></span></div>
+    <div class="login-progress-caption"><span>Preparing your workspace</span><span id="login-progress-percent">0%</span></div>
+  </div>
+</div>
+<style>
+.login-progress-overlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.94);backdrop-filter:blur(9px)}
+.login-progress-card{width:min(100%,430px);padding:36px 32px;text-align:center;color:#f7edf0;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.55)}
+.login-progress-check{width:54px;height:54px;margin:0 auto 18px;display:grid;place-items:center;border-radius:50%;background:rgba(119,171,126,.16);border:1px solid rgba(119,171,126,.55);color:#a9d8ae;font-size:28px}
+.login-progress-card h2{font:34px Georgia,serif;margin:8px 0 10px}.login-progress-card p{color:#c9b9bf;margin:0 0 24px}
+.login-progress-track{height:9px;overflow:hidden;border-radius:99px;background:#39232b;border:1px solid rgba(255,255,255,.08)}
+.login-progress-track span{display:block;width:0;height:100%;border-radius:99px;background:linear-gradient(90deg,#7f1830,#d44c68);transition:width 1.15s cubic-bezier(.22,.8,.25,1)}
+.login-progress-caption{display:flex;justify-content:space-between;gap:12px;margin-top:10px;color:#bdaab1;font-size:11px;letter-spacing:.4px}
+@media(prefers-reduced-motion:reduce){.login-progress-track span{transition:none}}
+</style>
+<script>
+(() => {
+  const bar = document.getElementById('login-progress-bar');
+  const percent = document.getElementById('login-progress-percent');
+  if (!bar || !percent) return;
+  const started = performance.now();
+  const duration = 1200;
+  function animate(now) {
+    const value = Math.min(100, Math.round(((now - started) / duration) * 100));
+    bar.style.width = value + '%';
+    percent.textContent = value + '%';
+    if (value < 100) requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+  window.setTimeout(() => { window.location.replace('<?=e($loginRedirect)?>'); }, 1350);
+})();
+</script>
+<?php endif; ?>
 <footer><div class="wrap footer-grid"><div><a class="brand" href="index.php">Z.C. commonplace<span>.</span></a><p>Zamboanga stories, culture, creativity and community — shared with care.</p><p>© <?=date('Y')?> Z.C. commonplace. Community publishing with administrator review.</p></div><div><b>Explore</b><a href="?category=creative-arts-photography#latest">Creative Arts and Photography</a><a href="?category=news-connect#latest">News Connect</a><a href="?category=marketplace#latest">Marketplace</a></div><div><b>Discover</b><a href="?category=entertainment-politics#latest">Entertainment & Politics</a><a href="?category=history-culture#latest">History & Culture</a><a href="#zamboanga">Zamboanga heritage slideshow</a></div></div></footer>
 <script>
 (() => {
