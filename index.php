@@ -139,12 +139,13 @@ $modules = [
 
 <div class="register-modal" id="create-account-modal" aria-hidden="true"><div class="register-dialog" role="dialog" aria-modal="true" aria-label="Create an Account"><button type="button" class="register-close" id="close-create-account" aria-label="Close create account">×</button><iframe src="public/register.php" title="Create an Account" loading="lazy"></iframe></div></div>
 
-<div class="signin-modal<?= ($loginError !== '' || (string)($_GET['profile_password_updated'] ?? '') === '1') ? ' is-open' : '' ?>" id="sign-in-modal" aria-hidden="<?= ($loginError !== '' || (string)($_GET['profile_password_updated'] ?? '') === '1') ? 'false' : 'true' ?>">
+<div class="signin-modal<?= ($loginError !== '' || (string)($_GET['profile_password_updated'] ?? '') === '1' || (string)($_GET['account_removed'] ?? '') === '1') ? ' is-open' : '' ?>" id="sign-in-modal" aria-hidden="<?= ($loginError !== '' || (string)($_GET['profile_password_updated'] ?? '') === '1' || (string)($_GET['account_removed'] ?? '') === '1') ? 'false' : 'true' ?>">
 <div class="signin-dialog" role="dialog" aria-modal="true" aria-labelledby="signin-title">
 <button type="button" class="signin-close" id="close-sign-in" aria-label="Close sign in">×</button>
 <div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
 <?php if ((string)($_GET['registered'] ?? '') === '1'): ?><p class="signin-success" role="status">Your email is verified and your password is set. You can now sign in.</p><?php endif; ?>
 <?php if ((string)($_GET['profile_password_updated'] ?? '') === '1'): ?><p class="signin-success" role="status">Account successfully updated. Your password has changed. Please sign in again using your new password.</p><?php endif; ?>
+<?php if ((string)($_GET['account_removed'] ?? '') === '1'): ?><p class="signin-error" role="alert">Your account is no longer available or active. Please sign in with an active account.</p><?php endif; ?>
 <?php if ($loginError !== ''): ?><p class="signin-error" role="alert"><?=e($loginError)?></p><?php endif; ?>
 <form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(signin_csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
 <fieldset style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600">Sign in using</legend><div class="signin-methods">
