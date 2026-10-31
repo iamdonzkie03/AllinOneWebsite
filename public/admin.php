@@ -7,7 +7,7 @@ $nicknameStmt->execute([(int)$admin['id']]);
 $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
 $section = (string)($_GET['section'] ?? 'dashboard');
-$allowedSections = ['dashboard', 'page-management', 'media-management', 'plugins', 'user-accounts'];
+$allowedSections = ['dashboard', 'settings', 'page-management', 'media-management', 'plugins', 'user-accounts'];
 if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -128,11 +128,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   border-color:rgba(184,50,63,.35);color:#fff
 }
 .admin-nav .settings-nav-label{flex:1}
-.admin-nav .settings-chevron{margin-left:auto;font-size:17px;line-height:1;transition:transform .22s ease}
+.admin-nav .settings-chevron{margin-left:auto;display:flex;align-items:center;justify-content:center;align-self:center;height:22px;min-width:22px;font-size:17px;line-height:1;transform:rotate(0);transition:transform .22s ease}
 .admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
-.admin-subnav.settings-subnav[hidden]{display:none}
 .admin-subnav.settings-subnav{overflow:hidden;animation:settings-submenu-in .2s ease-out}
 @keyframes settings-submenu-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.admin-settings-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.admin-settings-tabs a{padding:10px 15px;border:1px solid var(--line);border-radius:10px;color:#c8bec1;font-size:13px}
+.admin-settings-tabs a:hover{background:rgba(255,255,255,.04);color:#fff}
+.admin-settings-tabs a.active{color:#fff;background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));border-color:rgba(184,50,63,.4)}
 @media(max-width:850px){.admin-shell{grid-template-columns:1fr}.admin-sidebar{position:relative;top:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-subnav{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 8px 0;padding:8px 0 0;border-left:0;border-top:1px solid var(--line)}.admin-main{padding-top:25px}}
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
 </style></head><body>
@@ -142,8 +145,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-label">Administration</div>
   <nav class="admin-nav" aria-label="Administrator menu">
     <a class="<?=navActive($section,'dashboard')?>" href="<?=e(adminUrl('dashboard'))?>"><span class="nav-icon">⌂</span>Dashboard</a>
-    <button class="settings-nav<?=in_array($section,['page-management','media-management','plugins'],true)?' active':''?>" id="settings-menu-toggle" type="button" aria-expanded="<?=in_array($section,['page-management','media-management','plugins'],true)?'true':'false'?>" aria-controls="settings-submenu"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></button>
-    <div class="admin-subnav settings-subnav" id="settings-submenu"<?=in_array($section,['page-management','media-management','plugins'],true)?'':' hidden'?>>
+    <a class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('settings'))?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></a>
+    <div class="admin-subnav settings-subnav" id="settings-submenu">
       <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
       <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
       <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
@@ -193,12 +196,26 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <script>
   (()=>{const all=document.getElementById('select-all-users');const table=document.querySelector('.users-table');if(!table)return;const rows=[...table.tBodies[0].rows].filter(row=>row.querySelector('.user-select'));const filter=document.getElementById('users-filter');const size=document.getElementById('users-page-size');const info=document.getElementById('users-page-info');const number=document.getElementById('users-page-number');const prev=document.getElementById('users-prev');const next=document.getElementById('users-next');let page=1;function matches(){const q=filter.value.trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));}function render(){const found=matches();const perPage=Number(size.value);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=found.slice(start,end);const visibleSet=new Set(visible);rows.forEach(row=>row.hidden=!visibleSet.has(row));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(all){const checks=visible.map(row=>row.querySelector('.user-select'));all.checked=checks.length>0&&checks.every(box=>box.checked);all.indeterminate=checks.some(box=>box.checked)&&!all.checked;}}filter.addEventListener('input',()=>{page=1;render();});size.addEventListener('change',()=>{page=1;render();});prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{page++;render();});if(all)all.addEventListener('change',()=>{matches().slice((page-1)*Number(size.value),page*Number(size.value)).forEach(row=>row.querySelector('.user-select').checked=all.checked);render();});rows.forEach(row=>row.querySelector('.user-select').addEventListener('change',render));render();})();
   </script>
-<?php else: $settings = ['page-management'=>['Page Management','Manage the website pages and their publication status.','▤'],'media-management'=>['Media Management','Manage image and media assets used by public pages and contributor content.','▧'],'plugins'=>['Plugins','Review and manage optional website extensions.','⌘']]; $info=$settings[$section];?>
-  <div class="admin-topline"><div><div class="eyebrow">Settings</div><h1 class="admin-heading"><?=e($info[0])?></h1><p class="muted"><?=e($info[1])?></p></div><a class="btn light" href="<?=e(adminUrl('dashboard'))?>">← Dashboard</a></div>
-  <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted">This section is now included in the System Administrator menu. Its management tools can be connected here as the corresponding storage and database structure is confirmed.</p><div class="admin-note">Navigation is ready. No page, media, or plugin records have been changed by this update.</div></section>
+<?php else: $settings = ['page-management'=>['Page Management','Manage the website pages and their publication status.','▤'],'media-management'=>['Media Management','Manage image and media assets used by public pages and contributor content.','▧'],'plugins'=>['Plugins','Review and manage optional website extensions.','⌘']]; ?>
+  <div class="admin-topline"><div><div class="eyebrow">System configuration</div><h1 class="admin-heading">Settings</h1><p class="muted">Manage website pages, media assets, and optional extensions.</p></div></div>
+  <nav class="admin-settings-tabs" aria-label="Settings tabs">
+    <a class="<?=navActive($section,'settings')?>" href="<?=e(adminUrl('settings'))?>">Overview</a>
+    <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
+    <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
+    <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
+  </nav>
+  <?php if($section==='settings'): ?>
+    <div class="admin-feature-grid">
+      <div class="admin-feature"><div class="symbol">▤</div><h3>Page Management</h3><p>Manage the pages and sections displayed on the public website.</p><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Open tab</a></div>
+      <div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open tab</a></div>
+      <div class="admin-feature"><div class="symbol">⌘</div><h3>Plugins</h3><p>Review and manage optional website extensions.</p><a class="btn light" href="<?=e(adminUrl('plugins'))?>">Open tab</a></div>
+    </div>
+  <?php else: $info=$settings[$section]; ?>
+    <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted"><?=e($info[1])?></p><div class="admin-note">This Settings tab is ready for its management controls. No existing records have been changed.</div></section>
+  <?php endif; ?>
 <?php endif;?>
 <script>
-(()=>{const toggle=document.getElementById('settings-menu-toggle');const submenu=document.getElementById('settings-submenu');if(toggle&&submenu){toggle.addEventListener('click',()=>{const expanded=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!expanded));submenu.hidden=expanded;});}})();
+
 (()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
 </script>
 </main></div></body></html>
