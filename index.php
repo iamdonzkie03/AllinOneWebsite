@@ -187,7 +187,7 @@ $modules = [
   const track = document.querySelector('.login-progress-track');
   if (!bar || !boat || !percent || !track) return;
   const started = performance.now();
-  const duration = 2000;
+  const duration = 6500;
   function animate(now) {
     const value = Math.min(100, Math.round(((now - started) / duration) * 100));
     const travelDistance = Math.max(0, track.parentElement.clientWidth - boat.getBoundingClientRect().width);
@@ -202,7 +202,7 @@ $modules = [
     const travelDistance = Math.max(0, track.parentElement.clientWidth - boat.getBoundingClientRect().width);
     boat.style.left = (travelDistance * value / 100) + 'px';
   });
-  window.setTimeout(() => { window.location.replace('<?=e($loginRedirect)?>'); }, 2150);
+  window.setTimeout(() => { window.location.replace('<?=e($loginRedirect)?>'); }, 6650);
 })();
 </script>
 <?php endif; ?>
