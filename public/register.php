@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><a href="../index.php">← Back to home</a></div></header>
 <main class="wrap" style="max-width:760px;padding:48px 0"><div class="panel">
 <div class="eyebrow">Join the community</div><h1 style="font:42px Georgia,serif;margin:8px 0">Create your account.</h1>
-<p class="muted">Verify your email address with a six-digit code before creating your password. Creator access remains subject to System Administrator review. Do not include passwords or sensitive identity numbers in contributor credentials.</p>
+<p class="muted">Verify your email address with a six-digit code, then create your password to activate your account. No administrator approval is required. Do not include passwords or sensitive identity numbers in contributor credentials.</p>
 <?php if ($error): ?><p role="alert" style="color:#a33"><?=e($error)?></p><?php endif; ?>
 <form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
 <div class="form-grid">
