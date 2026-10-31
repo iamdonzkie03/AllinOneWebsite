@@ -127,11 +127,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));
   border-color:rgba(184,50,63,.35);color:#fff
 }
-.admin-nav .settings-nav-label{flex:1}
-.admin-nav .settings-chevron{margin-left:auto;display:flex;align-items:center;justify-content:center;align-self:center;height:22px;min-width:22px;font-size:17px;line-height:1;transform:rotate(0);transition:transform .22s ease}
-.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
-.admin-subnav.settings-subnav{overflow:hidden;animation:settings-submenu-in .2s ease-out}
-@keyframes settings-submenu-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.admin-nav .settings-menu-row{display:flex;align-items:stretch;gap:0}
+.admin-nav .settings-menu-row>a.settings-nav{flex:1;min-width:0}
+.admin-nav .settings-toggle{width:42px;flex:0 0 42px;display:flex;align-items:center;justify-content:center;margin-left:-5px;border:1px solid transparent;border-radius:10px;background:transparent;color:#c8bec1;cursor:pointer;transition:background .2s,color .2s}
+.admin-nav .settings-toggle:hover{background:rgba(255,255,255,.045);color:#fff}
+.admin-nav .settings-chevron{display:block;font-size:17px;line-height:1;transform:rotate(0);transition:transform .25s ease}
+.admin-nav .settings-toggle[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
+.admin-subnav.settings-subnav{display:grid;overflow:hidden;max-height:0;opacity:0;transform:translateY(-5px);margin-top:0;margin-bottom:0;transition:max-height .28s ease,opacity .22s ease,transform .22s ease,margin .22s ease}
+.admin-subnav.settings-subnav.is-open{max-height:180px;opacity:1;transform:translateY(0);margin-top:7px;margin-bottom:10px}
+@media(prefers-reduced-motion:reduce){.admin-subnav.settings-subnav,.admin-nav .settings-chevron{transition:none}}
 .admin-settings-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .admin-settings-tabs a{padding:10px 15px;border:1px solid var(--line);border-radius:10px;color:#c8bec1;font-size:13px}
 .admin-settings-tabs a:hover{background:rgba(255,255,255,.04);color:#fff}
@@ -145,11 +149,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-label">Administration</div>
   <nav class="admin-nav" aria-label="Administrator menu">
     <a class="<?=navActive($section,'dashboard')?>" href="<?=e(adminUrl('dashboard'))?>"><span class="nav-icon">⌂</span>Dashboard</a>
-    <a class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('settings'))?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></a>
-    <div class="admin-subnav settings-subnav" id="settings-submenu">
-      <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
-      <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
-      <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
+    <div class="settings-menu-group">
+      <div class="settings-menu-row">
+        <a class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('settings'))?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span></a>
+        <button class="settings-toggle" id="settings-menu-toggle" type="button" aria-label="Toggle Settings submenu" aria-expanded="<?=in_array($section,['settings','page-management','media-management','plugins'],true)?'true':'false'?>" aria-controls="settings-submenu"><span class="settings-chevron" aria-hidden="true">⌄</span></button>
+      </div>
+      <div class="admin-subnav settings-subnav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' is-open':''?>" id="settings-submenu">
+        <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
+        <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
+        <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
+      </div>
     </div>
     <a class="<?=navActive($section,'user-accounts')?>" href="<?=e(adminUrl('user-accounts'))?>"><span class="nav-icon">♙</span>User Accounts </a>
   </nav>
@@ -215,7 +224,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php endif; ?>
 <?php endif;?>
 <script>
-
+(()=>{const toggle=document.getElementById('settings-menu-toggle');const submenu=document.getElementById('settings-submenu');if(toggle&&submenu){toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!open));submenu.classList.toggle('is-open',!open);});}})();
 (()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
 </script>
 </main></div></body></html>
