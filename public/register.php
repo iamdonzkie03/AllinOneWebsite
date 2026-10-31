@@ -168,7 +168,7 @@ main.wrap form .btn{padding:10px 18px}
  document.getElementById('sendVerification').addEventListener('click', () => { captchaInput.value=''; captchaModal.classList.add('is-open'); setTimeout(() => captchaInput.focus(), 50); });
  document.getElementById('captchaCancel').addEventListener('click', () => captchaModal.classList.remove('is-open'));
  document.getElementById('captchaContinue').addEventListener('click', () => {
-   if (!/^\\d{1,2}$/.test(captchaInput.value.trim())) { captchaInput.focus(); return; }
+   if (!/^\d{1,2}$/.test(captchaInput.value.trim())) { captchaInput.focus(); return; }
    captchaAnswer.value = captchaInput.value.trim();
    captchaModal.classList.remove('is-open'); loading.classList.add('is-open');
    document.getElementById('sendVerification').disabled = true; form.submit();
