@@ -270,7 +270,8 @@ $modules = [
     loginField.value = '+63' + (groups.length ? ' ' + groups.join(' ') : '');
   });
 
-  if (modal.classList.contains('is-open')) showSignInModal();
+  const params = new URLSearchParams(window.location.search);
+  if (modal.classList.contains('is-open') || params.get('signin') === '1') showSignInModal();
 })();
 </script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
