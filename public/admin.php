@@ -2,9 +2,10 @@
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 $admin = require_admin();
-$nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1');
-$nicknameStmt->execute([(int)$admin['id']]);
-$adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
+$profileStmt = $pdo->prepare('SELECT full_name,nickname,email,mobile_no FROM users WHERE id = ? LIMIT 1');
+$profileStmt->execute([(int)$admin['id']]);
+$adminProfile = $profileStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$adminNickname = trim((string)($adminProfile['nickname'] ?? '')) ?: 'Administrator';
 $message = '';
 $section = (string)($_GET['section'] ?? 'dashboard');
 $allowedSections = ['dashboard', 'settings', 'page-management', 'media-management', 'plugins', 'user-accounts'];
@@ -14,6 +15,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
+    if ($action === 'update_admin_profile') {
+        $fullName = trim((string)($_POST['full_name'] ?? ''));
+        $nickname = trim((string)($_POST['nickname'] ?? ''));
+        $mobile = trim((string)($_POST['mobile_no'] ?? ''));
+        if ($fullName === '' || $nickname === '') {
+            $message = 'Full name and nickname are required.';
+        } else {
+            $profileUpdate = $pdo->prepare('UPDATE users SET full_name=?,nickname=?,mobile_no=? WHERE id=? AND role=\'system_admin\'');
+            $profileUpdate->execute([$fullName, $nickname, $mobile !== '' ? $mobile : null, (int)$admin['id']]);
+            $adminProfile['full_name'] = $fullName;
+            $adminProfile['nickname'] = $nickname;
+            $adminProfile['mobile_no'] = $mobile;
+            $adminNickname = $nickname;
+            $message = 'Your profile has been updated.';
+        }
+    }
     if ($action === 'delete_selected_users') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['selected_users'] ?? [])), static fn(int $v): bool => $v > 0)));
         if ($ids) {
@@ -96,6 +113,27 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-feature h3{font:22px Georgia,serif;margin:12px 0 8px}
 .admin-feature p{font-size:13px;color:var(--muted);margin:0 0 17px}
 .admin-panel .users-table{min-width:1040px}.user-full-name{font-weight:800;color:#fff}.user-subdetails{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.7}.user-select-cell{width:42px;text-align:center}.user-toggle{position:relative;display:inline-flex;align-items:center;justify-content:flex-start;gap:9px;min-width:112px;height:36px;padding:4px 11px 4px 5px;border-radius:999px;border:1px solid rgba(70,180,125,.48);background:rgba(35,130,82,.18);color:#9de0b8;font-size:12px;font-weight:800;cursor:pointer;transition:background .2s,border-color .2s}.user-toggle .toggle-knob{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#62c98d;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:transform .2s,background .2s}.user-toggle.inactive{justify-content:flex-end;padding:4px 5px 4px 11px;border-color:rgba(220,85,100,.48);background:rgba(150,35,55,.2);color:#ff9eaa}.user-toggle.inactive .toggle-knob{order:2;background:#e66b7d}.user-toggle:focus-visible{outline:2px solid #e7b7c1;outline-offset:3px}.bulk-delete{background:#8f2034;border-color:#a62b42;color:#fff}.user-actions{display:flex;gap:7px;align-items:center}.pending-email-verification{display:inline-block;padding:7px 10px;border:1px solid rgba(220,165,70,.38);border-radius:999px;background:rgba(150,105,30,.13);color:#f0ca83;font-size:11px;font-weight:700;white-space:nowrap}.admin-note{padding:14px 16px;border:1px solid rgba(184,50,63,.25);border-radius:12px;color:#d7c9cc;background:rgba(105,8,24,.12);font-size:13px}
+.admin-profile-card{margin:26px 5px 0;padding:18px 15px;border:1px solid rgba(184,50,63,.32);border-radius:15px;background:linear-gradient(145deg,rgba(128,20,39,.2),rgba(255,255,255,.025));box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.admin-profile-kicker{display:block;margin-bottom:10px;color:#bbaeb2;font-size:10px;letter-spacing:1.4px;text-transform:uppercase}
+.admin-profile-name{display:block;margin:2px 0 5px;color:#fff;font-size:16px;font-weight:700;overflow-wrap:anywhere}
+.admin-profile-role{display:block;color:#c8bec1;font-size:11px}
+.admin-profile-edit{width:100%;margin-top:15px;justify-content:center;font-size:12px!important}
+.profile-modal{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(7px)}
+.profile-modal[hidden]{display:none}
+.profile-modal-card{width:min(520px,100%);max-height:90vh;overflow:auto;padding:26px;border:1px solid rgba(184,50,63,.45);border-radius:19px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 25px 90px rgba(0,0,0,.65)}
+.profile-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px}
+.profile-modal-head h2{margin:0 0 6px;font-size:19px;color:#fff}
+.profile-modal-head p{margin:0;color:var(--muted);font-size:12px}
+.profile-modal-close{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font-size:20px;cursor:pointer}
+.profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.profile-form-field{display:grid;gap:7px}
+.profile-form-field.full{grid-column:1/-1}
+.profile-form-field label{color:#d9cdd1;font-size:12px}
+.profile-form-field input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:#171115;color:#fff;font:13px Ubuntu,sans-serif}
+.profile-form-field input:focus{outline:2px solid rgba(184,50,63,.5);border-color:#a83248}
+.profile-form-field input[readonly]{color:#a99da1;background:#120f11}
+.profile-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}
+@media(max-width:560px){.profile-form-grid{grid-template-columns:1fr}.profile-form-field.full{grid-column:auto}}
 .account-status-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.76);backdrop-filter:blur(5px)}
 .account-status-modal-card{width:min(420px,100%);padding:32px 26px;text-align:center;border:1px solid rgba(184,50,63,.42);border-radius:20px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .account-status-modal-icon{width:52px;height:52px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;background:rgba(54,164,105,.16);border:1px solid rgba(91,205,145,.45);color:#83e0ac;font-size:27px;font-weight:800}
@@ -163,8 +201,29 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </div>
     <a class="<?=navActive($section,'user-accounts')?>" href="<?=e(adminUrl('user-accounts'))?>"><span class="nav-icon">♙</span>User Accounts </a>
   </nav>
-  <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
+  <section class="admin-profile-card" aria-label="Administrator profile">
+    <span class="admin-profile-kicker">Signed in as</span>
+    <strong class="admin-profile-name"><?=e($adminNickname)?></strong>
+    <span class="admin-profile-role">System Administrator</span>
+    <button type="button" class="btn light admin-profile-edit" id="open-profile-modal">Update my profile</button>
+  </section>
 </aside>
+<div class="profile-modal" id="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" hidden>
+  <div class="profile-modal-card">
+    <div class="profile-modal-head"><div><h2 id="profile-modal-title">Update my profile</h2><p>Keep your administrator details up to date.</p></div><button type="button" class="profile-modal-close" id="close-profile-modal" aria-label="Close">×</button></div>
+    <form method="post" id="profile-update-form">
+      <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+      <input type="hidden" name="action" value="update_admin_profile">
+      <div class="profile-form-grid">
+        <div class="profile-form-field full"><label for="profile-full-name">Full name</label><input id="profile-full-name" name="full_name" type="text" maxlength="160" required value="<?=e($adminProfile['full_name'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-nickname">Nickname</label><input id="profile-nickname" name="nickname" type="text" maxlength="80" required value="<?=e($adminProfile['nickname'] ?? '')?>"></div>
+        <div class="profile-form-field"><label for="profile-mobile">Mobile number</label><input id="profile-mobile" name="mobile_no" type="tel" maxlength="30" value="<?=e($adminProfile['mobile_no'] ?? '')?>"></div>
+        <div class="profile-form-field full"><label for="profile-email">Email address</label><input id="profile-email" type="email" readonly value="<?=e($adminProfile['email'] ?? '')?>"></div>
+      </div>
+      <div class="profile-modal-actions"><button type="button" class="btn light" id="cancel-profile-modal">Cancel</button><button type="submit" class="btn">Save changes</button></div>
+    </form>
+  </div>
+</div>
 <main class="admin-main">
 <?php if($message === 'Account status updated.'):?>
 <div class="account-status-modal" id="account-status-modal" role="dialog" aria-modal="true" aria-labelledby="account-status-modal-title">
@@ -225,6 +284,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php endif; ?>
 <?php endif;?>
 <script>
+(()=>{const modal=document.getElementById('profile-modal');const open=document.getElementById('open-profile-modal');const close=document.getElementById('close-profile-modal');const cancel=document.getElementById('cancel-profile-modal');if(!modal||!open)return;const hide=()=>{modal.hidden=true;open.focus();};open.addEventListener('click',()=>{modal.hidden=false;document.getElementById('profile-full-name')?.focus();});close?.addEventListener('click',hide);cancel?.addEventListener('click',hide);modal.addEventListener('click',e=>{if(e.target===modal)hide();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});})();
 (()=>{const toggle=document.getElementById('settings-menu-toggle');const submenu=document.getElementById('settings-submenu');if(toggle&&submenu){toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!open));submenu.classList.toggle('is-open',!open);});}})();
 (()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
 </script>
