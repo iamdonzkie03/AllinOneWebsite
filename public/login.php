@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 </fieldset>
 <p><label id="login-label" for="login">Email Address</label>
-<input class="field" id="login" type="text" name="login" required autocomplete="username" inputmode="email" placeholder="Enter your email address"></p>
+<input class="field" id="login" type="text" name="login" required maxlength="190" autocomplete="username" inputmode="email" placeholder="Enter your email address"></p>
 <p><label for="password">Password</label><input class="field" id="password" type="password" name="password" required autocomplete="current-password"></p>
 <button class="btn" type="submit">Sign in</button>
 </form>
@@ -77,70 +77,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </main>
 <script>
 (() => {
-  const field = document.getElementById('login');
-  const label = document.getElementById('login-label');
-  const choices = document.querySelectorAll('input[name="login_method"]');
-  const prefix = '+63';
+ const input = document.getElementById('login');
+ const label = document.getElementById('login-label');
+ const choices = document.querySelectorAll('input[name="login_method"]');
 
-  function updateMethod() {
-    const selected = document.querySelector('input[name="login_method"]:checked').value;
-    if (selected === 'mobile') {
-      label.textContent = 'Contact/Mobile No. (+63)';
-      field.type = 'tel';
-      field.inputMode = 'tel';
-      field.placeholder = '+63 9XX XXX XXXX';
-      if (!field.value.trim() || field.value.trim() === prefix) field.value = prefix;
-    } else {
-      label.textContent = 'Email Address';
-      field.type = 'email';
-      field.inputMode = 'email';
-      field.placeholder = 'Enter your email address';
-      if (field.value.trim() === prefix) field.value = '';
-    }
-  }
+ function updateMethod() {
+   const selected = document.querySelector('input[name="login_method"]:checked').value;
+   if (selected === 'mobile') {
+     label.textContent = 'Contact/Mobile No. (+63)';
+     input.type = 'tel';
+     input.inputMode = 'tel';
+     input.placeholder = '+63 9XX XXXX XXX';
+     input.maxLength = 20;
+     input.autocomplete = 'tel';
+   } else {
+     label.textContent = 'Email Address';
+     input.type = 'email';
+     input.inputMode = 'email';
+     input.placeholder = 'Enter your email address';
+     input.maxLength = 190;
+     input.autocomplete = 'username';
+     if (input.value.trim() === '+63') input.value = '';
+   }
+ }
 
-  choices.forEach(choice => choice.addEventListener('change', updateMethod));
+ choices.forEach(choice => choice.addEventListener('change', updateMethod));
 
-  field.addEventListener('focus', () => {
-    const selected = document.querySelector('input[name="login_method"]:checked').value;
-    if (selected === 'mobile' && !field.value.startsWith(prefix)) field.value = prefix;
-    if (selected === 'mobile' && field.value.length <= prefix.length) {
-      field.setSelectionRange(prefix.length, prefix.length);
-    }
-  });
+ // Match the Create Account contact-number textbox exactly:
+ // accept local or pasted international digits, normalize to +63,
+ // and display the number in +63 9XX XXXX XXX format.
+ input.addEventListener('input', () => {
+   const selected = document.querySelector('input[name="login_method"]:checked').value;
+   if (selected !== 'mobile') return;
 
-  // Keep +63 fixed: users can edit only the digits after the country code.
-  field.addEventListener('beforeinput', event => {
-    const selected = document.querySelector('input[name="login_method"]:checked').value;
-    if (selected !== 'mobile' || !event.inputType.startsWith('delete')) return;
-    const start = field.selectionStart ?? 0;
-    const end = field.selectionEnd ?? start;
-    if ((start < prefix.length && end > 0) ||
-        (event.inputType === 'deleteContentBackward' && start <= prefix.length && end === start) ||
-        (event.inputType === 'deleteContentForward' && start < prefix.length && end === start)) {
-      event.preventDefault();
-      field.setSelectionRange(prefix.length, prefix.length);
-    }
-  });
+   let digits = input.value.replace(/\D/g, '');
+   if (digits.startsWith('0063')) digits = digits.slice(4);
+   else if (digits.startsWith('63')) digits = digits.slice(2);
+   if (digits.startsWith('0')) digits = digits.slice(1);
+   digits = digits.slice(0, 10);
 
-  field.addEventListener('input', () => {
-    const selected = document.querySelector('input[name="login_method"]:checked').value;
-    if (selected !== 'mobile') return;
-
-    let digits = field.value.replace(/\\D/g, '');
-
-    // Strip every duplicated country-code prefix, then the optional local zero.
-    while (digits.startsWith('63')) digits = digits.slice(2);
-    if (digits.startsWith('0')) digits = digits.slice(1);
-    digits = digits.slice(0, 10);
-
-    const normalized = prefix + digits;
-    if (field.value !== normalized) {
-      field.value = normalized;
-      const caret = Math.max(prefix.length, normalized.length);
-      field.setSelectionRange(caret, caret);
-    }
-  });
+   const parts = [];
+   if (digits.length) parts.push(digits.slice(0, 3));
+   if (digits.length > 3) parts.push(digits.slice(3, 7));
+   if (digits.length > 7) parts.push(digits.slice(7, 10));
+   input.value = '+63' + (parts.length ? ' ' + parts.join(' ') : '');
+ });
 })();
 </script>
 </body>
