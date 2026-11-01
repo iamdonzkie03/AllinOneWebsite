@@ -107,6 +107,11 @@ $totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_a
 $publishedContent = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE status='published'")->fetchColumn();
 function navActive(string $current, string $target): string { return $current === $target ? ' active' : ''; }
 function adminUrl(string $section): string { return 'admin.php?section=' . rawurlencode($section); }
+function formatAccountDateTime(?string $value): string {
+    if ($value === null || trim($value) === '') return '—';
+    $timestamp = strtotime($value);
+    return $timestamp === false ? $value : date('F d, Y h:i A', $timestamp);
+}
 ?><!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>System Administrator | Z.C. Commonplace</title>
@@ -313,7 +318,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   ?><tr>
   <td class="user-select-cell"><input type="checkbox" class="user-select" name="selected_users[]" value="<?=(int)$u['id']?>" form="bulk-users" aria-label="Select <?=e($displayName)?>"></td>
   <td><strong class="user-full-name"><?=e($displayName)?></strong><span class="user-subdetails">Nickname: <?=e($u['nickname'] ?? '—')?> · Birthdate: <?=e($u['birthdate'] ?? '—')?> · Birthplace: <?=e($u['birthplace'] ?? '—')?> · Contact: <?=e($u['mobile_no'] ?? '—')?></span></td>
-  <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><?=e($u['created_at'])?></td><td><?=e($u['updated_at'])?></td>
+  <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><?=e(formatAccountDateTime(isset($u['created_at']) ? (string)$u['created_at'] : null))?></td><td><?=e(formatAccountDateTime(isset($u['updated_at']) ? (string)$u['updated_at'] : null))?></td>
   <td><?php if (empty($u['email_verified_at'])): ?><span class="pending-email-verification">Pending Email Verification</span><?php else: ?><form method="post" class="user-actions"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$u['id']?>"><input type="hidden" name="next_status" value="<?=$active?'suspended':'approved'?>"><button class="user-toggle<?=$active?'':' inactive'?>" name="action" value="toggle_user_status" type="submit" role="switch" aria-checked="<?=$active?'true':'false'?>" aria-label="Account status: <?=$active?'Active':'Inactive'?>"><span class="toggle-knob" aria-hidden="true"></span><span><?=$active?'Active':'Inactive'?></span></button></form><?php endif; ?></td>
   </tr><?php endforeach;?>
   <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></section>
