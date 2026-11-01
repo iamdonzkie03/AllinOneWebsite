@@ -31,6 +31,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS homepage_section_items (
  INDEX(section_id),
  CONSTRAINT fk_homepage_item_section FOREIGN KEY(section_id) REFERENCES homepage_sections(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// Component-specific Page Management settings (safe for existing installations).
+foreach (['component_type' => "VARCHAR(24) NOT NULL DEFAULT 'content'", 'settings_json' => 'LONGTEXT NULL'] as $column => $definition) {
+    try { $pdo->exec("ALTER TABLE homepage_sections ADD COLUMN {$column} {$definition}"); } catch (PDOException $ignored) {}
+}
 $sectionEditId = (int)($_GET['edit_section'] ?? 0);
 
 $profileStmt = $pdo->prepare('SELECT full_name,nickname,email,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE id = ? LIMIT 1');
@@ -46,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
-    if (in_array($action, ['save_homepage_section','delete_homepage_section','save_homepage_item','delete_homepage_item'], true)) {
+    if (in_array($action, ['save_homepage_section','delete_homepage_section','save_homepage_item','delete_homepage_item','toggle_homepage_section'], true)) {
         $section = 'page-management';
         if ($action === 'save_homepage_section') {
             $pageName = trim((string)($_POST['page_name'] ?? ''));
@@ -54,6 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', $slug), '-');
             if ($slug === '') $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($pageName)), '-');
             $description = trim((string)($_POST['description'] ?? ''));
+            $componentType = (string)($_POST['component_type'] ?? 'content');
+            if (!in_array($componentType, ['header','content','menubar','footer','slideshow','news','quick-links'], true)) $componentType = 'content';
+            $settingsJson = json_encode(['text_color'=>$_POST['text_color'] ?? '#f5e9ed','background_color'=>$_POST['background_color'] ?? '#160d11','font_size'=>max(10,min(72,(int)($_POST['font_size'] ?? 24))),'logo_url'=>trim((string)($_POST['logo_url'] ?? '')),'layout'=>$_POST['layout'] ?? 'standard','media_url'=>trim((string)($_POST['component_media_url'] ?? '')),'video_url'=>trim((string)($_POST['video_url'] ?? ''))], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
             $position = (string)($_POST['position'] ?? 'top');
             $width = max(10, min(100, (int)($_POST['width_percent'] ?? 100)));
             $sort = (int)($_POST['sort_order'] ?? 0);
@@ -63,15 +70,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 try {
                     if ($editId > 0) {
-                        $s=$pdo->prepare('UPDATE homepage_sections SET page_name=?,slug=?,description=?,position=?,width_percent=?,sort_order=? WHERE id=?');
-                        $s->execute([$pageName,$slug,$description,$position,$width,$sort,$editId]);
+                        $s=$pdo->prepare('UPDATE homepage_sections SET page_name=?,slug=?,description=?,position=?,width_percent=?,sort_order=?,component_type=?,settings_json=? WHERE id=?');
+                        $s->execute([$pageName,$slug,$description,$position,$width,$sort,$componentType,$settingsJson,$editId]);
                     } else {
-                        $s=$pdo->prepare('INSERT INTO homepage_sections(page_name,slug,description,position,width_percent,sort_order) VALUES(?,?,?,?,?,?)');
-                        $s->execute([$pageName,$slug,$description,$position,$width,$sort]);
+                        $s=$pdo->prepare('INSERT INTO homepage_sections(page_name,slug,description,position,width_percent,sort_order,component_type,settings_json) VALUES(?,?,?,?,?,?,?,?)');
+                        $s->execute([$pageName,$slug,$description,$position,$width,$sort,$componentType,$settingsJson]);
                     }
                     $message = 'Section page saved successfully.';
                 } catch (PDOException $e) { $message = 'That page name or page address is already in use.'; }
             }
+        } elseif ($action === 'toggle_homepage_section') {
+            $toggleId=(int)($_POST['section_id'] ?? 0); $active=(int)($_POST['is_active'] ?? 0)===1?1:0;
+            $s=$pdo->prepare('UPDATE homepage_sections SET is_active=? WHERE id=?'); $s->execute([$active,$toggleId]);
+            $message=$active?'Component published.':'Component unpublished.';
         } elseif ($action === 'delete_homepage_section') {
             $s=$pdo->prepare('DELETE FROM homepage_sections WHERE id=?'); $s->execute([(int)($_POST['section_id'] ?? 0)]);
             $message='Section page and its content items deleted.';
