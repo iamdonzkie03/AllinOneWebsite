@@ -45,6 +45,34 @@ if ($category !== '') { $sql .= " AND cat.slug=?"; $params[] = $category; }
 $sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC LIMIT 18";
 $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 $categories=$pdo->query("SELECT name,slug,description FROM categories WHERE is_active=1 ORDER BY id")->fetchAll();
+// Ensure Page Management tables exist even before an administrator first opens the admin panel.
+$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_sections (
+ id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ page_name VARCHAR(140) NOT NULL,
+ slug VARCHAR(160) NOT NULL UNIQUE,
+ description TEXT NULL,
+ position ENUM('left','right','top','bottom') NOT NULL DEFAULT 'top',
+ width_percent TINYINT UNSIGNED NOT NULL DEFAULT 100,
+ sort_order INT NOT NULL DEFAULT 0,
+ is_active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_section_items (
+ id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ section_id INT UNSIGNED NOT NULL,
+ item_type VARCHAR(32) NOT NULL DEFAULT 'story',
+ title VARCHAR(180) NOT NULL,
+ body MEDIUMTEXT NULL,
+ media_url VARCHAR(1000) NULL,
+ link_label VARCHAR(100) NULL,
+ link_page_name VARCHAR(140) NULL,
+ sort_order INT NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ INDEX(section_id),
+ CONSTRAINT fk_homepage_item_section FOREIGN KEY(section_id) REFERENCES homepage_sections(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $publicHomepageSections = $pdo->query("SELECT * FROM homepage_sections WHERE is_active=1 ORDER BY sort_order,id")->fetchAll();
 $publicHomepageItems = [];
 if ($publicHomepageSections) {
