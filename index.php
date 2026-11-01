@@ -45,6 +45,12 @@ if ($category !== '') { $sql .= " AND cat.slug=?"; $params[] = $category; }
 $sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC LIMIT 18";
 $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 $categories=$pdo->query("SELECT name,slug,description FROM categories WHERE is_active=1 ORDER BY id")->fetchAll();
+$publicHomepageSections = $pdo->query("SELECT * FROM homepage_sections WHERE is_active=1 ORDER BY sort_order,id")->fetchAll();
+$publicHomepageItems = [];
+if ($publicHomepageSections) {
+    $publicItemsStmt=$pdo->query("SELECT i.*, s.slug AS destination_slug FROM homepage_section_items i LEFT JOIN homepage_sections s ON s.page_name=i.link_page_name AND s.is_active=1 ORDER BY i.sort_order,i.id");
+    foreach ($publicItemsStmt->fetchAll() as $publicItem) $publicHomepageItems[(int)$publicItem['section_id']][]=$publicItem;
+}
 $modules = [
  ['name'=>'Creative Arts and Photography','slug'=>'creative-arts-photography','symbol'=>'✳','description'=>'Photography, visual art, design and local creative voices.'],
  ['name'=>'News Connect','slug'=>'news-connect','symbol'=>'◎','description'=>'Community updates, civic stories and current affairs.'],
@@ -123,6 +129,23 @@ $modules = [
 <p class="slide-disclaimer">Historical and cultural notes are introductory highlights. Image links lead to Wikimedia Commons pages with source and license information.</p>
 </div></section>
 
+<?php if ($publicHomepageSections): ?>
+<section class="homepage-managed-sections"><div class="wrap homepage-managed-grid">
+<?php foreach($publicHomepageSections as $managedSection): $managedPosition=$managedSection['position']; ?>
+<section class="homepage-managed-section position-<?=e($managedPosition)?>" id="<?=e($managedSection['slug'])?>" style="--section-width:<?=max(10,min(100,(int)$managedSection['width_percent']))?>%">
+  <div class="section-head"><div><div class="eyebrow"><?=e(strtoupper($managedPosition))?></div><h2><?=e($managedSection['page_name'])?></h2><?php if(!empty($managedSection['description'])): ?><p class="muted"><?=e($managedSection['description'])?></p><?php endif; ?></div></div>
+  <div class="homepage-managed-items"><?php foreach(($publicHomepageItems[(int)$managedSection['id']] ?? []) as $managedItem): ?>
+    <article class="homepage-managed-item">
+      <?php if(!empty($managedItem['media_url'])): ?><img src="<?=e($managedItem['media_url'])?>" alt="<?=e($managedItem['title'])?>" loading="lazy"><?php endif; ?>
+      <div><span class="tag"><?=e(str_replace('-',' ',strtoupper($managedItem['item_type'])))?></span><h3><?=e($managedItem['title'])?></h3><?php if(!empty($managedItem['body'])): ?><p><?=nl2br(e($managedItem['body']))?></p><?php endif; ?>
+      <?php if(!empty($managedItem['link_label']) && !empty($managedItem['destination_slug'])): ?><a class="btn light" href="#<?=e($managedItem['destination_slug'])?>"><?=e($managedItem['link_label'])?> ↗</a><?php endif; ?></div>
+    </article>
+  <?php endforeach; ?></div>
+</section>
+<?php endforeach; ?>
+</div></section>
+<style>.homepage-managed-grid{display:flex;flex-wrap:wrap;gap:22px;align-items:stretch}.homepage-managed-section{box-sizing:border-box;flex:0 1 var(--section-width);min-width:min(100%,280px);padding:26px;border:1px solid rgba(190,75,98,.25);border-radius:18px;background:linear-gradient(145deg,rgba(35,16,23,.82),rgba(16,12,15,.92))}.homepage-managed-section.position-left{margin-right:auto}.homepage-managed-section.position-right{margin-left:auto}.homepage-managed-section.position-top,.homepage-managed-section.position-bottom{margin-inline:auto}.homepage-managed-items{display:grid;gap:14px}.homepage-managed-item{display:grid;grid-template-columns:minmax(100px,28%) 1fr;gap:17px;align-items:start;padding:13px;border:1px solid rgba(255,255,255,.08);border-radius:12px}.homepage-managed-item img{width:100%;max-height:190px;object-fit:cover;border-radius:9px}.homepage-managed-item h3{margin:6px 0}.homepage-managed-item p{color:var(--muted);font-size:13px;line-height:1.65;white-space:normal}@media(max-width:620px){.homepage-managed-section{flex-basis:100%!important}.homepage-managed-item{grid-template-columns:1fr}}</style>
+<?php endif; ?>
 <section class="section" id="modules"><div class="wrap"><div class="section-head"><div><div class="eyebrow">Explore the platform</div><h2>Five ways to connect</h2><p class="muted">A single community space for creativity, information, commerce and cultural memory.</p></div></div>
 <div class="category-row module-grid">
 <?php foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; ?>
