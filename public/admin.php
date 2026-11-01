@@ -2,6 +2,37 @@
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 $admin = require_admin();
+
+// Page Management storage: movable homepage sections and their content items.
+$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_sections (
+ id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ page_name VARCHAR(140) NOT NULL,
+ slug VARCHAR(160) NOT NULL UNIQUE,
+ description TEXT NULL,
+ position ENUM('left','right','top','bottom') NOT NULL DEFAULT 'top',
+ width_percent TINYINT UNSIGNED NOT NULL DEFAULT 100,
+ sort_order INT NOT NULL DEFAULT 0,
+ is_active TINYINT(1) NOT NULL DEFAULT 1,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_section_items (
+ id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ section_id INT UNSIGNED NOT NULL,
+ item_type VARCHAR(32) NOT NULL DEFAULT 'story',
+ title VARCHAR(180) NOT NULL,
+ body MEDIUMTEXT NULL,
+ media_url VARCHAR(1000) NULL,
+ link_label VARCHAR(100) NULL,
+ link_page_name VARCHAR(140) NULL,
+ sort_order INT NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ INDEX(section_id),
+ CONSTRAINT fk_homepage_item_section FOREIGN KEY(section_id) REFERENCES homepage_sections(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$sectionEditId = (int)($_GET['edit_section'] ?? 0);
+
 $profileStmt = $pdo->prepare('SELECT full_name,nickname,email,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE id = ? LIMIT 1');
 $profileStmt->execute([(int)$admin['id']]);
 $adminProfile = $profileStmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -15,6 +46,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
+    if (in_array($action, ['save_homepage_section','delete_homepage_section','save_homepage_item','delete_homepage_item'], true)) {
+        $section = 'page-management';
+        if ($action === 'save_homepage_section') {
+            $pageName = trim((string)($_POST['page_name'] ?? ''));
+            $slug = strtolower(trim((string)($_POST['slug'] ?? '')));
+            $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', $slug), '-');
+            if ($slug === '') $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($pageName)), '-');
+            $description = trim((string)($_POST['description'] ?? ''));
+            $position = (string)($_POST['position'] ?? 'top');
+            $width = max(10, min(100, (int)($_POST['width_percent'] ?? 100)));
+            $sort = (int)($_POST['sort_order'] ?? 0);
+            $editId = (int)($_POST['section_id'] ?? 0);
+            if ($pageName === '' || strlen($pageName) > 140 || $slug === '' || !in_array($position,['left','right','top','bottom'],true)) {
+                $message = 'Enter a valid page name and layout position.';
+            } else {
+                try {
+                    if ($editId > 0) {
+                        $s=$pdo->prepare('UPDATE homepage_sections SET page_name=?,slug=?,description=?,position=?,width_percent=?,sort_order=? WHERE id=?');
+                        $s->execute([$pageName,$slug,$description,$position,$width,$sort,$editId]);
+                    } else {
+                        $s=$pdo->prepare('INSERT INTO homepage_sections(page_name,slug,description,position,width_percent,sort_order) VALUES(?,?,?,?,?,?)');
+                        $s->execute([$pageName,$slug,$description,$position,$width,$sort]);
+                    }
+                    $message = 'Section page saved successfully.';
+                } catch (PDOException $e) { $message = 'That page name or page address is already in use.'; }
+            }
+        } elseif ($action === 'delete_homepage_section') {
+            $s=$pdo->prepare('DELETE FROM homepage_sections WHERE id=?'); $s->execute([(int)($_POST['section_id'] ?? 0)]);
+            $message='Section page and its content items deleted.';
+        } elseif ($action === 'save_homepage_item') {
+            $sectionId=(int)($_POST['section_id'] ?? 0); $itemId=(int)($_POST['item_id'] ?? 0);
+            $type=(string)($_POST['item_type'] ?? 'story'); $title=trim((string)($_POST['item_title'] ?? ''));
+            $body=trim((string)($_POST['item_body'] ?? '')); $media=trim((string)($_POST['media_url'] ?? ''));
+            $linkLabel=trim((string)($_POST['link_label'] ?? '')); $targetName=trim((string)($_POST['link_page_name'] ?? ''));
+            $validTypes=['slideshow','content-menu','news','story','marketplace','text','image'];
+            $exists=$pdo->prepare('SELECT id FROM homepage_sections WHERE id=?'); $exists->execute([$sectionId]);
+            if (!$exists->fetchColumn() || $title==='' || !in_array($type,$validTypes,true) || ($linkLabel!=='' && $targetName==='')) {
+                $message='Enter a title and, whenever a link is added, its destination page name.';
+            } else {
+                if ($targetName!=='') { $target=$pdo->prepare('SELECT id FROM homepage_sections WHERE page_name=? LIMIT 1'); $target->execute([$targetName]); if (!$target->fetchColumn()) { $message='The link destination page name must match an existing Section Page.'; } }
+                if ($message==='') {
+                    if ($itemId>0) { $s=$pdo->prepare('UPDATE homepage_section_items SET item_type=?,title=?,body=?,media_url=?,link_label=?,link_page_name=? WHERE id=? AND section_id=?'); $s->execute([$type,$title,$body,$media,$linkLabel?:null,$targetName?:null,$itemId,$sectionId]); }
+                    else { $s=$pdo->prepare('INSERT INTO homepage_section_items(section_id,item_type,title,body,media_url,link_label,link_page_name,sort_order) VALUES(?,?,?,?,?,?,?,?)'); $s->execute([$sectionId,$type,$title,$body,$media,$linkLabel?:null,$targetName?:null,(int)($_POST['item_sort'] ?? 0)]); }
+                    $message='Content item saved successfully.';
+                }
+            }
+        } elseif ($action === 'delete_homepage_item') {
+            $s=$pdo->prepare('DELETE FROM homepage_section_items WHERE id=? AND section_id=?'); $s->execute([(int)($_POST['item_id'] ?? 0),(int)($_POST['section_id'] ?? 0)]);
+            $message='Content item deleted.';
+        }
+    }
     if ($action === 'update_admin_profile') {
         $last = trim((string)($_POST['lastname'] ?? ''));
         $first = trim((string)($_POST['firstname'] ?? ''));
@@ -100,6 +182,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section = 'dashboard';
     }
 }
+$homepageSections = $pdo->query("SELECT * FROM homepage_sections ORDER BY sort_order,id")->fetchAll();
+$homepageItemsStmt = $pdo->query("SELECT * FROM homepage_section_items ORDER BY sort_order,id");
+$homepageItems = [];
+foreach ($homepageItemsStmt->fetchAll() as $homepageItem) $homepageItems[(int)$homepageItem['section_id']][] = $homepageItem;
+$editingSection = null;
+if ($sectionEditId > 0) { $findSection=$pdo->prepare('SELECT * FROM homepage_sections WHERE id=?'); $findSection->execute([$sectionEditId]); $editingSection=$findSection->fetch(PDO::FETCH_ASSOC) ?: null; }
 $activeUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin' AND account_status='approved'")->fetchColumn();
 $managedUsers = $pdo->query("SELECT id,full_name,email,credential_notes,created_at,updated_at,account_status,email_verified_at,nickname,birthdate,birthplace,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE role<>'system_admin' ORDER BY created_at DESC")->fetchAll();
 $pendingContent = $pdo->query("SELECT c.id,c.title,c.content_type,c.created_at,u.full_name,cat.name category_name FROM content c JOIN users u ON u.id=c.owner_id JOIN categories cat ON cat.id=c.category_id WHERE c.status='pending_review' ORDER BY c.created_at")->fetchAll();
@@ -346,6 +434,34 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open tab</a></div>
       <div class="admin-feature"><div class="symbol">⌘</div><h3>Plugins</h3><p>Review and manage optional website extensions.</p><a class="btn light" href="<?=e(adminUrl('plugins'))?>">Open tab</a></div>
     </div>
+  <?php elseif($section==='page-management'): ?>
+    <div class="admin-topline"><div><div class="eyebrow">Homepage builder</div><h1 class="admin-heading">Page Management</h1><p class="muted">Create movable homepage sections and manage the content inside each one.</p></div></div>
+    <section class="panel admin-panel">
+      <div class="admin-panel-head"><h2><?= $editingSection ? 'Edit Section Page' : 'Add Section Page' ?></h2><span class="muted">Homepage layout</span></div>
+      <form method="post" class="page-builder-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_homepage_section"><input type="hidden" name="section_id" value="<?=(int)($editingSection['id'] ?? 0)?>">
+        <div class="profile-form-grid">
+          <div class="profile-form-field"><label>Section Page Name *</label><input name="page_name" required maxlength="140" value="<?=e((string)($editingSection['page_name'] ?? ''))?>" placeholder="e.g. Zamboanga Heritage"></div>
+          <div class="profile-form-field"><label>Page address (slug)</label><input name="slug" value="<?=e((string)($editingSection['slug'] ?? ''))?>" placeholder="zamboanga-heritage"><small>Leave blank to generate from the page name.</small></div>
+          <div class="profile-form-field full"><label>Description</label><textarea name="description" rows="2"><?=e((string)($editingSection['description'] ?? ''))?></textarea></div>
+          <div class="profile-form-field"><label>Position relative to other sections *</label><select name="position"><option value="top" <?=($editingSection['position'] ?? 'top')==='top'?'selected':''?>>Top</option><option value="bottom" <?=($editingSection['position'] ?? '')==='bottom'?'selected':''?>>Bottom</option><option value="left" <?=($editingSection['position'] ?? '')==='left'?'selected':''?>>Left</option><option value="right" <?=($editingSection['position'] ?? '')==='right'?'selected':''?>>Right</option></select></div>
+          <div class="profile-form-field"><label>Width (%) — maximum 100</label><input type="number" name="width_percent" min="10" max="100" value="<?=(int)($editingSection['width_percent'] ?? 100)?>" required></div>
+          <div class="profile-form-field"><label>Display order</label><input type="number" name="sort_order" value="<?=(int)($editingSection['sort_order'] ?? 0)?>"></div>
+        </div><div class="profile-modal-actions"><button class="btn" type="submit"><?= $editingSection ? 'Save Section Page' : 'Add Section Page' ?></button><?php if($editingSection): ?><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Cancel</a><?php endif; ?></div>
+      </form>
+    </section>
+    <section class="panel admin-panel"><div class="admin-panel-head"><h2>Homepage Section Pages</h2><input id="section-page-search" type="search" placeholder="Search section pages..." aria-label="Search section pages"></div>
+      <?php if(!$homepageSections): ?><p class="muted">No section pages created yet. Add your first section above.</p><?php endif; ?>
+      <div class="page-section-list"><?php foreach($homepageSections as $hp): ?><article class="page-section-card" data-search="<?=e(strtolower($hp['page_name'].' '.$hp['description']))?>">
+        <div class="page-section-heading"><div><span class="eyebrow"><?=e(strtoupper($hp['position']))?> · <?= (int)$hp['width_percent'] ?>% WIDTH</span><h3><?=e($hp['page_name'])?></h3><p class="muted"><?=e($hp['description'] ?? '')?></p></div><div class="page-section-actions"><a class="btn light" href="<?=e(adminUrl('page-management').'&edit_section='.(int)$hp['id'])?>">Edit</a><form method="post" onsubmit="return confirm('Delete this section page and all its content items?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_homepage_section"><input type="hidden" name="section_id" value="<?=(int)$hp['id']?>"><button class="btn bulk-delete" type="submit">Delete</button></form></div></div>
+        <div class="page-item-list"><strong>Content items (<?=count($homepageItems[(int)$hp['id']] ?? [])?>)</strong><?php foreach(($homepageItems[(int)$hp['id']] ?? []) as $it): ?><div class="page-item-row"><span><b><?=e($it['title'])?></b> · <?=e($it['item_type'])?><?php if(!empty($it['link_page_name'])): ?> · Links to <?=e($it['link_page_name'])?><?php endif; ?></span><form method="post" onsubmit="return confirm('Delete this content item?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_homepage_item"><input type="hidden" name="section_id" value="<?=(int)$hp['id']?>"><input type="hidden" name="item_id" value="<?=(int)$it['id']?>"><button class="btn light" type="submit">Delete item</button></form></div><?php endforeach; ?></div>
+        <details class="page-item-editor"><summary>Add content item</summary><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_homepage_item"><input type="hidden" name="section_id" value="<?=(int)$hp['id']?>">
+          <div class="profile-form-grid"><div class="profile-form-field"><label>Content type</label><select name="item_type"><option value="slideshow">Slideshow</option><option value="content-menu">Content menu</option><option value="news">News</option><option value="story">Story</option><option value="marketplace">Marketplace</option><option value="text">Text</option><option value="image">Image</option></select></div><div class="profile-form-field"><label>Title *</label><input name="item_title" required maxlength="180"></div><div class="profile-form-field full"><label>Content / description</label><textarea name="item_body" rows="3"></textarea></div><div class="profile-form-field full"><label>Image or media URL (optional)</label><input type="url" name="media_url" placeholder="https://..."></div><div class="profile-form-field"><label>Link label (optional)</label><input name="link_label" placeholder="Read more"></div><div class="profile-form-field"><label>Destination Section Page Name (required when adding a link)</label><input name="link_page_name" list="homepage-page-names" placeholder="Enter exact destination page name"></div></div><button class="btn" type="submit">Save content item</button>
+        </form></details>
+      </article><?php endforeach; ?></div>
+      <datalist id="homepage-page-names"><?php foreach($homepageSections as $hp): ?><option value="<?=e($hp['page_name'])?>"><?php endforeach; ?></datalist>
+    </section>
+    <style>.page-builder-form .profile-form-grid,.page-item-editor .profile-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.page-builder-form .profile-form-field,.page-item-editor .profile-form-field{display:grid;gap:6px}.page-builder-form input,.page-builder-form textarea,.page-builder-form select,.page-item-editor input,.page-item-editor textarea,.page-item-editor select,#section-page-search{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit}.page-builder-form .full,.page-item-editor .full{grid-column:1/-1}.page-section-list{display:grid;gap:14px}.page-section-card{border:1px solid var(--line);border-radius:14px;padding:17px;background:rgba(255,255,255,.02)}.page-section-heading{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.page-section-heading h3{margin:6px 0}.page-section-actions{display:flex;gap:7px;flex-wrap:wrap}.page-item-list{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}.page-item-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}.page-item-editor{margin-top:13px}.page-item-editor summary{cursor:pointer;color:#f0c7cf;font-weight:600;margin-bottom:12px}.page-item-editor form{display:grid;gap:12px}@media(max-width:650px){.page-builder-form .profile-form-grid,.page-item-editor .profile-form-grid{grid-template-columns:1fr}.page-section-heading{display:grid}.page-item-row{align-items:flex-start}}</style>
+    <script>(()=>{const input=document.getElementById('section-page-search');if(!input)return;const cards=[...document.querySelectorAll('.page-section-card')];input.addEventListener('input',()=>{const q=input.value.trim().toLowerCase();cards.forEach(card=>card.hidden=!card.dataset.search.includes(q));});})();</script>
   <?php else: $info=$settings[$section]; ?>
     <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted"><?=e($info[1])?></p><div class="admin-note">This Settings tab is ready for its management controls. No existing records have been changed.</div></section>
   <?php endif; ?>
