@@ -763,7 +763,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
             if(editor.dataset.ready)return;editor.dataset.ready='1';
             const key=editor.dataset.richEditor;
-            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=editor.innerHTML;const plain=editor.innerText.trim();const plainField=form.querySelector('[data-plain-value="'+key+'"]');if(plainField)plainField.value=plain;updatePreview();});
+            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=editor.innerHTML;if(key==='title'){titlePreviewStyles.length=0;savedTitleSelection=null;}const plain=editor.innerText.trim();const plainField=form.querySelector('[data-plain-value="'+key+'"]');if(plainField)plainField.value=plain;updatePreview();});
           });
           form.querySelectorAll('[data-style-controls="link"]').forEach((box)=>{
             if(box.dataset.ready)return;box.dataset.ready='1';const row=box.closest('.header-link-row');const idx=[...links.querySelectorAll('.header-link-row')].indexOf(row);let saved={};try{saved=JSON.parse(box.dataset.typography||'{}')}catch(e){}
