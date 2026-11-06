@@ -282,8 +282,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $githubCommit = publishHeaderSettingsToGitHub($savedHeader);
                 $message = 'Header settings saved. The actual index.php in GitHub main was updated successfully. Commit: ' . ($githubCommit !== '' ? substr($githubCommit, 0, 12) : 'created') . '.';
             } catch (Throwable $publishError) {
-                error_log('GitHub header publishing failed: ' . $publishError->getMessage());
-                $message = 'Header settings were saved in the database, but GitHub main was NOT updated: ' . $publishError->getMessage();
+                error_log('GitHub header publishing skipped or failed: ' . $publishError->getMessage());
+                $message = 'Header settings saved successfully. Your local public homepage uses the saved database settings. GitHub synchronization was not completed: ' . $publishError->getMessage();
             }
         }
         $section = 'page-management';
