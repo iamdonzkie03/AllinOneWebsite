@@ -681,7 +681,72 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         };
         const attachColorPalette=(input)=>{if(!input||input.dataset.paletteReady)return;input.dataset.paletteReady='1';const button=document.createElement('button');button.type='button';button.className='font-color-palette';button.setAttribute('aria-label','Choose font color');button.title='Choose font color';button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 1.6-3.9 1.2 1.2 0 0 1 .9-2.1H18a3 3 0 0 0 3-3c0-5-4-8-9-9Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.8" r="1"/><circle cx="15" cy="7.5" r="1"/><circle cx="17.5" cy="11" r="1"/></svg>';const sync=()=>button.style.setProperty('--palette-color',input.value);input.classList.add('font-color-native');input.insertAdjacentElement('afterend',button);button.addEventListener('mousedown',e=>e.preventDefault());button.addEventListener('click',()=>{try{if(input.showPicker)input.showPicker();else input.click();}catch(e){input.click();}});input.addEventListener('input',sync);input.addEventListener('change',sync);sync();};
         form.querySelectorAll('.typography-group input[type="color"]').forEach(attachColorPalette);
-        form.querySelectorAll('.typography-group').forEach(group=>{const hidden=group.querySelector('[data-format-value]');group.querySelectorAll('[data-format-toggle]').forEach(button=>{button.addEventListener('mousedown',e=>e.preventDefault());button.addEventListener('click',()=>{const fmt=button.dataset.formatToggle;const set=new Set((hidden?.value||'').split(/[ ,]+/).filter(Boolean));const active=set.has(fmt);active?set.delete(fmt):set.add(fmt);if(hidden)hidden.value=['bold','italic','underline'].filter(x=>set.has(x)).join(' ');button.setAttribute('aria-pressed',String(!active));updatePreview();});});group.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{input.addEventListener('change',updatePreview);});});
+        // Keep the title editor's text selection while the administrator uses the
+        // Independent Typography controls. A selected range receives inline styling;
+        // with no selection, the controls continue to set the title's default style.
+        const titleEditor=form.querySelector('[data-rich-editor="title"]');
+        let savedTitleRange=null;
+        const rememberTitleSelection=()=>{
+          const selection=window.getSelection();
+          if(!selection||selection.rangeCount===0)return;
+          const range=selection.getRangeAt(0);
+          if(titleEditor.contains(range.commonAncestorContainer))savedTitleRange=range.cloneRange();
+        };
+        ['mouseup','keyup','touchend'].forEach(eventName=>titleEditor.addEventListener(eventName,rememberTitleSelection));
+        document.addEventListener('selectionchange',rememberTitleSelection);
+        const applyTitleSelectionStyle=(property,value)=>{
+          if(!savedTitleRange||savedTitleRange.collapsed)return false;
+          const selection=window.getSelection();
+          if(!selection)return false;
+          titleEditor.focus();
+          selection.removeAllRanges();
+          selection.addRange(savedTitleRange);
+          const range=selection.getRangeAt(0);
+          if(!titleEditor.contains(range.commonAncestorContainer)||range.collapsed)return false;
+          const wrapper=document.createElement('span');
+          wrapper.style[property]=value;
+          const contents=range.extractContents();
+          wrapper.appendChild(contents);
+          range.insertNode(wrapper);
+          const nextRange=document.createRange();
+          nextRange.selectNodeContents(wrapper);
+          selection.removeAllRanges();
+          selection.addRange(nextRange);
+          savedTitleRange=nextRange.cloneRange();
+          const hidden=form.querySelector('[data-rich-value="title"]');
+          if(hidden)hidden.value=titleEditor.innerHTML;
+          return true;
+        };
+        form.querySelectorAll('.typography-group').forEach(group=>{
+          const hidden=group.querySelector('[data-format-value]');
+          const isTitleGroup=group.querySelector('[name^="typography[title]"]')!==null;
+          group.querySelectorAll('[data-format-toggle]').forEach(button=>{
+            button.addEventListener('mousedown',e=>e.preventDefault());
+            button.addEventListener('click',()=>{
+              const fmt=button.dataset.formatToggle;
+              if(isTitleGroup&&savedTitleRange&&!savedTitleRange.collapsed){
+                const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
+                const current=button.getAttribute('aria-pressed')==='true';
+                const value=fmt==='bold'?(current?'400':'700'):fmt==='italic'?(current?'normal':'italic'):(current?'none':'underline');
+                if(applyTitleSelectionStyle(prop,value)){button.setAttribute('aria-pressed',String(!current));updatePreview();return;}
+              }
+              const set=new Set((hidden?.value||'').split(/[ ,]+/).filter(Boolean));
+              const active=set.has(fmt);active?set.delete(fmt):set.add(fmt);
+              if(hidden)hidden.value=['bold','italic','underline'].filter(x=>set.has(x)).join(' ');
+              button.setAttribute('aria-pressed',String(!active));updatePreview();
+            });
+          });
+          group.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{
+            input.addEventListener('change',()=>{
+              if(isTitleGroup){
+                const prop=input.name.endsWith('[family]')?'fontFamily':input.name.endsWith('[size]')?'fontSize':'color';
+                const value=input.name.endsWith('[size]')?input.value+'px':input.value;
+                if(applyTitleSelectionStyle(prop,value)){updatePreview();return;}
+              }
+              updatePreview();
+            });
+          });
+        });
         const initRichEditors=()=>{
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
             if(editor.dataset.ready)return;editor.dataset.ready='1';
