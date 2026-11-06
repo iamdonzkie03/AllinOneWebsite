@@ -672,7 +672,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           const titleStyle=styleFor('title');Object.assign(document.getElementById('preview-header-title').style,{fontFamily:titleStyle.family||'Ubuntu',fontStyle:(titleStyle.format||'').split(/[ ,]+/).includes('italic')?'italic':'normal',fontSize:(titleStyle.size||20)+'px',fontWeight:(titleStyle.format||'').split(/[ ,]+/).includes('bold')?700:400,textDecoration:(titleStyle.format||'').split(/[ ,]+/).includes('underline')?'underline':'none',color:titleStyle.color||'#f7eef0'});
           ['hidden_left','hidden_right'].forEach(key=>{const st=styleFor(key);const el=document.getElementById(key==='hidden_left'?'preview-hidden-left':'preview-hidden-right');Object.assign(el.style,{fontFamily:st.family||'Ubuntu',fontStyle:(st.format||'').split(/[ ,]+/).includes('italic')?'italic':'normal',fontSize:(st.size||10)+'px',fontWeight:(st.format||'').split(/[ ,]+/).includes('bold')?700:400,textDecoration:(st.format||'').split(/[ ,]+/).includes('underline')?'underline':'none',color:st.color||'#cdbdc2'});});
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{const target=form.querySelector('[data-rich-value="'+editor.dataset.richEditor+'"]');if(target)target.value=editor.innerHTML;});
-          const titlePreview=document.getElementById('preview-header-title');titlePreview.innerHTML=form.querySelector('[data-rich-editor="title"]').innerHTML;titlePreview.style.setProperty('font-family',titleStyle.family||'Ubuntu','important');
+          const titlePreview=document.getElementById('preview-header-title');renderTitlePreview();titlePreview.style.setProperty('font-family',titleStyle.family||'Ubuntu','important');
           document.getElementById('preview-hidden-left').innerHTML=form.querySelector('[data-rich-editor="hidden_left"]').innerHTML;
           document.getElementById('preview-hidden-right').innerHTML=form.querySelector('[data-rich-editor="hidden_right"]').innerHTML;
           const nav=document.getElementById('preview-header-links'); nav.querySelectorAll('.custom-preview-link').forEach(a=>a.remove());
@@ -681,40 +681,52 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         };
         const attachColorPalette=(input)=>{if(!input||input.dataset.paletteReady)return;input.dataset.paletteReady='1';const button=document.createElement('button');button.type='button';button.className='font-color-palette';button.setAttribute('aria-label','Choose font color');button.title='Choose font color';button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 1.6-3.9 1.2 1.2 0 0 1 .9-2.1H18a3 3 0 0 0 3-3c0-5-4-8-9-9Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.8" r="1"/><circle cx="15" cy="7.5" r="1"/><circle cx="17.5" cy="11" r="1"/></svg>';const sync=()=>button.style.setProperty('--palette-color',input.value);input.classList.add('font-color-native');input.insertAdjacentElement('afterend',button);button.addEventListener('mousedown',e=>e.preventDefault());button.addEventListener('click',()=>{try{if(input.showPicker)input.showPicker();else input.click();}catch(e){input.click();}});input.addEventListener('input',sync);input.addEventListener('change',sync);sync();};
         form.querySelectorAll('.typography-group input[type="color"]').forEach(attachColorPalette);
-        // Keep the title editor's text selection while the administrator uses the
-        // Independent Typography controls. A selected range receives inline styling;
-        // with no selection, the controls continue to set the title's default style.
+        // Selected-text typography is stored as preview-only ranges. The editable
+        // Header Title textbox remains unchanged; only the Header Preview is styled.
         const titleEditor=form.querySelector('[data-rich-editor="title"]');
-        let savedTitleRange=null;
+        let savedTitleSelection=null;
+        const titlePreviewStyles=[];
+        const titleTextOffset=(container,offset)=>{
+          const range=document.createRange();
+          range.selectNodeContents(titleEditor);
+          range.setEnd(container,offset);
+          return range.toString().length;
+        };
         const rememberTitleSelection=()=>{
           const selection=window.getSelection();
           if(!selection||selection.rangeCount===0)return;
           const range=selection.getRangeAt(0);
-          if(titleEditor.contains(range.commonAncestorContainer))savedTitleRange=range.cloneRange();
+          if(!titleEditor.contains(range.commonAncestorContainer)||range.collapsed)return;
+          savedTitleSelection={start:titleTextOffset(range.startContainer,range.startOffset),end:titleTextOffset(range.endContainer,range.endOffset)};
         };
         ['mouseup','keyup','touchend'].forEach(eventName=>titleEditor.addEventListener(eventName,rememberTitleSelection));
         document.addEventListener('selectionchange',rememberTitleSelection);
+        const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        const renderTitlePreview=()=>{
+          const text=titleEditor.innerText||'';
+          const preview=document.getElementById('preview-header-title');
+          const boundaries=new Set([0,text.length]);
+          titlePreviewStyles.forEach(item=>{boundaries.add(Math.max(0,Math.min(text.length,item.start)));boundaries.add(Math.max(0,Math.min(text.length,item.end)));});
+          const points=[...boundaries].sort((a,b)=>a-b);
+          let html='';
+          for(let i=0;i<points.length-1;i++){
+            const start=points[i],end=points[i+1];
+            if(end<=start)continue;
+            const styles={};
+            titlePreviewStyles.filter(item=>item.start<end&&item.end>start).forEach(item=>Object.assign(styles,item.styles));
+            const content=escapePreviewText(text.slice(start,end));
+            const declarations=Object.entries(styles).map(([key,value])=>key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())+':'+value).join(';');
+            html+=declarations?'<span style="'+declarations+'">'+content+'</span>':content;
+          }
+          preview.innerHTML=html||escapePreviewText(text);
+        };
         const applyTitleSelectionStyle=(property,value)=>{
-          if(!savedTitleRange||savedTitleRange.collapsed)return false;
-          const selection=window.getSelection();
-          if(!selection)return false;
-          titleEditor.focus();
-          selection.removeAllRanges();
-          selection.addRange(savedTitleRange);
-          const range=selection.getRangeAt(0);
-          if(!titleEditor.contains(range.commonAncestorContainer)||range.collapsed)return false;
-          const wrapper=document.createElement('span');
-          wrapper.style[property]=value;
-          const contents=range.extractContents();
-          wrapper.appendChild(contents);
-          range.insertNode(wrapper);
-          const nextRange=document.createRange();
-          nextRange.selectNodeContents(wrapper);
-          selection.removeAllRanges();
-          selection.addRange(nextRange);
-          savedTitleRange=nextRange.cloneRange();
-          const hidden=form.querySelector('[data-rich-value="title"]');
-          if(hidden)hidden.value=titleEditor.innerHTML;
+          if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start)return false;
+          const {start,end}=savedTitleSelection;
+          let item=titlePreviewStyles.find(entry=>entry.start===start&&entry.end===end);
+          if(!item){item={start,end,styles:{}};titlePreviewStyles.push(item);}
+          item.styles[property]=value;
+          renderTitlePreview();
           return true;
         };
         form.querySelectorAll('.typography-group').forEach(group=>{
