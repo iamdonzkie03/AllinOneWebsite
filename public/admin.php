@@ -701,14 +701,23 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         };
         const rememberTitleSelection=()=>{
           const next=readTitleSelection();
-          if(next)savedTitleSelection=next;
+          if(next && next.end>next.start)savedTitleSelection=next;
         };
         ['mouseup','keyup','touchend'].forEach(eventName=>titleEditor.addEventListener(eventName,rememberTitleSelection));
         document.addEventListener('selectionchange',rememberTitleSelection);
         // Save the range before a typography control takes focus (especially native color pickers).
         const titleTypographyGroup=form.querySelector('.typography-group [name^="typography[title]"]')?.closest('.typography-group');
-        titleTypographyGroup?.addEventListener('pointerdown',rememberTitleSelection,true);
-        titleTypographyGroup?.addEventListener('mousedown',rememberTitleSelection,true);
+        // Capture the editor's text range at the document level, before a select,
+        // color input, or formatting button can move focus and collapse the browser range.
+        const captureTitleRangeBeforeControlFocus=event=>{
+          if(!titleTypographyGroup || !titleTypographyGroup.contains(event.target))return;
+          rememberTitleSelection();
+        };
+        document.addEventListener('pointerdown',captureTitleRangeBeforeControlFocus,true);
+        document.addEventListener('mousedown',captureTitleRangeBeforeControlFocus,true);
+        document.addEventListener('touchstart',captureTitleRangeBeforeControlFocus,{capture:true,passive:true});
+        // Some browsers dispatch change after the native picker closes. Keep the
+        // last non-collapsed title selection until the title text itself is edited.
         const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const renderTitlePreview=()=>{
           const text=titleEditor.innerText||titleEditor.textContent||'';
