@@ -74,14 +74,14 @@ $headerTypographyImportant = static function(array $t) use ($headerTextStyle): s
     $inline = $headerTextStyle($t);
     return preg_replace('/;/', ' !important;', $inline) . ' !important';
 };
-$publicHeaderTypographyCss = '.header-type-title,.header-type-title *{'.$headerTypographyImportant($publicTitleTypography).'}'
-    . '.header-type-left,.header-type-left *{'.$headerTypographyImportant($publicLeftTypography).'}'
-    . '.header-type-right,.header-type-right *{'.$headerTypographyImportant($publicRightTypography).'}';
+$publicHeaderTypographyCss = '.header-type-title{'.$headerTypographyImportant($publicTitleTypography).'}'
+    . '.header-type-left{'.$headerTypographyImportant($publicLeftTypography).'}'
+    . '.header-type-right{'.$headerTypographyImportant($publicRightTypography).'}';
 foreach ($publicHeaderLinks as $linkIndex => $headerLinkForCss) {
     if (!is_array($headerLinkForCss)) continue;
     $linkClass = 'header-type-link-' . (int)$linkIndex;
     $linkTypography = (array)($headerLinkForCss['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0']);
-    $publicHeaderTypographyCss .= '.'.$linkClass.',.'.$linkClass.' *{'.$headerTypographyImportant($linkTypography).'}';
+    $publicHeaderTypographyCss .= '.'.$linkClass.'{'.$headerTypographyImportant($linkTypography).'}';
 }
 $renderHeaderRich = static function($html,$fallback): string {
     $value=trim((string)$html);
