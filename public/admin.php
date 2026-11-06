@@ -240,9 +240,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   if (!toggle || !submenu) return;
   toggle.addEventListener('click', () => {
     const expanded = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!expanded));
-    toggle.classList.toggle('active', !expanded);
-    submenu.classList.toggle('is-open', !expanded);
+    const shouldExpand = !expanded;
+
+    // Settings is the only active top-level item while its submenu is open.
+    toggle.closest('.admin-nav')?.querySelectorAll(':scope > a').forEach(item => {
+      item.classList.remove('active');
+    });
+    toggle.classList.toggle('active', shouldExpand);
+    toggle.setAttribute('aria-expanded', String(shouldExpand));
+    submenu.classList.toggle('is-open', shouldExpand);
   });
 })();
 
