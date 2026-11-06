@@ -6,6 +6,26 @@ $nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1')
 $nicknameStmt->execute([(int)$admin['id']]);
 $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
+// Persist public header configuration in a dedicated settings row.
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  header_title VARCHAR(160) NOT NULL DEFAULT 'Z.C. commonplace',
+  logo_path VARCHAR(500) NULL,
+  header_links LONGTEXT NULL,
+  hidden_left VARCHAR(180) NULL,
+  hidden_right VARCHAR(180) NULL,
+  font_family VARCHAR(80) NOT NULL DEFAULT 'Ubuntu',
+  font_style VARCHAR(20) NOT NULL DEFAULT 'normal',
+  font_size TINYINT UNSIGNED NOT NULL DEFAULT 20,
+  font_weight SMALLINT UNSIGNED NOT NULL DEFAULT 700,
+  logo_position_x TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  logo_position_y TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
+$headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+$headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
+if (!is_array($headerLinks)) $headerLinks = [];
 $section = (string)($_GET['section'] ?? 'dashboard');
 $allowedSections = ['dashboard', 'settings', 'page-management', 'media-management', 'plugins', 'user-accounts'];
 if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
@@ -13,6 +33,66 @@ if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+    if ($action === 'save_header_settings') {
+        $title = trim((string)($_POST['header_title'] ?? ''));
+        $left = trim((string)($_POST['hidden_left'] ?? ''));
+        $right = trim((string)($_POST['hidden_right'] ?? ''));
+        $family = (string)($_POST['font_family'] ?? 'Ubuntu');
+        $style = (string)($_POST['font_style'] ?? 'normal');
+        $size = max(12, min(32, (int)($_POST['font_size'] ?? 20)));
+        $weight = (int)($_POST['font_weight'] ?? 700);
+        $weight = in_array($weight, [300,400,500,600,700,800], true) ? $weight : 700;
+        $positionX = max(0, min(100, (int)($_POST['logo_position_x'] ?? 50)));
+        $positionY = max(0, min(100, (int)($_POST['logo_position_y'] ?? 50)));
+        $allowedFamilies = ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'];
+        if (!in_array($family, $allowedFamilies, true)) $family = 'Ubuntu';
+        if (!in_array($style, ['normal','italic'], true)) $style = 'normal';
+        $links = [];
+        foreach ((array)($_POST['header_link_label'] ?? []) as $index => $label) {
+            $label = trim((string)$label);
+            $url = trim((string)(($_POST['header_link_url'][$index] ?? '')));
+            if ($label === '' && $url === '') continue;
+            if ($label === '' || $url === '' || !preg_match('~^(https?://|/|#|\\.\\./|\\./)~i', $url)) {
+                $message = 'Each header link needs a label and a valid URL (http://, https://, /, or #).';
+                break;
+            }
+            $links[] = ['label' => mb_substr($label, 0, 60), 'url' => mb_substr($url, 0, 500)];
+        }
+        $logoPath = (string)($headerSettings['logo_path'] ?? '');
+        if ($message === '' && !empty($_FILES['header_logo']['name'])) {
+            $file = $_FILES['header_logo'];
+            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int)$file['size'] > 3 * 1024 * 1024) {
+                $message = 'Logo upload failed. Choose a PNG, JPG or JPEG image up to 3 MB.';
+            } else {
+                $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+                $extensions = ['image/png'=>'png','image/jpeg'=>'jpg'];
+                if (!isset($extensions[$mime]) || @getimagesize((string)$file['tmp_name']) === false) {
+                    $message = 'Only valid PNG, JPG or JPEG logo images are allowed.';
+                } else {
+                    $uploadDir = __DIR__ . '/uploads/site-header';
+                    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                        $message = 'Unable to create the header logo upload folder.';
+                    } else {
+                        $filename = 'header-logo-' . bin2hex(random_bytes(8)) . '.' . $extensions[$mime];
+                        if (!move_uploaded_file((string)$file['tmp_name'], $uploadDir . '/' . $filename)) {
+                            $message = 'Unable to save the uploaded header logo.';
+                        } else {
+                            $logoPath = 'uploads/site-header/' . $filename;
+                        }
+                    }
+                }
+            }
+        }
+        if ($message === '' && $title === '') $message = 'Header Title is required.';
+        if ($message === '') {
+            $save = $pdo->prepare("UPDATE site_header_settings SET header_title=?,logo_path=?,header_links=?,hidden_left=?,hidden_right=?,font_family=?,font_style=?,font_size=?,font_weight=?,logo_position_x=?,logo_position_y=? WHERE id=1");
+            $save->execute([$title, $logoPath ?: null, json_encode($links, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $left, $right, $family, $style, $size, $weight, $positionX, $positionY]);
+            $headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+            $headerLinks = $links;
+            $message = 'Header settings successfully updated.';
+        }
+        $section = 'page-management';
+    }
     $id = (int)($_POST['id'] ?? 0);
     if ($action === 'delete_selected_users') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['selected_users'] ?? [])), static fn(int $v): bool => $v > 0)));
@@ -254,6 +334,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .page-management-tabs button[aria-selected="true"]{color:#fff;background:linear-gradient(110deg,rgba(128,20,39,.48),rgba(30,12,18,.62));border-color:rgba(184,50,63,.4);box-shadow:inset 1px 1px 3px rgba(255,255,255,.04),0 4px 12px rgba(0,0,0,.14)}
       .page-management-tabpanel{margin-top:20px;min-height:190px}
       .page-management-tabpanel[hidden]{display:none}
+      .header-settings-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.85fr);gap:24px;align-items:start}
+      .header-settings-fields{display:grid;gap:20px;min-width:0}.header-field{display:grid;gap:8px;color:#f4e9ec;font-size:13px;font-weight:600}.header-field b{color:#ff8799}.header-field small,.header-preview-help{font-size:11px;color:var(--muted);font-weight:400;line-height:1.55}.header-field .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:13px 'Ubuntu',sans-serif}
+      .header-link-row{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(150px,1.3fr) auto;gap:8px;margin:8px 0}.header-hidden-fields,.header-typography-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.header-hidden-fields label,.header-typography-fields label,.logo-crop-controls label{display:grid;gap:7px;font-size:12px;color:#d9cbd0}.logo-crop-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.logo-crop-controls input{width:100%;accent-color:#a52b45}
+      .header-preview-column{position:sticky;top:20px;min-width:0}.header-preview-title{font-size:13px;font-weight:700;margin-bottom:10px}.header-preview-frame{overflow:hidden;border:1px solid rgba(184,50,63,.35);border-radius:13px;background:#100d10;box-shadow:0 12px 35px rgba(0,0,0,.22)}.header-preview-topbar{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:#090809;color:#cdbdc2;font-size:9px;letter-spacing:.5px}.header-preview-main{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 12px;min-height:65px}.header-preview-brand{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;min-width:0}.header-preview-brand img{width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:50% 50%;border-radius:7px}.header-preview-brand span{overflow-wrap:anywhere}.header-preview-main nav{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}.header-preview-main nav a{font-size:9px;color:#e8dce0;text-decoration:none;white-space:nowrap}.header-preview-main nav .preview-signin{color:#fff}.header-preview-main nav .preview-join{padding:7px 9px;border-radius:7px;background:#92243a;color:#fff}.header-preview-help{margin:10px 0 0}.header-settings-actions{display:flex;justify-content:flex-end;margin-top:22px;padding-top:17px;border-top:1px solid var(--line)}
+      @media(max-width:900px){.header-settings-grid{grid-template-columns:1fr}.header-preview-column{position:static}}
+      @media(max-width:560px){.header-link-row{grid-template-columns:1fr}.header-hidden-fields,.header-typography-fields,.logo-crop-controls{grid-template-columns:1fr}.header-preview-main{align-items:flex-start;flex-direction:column}.header-preview-main nav{justify-content:flex-start}}
       @media(max-width:560px){.page-management-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.page-management-tabs button{width:100%}}
     </style>
     <section class="panel admin-panel">
@@ -266,7 +352,32 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <button type="button" id="pm-tab-video" role="tab" aria-controls="pm-panel-video" aria-selected="false" tabindex="-1" data-page-tab="video">Video</button>
       </div>
       <section class="page-management-tabpanel" id="pm-panel-header" role="tabpanel" aria-labelledby="pm-tab-header">
-        <div class="admin-note">Header management controls can be added here. No existing website content has been changed.</div>
+        <form method="post" enctype="multipart/form-data" id="header-settings-form" class="header-settings-form">
+          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+          <input type="hidden" name="action" value="save_header_settings">
+          <div class="header-settings-grid">
+            <div class="header-settings-fields">
+              <label class="header-field"><span>Header Title <b>*</b></span><input class="field" type="text" name="header_title" maxlength="160" required value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>" placeholder="Enter website title"><small>Clicking the title or logo takes visitors to index.php.</small></label>
+              <div class="header-field"><span>Header Logo <b>*</b></span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>PNG, JPG or JPEG · Maximum display size 70 × 70 px · Maximum upload 3 MB. The preview uses a square crop.</small>
+                <div class="logo-crop-controls"><label>Horizontal crop <input type="range" name="logo_position_x" id="logo-position-x" min="0" max="100" value="<?=(int)($headerSettings['logo_position_x'] ?? 50)?>"></label><label>Vertical crop <input type="range" name="logo_position_y" id="logo-position-y" min="0" max="100" value="<?=(int)($headerSettings['logo_position_y'] ?? 50)?>"></label></div>
+              </div>
+              <div class="header-field"><span>Header Links</span><small>Add as many navigation links as needed. Each URL can point directly to a website page.</small>
+                <div id="header-links-list">
+                <?php foreach($headerLinks as $linkIndex=>$headerLink): ?><div class="header-link-row"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link label" value="<?=e((string)($headerLink['label'] ?? ''))?>"><input class="field" type="text" name="header_link_url[]" maxlength="500" placeholder="Page URL (e.g. /about.php)" value="<?=e((string)($headerLink['url'] ?? ''))?>"><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
+              </div>
+              <div class="header-field"><span>Hidden Texts</span><small>Small text displayed in the slim strip above the main header.</small><div class="header-hidden-fields"><label>Left text<input class="field" type="text" name="hidden_left" maxlength="180" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>" placeholder="Text on the left"></label><label>Right text<input class="field" type="text" name="hidden_right" maxlength="180" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>" placeholder="Text on the right"></label></div></div>
+              <div class="header-field"><span>Header Title Typography</span><div class="header-typography-fields">
+                <label>Font style<select class="field" name="font_family" id="header-font-family"><?php foreach(['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'] as $font): ?><option value="<?=e($font)?>" <?=($headerSettings['font_family'] ?? 'Ubuntu')===$font?'selected':''?>><?=e($font)?></option><?php endforeach; ?></select></label>
+                <label>Text style<select class="field" name="font_style" id="header-font-style"><option value="normal" <?=($headerSettings['font_style'] ?? 'normal')==='normal'?'selected':''?>>Normal</option><option value="italic" <?=($headerSettings['font_style'] ?? 'normal')==='italic'?'selected':''?>>Italic</option></select></label>
+                <label>Font size<select class="field" name="font_size" id="header-font-size"><?php foreach([12,14,16,18,20,22,24,26,28,30,32] as $fontSize): ?><option value="<?=$fontSize?>" <?=(int)($headerSettings['font_size'] ?? 20)===$fontSize?'selected':''?>><?=$fontSize?> px</option><?php endforeach; ?></select></label>
+                <label>Font weight<select class="field" name="font_weight" id="header-font-weight"><?php foreach([300,400,500,600,700,800] as $fontWeight): ?><option value="<?=$fontWeight?>" <?=(int)($headerSettings['font_weight'] ?? 700)===$fontWeight?'selected':''?>><?=$fontWeight?></option><?php endforeach; ?></select></label>
+              </div></div>
+            </div>
+            <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title"><?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): ?><a href="<?=e((string)($headerLink['url'] ?? '#'))?>"><?=e((string)($headerLink['label'] ?? ''))?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
+          </div>
+          <div class="header-settings-actions"><button type="submit" class="btn">Save Header Settings</button></div>
+        </form>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
         <h2>Footer</h2><p class="muted">Manage the public website footer and its displayed content.</p>
@@ -286,6 +397,36 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </section>
     </section>
     <script>
+    (() => {
+      const form = document.getElementById('header-settings-form');
+      if (form) {
+        const links = document.getElementById('header-links-list');
+        const add = document.getElementById('add-header-link');
+        const makeLinkRow = (label = '', url = '') => {
+          const row = document.createElement('div'); row.className = 'header-link-row';
+          const labelInput = document.createElement('input'); labelInput.className='field'; labelInput.name='header_link_label[]'; labelInput.maxLength=60; labelInput.placeholder='Link label'; labelInput.value=label;
+          const urlInput = document.createElement('input'); urlInput.className='field'; urlInput.name='header_link_url[]'; urlInput.maxLength=500; urlInput.placeholder='Page URL (e.g. /about.php)'; urlInput.value=url;
+          const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-header-link'; remove.textContent='Remove'; remove.addEventListener('click',()=>{row.remove();updatePreview();});
+          [labelInput,urlInput].forEach(input=>input.addEventListener('input',updatePreview)); row.append(labelInput,urlInput,remove); return row;
+        };
+        const updatePreview = () => {
+          const title=form.elements.header_title.value.trim() || 'Header Title';
+          document.getElementById('preview-header-title').textContent=title;
+          document.getElementById('preview-hidden-left').textContent=form.elements.hidden_left.value;
+          document.getElementById('preview-hidden-right').textContent=form.elements.hidden_right.value;
+          const brand=document.getElementById('preview-header-brand');
+          Object.assign(document.getElementById('preview-header-title').style,{fontFamily:form.elements.font_family.value,fontStyle:form.elements.font_style.value,fontSize:form.elements.font_size.value+'px',fontWeight:form.elements.font_weight.value});
+          const nav=document.getElementById('preview-header-links'); nav.querySelectorAll('.custom-preview-link').forEach(a=>a.remove());
+          [...links.querySelectorAll('.header-link-row')].forEach(row=>{const label=row.querySelector('[name="header_link_label[]"]').value.trim();const url=row.querySelector('[name="header_link_url[]"]').value.trim();if(label){const a=document.createElement('a');a.className='custom-preview-link';a.textContent=label;a.href=url||'#';nav.insertBefore(a,nav.querySelector('.preview-signin'));}});
+          const logo=document.getElementById('preview-header-logo');logo.style.objectPosition=form.elements.logo_position_x.value+'% '+form.elements.logo_position_y.value+'%';
+        };
+        add.addEventListener('click',()=>{links.append(makeLinkRow());updatePreview();});
+        links.querySelectorAll('.remove-header-link').forEach(button=>button.addEventListener('click',()=>{button.closest('.header-link-row').remove();updatePreview();}));
+        form.querySelectorAll('input:not([type="file"]),select').forEach(input=>input.addEventListener('input',updatePreview));
+        const fileInput=document.getElementById('header-logo-input');fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(!file)return;if(!['image/png','image/jpeg'].includes(file.type)){alert('Choose a PNG, JPG or JPEG image.');fileInput.value='';return;}const reader=new FileReader();reader.onload=()=>{const img=document.getElementById('preview-header-logo');img.src=reader.result;img.style.display='block';updatePreview();};reader.readAsDataURL(file);});
+        updatePreview();
+      }
+    })();
     (() => {
       const tabs = [...document.querySelectorAll('[data-page-tab]')];
       if (!tabs.length) return;
