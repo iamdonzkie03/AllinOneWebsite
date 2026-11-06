@@ -47,7 +47,10 @@ $headerTextStyle = static function(array $t): string {
     $size=max(8,min(40,(int)($t['size']??13)));
     $weight=in_array((int)($t['weight']??400),[300,400,500,600,700,800],true)?(int)$t['weight']:400;
     $color=preg_match('/^#[0-9a-f]{6}$/i',(string)($t['color']??''))?$t['color']:'#eadde1';
-    return 'font-family:'.htmlspecialchars((string)$family,ENT_QUOTES,'UTF-8').';font-style:'.$style.';font-size:'.$size.'px;font-weight:'.$weight.';color:'.$color;
+    $format=(string)($t['format']??(($weight>=700)?'bold':(($style==='italic')?'italic':'normal')));
+    if(!in_array($format,['normal','bold','italic','underline'],true))$format='normal';
+    $fontStyle=$format==='italic'?'italic':'normal';$fontWeight=$format==='bold'?700:$weight;$decoration=$format==='underline'?'underline':'none';
+    return 'font-family:'.htmlspecialchars((string)$family,ENT_QUOTES,'UTF-8').';font-style:'.$fontStyle.';font-size:'.$size.'px;font-weight:'.$fontWeight.';text-decoration:'.$decoration.';color:'.$color;
 };
 $renderHeaderRich = static function($html,$fallback): string {
     $value=trim((string)$html);
