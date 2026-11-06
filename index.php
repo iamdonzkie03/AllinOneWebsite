@@ -42,9 +42,9 @@ $databaseHeaderSettings = $pdo->query("SELECT * FROM site_header_settings WHERE 
 $githubPublishedHeaderSettings = json_decode(base64_decode('W10=', true) ?: '[]', true);
 // END GITHUB-PUBLISHED HEADER SETTINGS
 
-$publicHeader = is_array($githubPublishedHeaderSettings) && $githubPublishedHeaderSettings
-    ? array_merge($databaseHeaderSettings, $githubPublishedHeaderSettings)
-    : $databaseHeaderSettings;
+// Local Laragon homepage always uses the latest saved database row.
+// GitHub publishing is independent and must never override local database settings.
+$publicHeader = $databaseHeaderSettings;
 
 $publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? ''));
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
