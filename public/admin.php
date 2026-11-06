@@ -129,8 +129,27 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   box-shadow:inset 1px 1px 3px rgba(255,255,255,.045),inset -2px -2px 5px rgba(0,0,0,.28),0 5px 16px rgba(0,0,0,.16)
 }
 .admin-nav .settings-nav-label{flex:1}
-.admin-nav .settings-chevron{margin-left:auto;display:flex;align-items:center;justify-content:center;align-self:center;height:22px;min-width:22px;font-size:17px;line-height:1;transform:rotate(0);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
-.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
+.admin-nav .settings-chevron{
+  margin-left:auto;display:grid;place-items:center;align-self:center;
+  width:24px;height:24px;min-width:24px;flex:0 0 24px;
+  border:1px solid rgba(215,170,178,.24);border-radius:8px;
+  background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.025));
+  color:#e7c5cb;font-size:0;line-height:1;
+  box-shadow:inset 1px 1px 2px rgba(255,255,255,.06),0 2px 5px rgba(0,0,0,.2);
+  transition:transform .3s cubic-bezier(.2,.8,.2,1),background .2s,border-color .2s;
+}
+.admin-nav .settings-chevron::before{
+  content:"";width:7px;height:7px;display:block;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;
+  transform:translateY(-2px) rotate(45deg);transition:transform .3s cubic-bezier(.2,.8,.2,1);
+}
+.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{
+  background:linear-gradient(145deg,rgba(160,38,59,.34),rgba(90,16,31,.24));
+  border-color:rgba(210,100,120,.42);color:#fff;
+}
+.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron::before{
+  transform:translateY(2px) rotate(225deg);
+}
 .admin-subnav.settings-subnav{
   display:grid;gap:3px;margin:0 0 0 22px;padding:0 0 0 13px;
   border-left:1px solid rgba(184,50,63,.25);overflow:hidden;
