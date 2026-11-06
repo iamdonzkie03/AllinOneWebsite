@@ -246,6 +246,75 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open tab</a></div>
       <div class="admin-feature"><div class="symbol">⌘</div><h3>Plugins</h3><p>Review and manage optional website extensions.</p><a class="btn light" href="<?=e(adminUrl('plugins'))?>">Open tab</a></div>
     </div>
+  <?php elseif($section==='page-management'): ?>
+    <style>
+      .page-management-tabs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:20px 0 0;padding:0 0 12px;border-bottom:1px solid var(--line)}
+      .page-management-tabs button{appearance:none;border:1px solid transparent;border-radius:10px;padding:10px 17px;background:transparent;color:#c8bec1;font:500 13px 'Ubuntu',sans-serif;cursor:pointer;transition:background .2s,border-color .2s,color .2s,box-shadow .2s}
+      .page-management-tabs button:hover{background:rgba(255,255,255,.045);color:#fff}
+      .page-management-tabs button[aria-selected="true"]{color:#fff;background:linear-gradient(110deg,rgba(128,20,39,.48),rgba(30,12,18,.62));border-color:rgba(184,50,63,.4);box-shadow:inset 1px 1px 3px rgba(255,255,255,.04),0 4px 12px rgba(0,0,0,.14)}
+      .page-management-tabpanel{margin-top:20px;min-height:190px}
+      .page-management-tabpanel[hidden]{display:none}
+      @media(max-width:560px){.page-management-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.page-management-tabs button{width:100%}}
+    </style>
+    <section class="panel admin-panel">
+      <div class="admin-panel-head"><div><h2>Page Management</h2><p class="muted">Manage the content and presentation of your public website.</p></div></div>
+      <div class="page-management-tabs" role="tablist" aria-label="Page Management tabs">
+        <button type="button" id="pm-tab-header" role="tab" aria-controls="pm-panel-header" aria-selected="true" tabindex="0" data-page-tab="header">Header</button>
+        <button type="button" id="pm-tab-footer" role="tab" aria-controls="pm-panel-footer" aria-selected="false" tabindex="-1" data-page-tab="footer">Footer</button>
+        <button type="button" id="pm-tab-sections" role="tab" aria-controls="pm-panel-sections" aria-selected="false" tabindex="-1" data-page-tab="sections">Sections</button>
+        <button type="button" id="pm-tab-gallery" role="tab" aria-controls="pm-panel-gallery" aria-selected="false" tabindex="-1" data-page-tab="gallery">Gallery</button>
+        <button type="button" id="pm-tab-video" role="tab" aria-controls="pm-panel-video" aria-selected="false" tabindex="-1" data-page-tab="video">Video</button>
+      </div>
+      <section class="page-management-tabpanel" id="pm-panel-header" role="tabpanel" aria-labelledby="pm-tab-header">
+        <h2>Header</h2><p class="muted">Manage the public website header and its displayed content.</p>
+        <div class="admin-note">Header management controls can be added here. No existing website content has been changed.</div>
+      </section>
+      <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
+        <h2>Footer</h2><p class="muted">Manage the public website footer and its displayed content.</p>
+        <div class="admin-note">Footer management controls can be added here. No existing website content has been changed.</div>
+      </section>
+      <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
+        <h2>Sections</h2><p class="muted">Manage the sections and content blocks shown across the public website.</p>
+        <div class="admin-note">Section management controls can be added here. No existing website content has been changed.</div>
+      </section>
+      <section class="page-management-tabpanel" id="pm-panel-gallery" role="tabpanel" aria-labelledby="pm-tab-gallery" hidden>
+        <h2>Gallery</h2><p class="muted">Manage photographs and image collections displayed on the public website.</p>
+        <div class="admin-note">Gallery management controls can be added here. No existing website content has been changed.</div>
+      </section>
+      <section class="page-management-tabpanel" id="pm-panel-video" role="tabpanel" aria-labelledby="pm-tab-video" hidden>
+        <h2>Video</h2><p class="muted">Manage videos displayed on the public website.</p>
+        <div class="admin-note">Video management controls can be added here. No existing website content has been changed.</div>
+      </section>
+    </section>
+    <script>
+    (() => {
+      const tabs = [...document.querySelectorAll('[data-page-tab]')];
+      if (!tabs.length) return;
+      const activate = (tab, moveFocus = false) => {
+        tabs.forEach(item => {
+          const selected = item === tab;
+          item.setAttribute('aria-selected', String(selected));
+          item.tabIndex = selected ? 0 : -1;
+          const panel = document.getElementById(item.getAttribute('aria-controls'));
+          if (panel) panel.hidden = !selected;
+        });
+        if (moveFocus) tab.focus();
+      };
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', event => {
+          let next = index;
+          if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+          else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = tabs.length - 1;
+          else return;
+          event.preventDefault();
+          activate(tabs[next], true);
+        });
+      });
+    })();
+    </script>
   <?php else: $info=$settings[$section]; ?>
     <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted"><?=e($info[1])?></p><div class="admin-note">This Settings tab is ready for its management controls. No existing records have been changed.</div></section>
   <?php endif; ?>
