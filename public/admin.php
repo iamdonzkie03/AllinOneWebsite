@@ -139,9 +139,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   transition:background .25s,border-color .25s,color .25s,transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .25s;
 }
 .admin-nav .settings-chevron::before{
-  content:"";display:block;width:8px;height:8px;
+  content:"";display:block;width:7px;height:7px;
   border-right:2px solid currentColor;border-bottom:2px solid currentColor;
-  transform:translateY(-2px) rotate(45deg);
+  transform:translateY(-1px) rotate(45deg);
+  transform-origin:center;
   transition:transform .3s cubic-bezier(.2,.8,.2,1);
 }
 .admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{
@@ -149,7 +150,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   color:#fff;box-shadow:inset 0 1px 3px rgba(0,0,0,.25),0 0 0 3px rgba(150,28,51,.09);
 }
 .admin-nav .settings-nav[aria-expanded="true"] .settings-chevron::before{
-  transform:translateY(2px) rotate(225deg);
+  transform:translateY(1px) rotate(225deg);
 }
 .admin-subnav.settings-subnav{
   display:grid;gap:3px;margin:0 0 0 22px;padding:0 0 0 13px;
