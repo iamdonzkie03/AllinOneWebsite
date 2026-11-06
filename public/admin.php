@@ -266,7 +266,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <button type="button" id="pm-tab-video" role="tab" aria-controls="pm-panel-video" aria-selected="false" tabindex="-1" data-page-tab="video">Video</button>
       </div>
       <section class="page-management-tabpanel" id="pm-panel-header" role="tabpanel" aria-labelledby="pm-tab-header">
-        <h2>Header</h2><p class="muted">Manage the public website header and its displayed content.</p>
         <div class="admin-note">Header management controls can be added here. No existing website content has been changed.</div>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
