@@ -2,6 +2,11 @@
 declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
+// Public pages must always read the latest saved header configuration, not a cached HTML response.
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 // Load the header settings configured by the System Administrator.
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
   id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
