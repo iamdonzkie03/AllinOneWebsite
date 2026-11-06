@@ -33,13 +33,18 @@ foreach (['title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hid
     $exists->execute([$column]);
     if (!(int)$exists->fetchColumn()) $pdo->exec("ALTER TABLE site_header_settings ADD COLUMN {$column} {$definition}");
 }
-$publicHeader = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+$databaseHeaderSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
+
+// The GitHub-published values are the public site's authoritative Header tab
+// configuration. The database row is retained as a fallback for installations
+// that have not yet published their Header settings to GitHub.
 // BEGIN GITHUB-PUBLISHED HEADER SETTINGS
-$githubPublishedHeaderSettings = json_decode(base64_decode('W10='), true) ?: [];
+$githubPublishedHeaderSettings = json_decode(base64_decode('W10=', true) ?: '[]', true);
 // END GITHUB-PUBLISHED HEADER SETTINGS
-if (is_array($githubPublishedHeaderSettings) && $githubPublishedHeaderSettings) {
-    $publicHeader = array_merge($publicHeader, $githubPublishedHeaderSettings);
-}
+
+$publicHeader = is_array($githubPublishedHeaderSettings) && $githubPublishedHeaderSettings
+    ? array_merge($databaseHeaderSettings, $githubPublishedHeaderSettings)
+    : $databaseHeaderSettings;
 
 $publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? ''));
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
@@ -163,8 +168,9 @@ $modules = [
 </style>
 </head>
 <body>
-<div class="topbar"><div class="wrap"><span style="<?=e($headerTextStyle($publicLeftTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span style="<?=e($headerTextStyle($publicRightTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
-<header><div class="wrap nav">
+<!-- Public header is rendered from the latest Header tab configuration published by Page Management. -->
+<div class="topbar" id="public-site-header-topbar" data-header-source="page-management"><div class="wrap"><span style="<?=e($headerTextStyle($publicLeftTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span style="<?=e($headerTextStyle($publicRightTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
+<header id="public-site-header" data-header-source="page-management"><div class="wrap nav">
 <a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle !== '' ? $publicHeaderTitle : 'Home')?> " style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
 <nav class="navlinks">
 <?php foreach ($publicHeaderLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a href="<?=e((string)$headerLink['url'])?>" style="<?=e($headerTextStyle((array)($headerLink['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0'])))?>"><?=$renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label'])?></a><?php endforeach; ?>
