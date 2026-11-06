@@ -2,45 +2,9 @@
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 $admin = require_admin();
-
-// Page Management storage: movable homepage sections and their content items.
-$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_sections (
- id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
- page_name VARCHAR(140) NOT NULL,
- slug VARCHAR(160) NOT NULL UNIQUE,
- description TEXT NULL,
- position ENUM('left','right','top','bottom') NOT NULL DEFAULT 'top',
- width_percent TINYINT UNSIGNED NOT NULL DEFAULT 100,
- sort_order INT NOT NULL DEFAULT 0,
- is_active TINYINT(1) NOT NULL DEFAULT 1,
- created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
- updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_section_items (
- id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
- section_id INT UNSIGNED NOT NULL,
- item_type VARCHAR(32) NOT NULL DEFAULT 'story',
- title VARCHAR(180) NOT NULL,
- body MEDIUMTEXT NULL,
- media_url VARCHAR(1000) NULL,
- link_label VARCHAR(100) NULL,
- link_page_name VARCHAR(140) NULL,
- sort_order INT NOT NULL DEFAULT 0,
- created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
- updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- INDEX(section_id),
- CONSTRAINT fk_homepage_item_section FOREIGN KEY(section_id) REFERENCES homepage_sections(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-// Component-specific Page Management settings (safe for existing installations).
-foreach (['component_type' => "VARCHAR(24) NOT NULL DEFAULT 'content'", 'settings_json' => 'LONGTEXT NULL'] as $column => $definition) {
-    try { $pdo->exec("ALTER TABLE homepage_sections ADD COLUMN {$column} {$definition}"); } catch (PDOException $ignored) {}
-}
-$sectionEditId = (int)($_GET['edit_section'] ?? 0);
-
-$profileStmt = $pdo->prepare('SELECT full_name,nickname,email,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE id = ? LIMIT 1');
-$profileStmt->execute([(int)$admin['id']]);
-$adminProfile = $profileStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-$adminNickname = trim((string)($adminProfile['nickname'] ?? '')) ?: 'Administrator';
+$nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1');
+$nicknameStmt->execute([(int)$admin['id']]);
+$adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
 $section = (string)($_GET['section'] ?? 'dashboard');
 $allowedSections = ['dashboard', 'settings', 'page-management', 'media-management', 'plugins', 'user-accounts'];
@@ -50,125 +14,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
     $id = (int)($_POST['id'] ?? 0);
-    if (in_array($action, ['save_homepage_section','delete_homepage_section','save_homepage_item','delete_homepage_item','toggle_homepage_section'], true)) {
-        $section = 'page-management';
-        if ($action === 'save_homepage_section') {
-            $pageName = trim((string)($_POST['page_name'] ?? ''));
-            $slug = strtolower(trim((string)($_POST['slug'] ?? '')));
-            $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', $slug), '-');
-            if ($slug === '') $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($pageName)), '-');
-            $description = trim((string)($_POST['description'] ?? ''));
-            $componentType = (string)($_POST['component_type'] ?? 'content');
-            if (!in_array($componentType, ['header','content','menubar','footer','slideshow','news','quick-links'], true)) $componentType = 'content';
-            $logoUrl = trim((string)($_POST['logo_url'] ?? '')); if (!empty($_FILES['header_logo_file']['name']) && is_uploaded_file($_FILES['header_logo_file']['tmp_name'])) { $upload=$_FILES['header_logo_file']; if ((int)$upload['size']>5*1024*1024) { $message='Header image must not exceed 5 MB.'; } else { $mime=(new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']); $types=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp','image/gif'=>'gif']; if (!isset($types[$mime])) { $message='Upload a PNG, JPG, WEBP or GIF image.'; } else { $dir=__DIR__.'/uploads/header-logos'; if (!is_dir($dir)) mkdir($dir,0755,true); $file='header-'.bin2hex(random_bytes(12)).'.'.$types[$mime]; if (move_uploaded_file($upload['tmp_name'],$dir.'/'.$file)) $logoUrl='uploads/header-logos/'.$file; else $message='The header image could not be saved.'; } } } $settingsJson = json_encode(['text_color'=>$_POST['text_color'] ?? '#f5e9ed','background_color'=>$_POST['background_color'] ?? '#160d11','font_size'=>max(10,min(72,(int)($_POST['font_size'] ?? 24))),'logo_url'=>$logoUrl,'layout'=>$_POST['layout'] ?? 'standard','media_url'=>trim((string)($_POST['component_media_url'] ?? '')),'video_url'=>trim((string)($_POST['video_url'] ?? '')),'logo_x'=>max(0,min(100,(int)($_POST['logo_x'] ?? 50))),'logo_y'=>max(0,min(100,(int)($_POST['logo_y'] ?? 50))),'logo_scale'=>max(10,min(300,(int)($_POST['logo_scale'] ?? 100))),'header_height'=>180,'menu_behavior'=>$_POST['menu_behavior'] ?? 'dropdown','menu_items'=>trim((string)($_POST['menu_items'] ?? '')),'footer_content'=>trim((string)($_POST['footer_content'] ?? '')),'news_label'=>trim((string)($_POST['news_label'] ?? 'News')),'show_labels'=>isset($_POST['show_labels'])], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
-            $position = (string)($_POST['position'] ?? 'top');
-            $width = max(10, min(100, (int)($_POST['width_percent'] ?? 100)));
-            $sort = (int)($_POST['sort_order'] ?? 0);
-            $editId = (int)($_POST['section_id'] ?? 0);
-            if ($message !== '') { /* upload validation failed; do not save invalid upload */ } elseif ($pageName === '' || strlen($pageName) > 140 || $slug === '' || !in_array($position,['left','right','top','bottom'],true)) {
-                $message = 'Enter a valid page name and layout position.';
-            } else {
-                try {
-                    if ($editId > 0) {
-                        $s=$pdo->prepare('UPDATE homepage_sections SET page_name=?,slug=?,description=?,position=?,width_percent=?,sort_order=?,component_type=?,settings_json=? WHERE id=?');
-                        $s->execute([$pageName,$slug,$description,$position,$width,$sort,$componentType,$settingsJson,$editId]);
-                    } else {
-                        $s=$pdo->prepare('INSERT INTO homepage_sections(page_name,slug,description,position,width_percent,sort_order,component_type,settings_json) VALUES(?,?,?,?,?,?,?,?)');
-                        $s->execute([$pageName,$slug,$description,$position,$width,$sort,$componentType,$settingsJson]);
-                    }
-                    $message = 'Section page saved successfully.';
-                } catch (PDOException $e) { $message = 'That page name or page address is already in use.'; }
-            }
-        } elseif ($action === 'toggle_homepage_section') {
-            $toggleId=(int)($_POST['section_id'] ?? 0); $active=(int)($_POST['is_active'] ?? 0)===1?1:0;
-            $s=$pdo->prepare('UPDATE homepage_sections SET is_active=? WHERE id=?'); $s->execute([$active,$toggleId]);
-            $message=$active?'Component published.':'Component unpublished.';
-        } elseif ($action === 'delete_homepage_section') {
-            $s=$pdo->prepare('DELETE FROM homepage_sections WHERE id=?'); $s->execute([(int)($_POST['section_id'] ?? 0)]);
-            $message='Section page and its content items deleted.';
-        } elseif ($action === 'save_homepage_item') {
-            $sectionId=(int)($_POST['section_id'] ?? 0); $itemId=(int)($_POST['item_id'] ?? 0);
-            $type=(string)($_POST['item_type'] ?? 'story'); $title=trim((string)($_POST['item_title'] ?? ''));
-            $body=trim((string)($_POST['item_body'] ?? '')); $media=trim((string)($_POST['media_url'] ?? ''));
-            $linkLabel=trim((string)($_POST['link_label'] ?? '')); $targetName=trim((string)($_POST['link_page_name'] ?? ''));
-            $validTypes=['slideshow','content-menu','news','story','marketplace','text','image'];
-            $exists=$pdo->prepare('SELECT id FROM homepage_sections WHERE id=?'); $exists->execute([$sectionId]);
-            if (!$exists->fetchColumn() || $title==='' || !in_array($type,$validTypes,true) || ($linkLabel!=='' && $targetName==='')) {
-                $message='Enter a title and, whenever a link is added, its destination page name.';
-            } else {
-                if ($targetName!=='') { $target=$pdo->prepare('SELECT id FROM homepage_sections WHERE page_name=? LIMIT 1'); $target->execute([$targetName]); if (!$target->fetchColumn()) { $message='The link destination page name must match an existing Section Page.'; } }
-                if ($message==='') {
-                    if ($itemId>0) { $s=$pdo->prepare('UPDATE homepage_section_items SET item_type=?,title=?,body=?,media_url=?,link_label=?,link_page_name=? WHERE id=? AND section_id=?'); $s->execute([$type,$title,$body,$media,$linkLabel?:null,$targetName?:null,$itemId,$sectionId]); }
-                    else { $s=$pdo->prepare('INSERT INTO homepage_section_items(section_id,item_type,title,body,media_url,link_label,link_page_name,sort_order) VALUES(?,?,?,?,?,?,?,?)'); $s->execute([$sectionId,$type,$title,$body,$media,$linkLabel?:null,$targetName?:null,(int)($_POST['item_sort'] ?? 0)]); }
-                    $message='Content item saved successfully.';
-                }
-            }
-        } elseif ($action === 'delete_homepage_item') {
-            $s=$pdo->prepare('DELETE FROM homepage_section_items WHERE id=? AND section_id=?'); $s->execute([(int)($_POST['item_id'] ?? 0),(int)($_POST['section_id'] ?? 0)]);
-            $message='Content item deleted.';
-        }
-    }
-    if ($action === 'update_admin_profile') {
-        $last = trim((string)($_POST['lastname'] ?? ''));
-        $first = trim((string)($_POST['firstname'] ?? ''));
-        $middleInitial = trim((string)($_POST['middle_initial'] ?? ''));
-        $suffix = trim((string)($_POST['suffix'] ?? ''));
-        $email = strtolower(trim((string)($_POST['email'] ?? '')));
-        $nickname = trim((string)($_POST['nickname'] ?? ''));
-        $mobile = preg_replace('/[\\s().-]/', '', trim((string)($_POST['mobile_no'] ?? ''))) ?? '';
-        $password = (string)($_POST['new_password'] ?? '');
-        $fullName = implode(', ', array_values(array_filter([$last, $first, $middleInitial, $suffix], static fn(string $v): bool => $v !== '')));
-        $passwordValid = strlen($password) >= 10 && preg_match('/[A-Z]/', $password) && preg_match('/[0-9]/', $password) && preg_match('/[^A-Za-z0-9]/', $password);
-        if ($last === '' || $first === '' || $nickname === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190 ||
-            strlen($last)>80 || strlen($first)>80 || strlen($middleInitial)>10 || strlen($suffix)>20 || strlen($nickname)>80 ||
-            ($mobile !== '' && !preg_match('/^\\+639[0-9]{9}$/', $mobile)) ||
-            ($password !== '' && !$passwordValid)) {
-            $message = 'Please check the required profile fields, Philippine mobile number, and password requirements.';
-        } else {
-            $duplicateEmail = $pdo->prepare('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1');
-            $duplicateEmail->execute([$email, (int)$admin['id']]);
-            if ($duplicateEmail->fetchColumn()) {
-                $message = 'That email address is already in use by another account.';
-            } else {
-                $sql = 'UPDATE users SET full_name=?,lastname=?,firstname=?,middlename=?,suffix=?,email=?,nickname=?,mobile_no=?';
-                $values = [$fullName,$last,$first,$middleInitial,$suffix,$email,$nickname,$mobile !== '' ? $mobile : null];
-                if ($password !== '') { $sql .= ',password_hash=?'; $values[] = password_hash($password, PASSWORD_DEFAULT); }
-                $sql .= ' WHERE id=? AND role=\'system_admin\'';
-                $values[] = (int)$admin['id'];
-                $profileUpdate = $pdo->prepare($sql);
-                $profileUpdate->execute($values);
-                $passwordWasChanged = $password !== '';
-                if ($passwordWasChanged) {
-                    $_SESSION = [];
-                    if (ini_get('session.use_cookies')) {
-                        $cookie = session_get_cookie_params();
-                        setcookie(session_name(), '', time() - 42000, $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly']);
-                    }
-                    session_destroy();
-                    header('Location: ../index.php?profile_password_updated=1#sign-in-modal');
-                    exit;
-                }
-                $adminProfile = array_merge($adminProfile, ['full_name'=>$fullName,'lastname'=>$last,'firstname'=>$first,'middlename'=>$middleInitial,'suffix'=>$suffix,'email'=>$email,'nickname'=>$nickname,'mobile_no'=>$mobile]);
-                $adminNickname = $nickname;
-                $message = 'Account successfully updated';
-            }
-        }
-    }
     if ($action === 'delete_selected_users') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['selected_users'] ?? [])), static fn(int $v): bool => $v > 0)));
         if ($ids) {
             $marks = implode(',', array_fill(0, count($ids), '?'));
             $delete = $pdo->prepare("DELETE FROM users WHERE id IN ($marks) AND role<>'system_admin'");
             $delete->execute($ids);
-            // Post/Redirect/Get prevents browser form-resubmission prompts after deletion.
-            // Successful deletion is confirmed by the refreshed account list, not a page alert.
-            header('Location: ' . adminUrl('user-accounts'), true, 303);
-            exit;
-        } else {
-            $message = 'Select at least one account to delete.';
-            header('Location: ' . adminUrl('user-accounts'), true, 303);
-            exit;
-        }
+            $message = $delete->rowCount() . ' user account(s) deleted.';
+        } else $message = 'Select at least one account to delete.';
+        $section = 'user-accounts';
     }
     if ($action === 'toggle_user_status') {
         $next = (string)($_POST['next_status'] ?? '') === 'approved' ? 'approved' : 'suspended';
@@ -193,14 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section = 'dashboard';
     }
 }
-$homepageSections = $pdo->query("SELECT * FROM homepage_sections ORDER BY sort_order,id")->fetchAll();
-$homepageItemsStmt = $pdo->query("SELECT * FROM homepage_section_items ORDER BY sort_order,id");
-$homepageItems = [];
-foreach ($homepageItemsStmt->fetchAll() as $homepageItem) $homepageItems[(int)$homepageItem['section_id']][] = $homepageItem;
-$editingSection = null;
-$editingSettings = [];
-if ($sectionEditId > 0) { $findSection=$pdo->prepare('SELECT * FROM homepage_sections WHERE id=?'); $findSection->execute([$sectionEditId]); $editingSection=$findSection->fetch(PDO::FETCH_ASSOC) ?: null;
-if ($editingSection && !empty($editingSection['settings_json'])) { $decoded=json_decode((string)$editingSection['settings_json'],true); if (is_array($decoded)) $editingSettings=$decoded; } }
 $activeUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin' AND account_status='approved'")->fetchColumn();
 $managedUsers = $pdo->query("SELECT id,full_name,email,credential_notes,created_at,updated_at,account_status,email_verified_at,nickname,birthdate,birthplace,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE role<>'system_admin' ORDER BY created_at DESC")->fetchAll();
 $pendingContent = $pdo->query("SELECT c.id,c.title,c.content_type,c.created_at,u.full_name,cat.name category_name FROM content c JOIN users u ON u.id=c.owner_id JOIN categories cat ON cat.id=c.category_id WHERE c.status='pending_review' ORDER BY c.created_at")->fetchAll();
@@ -208,11 +54,6 @@ $totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_a
 $publishedContent = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE status='published'")->fetchColumn();
 function navActive(string $current, string $target): string { return $current === $target ? ' active' : ''; }
 function adminUrl(string $section): string { return 'admin.php?section=' . rawurlencode($section); }
-function formatAccountDateTime(?string $value): string {
-    if ($value === null || trim($value) === '') return '—';
-    $timestamp = strtotime($value);
-    return $timestamp === false ? $value : date('F d, Y h:i A', $timestamp);
-}
 ?><!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>System Administrator | Z.C. Commonplace</title>
@@ -255,44 +96,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-feature h3{font:22px Georgia,serif;margin:12px 0 8px}
 .admin-feature p{font-size:13px;color:var(--muted);margin:0 0 17px}
 .admin-panel .users-table{min-width:1040px}.user-full-name{font-weight:800;color:#fff}.user-subdetails{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.7}.user-select-cell{width:42px;text-align:center}.user-toggle{position:relative;display:inline-flex;align-items:center;justify-content:flex-start;gap:9px;min-width:112px;height:36px;padding:4px 11px 4px 5px;border-radius:999px;border:1px solid rgba(70,180,125,.48);background:rgba(35,130,82,.18);color:#9de0b8;font-size:12px;font-weight:800;cursor:pointer;transition:background .2s,border-color .2s}.user-toggle .toggle-knob{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#62c98d;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:transform .2s,background .2s}.user-toggle.inactive{justify-content:flex-end;padding:4px 5px 4px 11px;border-color:rgba(220,85,100,.48);background:rgba(150,35,55,.2);color:#ff9eaa}.user-toggle.inactive .toggle-knob{order:2;background:#e66b7d}.user-toggle:focus-visible{outline:2px solid #e7b7c1;outline-offset:3px}.bulk-delete{background:#8f2034;border-color:#a62b42;color:#fff}.user-actions{display:flex;gap:7px;align-items:center}.pending-email-verification{display:inline-block;padding:7px 10px;border:1px solid rgba(220,165,70,.38);border-radius:999px;background:rgba(150,105,30,.13);color:#f0ca83;font-size:11px;font-weight:700;white-space:nowrap}.admin-note{padding:14px 16px;border:1px solid rgba(184,50,63,.25);border-radius:12px;color:#d7c9cc;background:rgba(105,8,24,.12);font-size:13px}
-.admin-profile-card{margin:26px 5px 0;padding:18px 15px;border:1px solid rgba(184,50,63,.32);border-radius:15px;background:linear-gradient(145deg,rgba(128,20,39,.2),rgba(255,255,255,.025));box-shadow:0 12px 30px rgba(0,0,0,.18)}
-.admin-profile-kicker{display:block;margin-bottom:10px;color:#bbaeb2;font-size:10px;letter-spacing:1.4px;text-transform:uppercase}
-.admin-profile-name{display:block;margin:2px 0 5px;color:#fff;font-size:16px;font-weight:700;overflow-wrap:anywhere}
-.admin-profile-role{display:block;color:#c8bec1;font-size:11px}
-.admin-profile-edit{width:100%;margin-top:15px;justify-content:center;font-size:12px!important}
-.profile-modal{position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,.78);backdrop-filter:blur(7px);overflow:hidden}
-.profile-modal[hidden]{display:none}
-.profile-modal-card{box-sizing:border-box;width:min(680px,100%);max-height:calc(100dvh - 24px);overflow:hidden;padding:clamp(12px,2.2vh,20px) clamp(14px,2.5vw,22px);border:1px solid rgba(184,50,63,.45);border-radius:16px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 25px 90px rgba(0,0,0,.65)}
-.profile-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:clamp(9px,1.5vh,14px)}
-.profile-modal-head h2{margin:0 0 4px;font-size:18px;color:#fff}
-.profile-modal-head p{margin:0;color:var(--muted);font-size:11px}
-.profile-modal-close{flex:0 0 32px;width:32px;height:32px;display:grid;place-items:center;box-sizing:border-box;padding:0;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.04);color:#fff;font-size:20px;line-height:1;cursor:pointer}
-.profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}
-.profile-form-field{display:grid;gap:4px;min-width:0}
-.profile-form-field.full{grid-column:1/-1}
-.profile-form-field label{color:#d9cdd1;font-size:11px}
-.profile-form-field input{width:100%;min-width:0;box-sizing:border-box;padding:8px 10px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:#171115;color:#fff;font:12px Ubuntu,sans-serif}
-.profile-form-field input:focus{outline:2px solid rgba(184,50,63,.5);border-color:#a83248}
-.profile-form-field input[readonly]{color:#a99da1;background:#120f11}
-.profile-password-input-wrap{position:relative;display:flex;align-items:center}
-.profile-password-input-wrap input{padding-right:42px}
-.profile-password-toggle,.profile-password-toggle:hover,.profile-password-toggle:focus,.profile-password-toggle:focus-visible,.profile-password-toggle:active{position:absolute;right:7px;top:50%;transform:translateY(-50%) !important;translate:0 0 !important;scale:1 !important;display:grid;place-items:center;box-sizing:border-box;width:30px;height:30px;min-width:30px;min-height:30px;padding:5px;border:0;border-radius:6px;background:transparent;color:#bbaeb2;cursor:pointer;transition:none !important}
-.profile-password-toggle:hover,.profile-password-toggle:focus-visible{transform:translateY(-50%) !important;translate:0 0 !important;scale:1 !important;color:#fff;background:rgba(255,255,255,.08);outline:1px solid rgba(184,50,63,.5)}
-.profile-password-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.profile-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:12px}
-@media(max-height:720px){.profile-modal-card{padding:10px 16px}.profile-modal-head{margin-bottom:8px}.profile-form-grid{gap:6px 10px}.profile-form-field input{padding:7px 9px}.profile-password-meter{margin-top:4px}.profile-password-rules{margin-top:5px;gap:3px 8px}.profile-password-help{margin:4px 0;font-size:10px}.profile-modal-actions{margin-top:8px}}
-@media(max-width:420px){.profile-modal{padding:7px}.profile-modal-card{max-height:calc(100dvh - 14px);padding:10px}.profile-form-grid{gap:7px}.profile-form-field input{padding:7px 6px;font-size:11px}.profile-form-field label{font-size:10px}.profile-password-rules{font-size:10px}}
-.profile-password-meter{margin-top:9px}
-.profile-password-track{height:7px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.12)}
-.profile-password-fill{display:block;width:0;height:100%;border-radius:99px;background:#d94a62;transition:width .2s,background .2s}
-.profile-password-status{display:flex;justify-content:space-between;gap:8px;margin-top:6px;color:#bbaeb2;font-size:11px}
-.profile-password-rules{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:10px;color:#a99da1;font-size:11px}
-.profile-password-rules span::before{content:'○';margin-right:6px}
-.profile-password-rules span.valid{color:#83dba6}
-.profile-password-rules span.valid::before{content:'✓';color:#83dba6}
-.profile-password-help{color:var(--muted);font-size:11px;line-height:1.5}
-
-/* Keep the profile form in a compact two-column layout so the complete modal fits without scrolling. */
 .account-status-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.76);backdrop-filter:blur(5px)}
 .account-status-modal-card{width:min(420px,100%);padding:32px 26px;text-align:center;border:1px solid rgba(184,50,63,.42);border-radius:20px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .account-status-modal-icon{width:52px;height:52px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;background:rgba(54,164,105,.16);border:1px solid rgba(91,205,145,.45);color:#83e0ac;font-size:27px;font-weight:800}
@@ -324,70 +127,34 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));
   border-color:rgba(184,50,63,.35);color:#fff
 }
-.admin-nav .settings-menu-row{position:relative;display:flex;align-items:center;width:100%;min-height:46px}
-.admin-nav .settings-menu-row>a.settings-nav{flex:1;min-width:0;padding-right:44px}
-.admin-nav .settings-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:30px;height:30px;display:grid;place-items:center;padding:0;border:0;border-radius:8px;background:transparent;color:#c8bec1;cursor:pointer;z-index:2;transition:background .2s,color .2s}
-.admin-nav .settings-toggle:hover{background:rgba(255,255,255,.08);color:#fff}
-.admin-nav .settings-chevron{display:block;width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .25s ease}
-.admin-nav .settings-toggle[aria-expanded="true"] .settings-chevron{transform:translateY(2px) rotate(225deg)}
 .admin-nav .settings-nav-label{flex:1}
-.admin-subnav.settings-subnav{display:grid;overflow:hidden;max-height:0;opacity:0;transform:translateY(-5px);margin-top:0;margin-bottom:0;transition:max-height .28s ease,opacity .22s ease,transform .22s ease,margin .22s ease}
-.admin-subnav.settings-subnav.is-open{max-height:180px;opacity:1;transform:translateY(0);margin-top:7px;margin-bottom:10px}
-@media(prefers-reduced-motion:reduce){.admin-subnav.settings-subnav,.admin-nav .settings-chevron{transition:none}}
-.admin-sidebar-signout{display:flex;align-items:center;justify-content:center;width:100%;margin-top:14px}.admin-settings-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.admin-nav .settings-chevron{margin-left:auto;display:flex;align-items:center;justify-content:center;align-self:center;height:22px;min-width:22px;font-size:17px;line-height:1;transform:rotate(0);transition:transform .22s ease}
+.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
+.admin-subnav.settings-subnav{overflow:hidden;animation:settings-submenu-in .2s ease-out}
+@keyframes settings-submenu-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.admin-settings-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .admin-settings-tabs a{padding:10px 15px;border:1px solid var(--line);border-radius:10px;color:#c8bec1;font-size:13px}
 .admin-settings-tabs a:hover{background:rgba(255,255,255,.04);color:#fff}
 .admin-settings-tabs a.active{color:#fff;background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));border-color:rgba(184,50,63,.4)}
 @media(max-width:850px){.admin-shell{grid-template-columns:1fr}.admin-sidebar{position:relative;top:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-subnav{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 8px 0;padding:8px 0 0;border-left:0;border-top:1px solid var(--line)}.admin-main{padding-top:25px}}
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
 </style></head><body>
-<header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php">Public website</a></nav></div></header>
+<header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
 <div class="admin-shell">
 <aside class="admin-sidebar">
   <div class="admin-label">Administration</div>
   <nav class="admin-nav" aria-label="Administrator menu">
     <a class="<?=navActive($section,'dashboard')?>" href="<?=e(adminUrl('dashboard'))?>"><span class="nav-icon">⌂</span>Dashboard</a>
-    <div class="settings-menu-group">
-      <div class="settings-menu-row">
-        <a class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('settings'))?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span></a>
-        <button class="settings-toggle" id="settings-menu-toggle" type="button" aria-label="Toggle Settings submenu" aria-expanded="<?=in_array($section,['settings','page-management','media-management','plugins'],true)?'true':'false'?>" aria-controls="settings-submenu"><span class="settings-chevron" aria-hidden="true"></span></button>
-      </div>
-      <div class="admin-subnav settings-subnav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' is-open':''?>" id="settings-submenu">
-        <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
-        <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
-        <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
-      </div>
+    <a class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('settings'))?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></a>
+    <div class="admin-subnav settings-subnav" id="settings-submenu">
+      <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
+      <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
+      <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
     </div>
     <a class="<?=navActive($section,'user-accounts')?>" href="<?=e(adminUrl('user-accounts'))?>"><span class="nav-icon">♙</span>User Accounts </a>
   </nav>
-  <section class="admin-profile-card" aria-label="Administrator profile">
-    <span class="admin-profile-kicker">Signed in as</span>
-    <strong class="admin-profile-name"><?=e($adminNickname)?></strong>
-    <span class="admin-profile-role">System Administrator</span>
-    <button type="button" class="btn light admin-profile-edit" id="open-profile-modal">Update my profile</button>
-  </section>
-  <a class="btn light admin-sidebar-signout" href="logout.php?scope=admin">Sign out</a>
+  <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
 </aside>
-<div class="profile-modal" id="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" hidden>
-  <div class="profile-modal-card">
-    <div class="profile-modal-head"><div><h2 id="profile-modal-title">Update my profile</h2><p>Keep your administrator details up to date.</p></div><button type="button" class="profile-modal-close" id="close-profile-modal" aria-label="Close">×</button></div>
-    <form method="post" id="profile-update-form">
-      <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
-      <input type="hidden" name="action" value="update_admin_profile">
-      <div class="profile-form-grid">
-        <div class="profile-form-field"><label for="profile-lastname">Lastname *</label><input id="profile-lastname" name="lastname" type="text" maxlength="80" required value="<?=e($adminProfile['lastname'] ?? '')?>"></div>
-        <div class="profile-form-field"><label for="profile-firstname">Firstname *</label><input id="profile-firstname" name="firstname" type="text" maxlength="80" required value="<?=e($adminProfile['firstname'] ?? '')?>"></div>
-        <div class="profile-form-field"><label for="profile-middle">Middle Initial</label><input id="profile-middle" name="middle_initial" type="text" maxlength="10" value="<?=e($adminProfile['middlename'] ?? '')?>"></div>
-        <div class="profile-form-field"><label for="profile-suffix">Suffix</label><input id="profile-suffix" name="suffix" type="text" maxlength="20" value="<?=e($adminProfile['suffix'] ?? '')?>"></div>
-        <div class="profile-form-field full"><label for="profile-email">Email Address *</label><input id="profile-email" name="email" type="email" maxlength="190" required value="<?=e($adminProfile['email'] ?? '')?>"></div>
-        <div class="profile-form-field"><label for="profile-nickname">Nickname *</label><input id="profile-nickname" name="nickname" type="text" maxlength="80" required value="<?=e($adminProfile['nickname'] ?? '')?>"></div>
-        <div class="profile-form-field"><label for="profile-mobile">Contact/Mobile No. (+63)</label><input id="profile-mobile" name="mobile_no" type="tel" maxlength="20" placeholder="+63 9XX XXXX XXX" value="<?=e($adminProfile['mobile_no'] ?? '')?>"></div>
-        <div class="profile-form-field full"><label for="profile-password">New Password</label><div class="profile-password-input-wrap"><input id="profile-password" name="new_password" type="password" minlength="10" autocomplete="new-password" placeholder="Leave blank to keep current password"><button type="button" class="profile-password-toggle" id="profile-password-toggle" aria-label="Show password" aria-pressed="false" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div><div class="profile-password-meter"><div class="profile-password-track"><span class="profile-password-fill" id="profile-password-fill"></span></div><div class="profile-password-status"><span id="profile-password-label">Password strength: Not entered</span><span id="profile-password-percent">0%</span></div></div><div class="profile-password-rules" id="profile-password-rules"><span data-rule="length">At least 10 characters</span><span data-rule="uppercase">At least 1 uppercase</span><span data-rule="number">At least 1 number</span><span data-rule="symbol">At least 1 symbol</span></div><p class="profile-password-help">Your password must meet all four requirements. Leave this field blank if you do not want to change it.</p></div>
-      </div>
-      <div class="profile-modal-actions"><button type="submit" class="btn">Save changes</button></div>
-    </form>
-  </div>
-</div>
 <main class="admin-main">
 <?php if($message === 'Account status updated.'):?>
 <div class="account-status-modal" id="account-status-modal" role="dialog" aria-modal="true" aria-labelledby="account-status-modal-title">
@@ -408,8 +175,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 <?php elseif($section==='user-accounts'):?>
   <div class="admin-topline"><div><div class="eyebrow">Access control</div><h1 class="admin-heading">User Accounts</h1><p class="muted">Manage registered accounts, contributor credentials and account access.</p></div></div>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
-  <form id="bulk-users" method="post" hidden><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_users"></form>
-  <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" id="open-bulk-delete-confirm" type="button">Delete Selected</button></div>
+  <form id="bulk-users" method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_users">
+  <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="submit" onclick="return confirm('Delete all selected user accounts? This action cannot be undone.');">Delete Selected</button></div>
   <div class="users-table-controls"><label>Show <select id="users-page-size" aria-label="Accounts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label><label><input id="users-filter" type="search" placeholder="Search registered accounts..." aria-label="Search registered accounts"></label></div><div class="users-pagination"><span id="users-page-info" class="muted" aria-live="polite"></span><div class="users-page-buttons"><button type="button" class="btn light" id="users-prev">Previous</button><span id="users-page-number" class="muted"></span><button type="button" class="btn light" id="users-next">Next</button></div></div><div class="table-wrap"><table class="table users-table"><thead><tr><th class="user-select-cell"><input type="checkbox" id="select-all-users" aria-label="Select all user accounts"></th><th>Full Name</th><th>Email Address</th><th>Credential Notes</th><th>Date Created</th><th>Last Update</th><th>Action</th></tr></thead><tbody>
   <?php foreach($managedUsers as $u):
     $last = trim((string)($u['lastname'] ?? '')); $first = trim((string)($u['firstname'] ?? '')); $middle = trim((string)($u['middlename'] ?? '')); $suffix = trim((string)($u['suffix'] ?? ''));
@@ -419,18 +186,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   ?><tr>
   <td class="user-select-cell"><input type="checkbox" class="user-select" name="selected_users[]" value="<?=(int)$u['id']?>" form="bulk-users" aria-label="Select <?=e($displayName)?>"></td>
   <td><strong class="user-full-name"><?=e($displayName)?></strong><span class="user-subdetails">Nickname: <?=e($u['nickname'] ?? '—')?> · Birthdate: <?=e($u['birthdate'] ?? '—')?> · Birthplace: <?=e($u['birthplace'] ?? '—')?> · Contact: <?=e($u['mobile_no'] ?? '—')?></span></td>
-  <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><?=e(formatAccountDateTime(isset($u['created_at']) ? (string)$u['created_at'] : null))?></td><td><?=e(formatAccountDateTime(isset($u['updated_at']) ? (string)$u['updated_at'] : null))?></td>
+  <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><?=e($u['created_at'])?></td><td><?=e($u['updated_at'])?></td>
   <td><?php if (empty($u['email_verified_at'])): ?><span class="pending-email-verification">Pending Email Verification</span><?php else: ?><form method="post" class="user-actions"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$u['id']?>"><input type="hidden" name="next_status" value="<?=$active?'suspended':'approved'?>"><button class="user-toggle<?=$active?'':' inactive'?>" name="action" value="toggle_user_status" type="submit" role="switch" aria-checked="<?=$active?'true':'false'?>" aria-label="Account status: <?=$active?'Active':'Inactive'?>"><span class="toggle-knob" aria-hidden="true"></span><span><?=$active?'Active':'Inactive'?></span></button></form><?php endif; ?></td>
   </tr><?php endforeach;?>
-  <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></section>
-  <div class="bulk-delete-modal" id="bulk-delete-modal" role="dialog" aria-modal="true" aria-labelledby="bulk-delete-title" hidden><div class="bulk-delete-dialog"><h2 id="bulk-delete-title" hidden></h2><h2 id="bulk-delete-empty-title" hidden>Oops! Nothing to delete.</h2><p id="bulk-delete-message">This action cannot be undone. Do you want to permanently delete the selected user account records?</p><div class="bulk-delete-dialog-actions"><button type="button" class="btn light" id="cancel-bulk-delete">Cancel</button><button type="button" class="btn bulk-delete" id="confirm-bulk-delete">Delete</button></div></div></div>
-  <div class="bulk-delete-loading" id="bulk-delete-loading" role="status" aria-live="assertive" hidden><div class="bulk-delete-loading-card"><span class="bulk-delete-spinner" aria-hidden="true"></span><strong>Deleting record(s)...</strong><span>Please wait while the selected accounts are deleted.</span></div></div>
+  <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></form></section>
   <style>
-  .bulk-delete-modal,.bulk-delete-loading{position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(6px)}.bulk-delete-modal[hidden],.bulk-delete-loading[hidden]{display:none}.bulk-delete-dialog,.bulk-delete-loading-card{width:min(440px,100%);padding:28px 24px;text-align:center;border:1px solid rgba(184,50,63,.48);border-radius:18px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.65)}.bulk-delete-dialog h2{margin:0 0 10px;color:#fff;font-size:19px}.bulk-delete-dialog p{margin:0;color:#c8bec1;font-size:13px;line-height:1.6}.bulk-delete-dialog-actions{display:flex;justify-content:center;gap:10px;margin-top:22px}.bulk-delete-dialog-actions .btn{min-width:105px;justify-content:center}.bulk-delete-dialog-actions button[hidden]{display:none!important}.bulk-delete-loading-card{display:grid;justify-items:center;gap:12px;color:#fff}.bulk-delete-loading-card>span:last-child{color:#c8bec1;font-size:12px}.bulk-delete-spinner{width:38px;height:38px;border:4px solid rgba(255,255,255,.18);border-top-color:#e15b70;border-radius:50%;animation:bulk-delete-spin .75s linear infinite}@keyframes bulk-delete-spin{to{transform:rotate(360deg)}}
   .users-table-controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.users-table-controls label{display:flex;align-items:center;gap:9px}.users-table-controls select,.users-table-controls input{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}.users-table-controls input{width:min(280px,65vw)}.users-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 22px}.users-page-buttons{display:flex;align-items:center;gap:8px}.users-page-buttons .btn{padding:8px 12px;font-size:12px}.users-page-buttons .btn:disabled{opacity:.4;cursor:not-allowed}
   </style>
   <script>
-  (()=>{const form=document.getElementById('bulk-users');const open=document.getElementById('open-bulk-delete-confirm');const modal=document.getElementById('bulk-delete-modal');const cancel=document.getElementById('cancel-bulk-delete');const confirm=document.getElementById('confirm-bulk-delete');const loading=document.getElementById('bulk-delete-loading');if(!form||!open||!modal||!confirm||!loading)return;const selected=()=>document.querySelectorAll('.users-table .user-select:checked').length;const title=modal.querySelector('#bulk-delete-title');const emptyTitle=modal.querySelector('#bulk-delete-empty-title');const dialogMessage=modal.querySelector('#bulk-delete-message');const defaultMessage='This action cannot be undone. Do you want to permanently delete the selected user account records?';function showDeleteDialog(){const count=selected();const hasSelection=count>0;if(title){title.hidden=!hasSelection;title.textContent=count===1?'Delete Selected Account?':'Delete Selected Accounts?';}if(emptyTitle)emptyTitle.hidden=hasSelection;if(dialogMessage)dialogMessage.textContent=hasSelection?defaultMessage:'Select at least one account to delete.';if(confirm)confirm.hidden=!hasSelection;confirm.disabled=!hasSelection;modal.hidden=false;cancel?.focus();}open.addEventListener('click',showDeleteDialog);const close=()=>{modal.hidden=true;confirm.hidden=false;confirm.disabled=false;if(title)title.hidden=true;if(emptyTitle)emptyTitle.hidden=true;if(dialogMessage)dialogMessage.textContent=defaultMessage;open.focus();};cancel?.addEventListener('click',close);document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.hidden)close();});confirm.addEventListener('click',()=>{if(!selected()){showDeleteDialog();return;}confirm.disabled=true;if(cancel)cancel.disabled=true;modal.hidden=true;loading.hidden=false;document.body.style.overflow='hidden';window.setTimeout(()=>form.submit(),3000);});})();
   (()=>{const all=document.getElementById('select-all-users');const table=document.querySelector('.users-table');if(!table)return;const rows=[...table.tBodies[0].rows].filter(row=>row.querySelector('.user-select'));const filter=document.getElementById('users-filter');const size=document.getElementById('users-page-size');const info=document.getElementById('users-page-info');const number=document.getElementById('users-page-number');const prev=document.getElementById('users-prev');const next=document.getElementById('users-next');let page=1;function matches(){const q=filter.value.trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));}function render(){const found=matches();const perPage=Number(size.value);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=found.slice(start,end);const visibleSet=new Set(visible);rows.forEach(row=>row.hidden=!visibleSet.has(row));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(all){const checks=visible.map(row=>row.querySelector('.user-select'));all.checked=checks.length>0&&checks.every(box=>box.checked);all.indeterminate=checks.some(box=>box.checked)&&!all.checked;}}filter.addEventListener('input',()=>{page=1;render();});size.addEventListener('change',()=>{page=1;render();});prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{page++;render();});if(all)all.addEventListener('change',()=>{matches().slice((page-1)*Number(size.value),page*Number(size.value)).forEach(row=>row.querySelector('.user-select').checked=all.checked);render();});rows.forEach(row=>row.querySelector('.user-select').addEventListener('change',render));render();})();
   </script>
 <?php else: $settings = ['page-management'=>['Page Management','Manage the website pages and their publication status.','▤'],'media-management'=>['Media Management','Manage image and media assets used by public pages and contributor content.','▧'],'plugins'=>['Plugins','Review and manage optional website extensions.','⌘']]; ?>
@@ -447,45 +210,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open tab</a></div>
       <div class="admin-feature"><div class="symbol">⌘</div><h3>Plugins</h3><p>Review and manage optional website extensions.</p><a class="btn light" href="<?=e(adminUrl('plugins'))?>">Open tab</a></div>
     </div>
-  <?php elseif($section==='page-management'): ?>
-    <div class="admin-topline"><div><div class="eyebrow">Homepage builder</div><h1 class="admin-heading">Page Management</h1><p class="muted">Create movable homepage sections and manage the content inside each one.</p></div></div>
-    <section class="panel admin-panel">
-      <div class="admin-panel-head"><h2><?= $editingSection ? 'Edit Section Page' : 'Add Section Page' ?></h2><span class="muted">Homepage layout</span></div>
-      <div class="pm-component-tabs"><?php foreach(['header'=>'Header','content'=>'Content','menubar'=>'Menubar','footer'=>'Footer','slideshow'=>'Slideshow','news'=>'News','quick-links'=>'Quick Links'] as $key=>$label): ?><button type="button" class="pm-tab" data-component="<?=e($key)?>"><?=e($label)?></button><?php endforeach; ?></div>
-      <form method="post" enctype="multipart/form-data" class="page-builder-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_homepage_section"><input type="hidden" name="section_id" value="<?=(int)($editingSection['id'] ?? 0)?>">
-        <input type="hidden" name="component_type" id="pm-component-type" value="<?=e((string)($editingSection['component_type'] ?? 'header'))?>">
-        <div class="profile-form-grid">
-          <div class="profile-form-field"><label>Component / Page Name *</label><input name="page_name" required maxlength="140" value="<?=e((string)($editingSection['page_name'] ?? ''))?>" placeholder="e.g. Zamboanga Heritage"></div>
-          <div class="profile-form-field"><label>Page address (slug)</label><input name="slug" value="<?=e((string)($editingSection['slug'] ?? ''))?>" placeholder="zamboanga-heritage"><small>Leave blank to generate from the page name.</small></div>
-          <div class="profile-form-field full"><label>Description</label><textarea name="description" rows="2"><?=e((string)($editingSection['description'] ?? ''))?></textarea></div>
-          <div class="profile-form-field"><label>Position relative to other sections *</label><select name="position"><option value="top" <?=($editingSection['position'] ?? 'top')==='top'?'selected':''?>>Top</option><option value="bottom" <?=($editingSection['position'] ?? '')==='bottom'?'selected':''?>>Bottom</option><option value="left" <?=($editingSection['position'] ?? '')==='left'?'selected':''?>>Left</option><option value="right" <?=($editingSection['position'] ?? '')==='right'?'selected':''?>>Right</option></select></div>
-          <div class="profile-form-field"><label>Width (%) — maximum 100</label><input type="number" name="width_percent" min="10" max="100" value="<?=(int)($editingSection['width_percent'] ?? 100)?>" required></div>
-          <div class="profile-form-field"><label>Text color</label><input type="color" name="text_color" value="#f5e9ed"></div><div class="profile-form-field pm-nonheader-fields"><label>Background color</label><input type="color" name="background_color" value="#160d11"></div><div class="profile-form-field"><label>Text size (px)</label><input type="number" name="font_size" min="10" max="72" value="24"></div><div class="profile-form-field pm-nonheader-fields"><label>Layout style</label><select name="layout"><option value="standard">Standard</option><option value="collapsible">Collapsible</option><option value="dropdown">Dropdown navigation</option><option value="3d-carousel">3D carousel</option><option value="thumbnail-slider">Thumbnail slider</option><option value="hero-slider">Hero / image slider</option><option value="product-carousel">Product carousel</option><option value="columns">Multi-column footer</option></select></div><div class="profile-form-field full pm-header-fields"><label>Upload logo or image</label><input type="file" name="header_logo_file" accept="image/png,image/jpeg,image/webp,image/gif"><small>PNG, JPG, WEBP or GIF · maximum 5 MB</small><label>Or insert image URL</label><input type="url" name="logo_url" value="<?=e((string)($editingSettings['logo_url'] ?? ''))?>" placeholder="https://..."></div><div class="profile-form-field full"><label>Image / media URL</label><input type="url" name="component_media_url" placeholder="https://..."></div><div class="profile-form-field full"><label>Video URL (optional)</label><input type="url" name="video_url" placeholder="https://..."></div><div class="profile-form-field pm-header-fields"><label>Logo horizontal position (%)</label><input type="range" name="logo_x" min="0" max="100" value="<?= (int)($editingSettings['logo_x'] ?? 50) ?>"></div><div class="profile-form-field pm-header-fields"><label>Logo vertical position (%)</label><input type="range" name="logo_y" min="0" max="100" value="<?= (int)($editingSettings['logo_y'] ?? 50) ?>"></div><div class="profile-form-field pm-header-fields"><label>Logo scale (%)</label><input type="range" name="logo_scale" min="10" max="300" value="<?= (int)($editingSettings['logo_scale'] ?? 100) ?>"></div><div class="profile-form-field pm-menu-fields"><label>Menu behavior</label><select name="menu_behavior"><option value="horizontal">Horizontal</option><option value="dropdown">Dropdown</option><option value="collapsible">Collapsible</option></select></div><div class="profile-form-field full pm-menu-fields"><label>Menu links and submenus (one per line: Label | Page slug | Parent label)</label><textarea name="menu_items" rows="4"><?=e((string)($editingSettings['menu_items'] ?? ''))?></textarea></div><div class="profile-form-field full pm-footer-fields"><label>Footer content and links</label><textarea name="footer_content" rows="4"><?=e((string)($editingSettings['footer_content'] ?? ''))?></textarea></div><div class="profile-form-field pm-news-fields"><label>News label</label><input name="news_label" value="<?=e((string)($editingSettings['news_label'] ?? 'News'))?>"></div><div class="profile-form-field pm-news-fields"><label><input type="checkbox" name="show_labels" <?=!empty($editingSettings['show_labels'])?'checked':''?> Show news labels</label></div><div class="profile-form-field full"><label>Live preview</label><div id="pm-live-preview" class="pm-preview">Component preview</div></div><div class="profile-form-field"><label>Display order</label><input type="number" name="sort_order" value="<?=(int)($editingSection['sort_order'] ?? 0)?>"></div>
-        </div><div class="profile-modal-actions"><button class="btn" type="submit"><?= $editingSection ? 'Save Section Page' : 'Add Section Page' ?></button><?php if($editingSection): ?><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Cancel</a><?php endif; ?></div>
-      </form>
-    </section>
-    <section class="panel admin-panel"><div class="admin-panel-head"><h2>Homepage Section Pages</h2><input id="section-page-search" type="search" placeholder="Search section pages..." aria-label="Search section pages"></div>
-      <?php if(!$homepageSections): ?><p class="muted">No section pages created yet. Add your first section above.</p><?php endif; ?>
-      <div class="page-section-list"><?php foreach($homepageSections as $hp): ?><article class="page-section-card" data-search="<?=e(strtolower($hp['page_name'].' '.$hp['description']))?>">
-        <div class="page-section-heading"><div><span class="eyebrow"><?=e(strtoupper($hp['position']))?> · <?= (int)$hp['width_percent'] ?>% WIDTH</span><h3><?=e($hp['page_name'])?></h3><p class="muted"><?=e($hp['description'] ?? '')?></p></div><div class="page-section-actions"><a class="btn light" href="<?=e(adminUrl('page-management').'&edit_section='.(int)$hp['id'])?>">Edit</a><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="toggle_homepage_section"><input type="hidden" name="section_id" value="<?=(int)$hp['id']?>"><input type="hidden" name="is_active" value="<?=empty($hp['is_active'])?1:0?>"><button class="btn <?=!empty($hp['is_active'])?'':'light'?>" type="submit"><?=!empty($hp['is_active'])?'Published · Unpublish':'Unpublished · Publish'?></button></form><form method="post" onsubmit="return confirm('Delete this section page and all its content items?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_homepage_section"><input type="hidden" name="section_id" value="<?=(int)$hp['id']?>"><button class="btn bulk-delete" type="submit">Delete</button></form></div></div>
-        <div class="page-item-list"><strong>Content items (<?=count($homepageItems[(int)$hp['id']] ?? [])?>)</strong><?php foreach(($homepageItems[(int)$hp['id']] ?? []) as $it): ?><div class="page-item-row"><span><b><?=e($it['title'])?></b> · <?=e($it['item_type'])?><?php if(!empty($it['link_page_name'])): ?> · Links to <?=e($it['link_page_name'])?><?php endif; ?></span><form method="post" onsubmit="return confirm('Delete this content item?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_homepage_item"><input type="hidden" name="section_id" value="<?=(int)$hp['id']?>"><input type="hidden" name="item_id" value="<?=(int)$it['id']?>"><button class="btn light" type="submit">Delete item</button></form></div><?php endforeach; ?></div>
-        <details class="page-item-editor"><summary>Add content item</summary><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_homepage_item"><input type="hidden" name="section_id" value="<?=(int)$hp['id']?>">
-          <div class="profile-form-grid"><div class="profile-form-field"><label>Content type</label><select name="item_type"><option value="slideshow">Slideshow</option><option value="content-menu">Content menu</option><option value="news">News</option><option value="story">Story</option><option value="marketplace">Marketplace</option><option value="text">Text</option><option value="image">Image</option></select></div><div class="profile-form-field"><label>Title *</label><input name="item_title" required maxlength="180"></div><div class="profile-form-field full"><label>Content / description</label><textarea name="item_body" rows="3"></textarea></div><div class="profile-form-field full"><label>Image or media URL (optional)</label><input type="url" name="media_url" placeholder="https://..."></div><div class="profile-form-field"><label>Link label (optional)</label><input name="link_label" placeholder="Read more"></div><div class="profile-form-field"><label>Destination Section Page Name (required when adding a link)</label><input name="link_page_name" list="homepage-page-names" placeholder="Enter exact destination page name"></div></div><button class="btn" type="submit">Save content item</button>
-        </form></details>
-      </article><?php endforeach; ?></div>
-      <datalist id="homepage-page-names"><?php foreach($homepageSections as $hp): ?><option value="<?=e($hp['page_name'])?>"><?php endforeach; ?></datalist>
-    </section>
-    <style>.page-builder-form .profile-form-grid,.page-item-editor .profile-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.page-builder-form .profile-form-field,.page-item-editor .profile-form-field{display:grid;gap:6px}.page-builder-form input,.page-builder-form textarea,.page-builder-form select,.page-item-editor input,.page-item-editor textarea,.page-item-editor select,#section-page-search{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit}.page-builder-form .full,.page-item-editor .full{grid-column:1/-1}.page-section-list{display:grid;gap:14px}.page-section-card{border:1px solid var(--line);border-radius:14px;padding:17px;background:rgba(255,255,255,.02)}.page-section-heading{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.page-section-heading h3{margin:6px 0}.page-section-actions{display:flex;gap:7px;flex-wrap:wrap}.page-item-list{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}.page-item-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}.page-item-editor{margin-top:13px}.page-item-editor summary{cursor:pointer;color:#f0c7cf;font-weight:600;margin-bottom:12px}.page-item-editor form{display:grid;gap:12px}@media(max-width:650px){.page-builder-form .profile-form-grid,.page-item-editor .profile-form-grid{grid-template-columns:1fr}.page-section-heading{display:grid}.page-item-row{align-items:flex-start}}<style>.pm-component-tabs{display:flex;align-items:flex-end;gap:5px;flex-wrap:wrap;margin:22px 0 26px;padding:0 10px;border-bottom:1px solid rgba(210,160,172,.28);}.pm-tab{position:relative;margin:0 0 -1px;padding:12px 18px 13px;border:1px solid rgba(210,160,172,.2);border-bottom:1px solid rgba(210,160,172,.28);border-radius:9px 9px 0 0;background:linear-gradient(180deg,#21171c,#171115);color:#cbbdc2;cursor:pointer;font:500 13px Ubuntu,sans-serif;transition:background .18s,border-color .18s,color .18s;}.pm-tab:hover{background:#302027;color:#fff;border-color:rgba(210,125,145,.45)}.pm-tab.active{z-index:1;background:#2b1820;color:#fff;border:1px solid rgba(190,75,98,.65);border-bottom:1px solid #2b1820;box-shadow:inset 0 3px 0 #a8324d,0 -3px 12px rgba(0,0,0,.12);font-weight:700}.page-builder-form>.profile-form-grid{margin-top:24px}.pm-preview{min-height:90px;padding:16px;border:1px dashed #a65b6b;border-radius:12px;box-sizing:border-box;overflow:hidden}.pm-preview img{max-width:100%;max-height:120px;object-fit:contain}.page-builder-form input[type=file]{padding:8px}@media(max-width:650px){.pm-component-tabs{display:flex;gap:5px;margin:18px 0 22px;padding:0 4px;overflow-x:auto;flex-wrap:nowrap}.pm-tab{flex:0 0 auto;padding:10px 13px;font-size:12px}}</style>
-    <script>(()=>{const f=document.querySelector('.page-builder-form');if(!f)return;const t=f.querySelector('#pm-component-type'),p=f.querySelector('#pm-live-preview'),tabs=[...document.querySelectorAll('.pm-tab')];const el=n=>f.elements.namedItem(n);const visibility=type=>{f.querySelectorAll('.pm-header-fields').forEach(x=>x.hidden=type!=='header');f.querySelectorAll('.pm-nonheader-fields').forEach(x=>x.hidden=type==='header');f.querySelectorAll('.pm-menu-fields').forEach(x=>x.hidden=type!=='menubar');f.querySelectorAll('.pm-footer-fields').forEach(x=>x.hidden=type!=='footer');f.querySelectorAll('.pm-news-fields').forEach(x=>x.hidden=type!=='news')};const draw=()=>{p.replaceChildren();p.style.color=el('text_color').value;p.style.background=el('background_color').value;p.style.fontSize=el('font_size').value+'px';p.style.width=el('width_percent').value+'%';const title=document.createElement('strong');title.textContent=el('page_name').value||t.value;p.append(title);const body=document.createElement('p');body.textContent=el('description').value||t.value+' preview';p.append(body);if(t.value==='header'){p.style.height='180px';p.style.display='flex';p.style.alignItems='center';p.style.gap='16px';if(el('logo_url').value){const img=document.createElement('img');img.src=el('logo_url').value;img.alt='Header logo preview';img.style.maxHeight='120px';img.style.objectFit='contain';p.prepend(img)}}else{p.style.height='auto';p.style.display='block'}if(el('component_media_url').value&&['content','slideshow','news'].includes(t.value)){const img=document.createElement('img');img.src=el('component_media_url').value;img.alt='Component media preview';p.append(img)}if(t.value==='menubar'){const nav=document.createElement('p');nav.textContent=el('menu_items').value||'Menu and submenu preview';p.append(nav)}if(t.value==='footer'){const ft=document.createElement('p');ft.textContent=el('footer_content').value;p.append(ft)}if(t.value==='slideshow'){const sl=document.createElement('p');sl.textContent='Display: '+el('layout').selectedOptions[0].text+(el('video_url').value?' · Video included':'');p.append(sl)}};const slug=el('slug'),name=el('page_name');let slugTouched=!!slug.value;slug?.addEventListener('input',()=>{slugTouched=true});name?.addEventListener('input',()=>{if(!slugTouched)slug.value=name.value.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')});const activate=type=>{t.value=type;tabs.forEach(b=>b.classList.toggle('active',b.dataset.component===type));visibility(type);draw()};tabs.forEach(b=>b.addEventListener('click',()=>activate(b.dataset.component)));f.addEventListener('input',draw);f.addEventListener('change',draw);activate(t.value||'content')})();</script>
-    <script>(()=>{const input=document.getElementById('section-page-search');if(!input)return;const cards=[...document.querySelectorAll('.page-section-card')];input.addEventListener('input',()=>{const q=input.value.trim().toLowerCase();cards.forEach(card=>card.hidden=!card.dataset.search.includes(q));});})();</script>
   <?php else: $info=$settings[$section]; ?>
     <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted"><?=e($info[1])?></p><div class="admin-note">This Settings tab is ready for its management controls. No existing records have been changed.</div></section>
   <?php endif; ?>
 <?php endif;?>
 <script>
-(()=>{const password=document.getElementById('profile-password');if(!password)return;const fill=document.getElementById('profile-password-fill');const label=document.getElementById('profile-password-label');const percent=document.getElementById('profile-password-percent');const rules={length:v=>v.length>=10,uppercase:v=>/[A-Z]/.test(v),number:v=>/[0-9]/.test(v),symbol:v=>/[^A-Za-z0-9]/.test(v)};const update=()=>{const v=password.value;let score=0;Object.entries(rules).forEach(([key,test])=>{const ok=test(v);if(ok)score++;document.querySelector('[data-rule="'+key+'"]')?.classList.toggle('valid',ok);});const pct=Math.round(score/4*100);fill.style.width=pct+'%';fill.style.background=pct===100?'#55c987':pct>=50?'#d6a34b':'#d94a62';percent.textContent=pct+'%';label.textContent=!v?'Password strength: Not entered':pct===100?'Password strength: Strong':pct>=50?'Password strength: Moderate':'Password strength: Weak';};password.addEventListener('input',update);update();const passwordToggle=document.getElementById('profile-password-toggle');passwordToggle?.addEventListener('click',()=>{const reveal=password.type==='password';password.type=reveal?'text':'password';passwordToggle.setAttribute('aria-pressed',String(reveal));passwordToggle.setAttribute('aria-label',reveal?'Hide password':'Show password');passwordToggle.setAttribute('title',reveal?'Hide password':'Show password');passwordToggle.innerHTML=reveal?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8"/><path d="M9.9 5.2A10.8 10.8 0 0112 5c6.4 0 10 7 10 7a15.7 15.7 0 01-3.1 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10 10 0 004-.8"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';});const mobile=document.getElementById('profile-mobile');mobile?.addEventListener('input',()=>{let digits=mobile.value.replace(/\\D/g,'');if(digits.startsWith('0063'))digits=digits.slice(4);else if(digits.startsWith('63'))digits=digits.slice(2);if(digits.startsWith('0'))digits=digits.slice(1);digits=digits.slice(0,10);const groups=[digits.slice(0,3),digits.slice(3,7),digits.slice(7,10)].filter(Boolean);mobile.value='+63'+(groups.length?' '+groups.join(' '):'');});const form=document.getElementById('profile-update-form');form?.addEventListener('submit',e=>{if(password.value&&!Object.values(rules).every(test=>test(password.value))){e.preventDefault();password.focus();update();}});})();
-(()=>{const modal=document.getElementById('profile-modal');const open=document.getElementById('open-profile-modal');const close=document.getElementById('close-profile-modal');const cancel=document.getElementById('cancel-profile-modal');if(!modal||!open)return;const hide=()=>{modal.hidden=true;open.focus();};open.addEventListener('click',()=>{modal.hidden=false;document.getElementById('profile-full-name')?.focus();});close?.addEventListener('click',hide);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});})();
-(()=>{const toggle=document.getElementById('settings-menu-toggle');const submenu=document.getElementById('settings-submenu');if(toggle&&submenu){toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!open));submenu.classList.toggle('is-open',!open);});}})();
+
 (()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
 </script>
 </main></div></body></html>
