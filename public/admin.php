@@ -768,6 +768,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             updatePreview();
           });
         });
+        // Every other Independent Typography panel must also refresh the preview live.
+        form.querySelectorAll('.typography-group').forEach(group=>{
+          if(group===titleTypographyGroup)return;
+          group.querySelectorAll('select,input[type="color"]').forEach(input=>{
+            input.addEventListener('input',updatePreview);
+            input.addEventListener('change',updatePreview);
+          });
+          group.querySelectorAll('[data-format-toggle]').forEach(button=>{
+            button.addEventListener('click',updatePreview);
+          });
+        });
         titleTypographyGroup?.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{
           const applyControlValue=()=>{
             if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start){updatePreview();return;}
@@ -792,6 +803,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           });
         };
         initRichEditors();
+        updatePreview();
         add.addEventListener('click',()=>{links.append(makeLinkRow());initRichEditors();updatePreview();});
         links.querySelectorAll('.remove-header-link').forEach(button=>button.addEventListener('click',()=>{button.closest('.header-link-row').remove();updatePreview();}));
         // Synchronize every editable Header field immediately before POST. This prevents
