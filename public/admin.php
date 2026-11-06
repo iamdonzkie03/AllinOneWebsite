@@ -517,6 +517,28 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         initRichEditors();
         add.addEventListener('click',()=>{links.append(makeLinkRow());initRichEditors();updatePreview();});
         links.querySelectorAll('.remove-header-link').forEach(button=>button.addEventListener('click',()=>{button.closest('.header-link-row').remove();updatePreview();}));
+        // Synchronize every editable Header field immediately before POST. This prevents
+        // stale hidden inputs from overwriting the values currently visible in the editors.
+        form.addEventListener('submit', () => {
+          form.querySelectorAll('[data-rich-editor]').forEach(editor => {
+            const key = editor.dataset.richEditor;
+            const plain = editor.innerText.trim();
+            const rich = editor.innerHTML;
+            const plainField = editor.closest('.header-link-row')
+              ? editor.closest('.header-link-row').querySelector('[data-plain-value="link"]')
+              : form.querySelector('[data-plain-value="' + key + '"]');
+            const richField = editor.closest('.header-link-row')
+              ? editor.closest('.header-link-row').querySelector('[data-rich-value="link"]')
+              : form.querySelector('[data-rich-value="' + key + '"]');
+            if (plainField) plainField.value = plain;
+            if (richField) richField.value = rich;
+          });
+          form.querySelectorAll('.header-link-row').forEach((row, index) => {
+            row.querySelectorAll('[name^="typography[links]"]').forEach(field => {
+              field.name = field.name.replace(/typography\\[links\\]\\[\\d+\\]/, 'typography[links][' + index + ']');
+            });
+          });
+        });
         form.addEventListener('input', updatePreview);
         form.addEventListener('change', updatePreview);
         const fileInput=document.getElementById('header-logo-input');fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(!file)return;if(!['image/png','image/jpeg'].includes(file.type)){alert('Choose a PNG, JPG or JPEG image.');fileInput.value='';return;}const reader=new FileReader();reader.onload=()=>{const img=document.getElementById('preview-header-logo');img.src=reader.result;img.style.display='block';updatePreview();};reader.readAsDataURL(file);});
