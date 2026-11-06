@@ -64,7 +64,7 @@ $renderHeaderRich = static function($html,$fallback): string {
                 if($k==='color'&&preg_match('/^#[0-9a-f]{3,8}$/i',$v))$rules[]='color:'.$v;
                 if($k==='font-size'&&preg_match('/^(?:[8-9]|[1-3][0-9])px$/',$v))$rules[]='font-size:'.$v;
                 if($k==='font-weight'&&in_array($v,['300','400','500','600','700','800','bold','normal'],true))$rules[]='font-weight:'.$v;
-                if($k==='font-style'&&in_array($v,['normal','italic'],true))$rules[]='font-style:'.$v;if($k==='font-family'&&in_array(trim($v," \\"'"),['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'],true))$rules[]='font-family:'.trim($v," \\"'");if($k==='text-decoration'&&in_array($v,['none','underline'],true))$rules[]='text-decoration:'.$v;
+                if($k==='font-style'&&in_array($v,['normal','italic'],true))$rules[]='font-style:'.$v;if($k==='font-family'&&in_array(trim($v),['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'],true))$rules[]='font-family:'.trim($v);if($k==='text-decoration'&&in_array($v,['none','underline'],true))$rules[]='text-decoration:'.$v;
             }if($rules)$safe=' style="'.implode(';',$rules).'"';
         }return '<span'.$safe.'>';
     },$value);
