@@ -138,9 +138,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($message === '') {
-            $save = $pdo->prepare("UPDATE site_header_settings SET header_title=?,logo_path=?,header_links=?,hidden_left=?,hidden_right=?,font_family=?,font_style=?,font_size=?,font_weight=?,logo_position_x=?,logo_position_y=?,title_html=?,hidden_left_html=?,hidden_right_html=?,typography_json=? WHERE id=1");
+            $save = $pdo->prepare("INSERT INTO site_header_settings
+                (id,header_title,logo_path,header_links,hidden_left,hidden_right,font_family,font_style,font_size,font_weight,logo_position_x,logo_position_y,title_html,hidden_left_html,hidden_right_html,typography_json)
+                VALUES (1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE
+                header_title=VALUES(header_title),logo_path=VALUES(logo_path),header_links=VALUES(header_links),
+                hidden_left=VALUES(hidden_left),hidden_right=VALUES(hidden_right),font_family=VALUES(font_family),
+                font_style=VALUES(font_style),font_size=VALUES(font_size),font_weight=VALUES(font_weight),
+                logo_position_x=VALUES(logo_position_x),logo_position_y=VALUES(logo_position_y),
+                title_html=VALUES(title_html),hidden_left_html=VALUES(hidden_left_html),
+                hidden_right_html=VALUES(hidden_right_html),typography_json=VALUES(typography_json)");
             $save->execute([$title,$logoPath ?: null,json_encode($links,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),$left,$right,$family,$style,$size,$weight,$positionX,$positionY,$titleHtml,$leftHtml,$rightHtml,json_encode($typography,JSON_UNESCAPED_SLASHES)]);
             $headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+            if (!$headerSettings || (string)$headerSettings['header_title'] !== $title) {
+                throw new RuntimeException('Header settings could not be verified after saving. Please check the database connection.');
+            }
             $headerLinks = $links;
             $message = 'Header settings successfully updated.';
         }
