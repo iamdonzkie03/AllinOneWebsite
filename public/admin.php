@@ -570,7 +570,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .header-settings-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.85fr);gap:24px;align-items:start}
       .header-settings-fields{display:grid;gap:20px;min-width:0}.header-field{display:grid;gap:8px;color:#f4e9ec;font-size:13px;font-weight:600}.header-field b{color:#ff8799}.header-field small,.header-preview-help{font-size:11px;color:var(--muted);font-weight:400;line-height:1.55}.header-field .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:13px 'Ubuntu',sans-serif}
       .header-link-row{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(150px,1.3fr) auto;gap:8px;margin:8px 0}
-      .rich-editor{min-height:38px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#120d10;color:#f4e9ec;font:13px Ubuntu,sans-serif;outline:none}.rich-editor:focus{border-color:#a83b52;box-shadow:0 0 0 2px rgba(168,59,82,.16)}.rich-tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.font-format-tools{display:flex;align-items:center;gap:5px}.font-format-tools .format-icon{width:32px;height:30px;border:1px solid var(--line);border-radius:6px;background:#171115;color:#f4e9ec;cursor:pointer;font:13px Ubuntu,sans-serif}.font-format-tools .format-icon[aria-pressed="true"]{background:#7f1d34;border-color:#bd536a;color:#fff;box-shadow:inset 0 0 0 1px #bd536a}.rich-style-controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;grid-column:1/-1}.rich-style-controls label{display:grid;gap:4px;font-size:10px;color:#cdbdc2}.rich-style-controls input,.rich-style-controls select{width:100%;min-width:0;padding:6px;background:#171115;color:#fff;border:1px solid var(--line);border-radius:6px;font:11px Ubuntu,sans-serif}.rich-tools button{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#21151a;color:#f4e9ec;font-size:11px;cursor:pointer}.rich-tools input,.rich-tools select{max-width:110px;padding:4px;background:#171115;color:#fff;border:1px solid var(--line);border-radius:6px}.typography-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px}.typography-group legend{font-size:12px;color:#f1c4ce;padding:0 5px}.typography-group label{display:grid;gap:5px;font-size:11px;color:#d9cbd0}.typography-group .field{min-width:0;padding:8px}.header-link-row .rich-editor,.header-link-row .rich-tools{grid-column:1/-1}.header-link-row{align-items:start}.header-hidden-fields,.header-typography-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.header-hidden-item{display:grid;gap:8px;min-width:0;color:#d9cbd0;font-size:12px}.header-hidden-fields label,.header-typography-fields label,.logo-crop-controls label{display:grid;gap:7px;font-size:12px;color:#d9cbd0}.logo-crop-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.logo-crop-controls input{width:100%;accent-color:#a52b45}
+      .rich-editor{display:block;width:100%;min-height:38px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#120d10;color:#f4e9ec;font:13px Ubuntu,sans-serif;outline:none;box-sizing:border-box}.header-title-source{min-height:58px;resize:vertical;white-space:pre-wrap}.rich-editor:focus{border-color:#a83b52;box-shadow:0 0 0 2px rgba(168,59,82,.16)}.rich-tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.font-format-tools{display:flex;align-items:center;gap:5px}.font-format-tools .format-icon{width:32px;height:30px;border:1px solid var(--line);border-radius:6px;background:#171115;color:#f4e9ec;cursor:pointer;font:13px Ubuntu,sans-serif}.font-format-tools .format-icon[aria-pressed="true"]{background:#7f1d34;border-color:#bd536a;color:#fff;box-shadow:inset 0 0 0 1px #bd536a}.rich-style-controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;grid-column:1/-1}.rich-style-controls label{display:grid;gap:4px;font-size:10px;color:#cdbdc2}.rich-style-controls input,.rich-style-controls select{width:100%;min-width:0;padding:6px;background:#171115;color:#fff;border:1px solid var(--line);border-radius:6px;font:11px Ubuntu,sans-serif}.rich-tools button{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#21151a;color:#f4e9ec;font-size:11px;cursor:pointer}.rich-tools input,.rich-tools select{max-width:110px;padding:4px;background:#171115;color:#fff;border:1px solid var(--line);border-radius:6px}.typography-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px}.typography-group legend{font-size:12px;color:#f1c4ce;padding:0 5px}.typography-group label{display:grid;gap:5px;font-size:11px;color:#d9cbd0}.typography-group .field{min-width:0;padding:8px}.header-link-row .rich-editor,.header-link-row .rich-tools{grid-column:1/-1}.header-link-row{align-items:start}.header-hidden-fields,.header-typography-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.header-hidden-item{display:grid;gap:8px;min-width:0;color:#d9cbd0;font-size:12px}.header-hidden-fields label,.header-typography-fields label,.logo-crop-controls label{display:grid;gap:7px;font-size:12px;color:#d9cbd0}.logo-crop-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.logo-crop-controls input{width:100%;accent-color:#a52b45}
       .header-preview-column{position:sticky;top:20px;min-width:0}.header-preview-title{font-size:13px;font-weight:700;margin-bottom:10px}.header-preview-frame{overflow:hidden;border:1px solid rgba(184,50,63,.35);border-radius:13px;background:#100d10;box-shadow:0 12px 35px rgba(0,0,0,.22)}.header-preview-topbar{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:#090809;color:#cdbdc2;font-size:9px;letter-spacing:.5px}.header-preview-main{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 12px;min-height:65px}.header-preview-brand{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;min-width:0}.header-preview-brand img{width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:50% 50%;border-radius:7px}.header-preview-brand span{overflow-wrap:anywhere}.header-preview-main nav{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}.header-preview-main nav a{font-size:9px;color:#e8dce0;text-decoration:none;white-space:nowrap}.header-preview-main nav .preview-signin{color:#fff}.header-preview-main nav .preview-join{padding:7px 9px;border-radius:7px;background:#92243a;color:#fff}.header-preview-help{margin:10px 0 0}.header-settings-actions{display:flex;justify-content:flex-end;margin-top:22px;padding-top:17px;border-top:1px solid var(--line)}
       @media(max-width:900px){.header-settings-grid{grid-template-columns:1fr}.header-preview-column{position:static}}
       @media(max-width:560px){.header-link-row{grid-template-columns:1fr}.header-hidden-fields,.header-typography-fields,.logo-crop-controls{grid-template-columns:1fr}.header-preview-main{align-items:flex-start;flex-direction:column}.header-preview-main nav{justify-content:flex-start}}
@@ -591,7 +591,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <input type="hidden" name="action" value="save_header_settings">
           <div class="header-settings-grid">
             <div class="header-settings-fields">
-              <div class="header-field"><span>Header Title</span><div class="rich-editor" data-rich-editor="title" contenteditable="true" role="textbox" aria-label="Edit Header Title" data-placeholder="Enter website title"><?=cleanHeaderRichHtml((string)($headerSettings['title_html'] ?? '')) ?: e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></div><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"><?php $savedTypography=json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: []; $titleTypography=headerTypography((array)($savedTypography['title'] ?? []),['family'=>'Ubuntu','style'=>'normal','size'=>20,'weight'=>700,'color'=>'#f7eef0']); ?><fieldset class="typography-group"><legend>Independent Typography — Header Title</legend>
+              <div class="header-field"><span>Header Title</span><textarea class="rich-editor header-title-source" data-rich-editor="title" aria-label="Edit Header Title" placeholder="Enter website title" rows="2"><?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></textarea><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"><?php $savedTypography=json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: []; $titleTypography=headerTypography((array)($savedTypography['title'] ?? []),['family'=>'Ubuntu','style'=>'normal','size'=>20,'weight'=>700,'color'=>'#f7eef0']); ?><fieldset class="typography-group"><legend>Independent Typography — Header Title</legend>
                   <label>Font family<select class="field" name="typography[title][family]"><?php foreach(['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'] as $f): ?><option value="<?=$f?>" <?=$titleTypography['family']===$f?'selected':''?>><?=$f?></option><?php endforeach; ?></select></label>
                   <label>Font size<select class="field" name="typography[title][size]"><?php foreach([8,9,10,11,12,13,14,16,18,20,24,28,32,36,40] as $s): ?><option value="<?=$s?>" <?=$titleTypography['size']===$s?'selected':''?>><?=$s?> px</option><?php endforeach; ?></select></label>
                   <div class="font-format-tools" role="group" aria-label="Font formatting"><input type="hidden" name="typography[title][format]" value="<?=e($titleTypography['format'])?>" data-format-value><button type="button" class="format-icon" data-format-toggle="bold" aria-label="Bold" aria-pressed="<?=str_contains($titleTypography['format'],'bold')?'true':'false'?>"><b>B</b></button><button type="button" class="format-icon" data-format-toggle="italic" aria-label="Italic" aria-pressed="<?=str_contains($titleTypography['format'],'italic')?'true':'false'?>"><i>I</i></button><button type="button" class="format-icon" data-format-toggle="underline" aria-label="Underline" aria-pressed="<?=str_contains($titleTypography['format'],'underline')?'true':'false'?>"><u>U</u></button></div>
@@ -659,10 +659,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const editorText = row => row.querySelector('[data-rich-editor]')?.innerText || '';
         const updatePreview = () => {
           const titleEditor=form.querySelector('[data-rich-editor="title"]'),leftEditor=form.querySelector('[data-rich-editor="hidden_left"]'),rightEditor=form.querySelector('[data-rich-editor="hidden_right"]');
-          if(document.activeElement!==titleEditor && titleEditor.innerText.trim()!==form.elements.header_title.value.trim())titleEditor.textContent=form.elements.header_title.value;
+          if(document.activeElement!==titleEditor && titleEditor.value.trim()!==form.elements.header_title.value.trim())titleEditor.value=form.elements.header_title.value;
           if(document.activeElement!==leftEditor && leftEditor.innerText.trim()!==form.elements.hidden_left.value.trim())leftEditor.textContent=form.elements.hidden_left.value;
           if(document.activeElement!==rightEditor && rightEditor.innerText.trim()!==form.elements.hidden_right.value.trim())rightEditor.textContent=form.elements.hidden_right.value;
-          const title=form.elements.header_title.value.trim() || 'Header Title';
+          const title=titleEditor.value.trim() || 'Header Title';form.elements.header_title.value=titleEditor.value.trim();
           document.getElementById('preview-header-title').textContent=title;
           document.getElementById('preview-hidden-left').textContent=form.elements.hidden_left.value;
           document.getElementById('preview-hidden-right').textContent=form.elements.hidden_right.value;
@@ -687,28 +687,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         let savedTitleSelection=null;
         const titlePreviewStyles=[];
         const readTitleSelection=()=>{
-          const selection=window.getSelection();
-          if(!selection||selection.rangeCount===0||selection.isCollapsed)return null;
-          const range=selection.getRangeAt(0);
-          if(!titleEditor.contains(range.startContainer)||!titleEditor.contains(range.endContainer))return null;
-          const beforeStart=range.cloneRange();
-          beforeStart.selectNodeContents(titleEditor);
-          beforeStart.setEnd(range.startContainer,range.startOffset);
-          const startOffset=beforeStart.toString().length;
-          const selectedLength=range.toString().length;
-          if(!selectedLength)return null;
-          return {start:startOffset,end:startOffset+selectedLength};
+          const start=titleEditor.selectionStart;
+          const end=titleEditor.selectionEnd;
+          return Number.isInteger(start)&&Number.isInteger(end)&&end>start?{start,end}:null;
         };
         const rememberTitleSelection=()=>{
           const next=readTitleSelection();
-          if(next && next.end>next.start)savedTitleSelection=next;
+          if(next)savedTitleSelection=next;
         };
-        ['mouseup','keyup','touchend'].forEach(eventName=>titleEditor.addEventListener(eventName,rememberTitleSelection));
-        document.addEventListener('selectionchange',rememberTitleSelection);
-        // Save the range before a typography control takes focus (especially native color pickers).
-        const titleTypographyGroup=form.querySelector('.typography-group [name^="typography[title]"]')?.closest('.typography-group');
-        // Capture the editor's text range at the document level, before a select,
-        // color input, or formatting button can move focus and collapse the browser range.
+        ['select','keyup','mouseup','touchend'].forEach(eventName=>titleEditor.addEventListener(eventName,rememberTitleSelection));
+        // Textarea selectionStart/selectionEnd remain reliable even after a typography
+        // control receives focus, unlike document.getSelection() on contenteditable.
         const captureTitleRangeBeforeControlFocus=event=>{
           if(!titleTypographyGroup || !titleTypographyGroup.contains(event.target))return;
           rememberTitleSelection();
@@ -716,11 +705,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         document.addEventListener('pointerdown',captureTitleRangeBeforeControlFocus,true);
         document.addEventListener('mousedown',captureTitleRangeBeforeControlFocus,true);
         document.addEventListener('touchstart',captureTitleRangeBeforeControlFocus,{capture:true,passive:true});
-        // Some browsers dispatch change after the native picker closes. Keep the
-        // last non-collapsed title selection until the title text itself is edited.
         const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const renderTitlePreview=()=>{
-          const text=titleEditor.innerText||titleEditor.textContent||'';
+          const text=titleEditor.value||'';
           const boundaries=new Set([0,text.length]);
           titlePreviewStyles.forEach(item=>{
             boundaries.add(Math.max(0,Math.min(text.length,item.start)));
@@ -741,10 +728,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             html+=declarations?'<span style="'+declarations+'">'+content+'</span>':content;
           }
           titlePreview.innerHTML=html||escapePreviewText(text);
+          const richField=form.querySelector('[data-rich-value="title"]');
+          if(richField)richField.value=html||escapePreviewText(text);
         };
         const applyTitleSelectionStyle=(property,value)=>{
           if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start)return false;
-          const textLength=(titleEditor.innerText||titleEditor.textContent||'').length;
+          const textLength=titleEditor.value.length;
           const start=Math.max(0,Math.min(textLength,savedTitleSelection.start));
           const end=Math.max(start,Math.min(textLength,savedTitleSelection.end));
           if(end<=start)return false;
@@ -813,7 +802,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
             if(editor.dataset.ready)return;editor.dataset.ready='1';
             const key=editor.dataset.richEditor;
-            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=editor.innerHTML;if(key==='title'){titlePreviewStyles.length=0;savedTitleSelection=null;}const plain=editor.innerText.trim();const plainField=form.querySelector('[data-plain-value="'+key+'"]');if(plainField)plainField.value=plain;updatePreview();});
+            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=key==='title'?(form.querySelector('[data-rich-value="title"]')?.value||escapePreviewText(editor.value)):editor.innerHTML;if(key==='title'){titlePreviewStyles.length=0;savedTitleSelection=null;}const plain=key==='title'?editor.value.trim():editor.innerText.trim();const plainField=form.querySelector('[data-plain-value="'+key+'"]');if(plainField)plainField.value=plain;updatePreview();});
           });
           form.querySelectorAll('[data-style-controls="link"]').forEach((box)=>{
             if(box.dataset.ready)return;box.dataset.ready='1';const row=box.closest('.header-link-row');const idx=[...links.querySelectorAll('.header-link-row')].indexOf(row);let saved={};try{saved=JSON.parse(box.dataset.typography||'{}')}catch(e){}
@@ -830,8 +819,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         form.addEventListener('submit', () => {
           form.querySelectorAll('[data-rich-editor]').forEach(editor => {
             const key = editor.dataset.richEditor;
-            const plain = editor.innerText.trim();
-            const rich = editor.innerHTML;
+            const plain = key === 'title' ? editor.value.trim() : editor.innerText.trim();
+            const rich = key === 'title' ? (form.querySelector('[data-rich-value="title"]')?.value || escapePreviewText(editor.value)) : editor.innerHTML;
             const plainField = editor.closest('.header-link-row')
               ? editor.closest('.header-link-row').querySelector('[data-plain-value="link"]')
               : form.querySelector('[data-plain-value="' + key + '"]');
