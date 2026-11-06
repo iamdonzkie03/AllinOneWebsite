@@ -160,6 +160,40 @@ function publishHeaderSettingsToGitHub(array $header): string {
     return (string)($result['commit']['sha'] ?? '');
 }
 
+/**
+ * Update the embedded header settings block in the local root index.php.
+ * This makes the saved Header tab values part of the actual local homepage file.
+ */
+function updateLocalIndexHeaderSettings(array $header): void {
+    $indexPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'index.php';
+    if (!is_file($indexPath) || !is_readable($indexPath) || !is_writable($indexPath)) {
+        throw new RuntimeException('The local root index.php is not writable by Laragon/Apache. Grant write permission to C:\\laragon\\www\\allinoneweb\\index.php and try again.');
+    }
+    $source = file_get_contents($indexPath);
+    if (!is_string($source)) {
+        throw new RuntimeException('Unable to read the local root index.php file.');
+    }
+    $json = json_encode($header, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($json)) {
+        throw new RuntimeException('Header settings could not be encoded for the local homepage.');
+    }
+    $replacement = "// BEGIN GITHUB-PUBLISHED HEADER SETTINGS\n"
+        . "\$githubPublishedHeaderSettings = json_decode(base64_decode('" . base64_encode($json) . "', true) ?: '[]', true) ?: [];\n"
+        . "// END GITHUB-PUBLISHED HEADER SETTINGS";
+    $pattern = '~// BEGIN GITHUB-PUBLISHED HEADER SETTINGS.*?// END GITHUB-PUBLISHED HEADER SETTINGS~s';
+    if (!preg_match($pattern, $source)) {
+        throw new RuntimeException('The local index.php is missing the header settings marker block. Pull the latest project code first.');
+    }
+    $updated = preg_replace($pattern, $replacement, $source, 1);
+    if (!is_string($updated)) {
+        throw new RuntimeException('Unable to prepare the updated local index.php file.');
+    }
+    $written = file_put_contents($indexPath, $updated, LOCK_EX);
+    if ($written === false || $written !== strlen($updated)) {
+        throw new RuntimeException('The saved settings could not be written completely to the local index.php file. Check Laragon/Apache folder permissions.');
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
@@ -278,8 +312,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $headerSettings = $savedHeader;
             $headerLinks = $links;
-            // The local public homepage reads this saved database row directly.
-            // GitHub synchronization is intentionally not part of this save action.
+            // Persist the verified settings into the actual local root index.php file.
+            updateLocalIndexHeaderSettings($savedHeader);
             $message = 'Header settings successfully updated.';
         }
         $section = 'page-management';
