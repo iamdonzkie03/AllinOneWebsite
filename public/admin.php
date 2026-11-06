@@ -120,18 +120,37 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   background:transparent;color:#c8bec1;font-family:inherit;font-size:13px;
   font-weight:400;line-height:normal;text-align:left;cursor:pointer;
   appearance:none;-webkit-appearance:none;
-  transition:background .2s ease,border-color .2s ease,color .2s ease;
+  transition:background .22s ease,border-color .22s ease,color .22s ease,box-shadow .22s ease;
 }
-.admin-nav button.settings-nav:hover{background:rgba(255,255,255,.035);color:#fff}
+.admin-nav button.settings-nav:hover{background:rgba(255,255,255,.045);color:#fff}
 .admin-nav button.settings-nav.active{
-  background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));
-  border-color:rgba(184,50,63,.35);color:#fff
+  background:linear-gradient(110deg,rgba(128,20,39,.48),rgba(30,12,18,.62));
+  border-color:rgba(184,50,63,.38);color:#fff;
+  box-shadow:inset 1px 1px 3px rgba(255,255,255,.045),inset -2px -2px 5px rgba(0,0,0,.28),0 5px 16px rgba(0,0,0,.16)
 }
 .admin-nav .settings-nav-label{flex:1}
-.admin-nav .settings-chevron{margin-left:auto;display:flex;align-items:center;justify-content:center;align-self:center;height:22px;min-width:22px;font-size:17px;line-height:1;transform:rotate(0);transition:transform .22s ease}
+.admin-nav .settings-chevron{margin-left:auto;display:flex;align-items:center;justify-content:center;align-self:center;height:22px;min-width:22px;font-size:17px;line-height:1;transform:rotate(0);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
 .admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{transform:rotate(180deg)}
-.admin-subnav.settings-subnav{overflow:hidden;animation:settings-submenu-in .2s ease-out}
-@keyframes settings-submenu-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.admin-subnav.settings-subnav{
+  display:grid;gap:3px;margin:0 0 0 22px;padding:0 0 0 13px;
+  border-left:1px solid rgba(184,50,63,.25);overflow:hidden;
+  max-height:0;opacity:0;transform:translateY(-7px);
+  pointer-events:none;visibility:hidden;
+  transition:max-height .34s cubic-bezier(.2,.8,.2,1),opacity .22s ease,transform .3s ease,padding .3s ease,margin .3s ease,visibility .34s;
+  background:linear-gradient(90deg,rgba(255,255,255,.018),rgba(255,255,255,0));
+  border-radius:0 0 0 10px;
+}
+.admin-subnav.settings-subnav.is-open{
+  max-height:180px;opacity:1;transform:translateY(0);
+  pointer-events:auto;visibility:visible;padding:7px 0 7px 13px;margin:3px 0 10px 22px;
+}
+.admin-subnav.settings-subnav a{
+  border-radius:9px;transition:background .2s ease,color .2s ease,transform .2s ease;
+}
+.admin-subnav.settings-subnav a:hover{background:rgba(255,255,255,.045);transform:translateX(3px)}
+@media(prefers-reduced-motion:reduce){
+ .admin-nav button.settings-nav,.admin-nav .settings-chevron,.admin-subnav.settings-subnav,.admin-subnav.settings-subnav a{transition:none}
+}
 .admin-settings-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .admin-settings-tabs a{padding:10px 15px;border:1px solid var(--line);border-radius:10px;color:#c8bec1;font-size:13px}
 .admin-settings-tabs a:hover{background:rgba(255,255,255,.04);color:#fff}
@@ -145,8 +164,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-label">Administration</div>
   <nav class="admin-nav" aria-label="Administrator menu">
     <a class="<?=navActive($section,'dashboard')?>" href="<?=e(adminUrl('dashboard'))?>"><span class="nav-icon">⌂</span>Dashboard</a>
-    <a class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" href="<?=e(adminUrl('settings'))?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></a>
-    <div class="admin-subnav settings-subnav" id="settings-submenu">
+    <button class="settings-nav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' active':''?>" type="button" id="settings-menu-toggle" aria-controls="settings-submenu" aria-expanded="<?=in_array($section,['settings','page-management','media-management','plugins'],true)?'true':'false'?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></button>
+    <div class="admin-subnav settings-subnav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' is-open':''?>" id="settings-submenu">
       <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
       <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
       <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
@@ -215,6 +234,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php endif; ?>
 <?php endif;?>
 <script>
+(()=> {
+  const toggle = document.getElementById('settings-menu-toggle');
+  const submenu = document.getElementById('settings-submenu');
+  if (!toggle || !submenu) return;
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!expanded));
+    submenu.classList.toggle('is-open', !expanded);
+  });
+})();
 
 (()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
 </script>
