@@ -736,7 +736,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             button.addEventListener('mousedown',e=>e.preventDefault());
             button.addEventListener('click',()=>{
               const fmt=button.dataset.formatToggle;
-              if(isTitleGroup&&savedTitleRange&&!savedTitleRange.collapsed){
+              if(isTitleGroup&&savedTitleSelection&&savedTitleSelection.end>savedTitleSelection.start){
                 const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
                 const current=button.getAttribute('aria-pressed')==='true';
                 const value=fmt==='bold'?(current?'400':'700'):fmt==='italic'?(current?'normal':'italic'):(current?'none':'underline');
