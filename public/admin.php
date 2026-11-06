@@ -425,7 +425,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         };
         add.addEventListener('click',()=>{links.append(makeLinkRow());updatePreview();});
         links.querySelectorAll('.remove-header-link').forEach(button=>button.addEventListener('click',()=>{button.closest('.header-link-row').remove();updatePreview();}));
-        form.querySelectorAll('input:not([type="file"]),select').forEach(input=>input.addEventListener('input',updatePreview));
+        form.addEventListener('input', updatePreview);
+        form.addEventListener('change', updatePreview);
         const fileInput=document.getElementById('header-logo-input');fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(!file)return;if(!['image/png','image/jpeg'].includes(file.type)){alert('Choose a PNG, JPG or JPEG image.');fileInput.value='';return;}const reader=new FileReader();reader.onload=()=>{const img=document.getElementById('preview-header-logo');img.src=reader.result;img.style.display='block';updatePreview();};reader.readAsDataURL(file);});
         updatePreview();
       }
