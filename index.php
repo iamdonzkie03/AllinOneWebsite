@@ -35,7 +35,7 @@ foreach (['title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hid
 }
 $publicHeader = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
 
-$publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? '')) ?: (string)$config['app']['name'];
+$publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? ''));
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
 if (!is_array($publicHeaderLinks)) $publicHeaderLinks = [];
 $publicHeaderFamily = in_array(($publicHeader['font_family'] ?? 'Ubuntu'), ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'], true) ? $publicHeader['font_family'] : 'Ubuntu';
@@ -159,11 +159,9 @@ $modules = [
 <body>
 <div class="topbar"><div class="wrap"><span style="<?=e($headerTextStyle($publicLeftTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span style="<?=e($headerTextStyle($publicRightTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
 <header><div class="wrap nav">
-<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle)?> — Home" style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
+<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle !== '' ? $publicHeaderTitle : 'Home')?> " style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
 <nav class="navlinks">
-<?php if ($publicHeaderLinks): foreach ($publicHeaderLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a href="<?=e((string)$headerLink['url'])?>" style="<?=e($headerTextStyle((array)($headerLink['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0'])))?>"><?=$renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label'])?></a><?php endforeach; else: ?>
-<a href="#modules">Explore</a><a href="#zamboanga">History & Culture</a><a href="#latest">Latest stories</a>
-<?php endif; ?>
+<?php foreach ($publicHeaderLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a href="<?=e((string)$headerLink['url'])?>" style="<?=e($headerTextStyle((array)($headerLink['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0'])))?>"><?=$renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label'])?></a><?php endforeach; ?>
 <a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
 </nav></div></header>
 <main>
