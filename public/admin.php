@@ -535,7 +535,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           });
           form.querySelectorAll('.header-link-row').forEach((row, index) => {
             row.querySelectorAll('[name^="typography[links]"]').forEach(field => {
-              field.name = field.name.replace(/typography\\[links\\]\\[\\d+\\]/, 'typography[links][' + index + ']');
+              field.name = field.name.replace(/typography\[links\]\[\d+\]/, 'typography[links][' + index + ']');
             });
           });
         });
