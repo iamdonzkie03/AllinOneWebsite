@@ -70,7 +70,7 @@ $headerTextStyle = static function(array $t): string {
     $formatParts=preg_split('/[ ,]+/',$format,-1,PREG_SPLIT_NO_EMPTY)?:[];$fontStyle=in_array('italic',$formatParts,true)?'italic':'normal';$fontWeight=in_array('bold',$formatParts,true)?700:$weight;$decoration=in_array('underline',$formatParts,true)?'underline':'none';
     return 'font-family:'.htmlspecialchars((string)$family,ENT_QUOTES,'UTF-8').';font-style:'.$fontStyle.';font-size:'.$size.'px;font-weight:'.$fontWeight.';text-decoration:'.$decoration.';color:'.$color;
 };
-$headerTypographyImportant = static function(array $t): string {
+$headerTypographyImportant = static function(array $t) use ($headerTextStyle): string {
     $inline = $headerTextStyle($t);
     return preg_replace('/;/', ' !important;', $inline) . ' !important';
 };
