@@ -2,6 +2,34 @@
 declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
+// Load the header settings configured by the System Administrator.
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  header_title VARCHAR(160) NOT NULL DEFAULT 'Z.C. commonplace',
+  logo_path VARCHAR(500) NULL,
+  header_links LONGTEXT NULL,
+  hidden_left VARCHAR(180) NULL,
+  hidden_right VARCHAR(180) NULL,
+  font_family VARCHAR(80) NOT NULL DEFAULT 'Ubuntu',
+  font_style VARCHAR(20) NOT NULL DEFAULT 'normal',
+  font_size TINYINT UNSIGNED NOT NULL DEFAULT 20,
+  font_weight SMALLINT UNSIGNED NOT NULL DEFAULT 700,
+  logo_position_x TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  logo_position_y TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
+$publicHeader = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+$publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? '')) ?: (string)$config['app']['name'];
+$publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
+if (!is_array($publicHeaderLinks)) $publicHeaderLinks = [];
+$publicHeaderFamily = in_array(($publicHeader['font_family'] ?? 'Ubuntu'), ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'], true) ? $publicHeader['font_family'] : 'Ubuntu';
+$publicHeaderStyle = ($publicHeader['font_style'] ?? 'normal') === 'italic' ? 'italic' : 'normal';
+$publicHeaderSize = max(12, min(32, (int)($publicHeader['font_size'] ?? 20)));
+$publicHeaderWeight = in_array((int)($publicHeader['font_weight'] ?? 700), [300,400,500,600,700,800], true) ? (int)$publicHeader['font_weight'] : 700;
+$publicHeaderLogoX = max(0, min(100, (int)($publicHeader['logo_position_x'] ?? 50)));
+$publicHeaderLogoY = max(0, min(100, (int)($publicHeader['logo_position_y'] ?? 50)));
+
 $loginError = '';
 $showLoginProgress = !empty($_SESSION['login_progress']);
 $loginRedirect = (string)($_SESSION['login_redirect'] ?? 'public/workspace.php');
@@ -60,7 +88,7 @@ $modules = [
 <meta name="description" content="Explore Zamboanga City's history and culture, photography, community news, marketplace, entertainment and public affairs.">
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="stylesheet" href="public/assets/css/site.css">
-<style>.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}.hero-photo-caption{position:absolute;left:28px;bottom:25px;color:#f8e9eb;font-size:10px;font-weight:800;letter-spacing:2.5px;text-shadow:0 2px 8px #000;z-index:1}.home-art-photo .art-stamp{z-index:2;background:rgba(10,8,10,.48)}@media(max-width:560px){.hero-photo-caption{left:18px;bottom:17px;font-size:8px;letter-spacing:1.5px}}
+<style>.nav .brand{display:flex;align-items:center;gap:10px;min-width:0}.nav .brand img{flex:0 0 70px}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{align-items:center}.topbar .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}.hero-photo-caption{position:absolute;left:28px;bottom:25px;color:#f8e9eb;font-size:10px;font-weight:800;letter-spacing:2.5px;text-shadow:0 2px 8px #000;z-index:1}.home-art-photo .art-stamp{z-index:2;background:rgba(10,8,10,.48)}@media(max-width:560px){.hero-photo-caption{left:18px;bottom:17px;font-size:8px;letter-spacing:1.5px}}
 .register-modal{position:fixed;inset:0;z-index:1001;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.82);backdrop-filter:blur(7px)}
 .register-modal.is-open{display:flex}.register-dialog{position:relative;width:min(100%,960px);height:min(94vh,900px);overflow:hidden;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.6)}.register-dialog iframe{display:block;width:100%;height:100%;border:0;background:#100b0e;overflow:hidden}.register-close{position:absolute;right:12px;top:10px;z-index:2;width:38px;height:38px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;text-align:center;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:#241219;color:#fff;font-size:23px;font-family:Arial,sans-serif;cursor:pointer;box-shadow:0 2px 12px #0008;box-sizing:border-box}
 .signin-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.78);backdrop-filter:blur(7px)}
@@ -80,12 +108,14 @@ $modules = [
 </style>
 </head>
 <body>
-<div class="topbar"><div class="wrap"><span>ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY</span><span>Local perspectives. Shared with care.</span></div></div>
+<div class="topbar"><div class="wrap"><span><?=e((string)($publicHeader['hidden_left'] ?? ''))?></span><span><?=e((string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
 <header><div class="wrap nav">
-<a class="brand" href="index.php">Z.C. commonplace<span>.</span></a>
+<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle)?> — Home" style="font-family:<?=e($publicHeaderFamily)?>;font-style:<?=e($publicHeaderStyle)?>;font-size:<?=$publicHeaderSize?>px;font-weight:<?=$publicHeaderWeight?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title"><?=e($publicHeaderTitle)?></span></a>
 <nav class="navlinks">
+<?php if ($publicHeaderLinks): foreach ($publicHeaderLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a href="<?=e((string)$headerLink['url'])?>"><?=e((string)$headerLink['label'])?></a><?php endforeach; else: ?>
 <a href="#modules">Explore</a><a href="#zamboanga">History & Culture</a><a href="#latest">Latest stories</a>
-<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the community</a>
+<?php endif; ?>
+<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
 </nav></div></header>
 <main>
 <section class="hero home-hero"><div class="wrap hero-grid"><div>
