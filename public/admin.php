@@ -130,27 +130,23 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 }
 .admin-nav .settings-nav-label{flex:1}
 .admin-nav .settings-chevron{
-  margin-left:auto;display:grid;place-items:center;align-self:center;
-  width:26px;height:26px;min-width:26px;flex:0 0 26px;
-  border:1px solid rgba(220,185,192,.22);border-radius:50%;
-  background:rgba(255,255,255,.035);color:#d9b5bd;
-  font-size:0;line-height:1;
-  box-shadow:inset 0 1px 2px rgba(255,255,255,.07),0 2px 6px rgba(0,0,0,.24);
-  transition:background .25s,border-color .25s,color .25s,transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .25s;
+  margin-left:auto;display:flex;align-items:center;justify-content:center;
+  align-self:center;width:22px;height:22px;min-width:22px;flex:0 0 22px;
+  padding:0;border:0;border-radius:0;background:transparent;
+  color:#d9b5bd;font-size:0;line-height:1;box-shadow:none;
+  transition:color .2s,transform .3s cubic-bezier(.2,.8,.2,1);
 }
 .admin-nav .settings-chevron::before{
-  content:"";display:block;width:7px;height:7px;
+  content:"";display:block;width:8px;height:8px;flex:0 0 8px;
   border-right:2px solid currentColor;border-bottom:2px solid currentColor;
-  transform:translateY(-1px) rotate(45deg);
-  transform-origin:center;
+  transform:translateY(-2px) rotate(45deg);transform-origin:center;
   transition:transform .3s cubic-bezier(.2,.8,.2,1);
 }
 .admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{
-  background:rgba(150,28,51,.24);border-color:rgba(220,105,126,.48);
-  color:#fff;box-shadow:inset 0 1px 3px rgba(0,0,0,.25),0 0 0 3px rgba(150,28,51,.09);
+  color:#fff;
 }
 .admin-nav .settings-nav[aria-expanded="true"] .settings-chevron::before{
-  transform:translateY(1px) rotate(225deg);
+  transform:translateY(2px) rotate(225deg);
 }
 .admin-subnav.settings-subnav{
   display:grid;gap:3px;margin:0 0 0 22px;padding:0 0 0 13px;
