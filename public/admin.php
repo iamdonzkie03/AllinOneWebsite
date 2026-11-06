@@ -59,6 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $links[] = ['label' => mb_substr($label, 0, 60), 'url' => mb_substr($url, 0, 500)];
         }
         $logoPath = (string)($headerSettings['logo_path'] ?? '');
+        if ($message === '' && $logoPath === '' && empty($_FILES['header_logo']['name'])) {
+            $message = 'Header Logo is required. Upload a PNG, JPG or JPEG image.';
+        }
         if ($message === '' && !empty($_FILES['header_logo']['name'])) {
             $file = $_FILES['header_logo'];
             if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int)$file['size'] > 3 * 1024 * 1024) {
@@ -358,7 +361,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <div class="header-settings-grid">
             <div class="header-settings-fields">
               <label class="header-field"><span>Header Title <b>*</b></span><input class="field" type="text" name="header_title" maxlength="160" required value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>" placeholder="Enter website title"><small>Clicking the title or logo takes visitors to index.php.</small></label>
-              <div class="header-field"><span>Header Logo <b>*</b></span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>PNG, JPG or JPEG · Maximum display size 70 × 70 px · Maximum upload 3 MB. The preview uses a square crop.</small>
+              <div class="header-field"><span>Header Logo <b>*</b></span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg" <?=empty($headerSettings['logo_path'])?'required':''?>><small>PNG, JPG or JPEG · Maximum display size 70 × 70 px · Maximum upload 3 MB. The preview uses a square crop.</small>
                 <div class="logo-crop-controls"><label>Horizontal crop <input type="range" name="logo_position_x" id="logo-position-x" min="0" max="100" value="<?=(int)($headerSettings['logo_position_x'] ?? 50)?>"></label><label>Vertical crop <input type="range" name="logo_position_y" id="logo-position-y" min="0" max="100" value="<?=(int)($headerSettings['logo_position_y'] ?? 50)?>"></label></div>
               </div>
               <div class="header-field"><span>Header Links</span><small>Add as many navigation links as needed. Each URL can point directly to a website page.</small>
