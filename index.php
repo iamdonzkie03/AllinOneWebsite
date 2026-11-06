@@ -45,40 +45,6 @@ if ($category !== '') { $sql .= " AND cat.slug=?"; $params[] = $category; }
 $sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC LIMIT 18";
 $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 $categories=$pdo->query("SELECT name,slug,description FROM categories WHERE is_active=1 ORDER BY id")->fetchAll();
-// Ensure Page Management tables exist even before an administrator first opens the admin panel.
-$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_sections (
- id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
- page_name VARCHAR(140) NOT NULL,
- slug VARCHAR(160) NOT NULL UNIQUE,
- description TEXT NULL,
- position ENUM('left','right','top','bottom') NOT NULL DEFAULT 'top',
- width_percent TINYINT UNSIGNED NOT NULL DEFAULT 100,
- sort_order INT NOT NULL DEFAULT 0,
- is_active TINYINT(1) NOT NULL DEFAULT 1,
- created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
- updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$pdo->exec("CREATE TABLE IF NOT EXISTS homepage_section_items (
- id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
- section_id INT UNSIGNED NOT NULL,
- item_type VARCHAR(32) NOT NULL DEFAULT 'story',
- title VARCHAR(180) NOT NULL,
- body MEDIUMTEXT NULL,
- media_url VARCHAR(1000) NULL,
- link_label VARCHAR(100) NULL,
- link_page_name VARCHAR(140) NULL,
- sort_order INT NOT NULL DEFAULT 0,
- created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
- updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- INDEX(section_id),
- CONSTRAINT fk_homepage_item_section FOREIGN KEY(section_id) REFERENCES homepage_sections(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$publicHomepageSections = $pdo->query("SELECT * FROM homepage_sections WHERE is_active=1 ORDER BY sort_order,id")->fetchAll();
-$publicHomepageItems = [];
-if ($publicHomepageSections) {
-    $publicItemsStmt=$pdo->query("SELECT i.*, s.slug AS destination_slug FROM homepage_section_items i LEFT JOIN homepage_sections s ON s.page_name=i.link_page_name AND s.is_active=1 ORDER BY i.sort_order,i.id");
-    foreach ($publicItemsStmt->fetchAll() as $publicItem) $publicHomepageItems[(int)$publicItem['section_id']][]=$publicItem;
-}
 $modules = [
  ['name'=>'Creative Arts and Photography','slug'=>'creative-arts-photography','symbol'=>'✳','description'=>'Photography, visual art, design and local creative voices.'],
  ['name'=>'News Connect','slug'=>'news-connect','symbol'=>'◎','description'=>'Community updates, civic stories and current affairs.'],
@@ -114,36 +80,70 @@ $modules = [
 </style>
 </head>
 <body>
+<div class="topbar"><div class="wrap"><span>ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY</span><span>Local perspectives. Shared with care.</span></div></div>
+<header><div class="wrap nav">
+<a class="brand" href="index.php">Z.C. commonplace<span>.</span></a>
+<nav class="navlinks">
+<a href="#modules">Explore</a><a href="#zamboanga">History & Culture</a><a href="#latest">Latest stories</a>
+<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the community</a>
+</nav></div></header>
 <main>
-
-<?php if ($publicHomepageSections): ?>
-<section class="homepage-managed-sections"><div class="wrap homepage-managed-grid">
-<?php foreach($publicHomepageSections as $managedSection): $managedPosition=$managedSection['position']; ?>
-<section class="homepage-managed-section position-<?=e($managedPosition)?>" id="<?=e($managedSection['slug'])?>" style="--section-width:<?=max(10,min(100,(int)$managedSection['width_percent']))?>%">
-  <div class="section-head"><div><div class="eyebrow"><?=e(strtoupper($managedPosition))?></div><h2><?=e($managedSection['page_name'])?></h2><?php if(!empty($managedSection['description'])): ?><p class="muted"><?=e($managedSection['description'])?></p><?php endif; ?></div></div>
-  <div class="homepage-managed-items"><?php foreach(($publicHomepageItems[(int)$managedSection['id']] ?? []) as $managedItem): ?>
-    <article class="homepage-managed-item">
-      <?php if(!empty($managedItem['media_url'])): ?><img src="<?=e($managedItem['media_url'])?>" alt="<?=e($managedItem['title'])?>" loading="lazy"><?php endif; ?>
-      <div><span class="tag"><?=e(str_replace('-',' ',strtoupper($managedItem['item_type'])))?></span><h3><?=e($managedItem['title'])?></h3><?php if(!empty($managedItem['body'])): ?><p><?=nl2br(e($managedItem['body']))?></p><?php endif; ?>
-      <?php if(!empty($managedItem['link_label']) && !empty($managedItem['destination_slug'])): ?><a class="btn light" href="#<?=e($managedItem['destination_slug'])?>"><?=e($managedItem['link_label'])?> ↗</a><?php endif; ?></div>
-    </article>
-  <?php endforeach; ?></div>
-</section>
-<?php endforeach; ?>
+<section class="hero home-hero"><div class="wrap hero-grid"><div>
+<div class="eyebrow">One city. Many stories.</div>
+<h1>Zamboanga,<br><em>through our eyes.</em></h1>
+<p>A digital home for the city's history, culture, creative talent, community news, marketplace, entertainment and public conversation.</p>
+<div class="hero-actions"><a class="btn" href="#zamboanga">Explore our heritage</a><a class="btn light" href="#create-account-modal" data-open-create-account>Become a contributor ↗</a></div>
+<div class="hero-note"><span class="hero-note-dot"></span>Independent community contributions · Administrator-reviewed publishing</div>
+</div>
+<div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage collage featuring Fort Pilar, the Philippine flag, a traditional vinta, and Yakan-inspired textile patterns"><img class="hero-photo" src="public/assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png" alt="Sunset vinta sailing by the historic fort in Zamboanga" fetchpriority="high"><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
 </div></section>
-<style>.homepage-managed-grid{display:flex;flex-wrap:wrap;gap:22px;align-items:stretch}.homepage-managed-section{box-sizing:border-box;flex:0 1 var(--section-width);min-width:min(100%,280px);padding:26px;border:1px solid rgba(190,75,98,.25);border-radius:18px;background:linear-gradient(145deg,rgba(35,16,23,.82),rgba(16,12,15,.92))}.homepage-managed-section.position-left{margin-right:auto}.homepage-managed-section.position-right{margin-left:auto}.homepage-managed-section.position-top,.homepage-managed-section.position-bottom{margin-inline:auto}.homepage-managed-items{display:grid;gap:14px}.homepage-managed-item{display:grid;grid-template-columns:minmax(100px,28%) 1fr;gap:17px;align-items:start;padding:13px;border:1px solid rgba(255,255,255,.08);border-radius:12px}.homepage-managed-item img{width:100%;max-height:190px;object-fit:cover;border-radius:9px}.homepage-managed-item h3{margin:6px 0}.homepage-managed-item p{color:var(--muted);font-size:13px;line-height:1.65;white-space:normal}@media(max-width:620px){.homepage-managed-section{flex-basis:100%!important}.homepage-managed-item{grid-template-columns:1fr}}</style>
-<?php endif; ?>
+
+<section class="section culture-section" id="zamboanga"><div class="wrap">
+<div class="section-head"><div><div class="eyebrow">A living heritage</div><h2>Discover the story of Zamboanga City</h2><p class="muted">From historic landmarks to maritime traditions and a vibrant, multilingual culture.</p></div><div class="slide-counter" aria-live="polite"><span id="slide-current">01</span> / 04</div></div>
+<div class="culture-slideshow" id="culture-slideshow" aria-label="Zamboanga City history and culture slideshow">
+<article class="culture-slide is-active" data-slide="0">
+<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Fort_Pilar_(NS_Valderoza,_Zamboanga_City;_10-07-2023).jpg?width=1800" alt="Historic stone walls of Fort Pilar in Zamboanga City" fetchpriority="high">
+<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">HERITAGE LANDMARK · 17TH CENTURY</span><h3>Fort Pilar</h3><p>A landmark shaped by centuries of history, faith and city life. Today, Fort Pilar remains one of Zamboanga's best-known cultural landmarks.</p><a href="https://commons.wikimedia.org/wiki/File:Fort_Pilar_(NS_Valderoza,_Zamboanga_City;_10-07-2023).jpg" target="_blank" rel="noopener">Photo credit: Patrickroque01 / Wikimedia Commons ↗</a></div>
+</article>
+<article class="culture-slide" data-slide="1">
+<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Fort_Pilar_Paseo_Del_Mar_bay_view_sunrise_(NS_Valderosa,_Zamboanga_City;_10-11-2023).jpg?width=1800" alt="Zamboanga waterfront near Paseo del Mar at sunrise" loading="lazy">
+<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">THE CITY BY THE SEA</span><h3>Life along the waterfront</h3><p>The sea has long connected Zamboanga's communities, livelihoods and neighboring islands. Paseo del Mar is part of the city's contemporary public life.</p><a href="https://commons.wikimedia.org/wiki/File:Fort_Pilar_Paseo_Del_Mar_bay_view_sunrise_(NS_Valderosa,_Zamboanga_City;_10-11-2023).jpg" target="_blank" rel="noopener">Photo credit: Patrickroque01 / Wikimedia Commons ↗</a></div>
+</article>
+<article class="culture-slide" data-slide="2">
+<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Vinta_at_Zamboanga_City_Tourism_Office,_Mar_2026.jpg?width=1600" alt="Traditional vinta boat representing the maritime heritage of Zamboanga" loading="lazy">
+<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">MARITIME TRADITION</span><h3>The colors of the vinta</h3><p>The vinta's colorful sail is an enduring symbol of the region's relationship with the sea and its rich maritime traditions.</p><a href="https://commons.wikimedia.org/wiki/File:Vinta_at_Zamboanga_City_Tourism_Office,_Mar_2026.jpg" target="_blank" rel="noopener">Photo credit: Ralff Nestor Nacor / Wikimedia Commons ↗</a></div>
+</article>
+<article class="culture-slide" data-slide="3">
+<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Yakan_Weavers.jpg?width=1800" alt="Yakan weavers preserving intricate traditional textile patterns" loading="lazy">
+<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">ARTISANSHIP · LIVING CULTURE</span><h3>Patterns that carry stories</h3><p>Traditional weaving and intricate geometric designs reflect generations of skill and cultural knowledge across the Zamboanga Peninsula.</p><a href="https://commons.wikimedia.org/wiki/File:Yakan_Weavers.jpg" target="_blank" rel="noopener">Photo credit: Rauxilian / Wikimedia Commons ↗</a></div>
+</article>
+<button class="slide-arrow slide-prev" type="button" aria-label="Previous slide">‹</button><button class="slide-arrow slide-next" type="button" aria-label="Next slide">›</button>
+<div class="slide-dots" role="group" aria-label="Choose a slide"><button class="slide-dot is-active" type="button" aria-label="Slide 1" aria-pressed="true"></button><button class="slide-dot" type="button" aria-label="Slide 2" aria-pressed="false"></button><button class="slide-dot" type="button" aria-label="Slide 3" aria-pressed="false"></button><button class="slide-dot" type="button" aria-label="Slide 4" aria-pressed="false"></button></div>
+</div>
+<p class="slide-disclaimer">Historical and cultural notes are introductory highlights. Image links lead to Wikimedia Commons pages with source and license information.</p>
+</div></section>
+
+<section class="section" id="modules"><div class="wrap"><div class="section-head"><div><div class="eyebrow">Explore the platform</div><h2>Five ways to connect</h2><p class="muted">A single community space for creativity, information, commerce and cultural memory.</p></div></div>
+<div class="category-row module-grid">
+<?php foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; ?>
+</div></div></section>
+
+<section class="section" id="latest"><div class="wrap"><div class="section-head"><div><div class="eyebrow">Community publishing</div><h2><?= $category || $search ? 'Search results' : 'Latest approved posts' ?></h2><p class="muted">Only content approved by the System Administrator appears on this public page.</p></div>
+<form class="searchbar" method="get"><input name="q" value="<?=e($search)?>" placeholder="Search stories, creators and listings…" aria-label="Search public content"><?php if($category!==''): ?><input type="hidden" name="category" value="<?=e($category)?>"><?php endif; ?><button class="btn">Search</button></form></div>
+<?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
+<div class="cards"><?php if (!$items): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
+<?php foreach($items as $i=>$item): ?><article class="story"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?=e(strtoupper($item['category_name']))?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span><?= $item['price']!==null ? '₱'.number_format((float)$item['price'],2) : 'Read more ↗' ?></span></div><?php if(!empty($item['body'])): ?><details class="story-details"><summary>Read story</summary><p><?=nl2br(e($item['body']))?></p></details><?php endif; ?></div></article><?php endforeach; ?></div></div></section>
+
+<section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="#create-account-modal" data-open-create-account>Apply for a creator account ↗</a></div></section>
 </main>
 
 <div class="register-modal" id="create-account-modal" aria-hidden="true"><div class="register-dialog" role="dialog" aria-modal="true" aria-label="Create an Account"><button type="button" class="register-close" id="close-create-account" aria-label="Close create account">×</button><iframe src="public/register.php" title="Create an Account" loading="lazy"></iframe></div></div>
 
-<div class="signin-modal<?= ($loginError !== '' || (string)($_GET['profile_password_updated'] ?? '') === '1' || (string)($_GET['account_removed'] ?? '') === '1') ? ' is-open' : '' ?>" id="sign-in-modal" aria-hidden="<?= ($loginError !== '' || (string)($_GET['profile_password_updated'] ?? '') === '1' || (string)($_GET['account_removed'] ?? '') === '1') ? 'false' : 'true' ?>">
+<div class="signin-modal<?= $loginError !== '' ? ' is-open' : '' ?>" id="sign-in-modal" aria-hidden="<?= $loginError !== '' ? 'false' : 'true' ?>">
 <div class="signin-dialog" role="dialog" aria-modal="true" aria-labelledby="signin-title">
 <button type="button" class="signin-close" id="close-sign-in" aria-label="Close sign in">×</button>
 <div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
 <?php if ((string)($_GET['registered'] ?? '') === '1'): ?><p class="signin-success" role="status">Your email is verified and your password is set. You can now sign in.</p><?php endif; ?>
-<?php if ((string)($_GET['profile_password_updated'] ?? '') === '1'): ?><p class="signin-success" role="status">Account successfully updated. Your password has changed. Please sign in again using your new password.</p><?php endif; ?>
-<?php if ((string)($_GET['account_removed'] ?? '') === '1'): ?><p class="signin-error" role="alert">Your account is no longer available or active. Please sign in with an active account.</p><?php endif; ?>
 <?php if ($loginError !== ''): ?><p class="signin-error" role="alert"><?=e($loginError)?></p><?php endif; ?>
 <form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(signin_csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
 <fieldset style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600">Sign in using</legend><div class="signin-methods">
@@ -214,7 +214,7 @@ $modules = [
 })();
 </script>
 <?php endif; ?>
-
+<footer><div class="wrap footer-grid"><div><a class="brand" href="index.php">Z.C. commonplace<span>.</span></a><p>Zamboanga stories, culture, creativity and community — shared with care.</p><p>© <?=date('Y')?> Z.C. commonplace. Community publishing with administrator review.</p></div><div><b>Explore</b><a href="?category=creative-arts-photography#latest">Creative Arts and Photography</a><a href="?category=news-connect#latest">News Connect</a><a href="?category=marketplace#latest">Marketplace</a></div><div><b>Discover</b><a href="?category=entertainment-politics#latest">Entertainment & Politics</a><a href="?category=history-culture#latest">History & Culture</a><a href="#zamboanga">Zamboanga heritage slideshow</a></div></div></footer>
 <script>
 (() => {
   const modal = document.getElementById('sign-in-modal');
@@ -252,6 +252,7 @@ $modules = [
   openRegisterButtons.forEach(button=>button.addEventListener('click',event=>{event.preventDefault();hideSignInModal();showRegisterModal();}));
   if(closeRegister)closeRegister.addEventListener('click',hideRegisterModal);
   if(registerModal) {
+    registerModal.addEventListener('click',event=>{if(event.target===registerModal)hideRegisterModal();});
     const registerFrame = registerModal.querySelector('iframe');
     const bindRegisterEscape = () => {
       try {
@@ -295,6 +296,9 @@ $modules = [
     showSignInModal();
   });
   closeButton.addEventListener('click', hideSignInModal);
+  modal.addEventListener('click', event => {
+    if (event.target === modal) hideSignInModal();
+  });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && modal.classList.contains('is-open')) hideSignInModal();
     if (event.key === 'Escape' && registerModal && registerModal.classList.contains('is-open')) hideRegisterModal();
