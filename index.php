@@ -16,10 +16,20 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
   font_weight SMALLINT UNSIGNED NOT NULL DEFAULT 700,
   logo_position_x TINYINT UNSIGNED NOT NULL DEFAULT 50,
   logo_position_y TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  title_html LONGTEXT NULL,
+  hidden_left_html LONGTEXT NULL,
+  hidden_right_html LONGTEXT NULL,
+  typography_json LONGTEXT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
+foreach (['title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hidden_right_html'=>'LONGTEXT NULL','typography_json'=>'LONGTEXT NULL'] as $column=>$definition) {
+    $exists=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='site_header_settings' AND COLUMN_NAME=?");
+    $exists->execute([$column]);
+    if (!(int)$exists->fetchColumn()) $pdo->exec("ALTER TABLE site_header_settings ADD COLUMN {$column} {$definition}");
+}
 $publicHeader = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+
 $publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? '')) ?: (string)$config['app']['name'];
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
 if (!is_array($publicHeaderLinks)) $publicHeaderLinks = [];
@@ -27,6 +37,36 @@ $publicHeaderFamily = in_array(($publicHeader['font_family'] ?? 'Ubuntu'), ['Ubu
 $publicHeaderStyle = ($publicHeader['font_style'] ?? 'normal') === 'italic' ? 'italic' : 'normal';
 $publicHeaderSize = max(12, min(32, (int)($publicHeader['font_size'] ?? 20)));
 $publicHeaderWeight = in_array((int)($publicHeader['font_weight'] ?? 700), [300,400,500,600,700,800], true) ? (int)$publicHeader['font_weight'] : 700;
+$publicTypography = json_decode((string)($publicHeader['typography_json'] ?? '{}'),true) ?: [];
+$publicTitleTypography = $publicTypography['title'] ?? ['family'=>$publicHeaderFamily,'style'=>$publicHeaderStyle,'size'=>$publicHeaderSize,'weight'=>$publicHeaderWeight,'color'=>'#f7eef0'];
+$publicLeftTypography = $publicTypography['hidden_left'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>10,'weight'=>400,'color'=>'#cdbdc2'];
+$publicRightTypography = $publicTypography['hidden_right'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>10,'weight'=>400,'color'=>'#cdbdc2'];
+$headerTextStyle = static function(array $t): string {
+    $family=in_array(($t['family']??'Ubuntu'),['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'],true)?$t['family']:'Ubuntu';
+    $style=($t['style']??'normal')==='italic'?'italic':'normal';
+    $size=max(8,min(40,(int)($t['size']??13)));
+    $weight=in_array((int)($t['weight']??400),[300,400,500,600,700,800],true)?(int)$t['weight']:400;
+    $color=preg_match('/^#[0-9a-f]{6}$/i',(string)($t['color']??''))?$t['color']:'#eadde1';
+    return 'font-family:'.htmlspecialchars((string)$family,ENT_QUOTES,'UTF-8').';font-style:'.$style.';font-size:'.$size.'px;font-weight:'.$weight.';color:'.$color;
+};
+$renderHeaderRich = static function($html,$fallback): string {
+    $value=trim((string)$html);
+    if($value==='') return e((string)$fallback);
+    $value=strip_tags($value,'<span><b><strong><i><em><u>');
+    $value=preg_replace_callback('/<span\\b([^>]*)>/i',static function($m){
+        $safe='';
+        if(preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[1],$sm)){
+            $rules=[];
+            foreach(explode(';',$sm[1]) as $rule){if(!str_contains($rule,':'))continue;[$k,$v]=array_map('trim',explode(':',$rule,2));
+                if($k==='color'&&preg_match('/^#[0-9a-f]{3,8}$/i',$v))$rules[]='color:'.$v;
+                if($k==='font-size'&&preg_match('/^(?:[8-9]|[1-3][0-9])px$/',$v))$rules[]='font-size:'.$v;
+                if($k==='font-weight'&&in_array($v,['300','400','500','600','700','800','bold','normal'],true))$rules[]='font-weight:'.$v;
+                if($k==='font-style'&&in_array($v,['normal','italic'],true))$rules[]='font-style:'.$v;
+            }if($rules)$safe=' style="'.implode(';',$rules).'"';
+        }return '<span'.$safe.'>';
+    },$value);
+    return preg_replace('/<(b|strong|i|em|u)\\b[^>]*>/i','<$1>',$value);
+};
 $publicHeaderLogoX = max(0, min(100, (int)($publicHeader['logo_position_x'] ?? 50)));
 $publicHeaderLogoY = max(0, min(100, (int)($publicHeader['logo_position_y'] ?? 50)));
 
@@ -109,11 +149,11 @@ $modules = [
 </style>
 </head>
 <body>
-<div class="topbar"><div class="wrap"><span><?=e((string)($publicHeader['hidden_left'] ?? ''))?></span><span><?=e((string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
+<div class="topbar"><div class="wrap"><span style="<?=e($headerTextStyle($publicLeftTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span style="<?=e($headerTextStyle($publicRightTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
 <header><div class="wrap nav">
-<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle)?> — Home" style="font-family:<?=e($publicHeaderFamily)?>;font-style:<?=e($publicHeaderStyle)?>;font-size:<?=$publicHeaderSize?>px;font-weight:<?=$publicHeaderWeight?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title"><?=e($publicHeaderTitle)?></span></a>
+<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle)?> — Home" style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
 <nav class="navlinks">
-<?php if ($publicHeaderLinks): foreach ($publicHeaderLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a href="<?=e((string)$headerLink['url'])?>"><?=e((string)$headerLink['label'])?></a><?php endforeach; else: ?>
+<?php if ($publicHeaderLinks): foreach ($publicHeaderLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a href="<?=e((string)$headerLink['url'])?>" style="<?=e($headerTextStyle((array)($headerLink['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0'])))?>"><?=$renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label'])?></a><?php endforeach; else: ?>
 <a href="#modules">Explore</a><a href="#zamboanga">History & Culture</a><a href="#latest">Latest stories</a>
 <?php endif; ?>
 <a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
