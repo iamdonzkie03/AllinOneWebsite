@@ -278,13 +278,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $headerSettings = $savedHeader;
             $headerLinks = $links;
-            try {
-                $githubCommit = publishHeaderSettingsToGitHub($savedHeader);
-                $message = 'Header settings saved. The actual index.php in GitHub main was updated successfully. Commit: ' . ($githubCommit !== '' ? substr($githubCommit, 0, 12) : 'created') . '.';
-            } catch (Throwable $publishError) {
-                error_log('GitHub header publishing skipped or failed: ' . $publishError->getMessage());
-                $message = 'Header settings saved successfully. Your local public homepage uses the saved database settings. GitHub synchronization was not completed: ' . $publishError->getMessage();
-            }
+            // The local public homepage reads this saved database row directly.
+            // GitHub synchronization is intentionally not part of this save action.
+            $message = 'Header settings successfully updated.';
         }
         $section = 'page-management';
     }
@@ -467,7 +463,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
 </aside>
 <main class="admin-main">
-<?php if($message === 'Account status updated.'):?>
+<?php if($message === 'Header settings successfully updated.'):?>
+<div class="account-status-modal" id="header-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="header-settings-success-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="header-settings-success-title">Header Settings Successfully Updated.</h2>
+    <button type="button" class="btn" id="header-settings-success-close">OK</button>
+  </div>
+</div>
+<?php elseif($message === 'Account status updated.'):?>
 <div class="account-status-modal" id="account-status-modal" role="dialog" aria-modal="true" aria-labelledby="account-status-modal-title">
   <div class="account-status-modal-card">
     <div class="account-status-modal-icon" aria-hidden="true">✓</div>
@@ -739,6 +743,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   });
 })();
 
-(()=>{const modal=document.getElementById('account-status-modal');if(!modal)return;const close=()=>modal.remove();document.getElementById('account-status-modal-close')?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});document.getElementById('account-status-modal-close')?.focus();})();
+(()=>{['account-status-modal','header-settings-success-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
 </script>
 </main></div></body></html>
