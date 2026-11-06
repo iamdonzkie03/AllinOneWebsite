@@ -681,32 +681,42 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         };
         const attachColorPalette=(input)=>{if(!input||input.dataset.paletteReady)return;input.dataset.paletteReady='1';const button=document.createElement('button');button.type='button';button.className='font-color-palette';button.setAttribute('aria-label','Choose font color');button.title='Choose font color';button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 1.6-3.9 1.2 1.2 0 0 1 .9-2.1H18a3 3 0 0 0 3-3c0-5-4-8-9-9Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.8" r="1"/><circle cx="15" cy="7.5" r="1"/><circle cx="17.5" cy="11" r="1"/></svg>';const sync=()=>button.style.setProperty('--palette-color',input.value);input.classList.add('font-color-native');input.insertAdjacentElement('afterend',button);button.addEventListener('mousedown',e=>e.preventDefault());button.addEventListener('click',()=>{try{if(input.showPicker)input.showPicker();else input.click();}catch(e){input.click();}});input.addEventListener('input',sync);input.addEventListener('change',sync);sync();};
         form.querySelectorAll('.typography-group input[type="color"]').forEach(attachColorPalette);
-        // Selected-text typography is stored as preview-only ranges. The editable
-        // Header Title textbox remains unchanged; only the Header Preview is styled.
+        // Selected-text typography is preview-only: keep the editor itself untouched.
         const titleEditor=form.querySelector('[data-rich-editor="title"]');
+        const titlePreview=document.getElementById('preview-header-title');
         let savedTitleSelection=null;
         const titlePreviewStyles=[];
-        const titleTextOffset=(container,offset)=>{
-          const range=document.createRange();
-          range.selectNodeContents(titleEditor);
-          range.setEnd(container,offset);
-          return range.toString().length;
+        const readTitleSelection=()=>{
+          const selection=window.getSelection();
+          if(!selection||selection.rangeCount===0||selection.isCollapsed)return null;
+          const range=selection.getRangeAt(0);
+          if(!titleEditor.contains(range.startContainer)||!titleEditor.contains(range.endContainer))return null;
+          const beforeStart=range.cloneRange();
+          beforeStart.selectNodeContents(titleEditor);
+          beforeStart.setEnd(range.startContainer,range.startOffset);
+          const startOffset=beforeStart.toString().length;
+          const selectedLength=range.toString().length;
+          if(!selectedLength)return null;
+          return {start:startOffset,end:startOffset+selectedLength};
         };
         const rememberTitleSelection=()=>{
-          const selection=window.getSelection();
-          if(!selection||selection.rangeCount===0)return;
-          const range=selection.getRangeAt(0);
-          if(!titleEditor.contains(range.commonAncestorContainer)||range.collapsed)return;
-          savedTitleSelection={start:titleTextOffset(range.startContainer,range.startOffset),end:titleTextOffset(range.endContainer,range.endOffset)};
+          const next=readTitleSelection();
+          if(next)savedTitleSelection=next;
         };
         ['mouseup','keyup','touchend'].forEach(eventName=>titleEditor.addEventListener(eventName,rememberTitleSelection));
         document.addEventListener('selectionchange',rememberTitleSelection);
+        // Save the range before a typography control takes focus (especially native color pickers).
+        const titleTypographyGroup=form.querySelector('.typography-group [name^="typography[title]"]')?.closest('.typography-group');
+        titleTypographyGroup?.addEventListener('pointerdown',rememberTitleSelection,true);
+        titleTypographyGroup?.addEventListener('mousedown',rememberTitleSelection,true);
         const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const renderTitlePreview=()=>{
-          const text=titleEditor.innerText||'';
-          const preview=document.getElementById('preview-header-title');
+          const text=titleEditor.innerText||titleEditor.textContent||'';
           const boundaries=new Set([0,text.length]);
-          titlePreviewStyles.forEach(item=>{boundaries.add(Math.max(0,Math.min(text.length,item.start)));boundaries.add(Math.max(0,Math.min(text.length,item.end)));});
+          titlePreviewStyles.forEach(item=>{
+            boundaries.add(Math.max(0,Math.min(text.length,item.start)));
+            boundaries.add(Math.max(0,Math.min(text.length,item.end)));
+          });
           const points=[...boundaries].sort((a,b)=>a-b);
           let html='';
           for(let i=0;i<points.length-1;i++){
@@ -715,49 +725,59 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             const styles={};
             titlePreviewStyles.filter(item=>item.start<end&&item.end>start).forEach(item=>Object.assign(styles,item.styles));
             const content=escapePreviewText(text.slice(start,end));
-            const declarations=Object.entries(styles).map(([key,value])=>key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())+':'+value).join(';');
+            const declarations=Object.entries(styles).map(([key,value])=>{
+              const cssName=key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase());
+              return cssName+':'+String(value)+' !important';
+            }).join(';');
             html+=declarations?'<span style="'+declarations+'">'+content+'</span>':content;
           }
-          preview.innerHTML=html||escapePreviewText(text);
+          titlePreview.innerHTML=html||escapePreviewText(text);
         };
         const applyTitleSelectionStyle=(property,value)=>{
           if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start)return false;
-          const {start,end}=savedTitleSelection;
+          const textLength=(titleEditor.innerText||titleEditor.textContent||'').length;
+          const start=Math.max(0,Math.min(textLength,savedTitleSelection.start));
+          const end=Math.max(start,Math.min(textLength,savedTitleSelection.end));
+          if(end<=start)return false;
           let item=titlePreviewStyles.find(entry=>entry.start===start&&entry.end===end);
           if(!item){item={start,end,styles:{}};titlePreviewStyles.push(item);}
           item.styles[property]=value;
           renderTitlePreview();
           return true;
         };
-        form.querySelectorAll('.typography-group').forEach(group=>{
-          const hidden=group.querySelector('[data-format-value]');
-          const isTitleGroup=group.querySelector('[name^="typography[title]"]')!==null;
-          group.querySelectorAll('[data-format-toggle]').forEach(button=>{
-            button.addEventListener('mousedown',e=>e.preventDefault());
-            button.addEventListener('click',()=>{
-              const fmt=button.dataset.formatToggle;
-              if(isTitleGroup&&savedTitleSelection&&savedTitleSelection.end>savedTitleSelection.start){
-                const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
-                const current=button.getAttribute('aria-pressed')==='true';
-                const value=fmt==='bold'?(current?'400':'700'):fmt==='italic'?(current?'normal':'italic'):(current?'none':'underline');
-                if(applyTitleSelectionStyle(prop,value)){button.setAttribute('aria-pressed',String(!current));updatePreview();return;}
+        titleTypographyGroup?.querySelectorAll('[data-format-toggle]').forEach(button=>{
+          button.addEventListener('mousedown',event=>event.preventDefault());
+          button.addEventListener('click',()=>{
+            const fmt=button.dataset.formatToggle;
+            if(savedTitleSelection&&savedTitleSelection.end>savedTitleSelection.start){
+              const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
+              const current=button.getAttribute('aria-pressed')==='true';
+              const value=fmt==='bold'?(current?'400':'700'):fmt==='italic'?(current?'normal':'italic'):(current?'none':'underline');
+              if(applyTitleSelectionStyle(prop,value)){
+                button.setAttribute('aria-pressed',String(!current));
+                updatePreview();
+                return;
               }
-              const set=new Set((hidden?.value||'').split(/[ ,]+/).filter(Boolean));
-              const active=set.has(fmt);active?set.delete(fmt):set.add(fmt);
-              if(hidden)hidden.value=['bold','italic','underline'].filter(x=>set.has(x)).join(' ');
-              button.setAttribute('aria-pressed',String(!active));updatePreview();
-            });
+            }
+            const hidden=titleTypographyGroup.querySelector('[data-format-value]');
+            const set=new Set((hidden?.value||'').split(/[ ,]+/).filter(Boolean));
+            const active=set.has(fmt);
+            active?set.delete(fmt):set.add(fmt);
+            if(hidden)hidden.value=['bold','italic','underline'].filter(x=>set.has(x)).join(' ');
+            button.setAttribute('aria-pressed',String(!active));
+            updatePreview();
           });
-          group.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{
-            input.addEventListener('change',()=>{
-              if(isTitleGroup){
-                const prop=input.name.endsWith('[family]')?'fontFamily':input.name.endsWith('[size]')?'fontSize':'color';
-                const value=input.name.endsWith('[size]')?input.value+'px':input.value;
-                if(applyTitleSelectionStyle(prop,value)){updatePreview();return;}
-              }
-              updatePreview();
-            });
-          });
+        });
+        titleTypographyGroup?.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{
+          const applyControlValue=()=>{
+            if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start){updatePreview();return;}
+            const prop=input.name.endsWith('[family]')?'fontFamily':input.name.endsWith('[size]')?'fontSize':'color';
+            const value=input.name.endsWith('[size]')?input.value+'px':input.value;
+            if(applyTitleSelectionStyle(prop,value)){updatePreview();return;}
+            updatePreview();
+          };
+          input.addEventListener('input',applyControlValue);
+          input.addEventListener('change',applyControlValue);
         });
         const initRichEditors=()=>{
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
