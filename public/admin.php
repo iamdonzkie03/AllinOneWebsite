@@ -462,7 +462,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const add = document.getElementById('add-header-link');
         const makeLinkRow = (label = '', url = '') => {
           const row=document.createElement('div');row.className='header-link-row';
-          const labelInput=document.createElement('input');labelInput.type='hidden';labelInput.name='header_link_label[]';labelInput.maxLength=60;labelInput.value=label;
           const urlInput=document.createElement('input');urlInput.className='field';urlInput.name='header_link_url[]';urlInput.maxLength=500;urlInput.placeholder='Page URL';urlInput.value=url;
           const remove=document.createElement('button');remove.type='button';remove.className='btn light remove-header-link';remove.textContent='Remove';remove.addEventListener('click',()=>{row.remove();updatePreview();});
           const editor=document.createElement('div');editor.className='rich-editor';editor.contentEditable='true';editor.dataset.richEditor='link';editor.textContent=label;editor.setAttribute('role','textbox');
@@ -470,7 +469,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           const hidden=document.createElement('input');hidden.type='hidden';hidden.name='header_link_html[]';hidden.dataset.richValue='link';
           const tools=document.createElement('div');tools.className='rich-tools';tools.dataset.tools='link';
           const styles=document.createElement('div');styles.className='rich-style-controls';styles.dataset.styleControls='link';styles.dataset.typography='{"family":"Ubuntu","style":"normal","size":13,"weight":500,"color":"#e8dce0"}';
-          row.append(urlInput,remove,editor,labelInput,hidden,tools,styles);return row;
+          row.append(urlInput,remove,editor,richLabel,hidden,tools,styles);return row;
         };
         const editorText = row => row.querySelector('[data-rich-editor]')?.innerText || '';
         const updatePreview = () => {
