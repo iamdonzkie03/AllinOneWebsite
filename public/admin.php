@@ -776,7 +776,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             input.addEventListener('change',updatePreview);
           });
           group.querySelectorAll('[data-format-toggle]').forEach(button=>{
-            button.addEventListener('click',updatePreview);
+            button.addEventListener('mousedown',event=>event.preventDefault());
+            button.addEventListener('click',()=>{
+              const hidden=group.querySelector('[data-format-value]');
+              const format=button.dataset.formatToggle;
+              const formats=new Set((hidden?.value||'').split(/[ ,]+/).filter(Boolean));
+              const active=formats.has(format);
+              active?formats.delete(format):formats.add(format);
+              if(hidden)hidden.value=['bold','italic','underline'].filter(item=>formats.has(item)).join(' ');
+              button.setAttribute('aria-pressed',String(!active));
+              updatePreview();
+            });
           });
         });
         titleTypographyGroup?.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{
