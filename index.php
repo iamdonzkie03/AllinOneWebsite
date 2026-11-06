@@ -70,6 +70,19 @@ $headerTextStyle = static function(array $t): string {
     $formatParts=preg_split('/[ ,]+/',$format,-1,PREG_SPLIT_NO_EMPTY)?:[];$fontStyle=in_array('italic',$formatParts,true)?'italic':'normal';$fontWeight=in_array('bold',$formatParts,true)?700:$weight;$decoration=in_array('underline',$formatParts,true)?'underline':'none';
     return 'font-family:'.htmlspecialchars((string)$family,ENT_QUOTES,'UTF-8').';font-style:'.$fontStyle.';font-size:'.$size.'px;font-weight:'.$fontWeight.';text-decoration:'.$decoration.';color:'.$color;
 };
+$headerTypographyImportant = static function(array $t): string {
+    $inline = $headerTextStyle($t);
+    return preg_replace('/;/', ' !important;', $inline) . ' !important';
+};
+$publicHeaderTypographyCss = '.header-type-title,.header-type-title *{'.$headerTypographyImportant($publicTitleTypography).'}'
+    . '.header-type-left,.header-type-left *{'.$headerTypographyImportant($publicLeftTypography).'}'
+    . '.header-type-right,.header-type-right *{'.$headerTypographyImportant($publicRightTypography).'}';
+foreach ($publicHeaderLinks as $linkIndex => $headerLinkForCss) {
+    if (!is_array($headerLinkForCss)) continue;
+    $linkClass = 'header-type-link-' . (int)$linkIndex;
+    $linkTypography = (array)($headerLinkForCss['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0']);
+    $publicHeaderTypographyCss .= '.'.$linkClass.',.'.$linkClass.' *{'.$headerTypographyImportant($linkTypography).'}';
+}
 $renderHeaderRich = static function($html,$fallback): string {
     $value=trim((string)$html);
     if($value==='') return e((string)$fallback);
@@ -170,12 +183,13 @@ $modules = [
 </style>
 </head>
 <body>
-<!-- Public header is rendered from the latest Header tab configuration published by Page Management. -->
-<div class="topbar" id="public-site-header-topbar" data-header-source="page-management"><div class="wrap"><span style="<?=e($headerTextStyle($publicLeftTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span style="<?=e($headerTextStyle($publicRightTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
+<!-- Typography rules deliberately target rich-text descendants so independent Header typography wins over inline editor formatting. -->
+<style id="public-header-typography-rules"><?=$publicHeaderTypographyCss?></style>
+<div class="topbar" id="public-site-header-topbar" data-header-source="page-management"><div class="wrap"><span class="header-type-left" style="<?=e($headerTextStyle($publicLeftTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span class="header-type-right" style="<?=e($headerTextStyle($publicRightTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
 <header id="public-site-header" data-header-source="page-management"><div class="wrap nav">
-<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle !== '' ? $publicHeaderTitle : 'Home')?> " style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
+<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle !== '' ? $publicHeaderTitle : 'Home')?> " style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title header-type-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
 <nav class="navlinks">
-<?php foreach ($publicHeaderLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a href="<?=e((string)$headerLink['url'])?>" style="<?=e($headerTextStyle((array)($headerLink['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0'])))?>"><?=$renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label'])?></a><?php endforeach; ?>
+<?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e((string)$headerLink['url'])?>" style="<?=e($headerTextStyle((array)($headerLink['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0'])))?>"><?=$renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label'])?></a><?php endforeach; ?>
 <a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
 </nav></div></header>
 <main>
