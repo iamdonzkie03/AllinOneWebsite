@@ -42,7 +42,7 @@ function cleanHeaderRichHtml(string $html): string {
                 if (!str_contains($rule, ':')) continue;
                 [$key,$value] = array_map('trim', explode(':', $rule, 2));
                 if ($key === 'color' && preg_match('/^#[0-9a-f]{3,8}$/i', $value)) $rules[] = 'color:'.$value;
-                if ($key === 'font-size' && preg_match('/^(?:[8-9]|[1-3][0-9])px$/', $value)) $rules[] = 'font-size:'.$value;
+                if ($key === 'font-size' && preg_match('/^(?:[8-9]|[1-3][0-9]|40)px$/', $value)) $rules[] = 'font-size:'.$value;
                 if ($key === 'font-weight' && in_array($value, ['300','400','500','600','700','800','bold','normal'], true)) $rules[] = 'font-weight:'.$value;
                 if ($key === 'font-style' && in_array($value, ['normal','italic'], true)) $rules[] = 'font-style:'.$value;
                 if ($key === 'font-family' && in_array(trim($value), ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'], true)) $rules[] = 'font-family:'.trim($value);
