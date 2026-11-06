@@ -48,8 +48,8 @@ $headerTextStyle = static function(array $t): string {
     $weight=in_array((int)($t['weight']??400),[300,400,500,600,700,800],true)?(int)$t['weight']:400;
     $color=preg_match('/^#[0-9a-f]{6}$/i',(string)($t['color']??''))?$t['color']:'#eadde1';
     $format=(string)($t['format']??(($weight>=700)?'bold':(($style==='italic')?'italic':'normal')));
-    if(!in_array($format,['normal','bold','italic','underline'],true))$format='normal';
-    $fontStyle=$format==='italic'?'italic':'normal';$fontWeight=$format==='bold'?700:$weight;$decoration=$format==='underline'?'underline':'none';
+    $formatParts=array_values(array_intersect(['bold','italic','underline'],preg_split('/[ ,]+/',$format,-1,PREG_SPLIT_NO_EMPTY)?:[]));$format=implode(' ',$formatParts);
+    $formatParts=preg_split('/[ ,]+/',$format,-1,PREG_SPLIT_NO_EMPTY)?:[];$fontStyle=in_array('italic',$formatParts,true)?'italic':'normal';$fontWeight=in_array('bold',$formatParts,true)?700:$weight;$decoration=in_array('underline',$formatParts,true)?'underline':'none';
     return 'font-family:'.htmlspecialchars((string)$family,ENT_QUOTES,'UTF-8').';font-style:'.$fontStyle.';font-size:'.$size.'px;font-weight:'.$fontWeight.';text-decoration:'.$decoration.';color:'.$color;
 };
 $renderHeaderRich = static function($html,$fallback): string {
@@ -64,7 +64,7 @@ $renderHeaderRich = static function($html,$fallback): string {
                 if($k==='color'&&preg_match('/^#[0-9a-f]{3,8}$/i',$v))$rules[]='color:'.$v;
                 if($k==='font-size'&&preg_match('/^(?:[8-9]|[1-3][0-9])px$/',$v))$rules[]='font-size:'.$v;
                 if($k==='font-weight'&&in_array($v,['300','400','500','600','700','800','bold','normal'],true))$rules[]='font-weight:'.$v;
-                if($k==='font-style'&&in_array($v,['normal','italic'],true))$rules[]='font-style:'.$v;
+                if($k==='font-style'&&in_array($v,['normal','italic'],true))$rules[]='font-style:'.$v;if($k==='font-family'&&in_array(trim($v," \\"'"),['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'],true))$rules[]='font-family:'.trim($v," \\"'");if($k==='text-decoration'&&in_array($v,['none','underline'],true))$rules[]='text-decoration:'.$v;
             }if($rules)$safe=' style="'.implode(';',$rules).'"';
         }return '<span'.$safe.'>';
     },$value);
