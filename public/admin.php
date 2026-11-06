@@ -75,6 +75,91 @@ $section = (string)($_GET['section'] ?? 'dashboard');
 $allowedSections = ['dashboard', 'settings', 'page-management', 'media-management', 'plugins', 'user-accounts'];
 if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
 
+/**
+ * Publish the saved header row into the actual root index.php on GitHub main.
+ * The token is read only from server-side environment/configuration and is never
+ * sent to the browser or stored in the repository.
+ */
+function publishHeaderSettingsToGitHub(array $header): string {
+    global $config;
+    $token = trim((string)(getenv('ALLINONE_GITHUB_TOKEN') ?: ($config['github']['token'] ?? '')));
+    if ($token === '') {
+        throw new RuntimeException('GitHub publishing is not configured. Set ALLINONE_GITHUB_TOKEN on the Laragon/PHP server (or add github.token to the private config/config.php), then restart the web server.');
+    }
+    if (!function_exists('curl_init')) {
+        throw new RuntimeException('The PHP cURL extension is required for GitHub publishing. Enable extension=curl in Laragon PHP and restart Apache.');
+    }
+
+    $repository = trim((string)(getenv('ALLINONE_GITHUB_REPOSITORY') ?: 'iamdonzkie03/AllInOneWebsite'));
+    $branch = trim((string)(getenv('ALLINONE_GITHUB_BRANCH') ?: 'main'));
+    if (!preg_match('~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', $repository) || $branch === '') {
+        throw new RuntimeException('The GitHub repository or branch configuration is invalid.');
+    }
+
+    $apiUrl = 'https://api.github.com/repos/' . $repository . '/contents/index.php';
+    $headers = [
+        'Accept: application/vnd.github+json',
+        'Authorization: Bearer ' . $token,
+        'X-GitHub-Api-Version: 2022-11-28',
+        'User-Agent: AllInOneWebsite-HeaderPublisher',
+    ];
+    $request = static function(string $url, string $method, array $requestHeaders, ?string $body = null): array {
+        $curl = curl_init($url);
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => $requestHeaders,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+        if ($body !== null) curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
+        $response = curl_exec($curl);
+        $curlError = curl_error($curl);
+        $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        if ($response === false) throw new RuntimeException('GitHub connection failed: ' . ($curlError ?: 'unknown cURL error'));
+        $decoded = json_decode((string)$response, true);
+        if (!is_array($decoded)) throw new RuntimeException('GitHub returned an unreadable response (HTTP ' . $status . ').');
+        return [$status, $decoded];
+    };
+
+    [$readStatus, $file] = $request($apiUrl . '?ref=' . rawurlencode($branch), 'GET', $headers);
+    if ($readStatus !== 200 || empty($file['content']) || empty($file['sha'])) {
+        $detail = (string)($file['message'] ?? ('HTTP ' . $readStatus));
+        throw new RuntimeException('Unable to read index.php from GitHub: ' . $detail);
+    }
+    $source = base64_decode((string)$file['content'], true);
+    if (!is_string($source)) throw new RuntimeException('GitHub index.php content could not be decoded.');
+
+    $json = json_encode($header, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($json)) throw new RuntimeException('Header settings could not be encoded for GitHub.');
+    $encodedSettings = base64_encode($json);
+    $replacement = "// BEGIN GITHUB-PUBLISHED HEADER SETTINGS\n"
+        . "\$githubPublishedHeaderSettings = json_decode(base64_decode('" . $encodedSettings . "'), true) ?: [];\n"
+        . "// END GITHUB-PUBLISHED HEADER SETTINGS";
+    $pattern = '~// BEGIN GITHUB-PUBLISHED HEADER SETTINGS.*?// END GITHUB-PUBLISHED HEADER SETTINGS~s';
+    if (!preg_match($pattern, $source)) {
+        throw new RuntimeException('The GitHub index.php does not contain the header-publishing marker block. Pull the latest project code first.');
+    }
+    $updatedSource = preg_replace($pattern, $replacement, $source, 1);
+    if (!is_string($updatedSource)) throw new RuntimeException('Unable to prepare the updated GitHub index.php.');
+
+    [$writeStatus, $result] = $request($apiUrl, 'PUT', array_merge($headers, ['Content-Type: application/json']), json_encode([
+        'message' => 'Publish Page Management header settings',
+        'content' => base64_encode($updatedSource),
+        'sha' => (string)$file['sha'],
+        'branch' => $branch,
+    ], JSON_UNESCAPED_SLASHES));
+    if (!in_array($writeStatus, [200, 201], true)) {
+        $detail = (string)($result['message'] ?? ('HTTP ' . $writeStatus));
+        if ($writeStatus === 401 || $writeStatus === 403) {
+            $detail .= ' Check that the token is valid and has Contents: Read and write permission for this repository.';
+        }
+        throw new RuntimeException('GitHub did not commit index.php: ' . $detail);
+    }
+    return (string)($result['commit']['sha'] ?? '');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
@@ -193,7 +278,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $headerSettings = $savedHeader;
             $headerLinks = $links;
-            $message = 'Header settings saved and verified successfully. Public header updated_at: ' . (string)($savedHeader['updated_at'] ?? 'available after refresh') . '.';
+            try {
+                $githubCommit = publishHeaderSettingsToGitHub($savedHeader);
+                $message = 'Header settings saved. The actual index.php in GitHub main was updated successfully. Commit: ' . ($githubCommit !== '' ? substr($githubCommit, 0, 12) : 'created') . '.';
+            } catch (Throwable $publishError) {
+                error_log('GitHub header publishing failed: ' . $publishError->getMessage());
+                $message = 'Header settings were saved in the database, but GitHub main was NOT updated: ' . $publishError->getMessage();
+            }
         }
         $section = 'page-management';
     }
