@@ -149,12 +149,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 title_html=VALUES(title_html),hidden_left_html=VALUES(hidden_left_html),
                 hidden_right_html=VALUES(hidden_right_html),typography_json=VALUES(typography_json)");
             $save->execute([$title,$logoPath ?: null,json_encode($links,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),$left,$right,$family,$style,$size,$weight,$positionX,$positionY,$titleHtml,$leftHtml,$rightHtml,json_encode($typography,JSON_UNESCAPED_SLASHES)]);
-            $headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
-            if (!$headerSettings || (string)$headerSettings['header_title'] !== $title) {
-                throw new RuntimeException('Header settings could not be verified after saving. Please check the database connection.');
+            // Read the row back from the same connection and verify every public-header
+            // value. A successful SQL execute alone does not prove that the intended
+            // settings were persisted.
+            $verifyStmt = $pdo->prepare('SELECT * FROM site_header_settings WHERE id = 1 LIMIT 1');
+            $verifyStmt->execute();
+            $savedHeader = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+            $expectedLinks = json_encode($links, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $expectedTypography = json_encode($typography, JSON_UNESCAPED_SLASHES);
+            $checks = [
+                'header_title' => $title,
+                'logo_path' => $logoPath ?: null,
+                'header_links' => $expectedLinks,
+                'hidden_left' => $left,
+                'hidden_right' => $right,
+                'font_family' => $family,
+                'font_style' => $style,
+                'font_size' => (string)$size,
+                'font_weight' => (string)$weight,
+                'logo_position_x' => (string)$positionX,
+                'logo_position_y' => (string)$positionY,
+                'title_html' => $titleHtml,
+                'hidden_left_html' => $leftHtml,
+                'hidden_right_html' => $rightHtml,
+                'typography_json' => $expectedTypography,
+            ];
+            $verificationErrors = [];
+            if (!$savedHeader) {
+                $verificationErrors[] = 'The settings row (id 1) was not found after saving.';
+            } else {
+                foreach ($checks as $column => $expectedValue) {
+                    $actualValue = $savedHeader[$column] ?? null;
+                    if ($expectedValue === null) {
+                        if ($actualValue !== null && $actualValue !== '') $verificationErrors[] = $column;
+                    } elseif ((string)$actualValue !== (string)$expectedValue) {
+                        $verificationErrors[] = $column;
+                    }
+                }
             }
+            if ($verificationErrors) {
+                error_log('Header settings verification failed for columns: ' . implode(', ', $verificationErrors) . '; database=' . (string)$pdo->query('SELECT DATABASE()')->fetchColumn());
+                throw new RuntimeException('Header settings were submitted but could not be fully verified in the connected database. Please check the database selected in config/config.php and the PHP error log. Fields not verified: ' . implode(', ', $verificationErrors) . '.');
+            }
+            $headerSettings = $savedHeader;
             $headerLinks = $links;
-            $message = 'Header settings successfully updated.';
+            $message = 'Header settings saved and verified successfully. Public header updated_at: ' . (string)($savedHeader['updated_at'] ?? 'available after refresh') . '.';
         }
         $section = 'page-management';
     }
