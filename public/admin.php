@@ -20,8 +20,48 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
   font_weight SMALLINT UNSIGNED NOT NULL DEFAULT 700,
   logo_position_x TINYINT UNSIGNED NOT NULL DEFAULT 50,
   logo_position_y TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  title_html LONGTEXT NULL,
+  hidden_left_html LONGTEXT NULL,
+  hidden_right_html LONGTEXT NULL,
+  typography_json LONGTEXT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// Additive compatibility for databases created before independent header typography was introduced.
+foreach (['title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hidden_right_html'=>'LONGTEXT NULL','typography_json'=>'LONGTEXT NULL'] as $column=>$definition) {
+    $exists = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='site_header_settings' AND COLUMN_NAME=?");
+    $exists->execute([$column]);
+    if (!(int)$exists->fetchColumn()) $pdo->exec("ALTER TABLE site_header_settings ADD COLUMN {$column} {$definition}");
+}
+function cleanHeaderRichHtml(string $html): string {
+    $html = strip_tags($html, '<span><b><strong><i><em><u>');
+    $html = preg_replace_callback('/<span\\b([^>]*)>/i', static function($m) {
+        $style = '';
+        if (preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[1], $sm)) {
+            $rules = [];
+            foreach (explode(';', $sm[1]) as $rule) {
+                if (!str_contains($rule, ':')) continue;
+                [$key,$value] = array_map('trim', explode(':', $rule, 2));
+                if ($key === 'color' && preg_match('/^#[0-9a-f]{3,8}$/i', $value)) $rules[] = 'color:'.$value;
+                if ($key === 'font-size' && preg_match('/^(?:[8-9]|[1-3][0-9])px$/', $value)) $rules[] = 'font-size:'.$value;
+                if ($key === 'font-weight' && in_array($value, ['300','400','500','600','700','800','bold','normal'], true)) $rules[] = 'font-weight:'.$value;
+                if ($key === 'font-style' && in_array($value, ['normal','italic'], true)) $rules[] = 'font-style:'.$value;
+            }
+            if ($rules) $style = ' style="'.implode(';',$rules).'"';
+        }
+        return '<span'.$style.'>';
+    }, $html);
+    $html = preg_replace('/<(b|strong|i|em|u)\\b[^>]*>/i', '<$1>', $html);
+    return trim((string)$html);
+}
+function headerTypography(array $input, array $fallback=[]): array {
+    $families=['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'];
+    $family=(string)($input['family'] ?? $fallback['family'] ?? 'Ubuntu');
+    $style=(string)($input['style'] ?? $fallback['style'] ?? 'normal');
+    $size=max(8,min(40,(int)($input['size'] ?? $fallback['size'] ?? 16)));
+    $weight=(int)($input['weight'] ?? $fallback['weight'] ?? 400);
+    $color=(string)($input['color'] ?? $fallback['color'] ?? '#eadde1');
+    return ['family'=>in_array($family,$families,true)?$family:'Ubuntu','style'=>in_array($style,['normal','italic'],true)?$style:'normal','size'=>$size,'weight'=>in_array($weight,[300,400,500,600,700,800],true)?$weight:400,'color'=>preg_match('/^#[0-9a-f]{6}$/i',$color)?$color:'#eadde1'];
+}
 $pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
 $headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
@@ -47,16 +87,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $allowedFamilies = ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'];
         if (!in_array($family, $allowedFamilies, true)) $family = 'Ubuntu';
         if (!in_array($style, ['normal','italic'], true)) $style = 'normal';
+        $titleHtml = cleanHeaderRichHtml((string)($_POST['header_title_html'] ?? ''));
+        $leftHtml = cleanHeaderRichHtml((string)($_POST['hidden_left_html'] ?? ''));
+        $rightHtml = cleanHeaderRichHtml((string)($_POST['hidden_right_html'] ?? ''));
+        $typography = [
+            'title'=>headerTypography((array)($_POST['typography']['title'] ?? []), ['family'=>$family,'style'=>$style,'size'=>$size,'weight'=>$weight,'color'=>'#f7eef0']),
+            'hidden_left'=>headerTypography((array)($_POST['typography']['hidden_left'] ?? []), ['size'=>10,'weight'=>400,'color'=>'#cdbdc2']),
+            'hidden_right'=>headerTypography((array)($_POST['typography']['hidden_right'] ?? []), ['size'=>10,'weight'=>400,'color'=>'#cdbdc2'])
+        ];
         $links = [];
         foreach ((array)($_POST['header_link_label'] ?? []) as $index => $label) {
             $label = trim((string)$label);
             $url = trim((string)(($_POST['header_link_url'][$index] ?? '')));
+            $labelHtml = cleanHeaderRichHtml((string)(($_POST['header_link_html'][$index] ?? '')));
             if ($label === '' && $url === '') continue;
             if ($label === '' || $url === '' || !preg_match('~^(https?://|/|#|\\.\\./|\\./)~i', $url)) {
                 $message = 'Each header link needs a label and a valid URL (http://, https://, /, or #).';
                 break;
             }
-            $links[] = ['label' => mb_substr($label, 0, 60), 'url' => mb_substr($url, 0, 500)];
+            $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>$labelHtml,'url'=>mb_substr($url,0,500),'typography'=>headerTypography((array)($_POST['typography']['links'][$index] ?? []), ['size'=>13,'weight'=>500,'color'=>'#e8dce0'])];
         }
         $logoPath = (string)($headerSettings['logo_path'] ?? '');
         if ($message === '' && $logoPath === '' && empty($_FILES['header_logo']['name'])) {
@@ -88,8 +137,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($message === '' && $title === '') $message = 'Header Title is required.';
         if ($message === '') {
-            $save = $pdo->prepare("UPDATE site_header_settings SET header_title=?,logo_path=?,header_links=?,hidden_left=?,hidden_right=?,font_family=?,font_style=?,font_size=?,font_weight=?,logo_position_x=?,logo_position_y=? WHERE id=1");
-            $save->execute([$title, $logoPath ?: null, json_encode($links, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $left, $right, $family, $style, $size, $weight, $positionX, $positionY]);
+            $save = $pdo->prepare("UPDATE site_header_settings SET header_title=?,logo_path=?,header_links=?,hidden_left=?,hidden_right=?,font_family=?,font_style=?,font_size=?,font_weight=?,logo_position_x=?,logo_position_y=?,title_html=?,hidden_left_html=?,hidden_right_html=?,typography_json=? WHERE id=1");
+            $save->execute([$title,$logoPath ?: null,json_encode($links,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),$left,$right,$family,$style,$size,$weight,$positionX,$positionY,$titleHtml,$leftHtml,$rightHtml,json_encode($typography,JSON_UNESCAPED_SLASHES)]);
             $headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
             $headerLinks = $links;
             $message = 'Header settings successfully updated.';
@@ -339,7 +388,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .page-management-tabpanel[hidden]{display:none}
       .header-settings-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.85fr);gap:24px;align-items:start}
       .header-settings-fields{display:grid;gap:20px;min-width:0}.header-field{display:grid;gap:8px;color:#f4e9ec;font-size:13px;font-weight:600}.header-field b{color:#ff8799}.header-field small,.header-preview-help{font-size:11px;color:var(--muted);font-weight:400;line-height:1.55}.header-field .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:13px 'Ubuntu',sans-serif}
-      .header-link-row{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(150px,1.3fr) auto;gap:8px;margin:8px 0}.header-hidden-fields,.header-typography-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.header-hidden-fields label,.header-typography-fields label,.logo-crop-controls label{display:grid;gap:7px;font-size:12px;color:#d9cbd0}.logo-crop-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.logo-crop-controls input{width:100%;accent-color:#a52b45}
+      .header-link-row{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(150px,1.3fr) auto;gap:8px;margin:8px 0}
+      .rich-editor{min-height:38px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#120d10;color:#f4e9ec;font:13px Ubuntu,sans-serif;outline:none}.rich-editor:focus{border-color:#a83b52;box-shadow:0 0 0 2px rgba(168,59,82,.16)}.rich-tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.rich-tools button{padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#21151a;color:#f4e9ec;font-size:11px;cursor:pointer}.rich-tools input,.rich-tools select{max-width:110px;padding:4px;background:#171115;color:#fff;border:1px solid var(--line);border-radius:6px}.typography-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px}.typography-group legend{font-size:12px;color:#f1c4ce;padding:0 5px}.typography-group label{display:grid;gap:5px;font-size:11px;color:#d9cbd0}.typography-group .field{min-width:0;padding:8px}.header-link-row .rich-editor,.header-link-row .rich-tools{grid-column:1/-1}.header-link-row{align-items:start}.header-hidden-fields,.header-typography-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.header-hidden-fields label,.header-typography-fields label,.logo-crop-controls label{display:grid;gap:7px;font-size:12px;color:#d9cbd0}.logo-crop-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.logo-crop-controls input{width:100%;accent-color:#a52b45}
       .header-preview-column{position:sticky;top:20px;min-width:0}.header-preview-title{font-size:13px;font-weight:700;margin-bottom:10px}.header-preview-frame{overflow:hidden;border:1px solid rgba(184,50,63,.35);border-radius:13px;background:#100d10;box-shadow:0 12px 35px rgba(0,0,0,.22)}.header-preview-topbar{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:#090809;color:#cdbdc2;font-size:9px;letter-spacing:.5px}.header-preview-main{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 12px;min-height:65px}.header-preview-brand{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;min-width:0}.header-preview-brand img{width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:50% 50%;border-radius:7px}.header-preview-brand span{overflow-wrap:anywhere}.header-preview-main nav{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}.header-preview-main nav a{font-size:9px;color:#e8dce0;text-decoration:none;white-space:nowrap}.header-preview-main nav .preview-signin{color:#fff}.header-preview-main nav .preview-join{padding:7px 9px;border-radius:7px;background:#92243a;color:#fff}.header-preview-help{margin:10px 0 0}.header-settings-actions{display:flex;justify-content:flex-end;margin-top:22px;padding-top:17px;border-top:1px solid var(--line)}
       @media(max-width:900px){.header-settings-grid{grid-template-columns:1fr}.header-preview-column{position:static}}
       @media(max-width:560px){.header-link-row{grid-template-columns:1fr}.header-hidden-fields,.header-typography-fields,.logo-crop-controls{grid-template-columns:1fr}.header-preview-main{align-items:flex-start;flex-direction:column}.header-preview-main nav{justify-content:flex-start}}
@@ -361,21 +411,27 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <div class="header-settings-grid">
             <div class="header-settings-fields">
               <label class="header-field"><span>Header Title <b>*</b></span><input class="field" type="text" name="header_title" maxlength="160" required value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>" placeholder="Enter website title"><small>Clicking the title or logo takes visitors to index.php.</small></label>
+              <div class="header-field"><span>Header Title Formatting</span><div class="rich-editor" data-rich-editor="title" contenteditable="true" role="textbox" aria-label="Format individual Header Title characters"><?=($headerSettings['title_html'] ?? '') ?: e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></div><input type="hidden" name="header_title_html" data-rich-value="title"><div class="rich-tools" data-tools="title"></div></div>
               <div class="header-field"><span>Header Logo <b>*</b></span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg" <?=empty($headerSettings['logo_path'])?'required':''?>><small>PNG, JPG or JPEG · Maximum display size 70 × 70 px · Maximum upload 3 MB. The preview uses a square crop.</small>
                 <div class="logo-crop-controls"><label>Horizontal crop <input type="range" name="logo_position_x" id="logo-position-x" min="0" max="100" value="<?=(int)($headerSettings['logo_position_x'] ?? 50)?>"></label><label>Vertical crop <input type="range" name="logo_position_y" id="logo-position-y" min="0" max="100" value="<?=(int)($headerSettings['logo_position_y'] ?? 50)?>"></label></div>
               </div>
               <div class="header-field"><span>Header Links</span><small>Add as many navigation links as needed. Each URL can point directly to a website page.</small>
                 <div id="header-links-list">
-                <?php foreach($headerLinks as $linkIndex=>$headerLink): ?><div class="header-link-row"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link label" value="<?=e((string)($headerLink['label'] ?? ''))?>"><input class="field" type="text" name="header_link_url[]" maxlength="500" placeholder="Page URL (e.g. /about.php)" value="<?=e((string)($headerLink['url'] ?? ''))?>"><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                <?php foreach($headerLinks as $linkIndex=>$headerLink): ?><div class="header-link-row"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link label" value="<?=e((string)($headerLink['label'] ?? ''))?>"><input class="field" type="text" name="header_link_url[]" maxlength="500" placeholder="Page URL (e.g. /about.php)" value="<?=e((string)($headerLink['url'] ?? ''))?>"><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button><div class="rich-editor" data-rich-editor="link" contenteditable="true" role="textbox" aria-label="Format individual header link characters"><?=($headerLink['label_html'] ?? '') ?: e((string)($headerLink['label'] ?? ''))?></div><input type="hidden" name="header_link_html[]" data-rich-value="link"><div class="rich-tools" data-tools="link" data-index="<?=$linkIndex?>"></div><div class="rich-style-controls" data-style-controls="link" data-index="<?=$linkIndex?>"></div></div><?php endforeach; ?>
                 </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
               </div>
-              <div class="header-field"><span>Hidden Texts</span><small>Small text displayed in the slim strip above the main header.</small><div class="header-hidden-fields"><label>Left text<input class="field" type="text" name="hidden_left" maxlength="180" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>" placeholder="Text on the left"></label><label>Right text<input class="field" type="text" name="hidden_right" maxlength="180" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>" placeholder="Text on the right"></label></div></div>
-              <div class="header-field"><span>Header Title Typography</span><div class="header-typography-fields">
-                <label>Font style<select class="field" name="font_family" id="header-font-family"><?php foreach(['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'] as $font): ?><option value="<?=e($font)?>" <?=($headerSettings['font_family'] ?? 'Ubuntu')===$font?'selected':''?>><?=e($font)?></option><?php endforeach; ?></select></label>
-                <label>Text style<select class="field" name="font_style" id="header-font-style"><option value="normal" <?=($headerSettings['font_style'] ?? 'normal')==='normal'?'selected':''?>>Normal</option><option value="italic" <?=($headerSettings['font_style'] ?? 'normal')==='italic'?'selected':''?>>Italic</option></select></label>
-                <label>Font size<select class="field" name="font_size" id="header-font-size"><?php foreach([12,14,16,18,20,22,24,26,28,30,32] as $fontSize): ?><option value="<?=$fontSize?>" <?=(int)($headerSettings['font_size'] ?? 20)===$fontSize?'selected':''?>><?=$fontSize?> px</option><?php endforeach; ?></select></label>
-                <label>Font weight<select class="field" name="font_weight" id="header-font-weight"><?php foreach([300,400,500,600,700,800] as $fontWeight): ?><option value="<?=$fontWeight?>" <?=(int)($headerSettings['font_weight'] ?? 700)===$fontWeight?'selected':''?>><?=$fontWeight?></option><?php endforeach; ?></select></label>
-              </div></div>
+              <div class="header-field"><span>Hidden Texts</span><small>Left and right text can be styled independently. Select a character or word in an editor to apply formatting only to that selection.</small><div class="header-hidden-fields"><label>Left text<input class="field" type="text" name="hidden_left" maxlength="180" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>" placeholder="Text on the left"><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Format individual left hidden text characters"><?=($headerSettings['hidden_left_html'] ?? '') ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"><div class="rich-tools" data-tools="hidden_left"></div></label><label>Right text<input class="field" type="text" name="hidden_right" maxlength="180" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>" placeholder="Text on the right"><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Format individual right hidden text characters"><?=($headerSettings['hidden_right_html'] ?? '') ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"><div class="rich-tools" data-tools="hidden_right"></div></label></div></div>
+              <div class="header-field"><span>Independent Typography</span><small>Choose a component, then set its default font family, size, style, color and weight. Character-level formatting is available in each rich-text editor above.</small>
+                <div class="header-typography-fields">
+                  <?php $savedTypography=json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: []; foreach(['title'=>'Header Title','hidden_left'=>'Hidden Text — Left','hidden_right'=>'Hidden Text — Right'] as $key=>$caption): $t=headerTypography((array)($savedTypography[$key] ?? []),['family'=>$key==='title'?$family:'Ubuntu','style'=>$key==='title'?$style:'normal','size'=>$key==='title'?$size:10,'weight'=>$key==='title'?$weight:400,'color'=>$key==='title'?'#f7eef0':'#cdbdc2']); ?>
+                  <fieldset class="typography-group"><legend><?=e($caption)?></legend>
+                    <label>Font family<select class="field" name="typography[<?=$key?>][family]"><?php foreach(['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'] as $f): ?><option value="<?=$f?>" <?=$t['family']===$f?'selected':''?>><?=$f?></option><?php endforeach; ?></select></label>
+                    <label>Font style<select class="field" name="typography[<?=$key?>][style]"><option value="normal" <?=$t['style']==='normal'?'selected':''?>>Normal</option><option value="italic" <?=$t['style']==='italic'?'selected':''?>>Italic</option></select></label>
+                    <label>Font size<input class="field" type="number" min="8" max="40" name="typography[<?=$key?>][size]" value="<?=$t['size']?>"></label>
+                    <label>Font weight<select class="field" name="typography[<?=$key?>][weight]"><?php foreach([300,400,500,600,700,800] as $w): ?><option value="<?=$w?>" <?=$t['weight']===$w?'selected':''?>><?=$w?></option><?php endforeach; ?></select></label>
+                    <label>Font color<input class="field" type="color" name="typography[<?=$key?>][color]" value="<?=e($t['color'])?>"></label>
+                  </fieldset><?php endforeach; ?>
+                </div></div>
             </div>
             <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title"><?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): ?><a href="<?=e((string)($headerLink['url'] ?? '#'))?>"><?=e((string)($headerLink['label'] ?? ''))?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
           </div>
@@ -406,11 +462,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const links = document.getElementById('header-links-list');
         const add = document.getElementById('add-header-link');
         const makeLinkRow = (label = '', url = '') => {
-          const row = document.createElement('div'); row.className = 'header-link-row';
-          const labelInput = document.createElement('input'); labelInput.className='field'; labelInput.name='header_link_label[]'; labelInput.maxLength=60; labelInput.placeholder='Link label'; labelInput.value=label;
-          const urlInput = document.createElement('input'); urlInput.className='field'; urlInput.name='header_link_url[]'; urlInput.maxLength=500; urlInput.placeholder='Page URL (e.g. /about.php)'; urlInput.value=url;
-          const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-header-link'; remove.textContent='Remove'; remove.addEventListener('click',()=>{row.remove();updatePreview();});
-          [labelInput,urlInput].forEach(input=>input.addEventListener('input',updatePreview)); row.append(labelInput,urlInput,remove); return row;
+          const row=document.createElement('div');row.className='header-link-row';
+          const labelInput=document.createElement('input');labelInput.className='field';labelInput.name='header_link_label[]';labelInput.maxLength=60;labelInput.placeholder='Link label';labelInput.value=label;
+          const urlInput=document.createElement('input');urlInput.className='field';urlInput.name='header_link_url[]';urlInput.maxLength=500;urlInput.placeholder='Page URL';urlInput.value=url;
+          const remove=document.createElement('button');remove.type='button';remove.className='btn light remove-header-link';remove.textContent='Remove';remove.addEventListener('click',()=>{row.remove();updatePreview();});
+          const editor=document.createElement('div');editor.className='rich-editor';editor.contentEditable='true';editor.dataset.richEditor='link';editor.textContent=label;editor.setAttribute('role','textbox');
+          const hidden=document.createElement('input');hidden.type='hidden';hidden.name='header_link_html[]';hidden.dataset.richValue='link';
+          const tools=document.createElement('div');tools.className='rich-tools';tools.dataset.tools='link';
+          row.append(labelInput,urlInput,remove,editor,hidden,tools);return row;
         };
         const updatePreview = () => {
           const title=form.elements.header_title.value.trim() || 'Header Title';
@@ -418,12 +477,31 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           document.getElementById('preview-hidden-left').textContent=form.elements.hidden_left.value;
           document.getElementById('preview-hidden-right').textContent=form.elements.hidden_right.value;
           const brand=document.getElementById('preview-header-brand');
-          Object.assign(document.getElementById('preview-header-title').style,{fontFamily:form.elements.font_family.value,fontStyle:form.elements.font_style.value,fontSize:form.elements.font_size.value+'px',fontWeight:form.elements.font_weight.value});
+          const savedTypography=<?=json_encode(json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: [],JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
+          const styleFor=(key)=>{const group=form.querySelectorAll('[name^="typography['+key+']"]');const values={};group.forEach(el=>values[el.name.match(/\\[([^\\]]+)\\]$/)[1]]=el.value);return values;};
+          const titleStyle=styleFor('title');Object.assign(document.getElementById('preview-header-title').style,{fontFamily:titleStyle.family||'Ubuntu',fontStyle:titleStyle.style||'normal',fontSize:(titleStyle.size||20)+'px',fontWeight:titleStyle.weight||700,color:titleStyle.color||'#f7eef0'});
+          ['hidden_left','hidden_right'].forEach(key=>{const st=styleFor(key);const el=document.getElementById(key==='hidden_left'?'preview-hidden-left':'preview-hidden-right');Object.assign(el.style,{fontFamily:st.family||'Ubuntu',fontStyle:st.style||'normal',fontSize:(st.size||10)+'px',fontWeight:st.weight||400,color:st.color||'#cdbdc2'});});
+          form.querySelectorAll('[data-rich-editor]').forEach(editor=>{const target=form.querySelector('[data-rich-value="'+editor.dataset.richEditor+'"]');if(target)target.value=editor.innerHTML;});
+          document.getElementById('preview-header-title').innerHTML=form.querySelector('[data-rich-editor="title"]').innerHTML;
+          document.getElementById('preview-hidden-left').innerHTML=form.querySelector('[data-rich-editor="hidden_left"]').innerHTML;
+          document.getElementById('preview-hidden-right').innerHTML=form.querySelector('[data-rich-editor="hidden_right"]').innerHTML;
           const nav=document.getElementById('preview-header-links'); nav.querySelectorAll('.custom-preview-link').forEach(a=>a.remove());
-          [...links.querySelectorAll('.header-link-row')].forEach(row=>{const label=row.querySelector('[name="header_link_label[]"]').value.trim();const url=row.querySelector('[name="header_link_url[]"]').value.trim();if(label){const a=document.createElement('a');a.className='custom-preview-link';a.textContent=label;a.href=url||'#';nav.insertBefore(a,nav.querySelector('.preview-signin'));}});
+          [...links.querySelectorAll('.header-link-row')].forEach(row=>{const label=row.querySelector('[name="header_link_label[]"]').value.trim();const url=row.querySelector('[name="header_link_url[]"]').value.trim();const editor=row.querySelector('[data-rich-editor]');if(label){const a=document.createElement('a');a.className='custom-preview-link';a.innerHTML=editor?editor.innerHTML:label;a.href=url||'#';const controls=row.querySelectorAll('[name^="typography[links]"]');const st={};controls.forEach(el=>st[el.name.match(/\\[([^\\]]+)\\]$/)[1]]=el.value);Object.assign(a.style,{fontFamily:st.family||'Ubuntu',fontStyle:st.style||'normal',fontSize:(st.size||13)+'px',fontWeight:st.weight||500,color:st.color||'#e8dce0'});nav.insertBefore(a,nav.querySelector('.preview-signin'));}});
           const logo=document.getElementById('preview-header-logo');logo.style.objectPosition=form.elements.logo_position_x.value+'% '+form.elements.logo_position_y.value+'%';
         };
-        add.addEventListener('click',()=>{links.append(makeLinkRow());updatePreview();});
+        const initRichEditors=()=>{
+          form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
+            if(editor.dataset.ready)return;editor.dataset.ready='1';
+            const key=editor.dataset.richEditor,tools=editor.parentElement.querySelector('[data-tools]');
+            const button=(label,command,value)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',()=>{editor.focus();if(command==='foreColor'||command==='fontSize')document.execCommand(command,false,value);else if(command==='bold'||command==='italic'||command==='underline')document.execCommand(command,false,null);updatePreview();});tools.append(b);};
+            button('B','bold');button('I','italic');button('U','underline');
+            const color=document.createElement('input');color.type='color';color.title='Apply color to selected characters';color.addEventListener('input',()=>{editor.focus();document.execCommand('foreColor',false,color.value);updatePreview();});tools.append(color);
+            const size=document.createElement('select');size.title='Apply size to selected characters';[8,10,12,14,16,18,20,24,28,32,36,40].forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n+' px';size.append(o);});size.addEventListener('change',()=>{editor.focus();const px=size.value+'px';const sel=window.getSelection();if(sel&&sel.rangeCount){const range=sel.getRangeAt(0);if(!range.collapsed){const span=document.createElement('span');span.style.fontSize=px;try{span.append(range.extractContents());range.insertNode(span);}catch(e){document.execCommand('fontSize',false,'5');}}}updatePreview();});tools.append(size);
+            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=editor.innerHTML;updatePreview();});
+          });
+        };
+        initRichEditors();
+        add.addEventListener('click',()=>{links.append(makeLinkRow());initRichEditors();updatePreview();});
         links.querySelectorAll('.remove-header-link').forEach(button=>button.addEventListener('click',()=>{button.closest('.header-link-row').remove();updatePreview();}));
         form.addEventListener('input', updatePreview);
         form.addEventListener('change', updatePreview);
