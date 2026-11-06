@@ -34,6 +34,12 @@ foreach (['title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hid
     if (!(int)$exists->fetchColumn()) $pdo->exec("ALTER TABLE site_header_settings ADD COLUMN {$column} {$definition}");
 }
 $publicHeader = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+// BEGIN GITHUB-PUBLISHED HEADER SETTINGS
+$githubPublishedHeaderSettings = json_decode(base64_decode('W10='), true) ?: [];
+// END GITHUB-PUBLISHED HEADER SETTINGS
+if (is_array($githubPublishedHeaderSettings) && $githubPublishedHeaderSettings) {
+    $publicHeader = array_merge($publicHeader, $githubPublishedHeaderSettings);
+}
 
 $publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? ''));
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
