@@ -113,9 +113,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>$labelHtml,'url'=>mb_substr($url,0,500),'typography'=>headerTypography((array)($_POST['typography']['links'][$index] ?? []), ['size'=>13,'weight'=>500,'color'=>'#e8dce0'])];
         }
         $logoPath = (string)($headerSettings['logo_path'] ?? '');
-        if ($message === '' && $logoPath === '' && empty($_FILES['header_logo']['name'])) {
-            $message = 'Header Logo is required. Upload a PNG, JPG or JPEG image.';
-        }
         if ($message === '' && !empty($_FILES['header_logo']['name'])) {
             $file = $_FILES['header_logo'];
             if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int)$file['size'] > 3 * 1024 * 1024) {
@@ -140,7 +137,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
-        if ($message === '' && $title === '') $message = 'Header Title is required.';
         if ($message === '') {
             $save = $pdo->prepare("UPDATE site_header_settings SET header_title=?,logo_path=?,header_links=?,hidden_left=?,hidden_right=?,font_family=?,font_style=?,font_size=?,font_weight=?,logo_position_x=?,logo_position_y=?,title_html=?,hidden_left_html=?,hidden_right_html=?,typography_json=? WHERE id=1");
             $save->execute([$title,$logoPath ?: null,json_encode($links,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),$left,$right,$family,$style,$size,$weight,$positionX,$positionY,$titleHtml,$leftHtml,$rightHtml,json_encode($typography,JSON_UNESCAPED_SLASHES)]);
@@ -415,13 +411,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <input type="hidden" name="action" value="save_header_settings">
           <div class="header-settings-grid">
             <div class="header-settings-fields">
-              <div class="header-field"><span>Header Title <b>*</b></span><div class="rich-editor" data-rich-editor="title" contenteditable="true" role="textbox" aria-label="Edit Header Title" data-placeholder="Enter website title"><?=cleanHeaderRichHtml((string)($headerSettings['title_html'] ?? '')) ?: e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></div><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"><?php $savedTypography=json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: []; $titleTypography=headerTypography((array)($savedTypography['title'] ?? []),['family'=>'Ubuntu','style'=>'normal','size'=>20,'weight'=>700,'color'=>'#f7eef0']); ?><fieldset class="typography-group"><legend>Independent Typography — Header Title</legend>
+              <div class="header-field"><span>Header Title</span><div class="rich-editor" data-rich-editor="title" contenteditable="true" role="textbox" aria-label="Edit Header Title" data-placeholder="Enter website title"><?=cleanHeaderRichHtml((string)($headerSettings['title_html'] ?? '')) ?: e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></div><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"><?php $savedTypography=json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: []; $titleTypography=headerTypography((array)($savedTypography['title'] ?? []),['family'=>'Ubuntu','style'=>'normal','size'=>20,'weight'=>700,'color'=>'#f7eef0']); ?><fieldset class="typography-group"><legend>Independent Typography — Header Title</legend>
                   <label>Font family<select class="field" name="typography[title][family]"><?php foreach(['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'] as $f): ?><option value="<?=$f?>" <?=$titleTypography['family']===$f?'selected':''?>><?=$f?></option><?php endforeach; ?></select></label>
                   <label>Font size<select class="field" name="typography[title][size]"><?php foreach([8,9,10,11,12,13,14,16,18,20,24,28,32,36,40] as $s): ?><option value="<?=$s?>" <?=$titleTypography['size']===$s?'selected':''?>><?=$s?> px</option><?php endforeach; ?></select></label>
                   <div class="font-format-tools" role="group" aria-label="Font formatting"><input type="hidden" name="typography[title][format]" value="<?=e($titleTypography['format'])?>" data-format-value><button type="button" class="format-icon" data-format-toggle="bold" aria-label="Bold" aria-pressed="<?=str_contains($titleTypography['format'],'bold')?'true':'false'?>"><b>B</b></button><button type="button" class="format-icon" data-format-toggle="italic" aria-label="Italic" aria-pressed="<?=str_contains($titleTypography['format'],'italic')?'true':'false'?>"><i>I</i></button><button type="button" class="format-icon" data-format-toggle="underline" aria-label="Underline" aria-pressed="<?=str_contains($titleTypography['format'],'underline')?'true':'false'?>"><u>U</u></button></div>
                   <label>Font color<input class="field" type="color" name="typography[title][color]" value="<?=e($titleTypography['color'])?>"></label>
                 </fieldset><small>Clicking the title or logo takes visitors to index.php.</small></div>
-              <div class="header-field"><span>Header Logo <b>*</b></span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg" <?=empty($headerSettings['logo_path'])?'required':''?>><small>PNG, JPG or JPEG · Maximum display size 70 × 70 px · Maximum upload 3 MB. The preview uses a square crop.</small>
+              <div class="header-field"><span>Header Logo</span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>PNG, JPG or JPEG · Maximum display size 70 × 70 px · Maximum upload 3 MB. The preview uses a square crop.</small>
                 <div class="logo-crop-controls"><label>Horizontal crop <input type="range" name="logo_position_x" id="logo-position-x" min="0" max="100" value="<?=(int)($headerSettings['logo_position_x'] ?? 50)?>"></label><label>Vertical crop <input type="range" name="logo_position_y" id="logo-position-y" min="0" max="100" value="<?=(int)($headerSettings['logo_position_y'] ?? 50)?>"></label></div>
               </div>
               <div class="header-field"><span>Header Links</span><small>Add as many navigation links as needed. Each URL can point directly to a website page.</small>
