@@ -79,7 +79,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS site_footer_settings (
   content_json LONGTEXT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$defaultFooterContent = json_decode('{"brand":"Z.C. commonplace","description":"Zamboanga stories, culture, creativity and community — shared with care.","copyright":"© {year} Z.C. commonplace. Community publishing with administrator review.","explore_title":"Explore","explore_links":[{"label":"Creative Arts and Photography","url":"?category=creative-arts-photography#latest"},{"label":"News Connect","url":"?category=news-connect#latest"},{"label":"Marketplace","url":"?category=marketplace#latest"}],"discover_title":"Discover","discover_links":[{"label":"Entertainment & Politics","url":"?category=entertainment-politics#latest"},{"label":"History & Culture","url":"?category=history-culture#latest"},{"label":"Zamboanga heritage slideshow","url":"#zamboanga"}]}', true) ?: [];
+$defaultFooterContent = json_decode('{"brand":"Z.C. commonplace","description":"Zamboanga stories, culture, creativity and community — shared with care.","copyright":"© {year} Z.C. commonplace. Community publishing with administrator review.","brand_links":[],"explore_title":"Explore","explore_links":[{"label":"Creative Arts and Photography","url":"?category=creative-arts-photography#latest"},{"label":"News Connect","url":"?category=news-connect#latest"},{"label":"Marketplace","url":"?category=marketplace#latest"}],"discover_title":"Discover","discover_links":[{"label":"Entertainment & Politics","url":"?category=entertainment-politics#latest"},{"label":"History & Culture","url":"?category=history-culture#latest"},{"label":"Zamboanga heritage slideshow","url":"#zamboanga"}]}', true) ?: [];
 $pdo->exec("INSERT IGNORE INTO site_footer_settings (id, content_json) VALUES (1, '".str_replace("'", "''", json_encode($defaultFooterContent, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE))."')");
 $footerRow = $pdo->query("SELECT content_json FROM site_footer_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
 $footerSettings = json_decode((string)($footerRow['content_json'] ?? ''), true);
@@ -188,21 +188,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'brand' => mb_substr(trim((string)($_POST['footer_brand'] ?? '')), 0, 100),
             'description' => mb_substr(trim((string)($_POST['footer_description'] ?? '')), 0, 500),
             'copyright' => mb_substr(trim((string)($_POST['footer_copyright'] ?? '')), 0, 300),
+            'brand_links' => [],
             'explore_title' => mb_substr(trim((string)($_POST['footer_explore_title'] ?? '')), 0, 60),
             'discover_title' => mb_substr(trim((string)($_POST['footer_discover_title'] ?? '')), 0, 60),
             'explore_links' => [],
             'discover_links' => [],
         ];
-        foreach (['explore','discover'] as $group) {
+        foreach (['brand','explore','discover'] as $group) {
             foreach ((array)($_POST[$group.'_label'] ?? []) as $index => $label) {
                 $label = trim((string)$label);
                 $url = trim((string)($_POST[$group.'_url'][$index] ?? ''));
                 if ($label === '' && $url === '') continue;
-                if ($label === '' || $url === '') {
-                    $message = 'Each footer link needs both a title and a URL.';
+                if ($label === '') {
+                    $columnNumber = ['brand'=>'1','explore'=>'2','discover'=>'3'][$group];
+                    $message = 'Please enter a title in Column ' . $columnNumber . '.';
                     break 2;
                 }
-                if (!preg_match('~^(https?://|/|#|\\.\\./|\\./|\\?)~i', $url)) {
+                if ($url !== '' && !preg_match('~^(https?://|/|#|\\.\\./|\\./|\\?)~i', $url)) {
                     $message = 'Enter a valid footer link URL, or use a relative page URL.';
                     break 2;
                 }
@@ -579,6 +581,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <button type="button" class="btn" id="header-settings-success-close" onclick="window.location.replace('admin.php?section=page-management')">OK</button>
   </div>
 </div>
+<?php elseif(str_starts_with($message, 'Please enter a title in Column ')):?>
+<div class="account-status-modal" id="footer-validation-modal" role="dialog" aria-modal="true" aria-labelledby="footer-validation-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="footer-validation-title"><?=e($message)?></h2><button type="button" class="btn" id="footer-validation-close">OK</button></div></div>
 <?php elseif($message === 'Footer settings successfully updated.'):?>
 <div class="account-status-modal" id="footer-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="footer-settings-success-title">
   <div class="account-status-modal-card">
@@ -665,7 +669,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .footer-preview-frame a:not(.brand){display:block;color:#c9bbc0;text-decoration:none;font-size:11px;line-height:1.45}
       .footer-settings-fields{display:grid;gap:16px;min-width:0}.footer-column-editor{display:grid;gap:10px;padding:15px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.018)}
       .footer-column-editor h3{font:600 14px Ubuntu,sans-serif;margin:0;color:#f4e9ec}.footer-column-editor .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:12px Ubuntu,sans-serif}
-      .footer-column-editor textarea{resize:vertical}.footer-link-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;margin:7px 0}
+      .footer-column-editor textarea{resize:vertical}.footer-preview-frame .footer-preview-text-item{display:block;color:#c9bbc0;font-size:11px;line-height:1.45}.footer-field-invalid{border-color:#ff526b!important;box-shadow:0 0 0 2px rgba(255,82,107,.2)!important}.footer-link-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;margin:7px 0}
       .footer-column-editor .header-field{font-size:12px}.footer-column-editor small{font-size:10px;color:var(--muted);font-weight:400}
       @media(max-width:1000px){.footer-settings-grid{grid-template-columns:1fr}.footer-preview-column{position:static}}
       @media(max-width:600px){.footer-preview-frame .footer-grid{grid-template-columns:1fr;gap:16px}.footer-link-row{grid-template-columns:1fr}.footer-preview-frame{padding:18px 14px}}
@@ -712,7 +716,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <div class="header-preview-title">Footer Preview</div>
               <div class="footer-preview-frame" inert aria-label="Non-interactive live preview of the public website footer">
                 <div class="wrap footer-grid">
-                  <div class="footer-preview-col"><b id="preview-footer-brand"><?=e($footerSettings['brand'])?></b><p id="preview-footer-description"><?=e($footerSettings['description'])?></p><p id="preview-footer-copyright"><?=e(str_replace('{year}',date('Y'),$footerSettings['copyright']))?></p></div>
+                  <div class="footer-preview-col"><b id="preview-footer-brand"><?=e($footerSettings['brand'])?></b><p id="preview-footer-description"><?=e($footerSettings['description'])?></p><p id="preview-footer-copyright"><?=e(str_replace('{year}',date('Y'),$footerSettings['copyright']))?></p><div id="preview-footer-brand-links"><?php foreach(($footerSettings['brand_links'] ?? []) as $link): ?><?php if(trim((string)($link['url'] ?? '')) !== ''): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php else: ?><span class="footer-preview-text-item"><?=e($link['label'])?></span><?php endif; ?><?php endforeach; ?></div></div>
                   <div class="footer-preview-col"><b id="preview-footer-explore-title"><?=e($footerSettings['explore_title'])?></b><div id="preview-footer-explore-links"><?php foreach($footerSettings['explore_links'] as $link): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php endforeach; ?></div></div>
                   <div class="footer-preview-col"><b id="preview-footer-discover-title"><?=e($footerSettings['discover_title'])?></b><div id="preview-footer-discover-links"><?php foreach($footerSettings['discover_links'] as $link): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php endforeach; ?></div></div>
                 </div>
@@ -724,6 +728,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                 <label class="header-field">Brand title<input class="field" name="footer_brand" id="footer-brand" maxlength="100" value="<?=e($footerSettings['brand'])?>"></label>
                 <label class="header-field">Description<textarea class="field" name="footer_description" id="footer-description" rows="3" maxlength="500"><?=e($footerSettings['description'])?></textarea></label>
                 <label class="header-field">Copyright text<textarea class="field" name="footer_copyright" id="footer-copyright" rows="2" maxlength="300"><?=e($footerSettings['copyright'])?></textarea><small>Use {year} to insert the current year automatically.</small></label>
+                <div class="footer-link-editor" id="footer-brand-editor"><?php foreach(($footerSettings['brand_links'] ?? []) as $link): ?><div class="footer-link-row"><input class="field" name="brand_label[]" maxlength="100" aria-label="Brand item title" placeholder="Item title" value="<?=e($link['label'])?>"><input class="field" name="brand_url[]" maxlength="500" aria-label="Brand item URL" placeholder="Page URL (optional)" value="<?=e($link['url'])?>"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <button type="button" class="btn light add-footer-link" data-group="brand">+ Add Brand Item</button>
               </div>
               <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
                 <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
@@ -766,16 +772,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       };
       const updateLinks = group => {
         const editor = document.getElementById('footer-'+group+'-editor');
-        const preview = document.getElementById('preview-footer-'+group+'-links');
+        const preview = document.getElementById(group === 'brand' ? 'preview-footer-brand-links' : 'preview-footer-'+group+'-links');
         preview.replaceChildren();
         editor.querySelectorAll('.footer-link-row').forEach(row => {
           const label = row.querySelector('[name="'+group+'_label[]"]').value.trim();
           const url = row.querySelector('[name="'+group+'_url[]"]').value.trim();
           if (!label) return;
-          const link = document.createElement('a');
-          link.textContent = label;
-          link.href = url || '#';
-          preview.append(link);
+          const item = url ? document.createElement('a') : document.createElement('span');
+          item.textContent = label;
+          if (url) item.href = url; else item.className = 'footer-preview-text-item';
+          preview.append(item);
         });
       };
       const updatePreview = () => {
@@ -784,7 +790,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         document.getElementById('preview-footer-copyright').textContent = fields.copyright.value.replaceAll('{year}', String(new Date().getFullYear()));
         document.getElementById('preview-footer-explore-title').textContent = fields.exploreTitle.value;
         document.getElementById('preview-footer-discover-title').textContent = fields.discoverTitle.value;
-        updateLinks('explore'); updateLinks('discover');
+        updateLinks('brand'); updateLinks('explore'); updateLinks('discover');
       };
       const addRow = group => {
         const editor = document.getElementById('footer-'+group+'-editor');
@@ -794,8 +800,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-footer-link'; remove.textContent='Remove';
         row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
       };
-      form.addEventListener('input', updatePreview);
+      form.addEventListener('input', event => { if (event.target.matches('.footer-link-row input')) event.target.classList.remove('footer-field-invalid'); updatePreview(); });
       form.addEventListener('change', updatePreview);
+      let invalidTitleField = null;
+      form.addEventListener('submit', event => {
+        form.querySelectorAll('.footer-field-invalid').forEach(field => field.classList.remove('footer-field-invalid'));
+        for (const group of [{name:'brand',column:'1'},{name:'explore',column:'2'},{name:'discover',column:'3'}]) {
+          const rows=[...document.querySelectorAll('#footer-'+group.name+'-editor .footer-link-row')];
+          const missing=rows.filter(row=>row.querySelector('[name="'+group.name+'_url[]"]').value.trim()&&!row.querySelector('[name="'+group.name+'_label[]"]').value.trim());
+          if(missing.length){event.preventDefault();missing.forEach(row=>row.querySelector('[name="'+group.name+'_label[]"]').classList.add('footer-field-invalid'));invalidTitleField=missing[0].querySelector('[name="'+group.name+'_label[]"]');const popup=document.createElement('div');popup.className='account-status-modal';popup.id='footer-client-validation-modal';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');const card=document.createElement('div');card.className='account-status-modal-card';const icon=document.createElement('div');icon.className='account-status-modal-icon';icon.textContent='!';const heading=document.createElement('h2');heading.textContent='Please enter a title in Column '+group.column+'.';const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='OK';ok.addEventListener('click',()=>{popup.remove();if(invalidTitleField){invalidTitleField.focus();invalidTitleField.scrollIntoView({behavior:'smooth',block:'center'});}});card.append(icon,heading,ok);popup.append(card);document.body.append(popup);ok.focus();return;}
+        }
+      });
       form.addEventListener('click', event => {
         const add = event.target.closest('.add-footer-link');
         if (add) { addRow(add.dataset.group); return; }
@@ -1202,7 +1217,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   });
 })();
 
-(()=>{['account-status-modal','header-settings-success-modal','footer-settings-success-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
+(()=>{['account-status-modal','header-settings-success-modal','footer-settings-success-modal','footer-validation-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
 </script>
 </main></div><script>
 
