@@ -97,8 +97,8 @@ $renderHeaderRich = static function($html,$fallback): string {
 };
 $publicHeaderLogoX = max(0, min(100, (int)($publicHeader['logo_position_x'] ?? 50)));
 $publicHeaderLogoY = max(0, min(100, (int)($publicHeader['logo_position_y'] ?? 50)));
-$publicHeaderLogoWidth = max(50, min(400, (int)($publicHeader['logo_width'] ?? 200)));
-$publicHeaderLogoHeight = max(30, min(200, (int)($publicHeader['logo_height'] ?? 70)));
+$publicHeaderLogoWidth = max(50, min(200, (int)($publicHeader['logo_width'] ?? 200)));
+$publicHeaderLogoHeight = max(30, min(120, (int)($publicHeader['logo_height'] ?? 70)));
 
 $loginError = '';
 $showLoginProgress = !empty($_SESSION['login_progress']);
