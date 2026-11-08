@@ -642,7 +642,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .footer-settings-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start}
       .footer-preview-column{position:relative;top:auto;min-width:0;width:100%}.footer-preview-frame{overflow:hidden;border:1px solid var(--line);border-radius:12px;background:#0d090b;padding:24px 18px;color:#eee}
       .footer-preview-frame .footer-grid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:22px;max-width:none;width:100%;padding:0}
-      .footer-preview-frame .brand,.footer-preview-frame b{display:block;font:700 12px/1.2 Ubuntu,sans-serif;color:#f5e9ed;margin:0 0 10px;text-decoration:none}
+      .footer-preview-frame .brand,.footer-preview-frame b{display:block;margin:0 0 12px;color:#f0dadd;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;text-decoration:none}
       .footer-preview-frame .brand span{color:#c33d59}.footer-preview-frame p{color:#b9aeb2;font-size:11px;line-height:1.6;margin:8px 0}
       .footer-preview-frame #preview-footer-explore-links,.footer-preview-frame #preview-footer-discover-links{display:grid;gap:8px}
       .footer-preview-frame a:not(.brand){display:block;color:#c9bbc0;text-decoration:none;font-size:11px;line-height:1.45}
