@@ -42,6 +42,21 @@ $databaseHeaderSettings = $pdo->query("SELECT * FROM site_header_settings WHERE 
 // index.php from overriding the latest settings saved by the administrator.
 $publicHeader = $databaseHeaderSettings;
 
+// Load the administrator-managed footer content from the same database row.
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_footer_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  content_json LONGTEXT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$defaultPublicFooter = {"brand":"Z.C. commonplace","description":"Zamboanga stories, culture, creativity and community — shared with care.","copyright":"© {year} Z.C. commonplace. Community publishing with administrator review.","explore_title":"Explore","explore_links":[{"label":"Creative Arts and Photography","url":"?category=creative-arts-photography#latest"},{"label":"News Connect","url":"?category=news-connect#latest"},{"label":"Marketplace","url":"?category=marketplace#latest"}],"discover_title":"Discover","discover_links":[{"label":"Entertainment & Politics","url":"?category=entertainment-politics#latest"},{"label":"History & Culture","url":"?category=history-culture#latest"},{"label":"Zamboanga heritage slideshow","url":"#zamboanga"}]};
+$defaultFooterJson = json_encode($defaultPublicFooter, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+$footerInsert = $pdo->prepare("INSERT IGNORE INTO site_footer_settings (id, content_json) VALUES (1, ?)");
+$footerInsert->execute([$defaultFooterJson]);
+$footerRow = $pdo->query("SELECT content_json FROM site_footer_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
+$publicFooter = json_decode((string)($footerRow['content_json'] ?? ''), true);
+if (!is_array($publicFooter)) $publicFooter = [];
+$publicFooter = array_replace_recursive($defaultPublicFooter, $publicFooter);
+
 $publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? ''));
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
 if (!is_array($publicHeaderLinks)) $publicHeaderLinks = [];
@@ -309,7 +324,11 @@ $modules = [
 })();
 </script>
 <?php endif; ?>
-<footer><div class="wrap footer-grid"><div><a class="brand" href="index.php">Z.C. commonplace<span>.</span></a><p>Zamboanga stories, culture, creativity and community — shared with care.</p><p>© <?=date('Y')?> Z.C. commonplace. Community publishing with administrator review.</p></div><div><b>Explore</b><a href="?category=creative-arts-photography#latest">Creative Arts and Photography</a><a href="?category=news-connect#latest">News Connect</a><a href="?category=marketplace#latest">Marketplace</a></div><div><b>Discover</b><a href="?category=entertainment-politics#latest">Entertainment & Politics</a><a href="?category=history-culture#latest">History & Culture</a><a href="#zamboanga">Zamboanga heritage slideshow</a></div></div></footer>
+<footer><div class="wrap footer-grid">
+<div><a class="brand" href="index.php"><?=e($publicFooter['brand'])?><span>.</span></a><p><?=e($publicFooter['description'])?></p><p><?=e(str_replace('{year}',date('Y'),$publicFooter['copyright']))?></p></div>
+<div><b><?=e($publicFooter['explore_title'])?></b><?php foreach($publicFooter['explore_links'] as $footerLink): ?><a href="<?=e($footerLink['url'])?>"><?=e($footerLink['label'])?></a><?php endforeach; ?></div>
+<div><b><?=e($publicFooter['discover_title'])?></b><?php foreach($publicFooter['discover_links'] as $footerLink): ?><a href="<?=e($footerLink['url'])?>"><?=e($footerLink['label'])?></a><?php endforeach; ?></div>
+</div></footer>
 <script>
 (() => {
   const modal = document.getElementById('sign-in-modal');
