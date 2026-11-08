@@ -1030,6 +1030,23 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();
     if(saving)return;
     saving=true;
+    // Run the same hidden-field synchronization that the normal form submit
+    // handler used to perform before the AJAX request is assembled.
+    form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
+      const key=editor.dataset.richEditor;
+      const plain=key==='title'?editor.value.trim():editor.innerText.trim();
+      const rich=key==='title'?(form.querySelector('[data-rich-value="title"]')?.value||editor.value):editor.innerHTML;
+      const row=editor.closest('.header-link-row');
+      const plainField=row?row.querySelector('[data-plain-value="link"]'):form.querySelector('[data-plain-value="'+key+'"]');
+      const richField=row?row.querySelector('[data-rich-value="link"]'):form.querySelector('[data-rich-value="'+key+'"]');
+      if(plainField)plainField.value=plain;
+      if(richField)richField.value=rich;
+    });
+    form.querySelectorAll('.header-link-row').forEach((row,index)=>{
+      row.querySelectorAll('[name^="typography[links]"]').forEach(field=>{
+        field.name=field.name.replace(/typography\\[links\\]\\[\\d+\\]/,'typography[links]['+index+']');
+      });
+    });
     const submit=form.querySelector('button[type="submit"],input[type="submit"]');
     const originalLabel=submit?.textContent||submit?.value||'Save Header Settings';
     if(submit){submit.disabled=true;if('value' in submit)submit.value='Saving…';else submit.textContent='Saving…';}
