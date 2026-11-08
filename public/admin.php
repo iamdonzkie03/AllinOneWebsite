@@ -179,8 +179,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $weight = in_array($weight, [300,400,500,600,700,800], true) ? $weight : 700;
         $positionX = max(0, min(100, (int)($_POST['logo_position_x'] ?? 50)));
         $positionY = max(0, min(100, (int)($_POST['logo_position_y'] ?? 50)));
-        $logoWidth = max(50, min(400, (int)($_POST['logo_width'] ?? 200)));
-        $logoHeight = max(30, min(200, (int)($_POST['logo_height'] ?? 70)));
+        $logoWidth = max(50, min(200, (int)($_POST['logo_width'] ?? 200)));
+        $logoHeight = max(30, min(120, (int)($_POST['logo_height'] ?? 70)));
         $allowedFamilies = ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'];
         if (!in_array($family, $allowedFamilies, true)) $family = 'Ubuntu';
         if (!in_array($style, ['normal','italic'], true)) $style = 'normal';
@@ -587,7 +587,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             <div class="header-settings-fields">
               <div class="header-field" hidden aria-hidden="true"><input type="hidden" data-rich-editor="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"></div>
               <div class="header-field"><span>Header Logo</span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>PNG, JPG or JPEG · Default display size 200 × 70 px · Maximum upload 3 MB. Original proportions are preserved without cropping or stretching.</small>
-                <div class="logo-crop-controls"><label>Logo width: <output id="logo-width-value"><?=(int)($headerSettings['logo_width'] ?? 200)?> px</output><input type="range" name="logo_width" id="logo-width" min="50" max="400" step="5" value="<?=(int)($headerSettings['logo_width'] ?? 200)?>"></label><label>Logo height: <output id="logo-height-value"><?=(int)($headerSettings['logo_height'] ?? 70)?> px</output><input type="range" name="logo_height" id="logo-height" min="30" max="200" step="5" value="<?=(int)($headerSettings['logo_height'] ?? 70)?>"></label></div>
+                <div class="logo-crop-controls"><label>Logo width: <output id="logo-width-value"><?=(int)($headerSettings['logo_width'] ?? 200)?> px</output><input type="range" name="logo_width" id="logo-width" min="50" max="200" step="5" value="<?=max(50,min(200,(int)($headerSettings['logo_width'] ?? 200)))?>"></label><label>Logo height: <output id="logo-height-value"><?=(int)($headerSettings['logo_height'] ?? 70)?> px</output><input type="range" name="logo_height" id="logo-height" min="30" max="120" step="5" value="<?=max(30,min(120,(int)($headerSettings['logo_height'] ?? 70)))?>"></label></div>
               </div>
               <div class="header-field"><span>Header Links</span><small>Add as many navigation links as needed. Each URL can point directly to a website page.</small>
                 <div id="header-links-list">
