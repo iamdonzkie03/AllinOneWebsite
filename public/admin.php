@@ -314,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $headerLinks = $links;
             // Persist the verified settings into the actual local root index.php file.
             updateLocalIndexHeaderSettings($savedHeader);
-            $message = 'Header settings successfully updated.';
+            $message = 'Header settings successfully saved.';
         }
         $section = 'page-management';
     }
@@ -497,11 +497,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
 </aside>
 <main class="admin-main">
-<?php if($message === 'Header settings successfully updated.'):?>
+<?php if($message === 'Header settings successfully saved.'):?>
 <div class="account-status-modal" id="header-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="header-settings-success-title">
   <div class="account-status-modal-card">
     <div class="account-status-modal-icon" aria-hidden="true">✓</div>
-    <h2 id="header-settings-success-title">Header Settings Successfully Updated.</h2>
+    <h2 id="header-settings-success-title">Header settings successfully saved.</h2>
     <button type="button" class="btn" id="header-settings-success-close">OK</button>
   </div>
 </div>
@@ -980,6 +980,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 (()=> {
   const form=document.getElementById('header-settings-form');
   if(!form)return;
+  // Keep the Header Page Management screen in place after saving. Browsers
+  // do not expose a supported way to disable every refresh control, but the
+  // standard keyboard refresh shortcuts can be safely intercepted here.
+  document.addEventListener('keydown',event=>{
+    const key=String(event.key||'').toLowerCase();
+    const refreshKey=key==='f5'||((event.ctrlKey||event.metaKey)&&key==='r');
+    if(refreshKey){
+      event.preventDefault();
+      event.stopPropagation();
+      if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+    }
+  },true);
   let saving=false;
   form.addEventListener('submit',async event=>{
     event.preventDefault();
