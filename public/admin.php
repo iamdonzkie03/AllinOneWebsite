@@ -594,6 +594,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="page-management-tabs" role="tablist" aria-label="Page Management tabs">
         <button type="button" id="pm-tab-header" role="tab" aria-controls="pm-panel-header" aria-selected="true" tabindex="0" data-page-tab="header">Header</button>
         <button type="button" id="pm-tab-footer" role="tab" aria-controls="pm-panel-footer" aria-selected="false" tabindex="-1" data-page-tab="footer">Footer</button>
+        <button type="button" id="pm-tab-articles" role="tab" aria-controls="pm-panel-articles" aria-selected="false" tabindex="-1" data-page-tab="articles">Articles</button>
         <button type="button" id="pm-tab-sections" role="tab" aria-controls="pm-panel-sections" aria-selected="false" tabindex="-1" data-page-tab="sections">Sections</button>
         <button type="button" id="pm-tab-gallery" role="tab" aria-controls="pm-panel-gallery" aria-selected="false" tabindex="-1" data-page-tab="gallery">Gallery</button>
         <button type="button" id="pm-tab-video" role="tab" aria-controls="pm-panel-video" aria-selected="false" tabindex="-1" data-page-tab="video">Video</button>
@@ -624,6 +625,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
         <h2>Footer</h2><p class="muted">Manage the public website footer and its displayed content.</p>
         <div class="admin-note">Footer management controls can be added here. No existing website content has been changed.</div>
+      </section>
+      <section class="page-management-tabpanel" id="pm-panel-articles" role="tabpanel" aria-labelledby="pm-tab-articles" hidden>
+        <h2>Articles</h2><p class="muted">Manage articles and editorial content displayed on the public website.</p>
+        <div class="admin-note">Article management controls can be added here. No existing article records have been changed.</div>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
         <h2>Sections</h2><p class="muted">Manage the sections and content blocks shown across the public website.</p>
