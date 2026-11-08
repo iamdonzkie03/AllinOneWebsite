@@ -352,6 +352,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section = 'dashboard';
     }
 }
+// AJAX saves receive a small, deterministic response. This avoids depending on
+// the full admin page being rendered and parsed just to show the save confirmation.
+if (
+    ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+    && (string)($_POST['action'] ?? '') === 'save_header_settings'
+    && strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+) {
+    header('Content-Type: text/html; charset=utf-8');
+    if ($message === 'Header settings successfully saved.') {
+        echo '<div class="account-status-modal" id="header-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="header-settings-success-title">'
+            . '<div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div>'
+            . '<h2 id="header-settings-success-title">Header settings successfully saved.</h2>'
+            . '<button type="button" class="btn" id="header-settings-success-close">OK</button></div></div>';
+    } else {
+        http_response_code(422);
+        echo '<div class="panel">' . htmlspecialchars($message !== '' ? $message : 'Unable to save Header Settings.', ENT_QUOTES, 'UTF-8') . '</div>';
+    }
+    exit;
+}
 $activeUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin' AND account_status='approved'")->fetchColumn();
 $managedUsers = $pdo->query("SELECT id,full_name,email,credential_notes,created_at,updated_at,account_status,email_verified_at,nickname,birthdate,birthplace,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE role<>'system_admin' ORDER BY created_at DESC")->fetchAll();
 $pendingContent = $pdo->query("SELECT c.id,c.title,c.content_type,c.created_at,u.full_name,cat.name category_name FROM content c JOIN users u ON u.id=c.owner_id JOIN categories cat ON cat.id=c.category_id WHERE c.status='pending_review' ORDER BY c.created_at")->fetchAll();
@@ -1025,8 +1044,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
       document.body.append(modal);
       modal.querySelector('button')?.focus();
-      // Keep the current form and preview DOM intact: selected-range styles,
-      // palette choices, logo crop and every live preview edit remain visible.
+      // Do not replace, reset, or reinitialize the form: the live Header Preview
+      // remains exactly as edited, including selected-text typography and logo crop.
+      // Also mark the just-saved rich title value as the current baseline.
     }catch(error){
       let notice=form.querySelector('[data-header-save-error]');
       if(!notice){notice=document.createElement('div');notice.className='panel';notice.dataset.headerSaveError='1';notice.style.marginBottom='16px';form.prepend(notice);}
