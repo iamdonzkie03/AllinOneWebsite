@@ -795,10 +795,30 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           const start=Math.max(0,Math.min(textLength,savedTitleSelection.start));
           const end=Math.max(start,Math.min(textLength,savedTitleSelection.end));
           if(end<=start)return false;
-          let item=titlePreviewStyles.find(entry=>entry.start===start&&entry.end===end);
-          if(!item){item={start,end,styles:{}};titlePreviewStyles.push(item);}
-          item.styles[property]=value;
+          // Add a range override instead of mutating a matching interval. This
+          // preserves earlier formatting outside the newly selected text, even
+          // when the new selection partially overlaps an existing formatted range.
+          titlePreviewStyles.push({start,end,styles:{[property]:value}});
           renderTitlePreview();
+          return true;
+        };
+        const isTitleRangeFullyStyled=(property,expectedValue)=>{
+          if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start)return false;
+          const start=Math.max(0,Math.min(titleEditor.value.length,savedTitleSelection.start));
+          const end=Math.max(start,Math.min(titleEditor.value.length,savedTitleSelection.end));
+          if(end<=start)return false;
+          const baseFormats=new Set((titleTypographyGroup?.querySelector('[data-format-value]')?.value||'').split(/[ ,]+/).filter(Boolean));
+          for(let offset=start;offset<end;offset++){
+            const styles={};
+            titlePreviewStyles.filter(entry=>entry.start<=offset&&entry.end>offset).forEach(entry=>Object.assign(styles,entry.styles));
+            let actual=styles[property];
+            if(actual===undefined){
+              if(property==='fontWeight')actual=baseFormats.has('bold')?'700':'400';
+              else if(property==='fontStyle')actual=baseFormats.has('italic')?'italic':'normal';
+              else if(property==='textDecoration')actual=baseFormats.has('underline')?'underline':'none';
+            }
+            if(String(actual)!==String(expectedValue))return false;
+          }
           return true;
         };
         // Attach palettes only after selection helpers exist, so opening and choosing
@@ -811,12 +831,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             const fmt=button.dataset.formatToggle;
             if(savedTitleSelection&&savedTitleSelection.end>savedTitleSelection.start){
               const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
-              const current=button.getAttribute('aria-pressed')==='true';
-              const selectedStyle=titlePreviewStyles.filter(entry=>entry.start<savedTitleSelection.end&&entry.end>savedTitleSelection.start).reduce((styles,entry)=>Object.assign(styles,entry.styles),{});
-              const selectedUnderline=selectedStyle.textDecoration==='underline';
-              const value=fmt==='bold'?(current?'400':'700'):fmt==='italic'?(current?'normal':'italic'):(selectedUnderline?'none':'underline');
-              if(applyTitleSelectionStyle(prop,value)){
-                button.setAttribute('aria-pressed',String(fmt==='underline'?!selectedUnderline:!current));
+              const onValue=fmt==='bold'?'700':fmt==='italic'?'italic':'underline';
+              const offValue=fmt==='bold'?'400':fmt==='italic'?'normal':'none';
+              // Mixed selections become uniformly formatted on the first click;
+              // a second click removes that formatting from the same selection.
+              const alreadyApplied=isTitleRangeFullyStyled(prop,onValue);
+              const nextValue=alreadyApplied?offValue:onValue;
+              if(applyTitleSelectionStyle(prop,nextValue)){
+                button.setAttribute('aria-pressed',String(!alreadyApplied));
                 updatePreview();
                 return;
               }
