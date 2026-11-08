@@ -812,7 +812,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             const content=escapePreviewText(text.slice(start,end));
             const declarations=Object.entries(styles).map(([key,value])=>{
               const cssName=key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase());
-              return cssName+':'+String(value)+' !important';
+              return cssName+':'+String(value);
             }).join(';');
             html+=declarations?'<span style="'+declarations+'">'+content+'</span>':content;
           }
