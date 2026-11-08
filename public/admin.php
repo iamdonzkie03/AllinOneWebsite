@@ -352,22 +352,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section = 'dashboard';
     }
 }
-// AJAX saves receive a small, deterministic response. This avoids depending on
-// the full admin page being rendered and parsed just to show the save confirmation.
+// Return an unambiguous save result to the background form request.
 if (
     ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
     && (string)($_POST['action'] ?? '') === 'save_header_settings'
     && strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
 ) {
-    header('Content-Type: text/html; charset=utf-8');
+    header('Content-Type: text/plain; charset=utf-8');
     if ($message === 'Header settings successfully saved.') {
-        echo '<div class="account-status-modal" id="header-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="header-settings-success-title">'
-            . '<div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div>'
-            . '<h2 id="header-settings-success-title">Header settings successfully saved.</h2>'
-            . '<button type="button" class="btn" id="header-settings-success-close">OK</button></div></div>';
+        echo 'HEADER_SETTINGS_SAVED';
     } else {
         http_response_code(422);
-        echo '<div class="panel">' . htmlspecialchars($message !== '' ? $message : 'Unable to save Header Settings.', ENT_QUOTES, 'UTF-8') . '</div>';
+        echo $message !== '' ? $message : 'Unable to save Header Settings.';
     }
     exit;
 }
@@ -999,63 +995,69 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 (()=> {
   const form=document.getElementById('header-settings-form');
   if(!form)return;
-  // Keep the Header Page Management screen in place after saving. Browsers
-  // do not expose a supported way to disable every refresh control, but the
-  // standard keyboard refresh shortcuts can be safely intercepted here.
   document.addEventListener('keydown',event=>{
     const key=String(event.key||'').toLowerCase();
-    const refreshKey=key==='f5'||((event.ctrlKey||event.metaKey)&&key==='r');
-    if(refreshKey){
+    if(key==='f5'||((event.ctrlKey||event.metaKey)&&key==='r')){
       event.preventDefault();
-      event.stopPropagation();
-      if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+      event.stopImmediatePropagation?.();
     }
   },true);
   let saving=false;
-  form.addEventListener('submit',async event=>{
-    event.preventDefault();
+  const showSaveModal=()=>{
+    document.getElementById('header-settings-success-modal-ajax')?.remove();
+    const modal=document.createElement('div');
+    modal.className='account-status-modal';
+    modal.id='header-settings-success-modal-ajax';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    const card=document.createElement('div');
+    card.className='account-status-modal-card';
+    const icon=document.createElement('div');
+    icon.className='account-status-modal-icon';
+    icon.setAttribute('aria-hidden','true');
+    icon.textContent='✓';
+    const heading=document.createElement('h2');
+    heading.textContent='Header settings successfully saved.';
+    const close=document.createElement('button');
+    close.type='button';close.className='btn';close.textContent='OK';
+    close.addEventListener('click',()=>modal.remove());
+    card.append(icon,heading,close);modal.append(card);
+    modal.addEventListener('click',event=>{if(event.target===modal)modal.remove();});
+    document.body.append(modal);close.focus();
+  };
+  document.addEventListener('submit',async event=>{
+    if(event.target!==form)return;
+    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();
     if(saving)return;
     saving=true;
-    const submit=form.querySelector('button[type="submit"]');
-    const originalLabel=submit?.textContent||'Save Header Settings';
-    if(submit){submit.disabled=true;submit.textContent='Saving…';}
+    const submit=form.querySelector('button[type="submit"],input[type="submit"]');
+    const originalLabel=submit?.textContent||submit?.value||'Save Header Settings';
+    if(submit){submit.disabled=true;if('value' in submit)submit.value='Saving…';else submit.textContent='Saving…';}
     try{
       const response=await fetch(form.action||window.location.href,{
-        method:'POST',
-        body:new FormData(form),
-        credentials:'same-origin',
-        headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html'}
+        method:'POST',body:new FormData(form),credentials:'same-origin',cache:'no-store',
+        headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/plain'}
       });
-      const html=await response.text();
-      const parsed=new DOMParser().parseFromString(html,'text/html');
-      const success=parsed.getElementById('header-settings-success-modal');
-      if(!response.ok||!success){
-        const message=parsed.querySelector('.panel')?.textContent?.trim()
-          ||(parsed.querySelector('title')?.textContent?.includes('Sign In')?'Your administrator session may have expired. Sign in again, then retry.':'Unable to save Header Settings. Please check the server response and try again.');
+      const body=(await response.text()).trim();
+      if(response.ok&&(body==='HEADER_SETTINGS_SAVED'||body.includes('Header settings successfully saved.'))){
+        form.querySelector('[data-header-save-error]')?.remove();
+        showSaveModal();
+        // Keep the live preview, selected text styles, and form controls untouched.
+      }else{
+        const message=body.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim()||'Unable to save Header Settings. Please try again.';
         let notice=form.querySelector('[data-header-save-error]');
         if(!notice){notice=document.createElement('div');notice.className='panel';notice.dataset.headerSaveError='1';notice.style.marginBottom='16px';form.prepend(notice);}
         notice.textContent=message;
-        return;
       }
-      form.querySelector('[data-header-save-error]')?.remove();
-      const modal=success.cloneNode(true);
-      modal.id='header-settings-success-modal-ajax';
-      modal.querySelector('button')?.addEventListener('click',()=>modal.remove());
-      modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
-      document.body.append(modal);
-      modal.querySelector('button')?.focus();
-      // Do not replace, reset, or reinitialize the form: the live Header Preview
-      // remains exactly as edited, including selected-text typography and logo crop.
-      // Also mark the just-saved rich title value as the current baseline.
     }catch(error){
       let notice=form.querySelector('[data-header-save-error]');
       if(!notice){notice=document.createElement('div');notice.className='panel';notice.dataset.headerSaveError='1';notice.style.marginBottom='16px';form.prepend(notice);}
       notice.textContent='The save request could not reach the server. Check your connection and try again.';
     }finally{
       saving=false;
-      if(submit){submit.disabled=false;submit.textContent=originalLabel;}
+      if(submit){submit.disabled=false;if('value' in submit)submit.value=originalLabel;else submit.textContent=originalLabel;}
     }
-  });
+  },true);
 })();
 </script>
 </body></html>
