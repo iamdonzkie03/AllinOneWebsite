@@ -656,7 +656,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           const titleStyle=previewTypography('title',{size:20,weight:700,color:'#f7eef0'});const titlePreviewElement=document.getElementById('preview-header-title');Object.assign(titlePreviewElement.style,{fontFamily:titleStyle.family,fontStyle:titleStyle.style,fontSize:titleStyle.size,fontWeight:titleStyle.weight,textDecoration:'none',color:titleStyle.color});
           ['hidden_left','hidden_right'].forEach(key=>{const st=previewTypography(key,{size:10,weight:400,color:'#cdbdc2'});const el=document.getElementById(key==='hidden_left'?'preview-hidden-left':'preview-hidden-right');Object.assign(el.style,{fontFamily:st.family,fontStyle:st.style,fontSize:st.size,fontWeight:st.weight,textDecoration:st.decoration,color:st.color});});
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{const target=form.querySelector('[data-rich-value="'+editor.dataset.richEditor+'"]');if(target)target.value=editor.innerHTML;});
-          const titlePreview=document.getElementById('preview-header-title');renderTitlePreview();titlePreview.style.setProperty('font-family',titleStyle.family||'Ubuntu','important');
+          const titlePreview=document.getElementById('preview-header-title');renderTitlePreview();
+          // Keep the base family on the title container as a normal inherited
+          // value. Per-range spans carry their own font-family declarations.
+          titlePreview.style.fontFamily=titleStyle.family||'Ubuntu';
           document.getElementById('preview-hidden-left').innerHTML=form.querySelector('[data-rich-editor="hidden_left"]').innerHTML;
           document.getElementById('preview-hidden-right').innerHTML=form.querySelector('[data-rich-editor="hidden_right"]').innerHTML;
           const nav=document.getElementById('preview-header-links'); nav.querySelectorAll('.custom-preview-link').forEach(a=>a.remove());
@@ -760,11 +763,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         // control receives focus, unlike document.getSelection() on contenteditable.
         const captureTitleRangeBeforeControlFocus=event=>{
           if(!titleTypographyGroup || !titleTypographyGroup.contains(event.target))return;
+          // Capture while the textarea still owns focus; native select controls
+          // collapse its live selection as soon as they receive focus.
           rememberTitleSelection();
         };
         document.addEventListener('pointerdown',captureTitleRangeBeforeControlFocus,true);
         document.addEventListener('mousedown',captureTitleRangeBeforeControlFocus,true);
         document.addEventListener('touchstart',captureTitleRangeBeforeControlFocus,{capture:true,passive:true});
+        titleTypographyGroup?.addEventListener('focusin',()=>{
+          // Do not replace the saved range with the now-collapsed textarea range.
+          if(!savedTitleSelection)rememberTitleSelection();
+        });
         const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const renderTitlePreview=()=>{
           const text=titleEditor.value||'';
@@ -902,13 +911,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         });
         titleTypographyGroup?.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{
           const applyControlValue=()=>{
-            if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start){updatePreview();return;}
+            const range=savedTitleSelection;
+            if(!range||range.end<=range.start){updatePreview();return;}
             const prop=input.name.endsWith('[family]')?'fontFamily':input.name.endsWith('[size]')?'fontSize':'color';
             const value=input.name.endsWith('[size]')?input.value+'px':input.value;
-            if(applyTitleSelectionStyle(prop,value)){updatePreview();return;}
-            updatePreview();
+            if(applyTitleSelectionStyle(prop,value))updatePreview();
+            else updatePreview();
           };
-          input.addEventListener('input',applyControlValue);
+          // Selects commit once on change. Color inputs also emit input while
+          // the picker is adjusted, so they update continuously.
+          if(input.matches('input[type="color"]'))input.addEventListener('input',applyControlValue);
           input.addEventListener('change',applyControlValue);
         });
         const initRichEditors=()=>{
