@@ -206,7 +206,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>$labelHtml,'url'=>mb_substr($url,0,500),'typography'=>headerTypography((array)($_POST['typography']['links'][$index] ?? []), ['size'=>13,'weight'=>500,'color'=>'#e8dce0'])];
         }
-        $logoPath = (string)($headerSettings['logo_path'] ?? '');
+        $previousLogoPath = (string)($headerSettings['logo_path'] ?? '');
+        $logoPath = $previousLogoPath;
         if ($message === '' && !empty($_FILES['header_logo']['name'])) {
             $file = $_FILES['header_logo'];
             if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int)$file['size'] > 3 * 1024 * 1024) {
@@ -287,6 +288,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($verificationErrors) {
                 error_log('Header settings verification failed for columns: ' . implode(', ', $verificationErrors) . '; database=' . (string)$pdo->query('SELECT DATABASE()')->fetchColumn());
                 throw new RuntimeException('Header settings were submitted but could not be fully verified in the connected database. Please check the database selected in config/config.php and the PHP error log. Fields not verified: ' . implode(', ', $verificationErrors) . '.');
+            }
+            // Once the new logo path is confirmed in the database, remove the
+            // previously saved image from this application's local upload folder.
+            // Only delete files inside public/uploads/site-header; never follow
+            // arbitrary paths stored in the settings row.
+            if ($logoPath !== '' && $logoPath !== $previousLogoPath
+                && $previousLogoPath !== ''
+                && str_starts_with(str_replace('\\\\', '/', $previousLogoPath), 'uploads/site-header/')) {
+                $oldLogoName = basename($previousLogoPath);
+                if ($oldLogoName !== '' && $oldLogoName !== '.' && $oldLogoName !== '..') {
+                    $oldLogoFile = __DIR__ . '/uploads/site-header/' . $oldLogoName;
+                    if (is_file($oldLogoFile)) {
+                        @unlink($oldLogoFile);
+                    }
+                }
             }
             $headerSettings = $savedHeader;
             $headerLinks = $links;
