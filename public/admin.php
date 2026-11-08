@@ -88,6 +88,8 @@ $footerSettings = array_replace($defaultFooterContent, $footerSettings);
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
 $section = (string)($_GET['section'] ?? 'dashboard');
+$activePageTab = (string)($_GET['tab'] ?? 'header');
+if (!in_array($activePageTab, ['header','footer','contents','gallery','video'], true)) $activePageTab = 'header';
 $allowedSections = ['dashboard', 'settings', 'page-management', 'media-management', 'plugins', 'user-accounts'];
 if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
 
@@ -181,6 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
     if ($action === 'save_footer_settings') {
+        $activePageTab = 'footer';
         $content = [
             'brand' => mb_substr(trim((string)($_POST['footer_brand'] ?? '')), 0, 100),
             'description' => mb_substr(trim((string)($_POST['footer_description'] ?? '')), 0, 500),
@@ -215,8 +218,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_array($savedFooter) || $savedFooter !== $content) {
                 throw new RuntimeException('Footer settings were submitted but could not be verified in the connected database.');
             }
-            $message = 'Footer settings saved successfully.';
             $footerSettings = array_replace($defaultFooterContent, $content);
+            // POST/Redirect/GET prevents browser refresh from resubmitting this save.
+            header('Location: admin.php?section=page-management&tab=footer&footer_saved=1#pm-panel-footer', true, 303);
+            exit;
         }
     } elseif ($action === 'save_header_settings') {
         // Header Title is no longer editable in Page Management. Preserve
@@ -402,6 +407,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section = 'dashboard';
     }
 }
+// A successful Footer save is shown only on the redirected GET request.
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
+    $message = 'Footer settings successfully updated.';
+}
 // Return an unambiguous save result to the background form request.
 if (
     ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
@@ -570,6 +579,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <button type="button" class="btn" id="header-settings-success-close" onclick="window.location.replace('admin.php?section=page-management')">OK</button>
   </div>
 </div>
+<?php elseif($message === 'Footer settings successfully updated.'):?>
+<div class="account-status-modal" id="footer-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="footer-settings-success-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="footer-settings-success-title">Footer settings successfully updated.</h2>
+    <button type="button" class="btn" id="footer-settings-success-close">OK</button>
+  </div>
+</div>
 <?php elseif($message === 'Account status updated.'):?>
 <div class="account-status-modal" id="account-status-modal" role="dialog" aria-modal="true" aria-labelledby="account-status-modal-title">
   <div class="account-status-modal-card">
@@ -656,7 +673,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </style>
     <section class="panel admin-panel">
       <div class="admin-panel-head"><div><h2>Page Management</h2><p class="muted">Manage the content and presentation of your public website.</p></div></div>
-      <div class="page-management-tabs" role="tablist" aria-label="Page Management tabs">
+      <div class="page-management-tabs" role="tablist" aria-label="Page Management tabs" data-initial-tab="<?=e($activePageTab)?>">
         <button type="button" id="pm-tab-header" role="tab" aria-controls="pm-panel-header" aria-selected="true" tabindex="0" data-page-tab="header">Header</button>
         <button type="button" id="pm-tab-footer" role="tab" aria-controls="pm-panel-footer" aria-selected="false" tabindex="-1" data-page-tab="footer">Footer</button>
         <button type="button" id="pm-tab-contents" role="tab" aria-controls="pm-panel-contents" aria-selected="false" tabindex="-1" data-page-tab="contents">Contents</button>
@@ -1144,6 +1161,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         });
         if (moveFocus) tab.focus();
       };
+      const tabNav = document.querySelector('.page-management-tabs');
+      const initialTabName = tabNav?.dataset.initialTab || 'header';
+      activate(tabs.find(tab => tab.dataset.pageTab === initialTabName) || tabs[0]);
       tabs.forEach((tab, index) => {
         tab.addEventListener('click', () => activate(tab));
         tab.addEventListener('keydown', event => {
@@ -1182,7 +1202,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   });
 })();
 
-(()=>{['account-status-modal','header-settings-success-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
+(()=>{['account-status-modal','header-settings-success-modal','footer-settings-success-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
 </script>
 </main></div><script>
 
