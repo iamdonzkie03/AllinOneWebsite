@@ -352,7 +352,7 @@ $modules = [
   openRegisterButtons.forEach(button=>button.addEventListener('click',event=>{event.preventDefault();hideSignInModal();showRegisterModal();}));
   if(closeRegister)closeRegister.addEventListener('click',hideRegisterModal);
   if(registerModal) {
-    registerModal.addEventListener('click',event=>{if(event.target===registerModal)hideRegisterModal();});
+    // Keep the registration modal open when the user clicks its backdrop.
     const registerFrame = registerModal.querySelector('iframe');
     const bindRegisterEscape = () => {
       try {
@@ -396,9 +396,7 @@ $modules = [
     showSignInModal();
   });
   closeButton.addEventListener('click', hideSignInModal);
-  modal.addEventListener('click', event => {
-    if (event.target === modal) hideSignInModal();
-  });
+  // Keep the sign-in modal open when the user clicks its backdrop.
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && modal.classList.contains('is-open')) hideSignInModal();
     if (event.key === 'Escape' && registerModal && registerModal.classList.contains('is-open')) hideRegisterModal();
