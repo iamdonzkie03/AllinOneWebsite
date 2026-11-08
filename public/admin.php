@@ -728,6 +728,38 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const titleTypographyGroup=titleEditor?.closest('.header-field')?.querySelector('fieldset.typography-group') || null;
         let savedTitleSelection=null;
         const titlePreviewStyles=[];
+        // Rebuild selected-range formatting from the last saved title HTML so the
+        // preview remains identical after a save or a later visit to this tab.
+        const savedTitleHtml=<?=json_encode((string)($headerSettings['title_html'] ?? ''),JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
+        if(savedTitleHtml){
+          const savedTemplate=document.createElement('template');
+          savedTemplate.innerHTML=savedTitleHtml;
+          let savedOffset=0;
+          const readSavedTitleNodes=(node,inherited={})=>{
+            if(node.nodeType===Node.TEXT_NODE){
+              const value=node.nodeValue||'';
+              if(value.length&&Object.keys(inherited).length)titlePreviewStyles.push({start:savedOffset,end:savedOffset+value.length,styles:{...inherited}});
+              savedOffset+=value.length;
+              return;
+            }
+            if(node.nodeType!==Node.ELEMENT_NODE&&node.nodeType!==Node.DOCUMENT_FRAGMENT_NODE)return;
+            const next={...inherited};
+            if(node.nodeType===Node.ELEMENT_NODE){
+              const tag=node.tagName.toLowerCase(),style=node.style;
+              if(tag==='b'||tag==='strong')next.fontWeight='700';
+              if(tag==='i'||tag==='em')next.fontStyle='italic';
+              if(tag==='u')next.textDecoration='underline';
+              if(style.color)next.color=style.color;
+              if(style.fontFamily)next.fontFamily=style.fontFamily;
+              if(style.fontSize)next.fontSize=style.fontSize;
+              if(style.fontWeight)next.fontWeight=style.fontWeight;
+              if(style.fontStyle)next.fontStyle=style.fontStyle;
+              if(style.textDecoration)next.textDecoration=style.textDecoration;
+            }
+            [...node.childNodes].forEach(child=>readSavedTitleNodes(child,next));
+          };
+          readSavedTitleNodes(savedTemplate.content);
+        }
         const readTitleSelection=()=>{
           const start=titleEditor.selectionStart;
           const end=titleEditor.selectionEnd;
@@ -944,4 +976,54 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
 (()=>{['account-status-modal','header-settings-success-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
 </script>
-</main></div></body></html>
+</main></div><script>
+(()=> {
+  const form=document.getElementById('header-settings-form');
+  if(!form)return;
+  let saving=false;
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(saving)return;
+    saving=true;
+    const submit=form.querySelector('button[type="submit"]');
+    const originalLabel=submit?.textContent||'Save Header Settings';
+    if(submit){submit.disabled=true;submit.textContent='Saving…';}
+    try{
+      const response=await fetch(form.action||window.location.href,{
+        method:'POST',
+        body:new FormData(form),
+        credentials:'same-origin',
+        headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html'}
+      });
+      const html=await response.text();
+      const parsed=new DOMParser().parseFromString(html,'text/html');
+      const success=parsed.getElementById('header-settings-success-modal');
+      if(!response.ok||!success){
+        const message=parsed.querySelector('.panel')?.textContent?.trim()
+          ||(parsed.querySelector('title')?.textContent?.includes('Sign In')?'Your administrator session may have expired. Sign in again, then retry.':'Unable to save Header Settings. Please check the server response and try again.');
+        let notice=form.querySelector('[data-header-save-error]');
+        if(!notice){notice=document.createElement('div');notice.className='panel';notice.dataset.headerSaveError='1';notice.style.marginBottom='16px';form.prepend(notice);}
+        notice.textContent=message;
+        return;
+      }
+      form.querySelector('[data-header-save-error]')?.remove();
+      const modal=success.cloneNode(true);
+      modal.id='header-settings-success-modal-ajax';
+      modal.querySelector('button')?.addEventListener('click',()=>modal.remove());
+      modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+      document.body.append(modal);
+      modal.querySelector('button')?.focus();
+      // Keep the current form and preview DOM intact: selected-range styles,
+      // palette choices, logo crop and every live preview edit remain visible.
+    }catch(error){
+      let notice=form.querySelector('[data-header-save-error]');
+      if(!notice){notice=document.createElement('div');notice.className='panel';notice.dataset.headerSaveError='1';notice.style.marginBottom='16px';form.prepend(notice);}
+      notice.textContent='The save request could not reach the server. Check your connection and try again.';
+    }finally{
+      saving=false;
+      if(submit){submit.disabled=false;submit.textContent=originalLabel;}
+    }
+  });
+})();
+</script>
+</body></html>
