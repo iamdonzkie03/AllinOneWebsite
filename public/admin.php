@@ -165,7 +165,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
     if ($action === 'save_header_settings') {
-        $title = trim((string)($_POST['header_title'] ?? ''));
+        // Header Title is no longer editable in Page Management. Preserve
+        // the currently published title instead of clearing it on unrelated saves.
+        $title = trim((string)($_POST['header_title'] ?? $headerSettings['header_title'] ?? 'Z.C. commonplace'));
         $left = trim((string)($_POST['hidden_left'] ?? ''));
         $right = trim((string)($_POST['hidden_right'] ?? ''));
         $family = (string)($_POST['font_family'] ?? 'Ubuntu');
@@ -178,11 +180,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $allowedFamilies = ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'];
         if (!in_array($family, $allowedFamilies, true)) $family = 'Ubuntu';
         if (!in_array($style, ['normal','italic'], true)) $style = 'normal';
-        $titleHtml = cleanHeaderRichHtml((string)($_POST['header_title_html'] ?? ''));
+        $titleHtml = array_key_exists('header_title_html', $_POST)
+            ? cleanHeaderRichHtml((string)$_POST['header_title_html'])
+            : (string)($headerSettings['title_html'] ?? '');
         $leftHtml = cleanHeaderRichHtml((string)($_POST['hidden_left_html'] ?? ''));
         $rightHtml = cleanHeaderRichHtml((string)($_POST['hidden_right_html'] ?? ''));
         $typography = [
-            'title'=>headerTypography((array)($_POST['typography']['title'] ?? []), ['family'=>$family,'style'=>$style,'size'=>$size,'weight'=>$weight,'color'=>'#f7eef0']),
+            'title'=>headerTypography((array)($_POST['typography']['title'] ?? (json_decode((string)($headerSettings['typography_json'] ?? '{}'),true)['title'] ?? [])), ['family'=>$family,'style'=>$style,'size'=>$size,'weight'=>$weight,'color'=>'#f7eef0']),
             'hidden_left'=>headerTypography((array)($_POST['typography']['hidden_left'] ?? []), ['size'=>10,'weight'=>400,'color'=>'#cdbdc2']),
             'hidden_right'=>headerTypography((array)($_POST['typography']['hidden_right'] ?? []), ['size'=>10,'weight'=>400,'color'=>'#cdbdc2'])
         ];
@@ -574,12 +578,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title"><?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): ?><a href="<?=e((string)($headerLink['url'] ?? '#'))?>"><?=e((string)($headerLink['label'] ?? ''))?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
           <div class="header-settings-grid">
             <div class="header-settings-fields">
-              <div class="header-field"><span>Header Title</span><textarea class="rich-editor header-title-source" data-rich-editor="title" aria-label="Edit Header Title" placeholder="Enter website title" rows="2"><?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></textarea><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"><?php $savedTypography=json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: []; $titleTypography=headerTypography((array)($savedTypography['title'] ?? []),['family'=>'Ubuntu','style'=>'normal','size'=>20,'weight'=>700,'color'=>'#f7eef0']); ?><fieldset class="typography-group"><legend>Independent Typography — Header Title</legend>
-                  <label>Font family<select class="field" name="typography[title][family]"><?php foreach(['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'] as $f): ?><option value="<?=$f?>" <?=$titleTypography['family']===$f?'selected':''?>><?=$f?></option><?php endforeach; ?></select></label>
-                  <label>Font size<select class="field" name="typography[title][size]"><?php foreach([8,9,10,11,12,13,14,16,18,20,24,28,32,36,40] as $s): ?><option value="<?=$s?>" <?=$titleTypography['size']===$s?'selected':''?>><?=$s?> px</option><?php endforeach; ?></select></label>
-                  <div class="font-format-tools" role="group" aria-label="Font formatting"><input type="hidden" name="typography[title][format]" value="<?=e($titleTypography['format'])?>" data-format-value><button type="button" class="format-icon" data-format-toggle="bold" aria-label="Bold" aria-pressed="<?=str_contains($titleTypography['format'],'bold')?'true':'false'?>"><b>B</b></button><button type="button" class="format-icon" data-format-toggle="italic" aria-label="Italic" aria-pressed="<?=str_contains($titleTypography['format'],'italic')?'true':'false'?>"><i>I</i></button><button type="button" class="format-icon" data-format-toggle="underline" aria-label="Underline" aria-pressed="<?=str_contains($titleTypography['format'],'underline')?'true':'false'?>"><u>U</u></button></div>
-                  <label>Font color<input class="field" type="color" name="typography[title][color]" value="<?=e($titleTypography['color'])?>"></label>
-                </fieldset><small>Clicking the title or logo takes visitors to index.php.</small></div>
+              <div class="header-field" hidden aria-hidden="true"><textarea class="rich-editor header-title-source" data-rich-editor="title" tabindex="-1"><?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?></textarea><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"></div>
               <div class="header-field"><span>Header Logo</span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>PNG, JPG or JPEG · Maximum display size 70 × 70 px · Maximum upload 3 MB. The preview uses a square crop.</small>
                 <div class="logo-crop-controls"><label>Horizontal crop <input type="range" name="logo_position_x" id="logo-position-x" min="0" max="100" value="<?=(int)($headerSettings['logo_position_x'] ?? 50)?>"></label><label>Vertical crop <input type="range" name="logo_position_y" id="logo-position-y" min="0" max="100" value="<?=(int)($headerSettings['logo_position_y'] ?? 50)?>"></label></div>
               </div>
