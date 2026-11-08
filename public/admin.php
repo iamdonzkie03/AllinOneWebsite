@@ -588,7 +588,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="account-status-modal-card">
     <div class="account-status-modal-icon" aria-hidden="true">✓</div>
     <h2 id="footer-settings-success-title">Footer settings successfully updated.</h2>
-    <button type="button" class="btn" id="footer-settings-success-close">OK</button>
+    <button type="button" class="btn" id="footer-settings-success-close" onclick="window.location.replace('admin.php?section=page-management&amp;tab=footer#pm-panel-footer')">OK</button>
   </div>
 </div>
 <?php elseif($message === 'Account status updated.'):?>
