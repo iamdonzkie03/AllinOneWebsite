@@ -71,6 +71,20 @@ function headerTypography(array $input, array $fallback=[]): array {
 }
 $pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
 $headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+
+// Footer content is stored separately so the admin preview and public footer
+// always use the same saved configuration.
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_footer_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  content_json LONGTEXT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$defaultFooterContent = {"brand":"Z.C. commonplace","description":"Zamboanga stories, culture, creativity and community — shared with care.","copyright":"© {year} Z.C. commonplace. Community publishing with administrator review.","explore_title":"Explore","explore_links":[{"label":"Creative Arts and Photography","url":"?category=creative-arts-photography#latest"},{"label":"News Connect","url":"?category=news-connect#latest"},{"label":"Marketplace","url":"?category=marketplace#latest"}],"discover_title":"Discover","discover_links":[{"label":"Entertainment & Politics","url":"?category=entertainment-politics#latest"},{"label":"History & Culture","url":"?category=history-culture#latest"},{"label":"Zamboanga heritage slideshow","url":"#zamboanga"}]};
+$pdo->exec("INSERT IGNORE INTO site_footer_settings (id, content_json) VALUES (1, '".str_replace("'", "''", json_encode($defaultFooterContent, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE))."')");
+$footerRow = $pdo->query("SELECT content_json FROM site_footer_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
+$footerSettings = json_decode((string)($footerRow['content_json'] ?? ''), true);
+if (!is_array($footerSettings)) $footerSettings = [];
+$footerSettings = array_replace_recursive($defaultFooterContent, $footerSettings);
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
 $section = (string)($_GET['section'] ?? 'dashboard');
@@ -166,7 +180,45 @@ function publishHeaderSettingsToGitHub(array $header): string {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
-    if ($action === 'save_header_settings') {
+    if ($action === 'save_footer_settings') {
+        $content = [
+            'brand' => mb_substr(trim((string)($_POST['footer_brand'] ?? '')), 0, 100),
+            'description' => mb_substr(trim((string)($_POST['footer_description'] ?? '')), 0, 500),
+            'copyright' => mb_substr(trim((string)($_POST['footer_copyright'] ?? '')), 0, 300),
+            'explore_title' => mb_substr(trim((string)($_POST['footer_explore_title'] ?? '')), 0, 60),
+            'discover_title' => mb_substr(trim((string)($_POST['footer_discover_title'] ?? '')), 0, 60),
+            'explore_links' => [],
+            'discover_links' => [],
+        ];
+        foreach (['explore','discover'] as $group) {
+            foreach ((array)($_POST[$group.'_label'] ?? []) as $index => $label) {
+                $label = trim((string)$label);
+                $url = trim((string)($_POST[$group.'_url'][$index] ?? ''));
+                if ($label === '' && $url === '') continue;
+                if ($label === '' || $url === '') {
+                    $message = 'Each footer link needs both a title and a URL.';
+                    break 2;
+                }
+                if (!preg_match('~^(https?://|/|#|\\.\\./|\\./|\\?)~i', $url)) {
+                    $message = 'Enter a valid footer link URL, or use a relative page URL.';
+                    break 2;
+                }
+                $content[$group.'_links'][] = ['label'=>mb_substr($label,0,100),'url'=>mb_substr($url,0,500)];
+            }
+        }
+        if ($message === '') {
+            $saveFooter = $pdo->prepare("INSERT INTO site_footer_settings (id, content_json) VALUES (1, ?) ON DUPLICATE KEY UPDATE content_json=VALUES(content_json)");
+            $saveFooter->execute([json_encode($content, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            $verifyFooter = $pdo->prepare('SELECT content_json FROM site_footer_settings WHERE id=1');
+            $verifyFooter->execute();
+            $savedFooter = json_decode((string)$verifyFooter->fetchColumn(), true);
+            if (!is_array($savedFooter) || $savedFooter !== $content) {
+                throw new RuntimeException('Footer settings were submitted but could not be verified in the connected database.');
+            }
+            $message = 'Footer settings saved successfully.';
+            $footerSettings = array_replace_recursive($defaultFooterContent, $content);
+        }
+    } elseif ($action === 'save_header_settings') {
         // Header Title is no longer editable in Page Management. Preserve
         // the currently published title instead of clearing it on unrelated saves.
         $title = trim((string)($_POST['header_title'] ?? $headerSettings['header_title'] ?? 'Z.C. commonplace'));
@@ -587,6 +639,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .header-preview-column{position:relative;min-width:0;margin-bottom:24px}.header-preview-title{font-size:13px;font-weight:700;margin-bottom:10px}.header-preview-frame{overflow:hidden;border:1px solid rgba(184,50,63,.35);border-radius:13px;background:#100d10;box-shadow:0 12px 35px rgba(0,0,0,.22)}.header-preview-frame,.header-preview-frame *{pointer-events:none!important;user-select:none!important;cursor:default!important}.header-preview-topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 22px;background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:normal;text-transform:none}.header-preview-topbar span{max-width:48%;overflow-wrap:anywhere}.header-preview-topbar span:last-child{text-align:right}.header-preview-main{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:0 22px;min-height:82px;background:rgba(11,11,13,.92);border-bottom:1px solid rgba(255,255,255,.1);backdrop-filter:blur(18px)} .header-preview-brand{display:flex;align-items:center;gap:12px;color:#f7f2f3;text-decoration:none;min-width:0}.header-preview-brand img{display:block;flex:0 0 auto;width:200px;height:70px;max-width:100%;object-fit:contain;object-position:center;border-radius:0}.header-preview-brand span{display:none!important}.header-preview-main nav{display:flex;align-items:center;justify-content:flex-end;gap:19px;flex-wrap:wrap;font-size:12px;color:#c1cbc3}.header-preview-main nav a{font-size:12px;color:#c1cbc3;text-decoration:none;white-space:nowrap}.header-preview-main nav .preview-signin{color:#c1cbc3}.header-preview-main nav .preview-join{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 19px;border:1px solid #b8323f;border-radius:999px;background:#b8323f;color:#101611;font-size:12px;font-weight:750;letter-spacing:.02em;box-shadow:0 8px 24px rgba(184,50,63,.15)}.header-preview-help{margin:10px 0 0}.header-settings-actions{display:flex;justify-content:flex-end;margin-top:22px;padding-top:17px;border-top:1px solid var(--line)}
       @media(max-width:900px){.header-settings-grid{grid-template-columns:1fr}.header-preview-column{position:static}}
       @media(max-width:560px){.header-link-row{grid-template-columns:1fr}.header-hidden-fields,.header-typography-fields,.logo-crop-controls{grid-template-columns:1fr} .header-preview-main{align-items:flex-start;flex-direction:column}.header-hidden-copy{max-width:100%;overflow-wrap:anywhere}.header-preview-main nav{justify-content:flex-start}}
+      .footer-settings-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:24px;align-items:start}
+      .footer-preview-column{position:sticky;top:18px;min-width:0}.footer-preview-frame{overflow:hidden;border:1px solid var(--line);border-radius:12px;background:#0d090b;padding:24px 18px;color:#eee}
+      .footer-preview-frame .footer-grid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:22px;max-width:none;width:100%;padding:0}
+      .footer-preview-frame .brand{display:inline-block;font:700 20px Georgia,serif;color:#f7eef0;text-decoration:none;margin-bottom:8px}
+      .footer-preview-frame .brand span{color:#c33d59}.footer-preview-frame p{color:#b9aeb2;font-size:11px;line-height:1.6;margin:8px 0}
+      .footer-preview-frame b{display:block;color:#f5e9ed;font-size:12px;margin:0 0 10px}.footer-preview-frame #preview-footer-explore-links,.footer-preview-frame #preview-footer-discover-links{display:grid;gap:8px}
+      .footer-preview-frame a:not(.brand){display:block;color:#c9bbc0;text-decoration:none;font-size:11px;line-height:1.45}
+      .footer-settings-fields{display:grid;gap:16px;min-width:0}.footer-column-editor{display:grid;gap:10px;padding:15px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.018)}
+      .footer-column-editor h3{font:600 14px Ubuntu,sans-serif;margin:0;color:#f4e9ec}.footer-column-editor .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:12px Ubuntu,sans-serif}
+      .footer-column-editor textarea{resize:vertical}.footer-link-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;margin:7px 0}
+      .footer-column-editor .header-field{font-size:12px}.footer-column-editor small{font-size:10px;color:var(--muted);font-weight:400}
+      @media(max-width:1000px){.footer-settings-grid{grid-template-columns:1fr}.footer-preview-column{position:static}}
+      @media(max-width:600px){.footer-preview-frame .footer-grid{grid-template-columns:1fr;gap:16px}.footer-link-row{grid-template-columns:1fr}.footer-preview-frame{padding:18px 14px}}
       @media(max-width:560px){.page-management-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.page-management-tabs button{width:100%}}
     </style>
     <section class="panel admin-panel">
@@ -622,8 +687,42 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         </form>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
-        <h2>Footer</h2><p class="muted">Manage the public website footer and its displayed content.</p>
-        <div class="admin-note">Footer management controls can be added here. No existing website content has been changed.</div>
+        <h2>Footer</h2><p class="muted">Edit the three footer columns. The preview updates as you type and mirrors the public website footer.</p>
+        <form method="post" id="footer-settings-form" class="footer-settings-form">
+          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+          <input type="hidden" name="action" value="save_footer_settings">
+          <div class="footer-settings-grid">
+            <aside class="footer-preview-column">
+              <div class="header-preview-title">Footer Preview</div>
+              <div class="footer-preview-frame" inert aria-label="Non-interactive live preview of the public website footer">
+                <div class="wrap footer-grid">
+                  <div class="footer-preview-col"><a class="brand" id="preview-footer-brand" href="index.php"><?=e($footerSettings['brand'])?><span>.</span></a><p id="preview-footer-description"><?=e($footerSettings['description'])?></p><p id="preview-footer-copyright"><?=e(str_replace('{year}',date('Y'),$footerSettings['copyright']))?></p></div>
+                  <div class="footer-preview-col"><b id="preview-footer-explore-title"><?=e($footerSettings['explore_title'])?></b><div id="preview-footer-explore-links"><?php foreach($footerSettings['explore_links'] as $link): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php endforeach; ?></div></div>
+                  <div class="footer-preview-col"><b id="preview-footer-discover-title"><?=e($footerSettings['discover_title'])?></b><div id="preview-footer-discover-links"><?php foreach($footerSettings['discover_links'] as $link): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php endforeach; ?></div></div>
+                </div>
+              </div>
+              <p class="header-preview-help">This preview is for appearance only. Links are not clickable here.</p>
+            </aside>
+            <div class="footer-settings-fields">
+              <div class="footer-column-editor"><h3>Column 1 — Brand</h3>
+                <label class="header-field">Brand title<input class="field" name="footer_brand" id="footer-brand" maxlength="100" value="<?=e($footerSettings['brand'])?>"></label>
+                <label class="header-field">Description<textarea class="field" name="footer_description" id="footer-description" rows="3" maxlength="500"><?=e($footerSettings['description'])?></textarea></label>
+                <label class="header-field">Copyright text<textarea class="field" name="footer_copyright" id="footer-copyright" rows="2" maxlength="300"><?=e($footerSettings['copyright'])?></textarea><small>Use {year} to insert the current year automatically.</small></label>
+              </div>
+              <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
+                <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
+                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field" name="explore_url[]" maxlength="500" aria-label="Explore link URL" placeholder="Page URL" value="<?=e($link['url'])?>"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <button type="button" class="btn light add-footer-link" data-group="explore">+ Add Explore Link</button>
+              </div>
+              <div class="footer-column-editor"><h3>Column 3 — Discover</h3>
+                <label class="header-field">Column title<input class="field" name="footer_discover_title" id="footer-discover-title" maxlength="60" value="<?=e($footerSettings['discover_title'])?>"></label>
+                <div class="footer-link-editor" id="footer-discover-editor"><?php foreach($footerSettings['discover_links'] as $link): ?><div class="footer-link-row"><input class="field" name="discover_label[]" maxlength="100" aria-label="Discover link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field" name="discover_url[]" maxlength="500" aria-label="Discover link URL" placeholder="Page URL" value="<?=e($link['url'])?>"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <button type="button" class="btn light add-footer-link" data-group="discover">+ Add Discover Link</button>
+              </div>
+            </div>
+          </div>
+          <div class="header-settings-actions"><button type="submit" class="btn">Save Footer Settings</button></div>
+        </form>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-contents" role="tabpanel" aria-labelledby="pm-tab-contents" hidden>
         <h2>Contents</h2><p class="muted">Manage articles, sections, and other content displayed on the public website.</p>
@@ -639,6 +738,56 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </section>
     </section>
     <script>
+    (() => {
+      const form = document.getElementById('footer-settings-form');
+      if (!form) return;
+      const fields = {
+        brand: document.getElementById('footer-brand'),
+        description: document.getElementById('footer-description'),
+        copyright: document.getElementById('footer-copyright'),
+        exploreTitle: document.getElementById('footer-explore-title'),
+        discoverTitle: document.getElementById('footer-discover-title')
+      };
+      const updateLinks = group => {
+        const editor = document.getElementById('footer-'+group+'-editor');
+        const preview = document.getElementById('preview-footer-'+group+'-links');
+        preview.replaceChildren();
+        editor.querySelectorAll('.footer-link-row').forEach(row => {
+          const label = row.querySelector('[name="'+group+'_label[]"]').value.trim();
+          const url = row.querySelector('[name="'+group+'_url[]"]').value.trim();
+          if (!label) return;
+          const link = document.createElement('a');
+          link.textContent = label;
+          link.href = url || '#';
+          preview.append(link);
+        });
+      };
+      const updatePreview = () => {
+        document.getElementById('preview-footer-brand').childNodes[0].textContent = fields.brand.value;
+        document.getElementById('preview-footer-description').textContent = fields.description.value;
+        document.getElementById('preview-footer-copyright').textContent = fields.copyright.value.replaceAll('{year}', String(new Date().getFullYear()));
+        document.getElementById('preview-footer-explore-title').textContent = fields.exploreTitle.value;
+        document.getElementById('preview-footer-discover-title').textContent = fields.discoverTitle.value;
+        updateLinks('explore'); updateLinks('discover');
+      };
+      const addRow = group => {
+        const editor = document.getElementById('footer-'+group+'-editor');
+        const row = document.createElement('div'); row.className = 'footer-link-row';
+        const label = document.createElement('input'); label.className='field'; label.name=group+'_label[]'; label.maxLength=100; label.placeholder='Link title'; label.setAttribute('aria-label',group+' link title');
+        const url = document.createElement('input'); url.className='field'; url.name=group+'_url[]'; url.maxLength=500; url.placeholder='Page URL'; url.setAttribute('aria-label',group+' link URL');
+        const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-footer-link'; remove.textContent='Remove';
+        row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
+      };
+      form.addEventListener('input', updatePreview);
+      form.addEventListener('change', updatePreview);
+      form.addEventListener('click', event => {
+        const add = event.target.closest('.add-footer-link');
+        if (add) { addRow(add.dataset.group); return; }
+        const remove = event.target.closest('.remove-footer-link');
+        if (remove) { remove.closest('.footer-link-row').remove(); updatePreview(); }
+      });
+      updatePreview();
+    })();
     (() => {
       const form = document.getElementById('header-settings-form');
       if (form) {
