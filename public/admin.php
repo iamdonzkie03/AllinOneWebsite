@@ -729,7 +729,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                 <label class="header-field">Description<textarea class="field" name="footer_description" id="footer-description" rows="3" maxlength="500"><?=e($footerSettings['description'])?></textarea></label>
                 <label class="header-field">Copyright text<textarea class="field" name="footer_copyright" id="footer-copyright" rows="2" maxlength="300"><?=e($footerSettings['copyright'])?></textarea><small>Use {year} to insert the current year automatically.</small></label>
                 <div class="footer-link-editor" id="footer-brand-editor"><?php foreach(($footerSettings['brand_links'] ?? []) as $link): ?><div class="footer-link-row"><input class="field" name="brand_label[]" maxlength="100" aria-label="Brand item title" placeholder="Item title" value="<?=e($link['label'])?>"><input class="field" name="brand_url[]" maxlength="500" aria-label="Brand item URL" placeholder="Page URL (optional)" value="<?=e($link['url'])?>"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
-                <button type="button" class="btn light add-footer-link" data-group="brand">+ Add Brand Item</button>
               </div>
               <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
                 <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
