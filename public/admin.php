@@ -79,12 +79,12 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS site_footer_settings (
   content_json LONGTEXT NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$defaultFooterContent = {"brand":"Z.C. commonplace","description":"Zamboanga stories, culture, creativity and community — shared with care.","copyright":"© {year} Z.C. commonplace. Community publishing with administrator review.","explore_title":"Explore","explore_links":[{"label":"Creative Arts and Photography","url":"?category=creative-arts-photography#latest"},{"label":"News Connect","url":"?category=news-connect#latest"},{"label":"Marketplace","url":"?category=marketplace#latest"}],"discover_title":"Discover","discover_links":[{"label":"Entertainment & Politics","url":"?category=entertainment-politics#latest"},{"label":"History & Culture","url":"?category=history-culture#latest"},{"label":"Zamboanga heritage slideshow","url":"#zamboanga"}]};
+$defaultFooterContent = json_decode('{"brand":"Z.C. commonplace","description":"Zamboanga stories, culture, creativity and community — shared with care.","copyright":"© {year} Z.C. commonplace. Community publishing with administrator review.","explore_title":"Explore","explore_links":[{"label":"Creative Arts and Photography","url":"?category=creative-arts-photography#latest"},{"label":"News Connect","url":"?category=news-connect#latest"},{"label":"Marketplace","url":"?category=marketplace#latest"}],"discover_title":"Discover","discover_links":[{"label":"Entertainment & Politics","url":"?category=entertainment-politics#latest"},{"label":"History & Culture","url":"?category=history-culture#latest"},{"label":"Zamboanga heritage slideshow","url":"#zamboanga"}]}', true) ?: [];
 $pdo->exec("INSERT IGNORE INTO site_footer_settings (id, content_json) VALUES (1, '".str_replace("'", "''", json_encode($defaultFooterContent, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE))."')");
 $footerRow = $pdo->query("SELECT content_json FROM site_footer_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
 $footerSettings = json_decode((string)($footerRow['content_json'] ?? ''), true);
 if (!is_array($footerSettings)) $footerSettings = [];
-$footerSettings = array_replace_recursive($defaultFooterContent, $footerSettings);
+$footerSettings = array_replace($defaultFooterContent, $footerSettings);
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
 $section = (string)($_GET['section'] ?? 'dashboard');
@@ -216,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Footer settings were submitted but could not be verified in the connected database.');
             }
             $message = 'Footer settings saved successfully.';
-            $footerSettings = array_replace_recursive($defaultFooterContent, $content);
+            $footerSettings = array_replace($defaultFooterContent, $content);
         }
     } elseif ($action === 'save_header_settings') {
         // Header Title is no longer editable in Page Management. Preserve
