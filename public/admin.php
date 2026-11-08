@@ -679,8 +679,46 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           [...links.querySelectorAll('.header-link-row')].forEach((row,index)=>{const labelInput=row.querySelector('[name="header_link_label[]"]');const editor=row.querySelector('[data-rich-editor]');const label=editorText(row).trim();if(labelInput)labelInput.value=label;const url=row.querySelector('[name="header_link_url[]"]').value.trim();const rich=row.querySelector('[data-rich-value]');if(rich)rich.value=editor?editor.innerHTML:'';row.querySelectorAll('[name^="typography[links]"]').forEach(el=>{el.name=el.name.replace(/typography\[links\]\[\d+\]/,'typography[links]['+index+']');});if(label){const a=document.createElement('a');a.className='custom-preview-link';a.innerHTML=editor?editor.innerHTML:label;a.href=url||'#';const controls=row.querySelectorAll('[name^="typography[links]"]');const st={};controls.forEach(el=>st[el.name.match(/\[([^\]]+)\]$/)[1]]=el.value);Object.assign(a.style,{fontFamily:st.family||'Ubuntu',fontSize:(st.size||13)+'px',fontWeight:(st.format||'').split(/[ ,]+/).includes('bold')?700:500,fontStyle:(st.format||'').split(/[ ,]+/).includes('italic')?'italic':'normal',textDecoration:(st.format||'').split(/[ ,]+/).includes('underline')?'underline':'none',color:st.color||'#e8dce0'});nav.insertBefore(a,nav.querySelector('.preview-signin'));}});
           const logo=document.getElementById('preview-header-logo');logo.style.objectPosition=form.elements.logo_position_x.value+'% '+form.elements.logo_position_y.value+'%';
         };
-        const attachColorPalette=(input)=>{if(!input||input.dataset.paletteReady)return;input.dataset.paletteReady='1';const button=document.createElement('button');button.type='button';button.className='font-color-palette';button.setAttribute('aria-label','Open font color palette');button.setAttribute('aria-haspopup','dialog');button.title='Choose font color';button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 1.6-3.9 1.2 1.2 0 0 1 .9-2.1H18a3 3 0 0 0 3-3c0-5-4-8-9-9Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.8" r="1"/><circle cx="15" cy="7.5" r="1"/><circle cx="17.5" cy="11" r="1"/></svg>';const sync=()=>button.style.setProperty('--palette-color',input.value);input.classList.add('font-color-native');input.insertAdjacentElement('afterend',button);button.addEventListener('mousedown',e=>e.preventDefault());button.addEventListener('click',()=>{try{if(input.showPicker)input.showPicker();else input.click();}catch(e){input.click();}});input.addEventListener('input',sync);input.addEventListener('change',sync);sync();};
-        form.querySelectorAll('.typography-group input[type="color"]').forEach(attachColorPalette);
+        const attachColorPalette=(input)=>{
+          if(!input||input.dataset.paletteReady)return;
+          input.dataset.paletteReady='1';
+          const button=document.createElement('button');
+          button.type='button';button.className='font-color-palette';
+          button.setAttribute('aria-label','Open font color palette');
+          button.setAttribute('aria-haspopup','true');button.setAttribute('aria-expanded','false');
+          button.title='Choose font color';
+          button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 1.6-3.9 1.2 1.2 0 0 1 .9-2.1H18a3 3 0 0 0 3-3c0-5-4-8-9-9Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.8" r="1"/><circle cx="15" cy="7.5" r="1"/><circle cx="17.5" cy="11" r="1"/></svg>';
+          const palette=document.createElement('div');
+          palette.className='font-color-palette-popover';palette.hidden=true;
+          palette.setAttribute('role','group');palette.setAttribute('aria-label','Font color choices');
+          const colors=['#ffffff','#f7eef0','#e8dce0','#d9a6b2','#c83e5b','#92243a','#5b1427','#171115','#000000','#f4c542','#55a66b','#4285d4','#8b5cf6','#ec6b2d'];
+          colors.forEach(color=>{
+            const swatch=document.createElement('button');swatch.type='button';
+            swatch.className='font-color-swatch';swatch.style.setProperty('--swatch-color',color);
+            swatch.setAttribute('aria-label','Use '+color);swatch.title=color;
+            swatch.addEventListener('mousedown',event=>event.preventDefault());
+            swatch.addEventListener('click',()=>{
+              input.value=color;input.dispatchEvent(new Event('input',{bubbles:true}));
+              input.dispatchEvent(new Event('change',{bubbles:true}));
+              palette.hidden=true;button.setAttribute('aria-expanded','false');button.style.setProperty('--palette-color',color);
+            });
+            palette.append(swatch);
+          });
+          const custom=document.createElement('button');custom.type='button';custom.className='font-color-custom';custom.textContent='Custom…';
+          custom.addEventListener('mousedown',event=>event.preventDefault());
+          custom.addEventListener('click',()=>{try{if(input.showPicker)input.showPicker();else input.click();}catch(error){input.click();}});
+          palette.append(custom);
+          input.classList.add('font-color-native');
+          input.insertAdjacentElement('afterend',button);button.insertAdjacentElement('afterend',palette);
+          const sync=()=>{button.style.setProperty('--palette-color',input.value);};
+          button.addEventListener('mousedown',event=>{event.preventDefault();rememberTitleSelection?.();});
+          button.addEventListener('click',()=>{
+            rememberTitleSelection?.();
+            palette.hidden=!palette.hidden;button.setAttribute('aria-expanded',String(!palette.hidden));
+          });
+          input.addEventListener('input',sync);input.addEventListener('change',sync);sync();
+        };
+
         // Selected-text typography is preview-only: keep the editor itself untouched.
         const titleEditor=form.querySelector('[data-rich-editor="title"]');
         const titlePreview=document.getElementById('preview-header-title');
@@ -747,6 +785,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           renderTitlePreview();
           return true;
         };
+        // Attach palettes only after selection helpers exist, so opening and choosing
+        // a color can preserve and format the exact highlighted textarea range.
+        titleTypographyGroup?.querySelectorAll('input[type="color"]').forEach(attachColorPalette);
+
         titleTypographyGroup?.querySelectorAll('[data-format-toggle]').forEach(button=>{
           button.addEventListener('mousedown',event=>event.preventDefault());
           button.addEventListener('click',()=>{
@@ -754,9 +796,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             if(savedTitleSelection&&savedTitleSelection.end>savedTitleSelection.start){
               const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
               const current=button.getAttribute('aria-pressed')==='true';
-              const value=fmt==='bold'?(current?'400':'700'):fmt==='italic'?(current?'normal':'italic'):(current?'none':'underline');
+              const selectedStyle=titlePreviewStyles.filter(entry=>entry.start<savedTitleSelection.end&&entry.end>savedTitleSelection.start).reduce((styles,entry)=>Object.assign(styles,entry.styles),{});
+              const selectedUnderline=selectedStyle.textDecoration==='underline';
+              const value=fmt==='bold'?(current?'400':'700'):fmt==='italic'?(current?'normal':'italic'):(selectedUnderline?'none':'underline');
               if(applyTitleSelectionStyle(prop,value)){
-                button.setAttribute('aria-pressed',String(!current));
+                button.setAttribute('aria-pressed',String(fmt==='underline'?!selectedUnderline:!current));
                 updatePreview();
                 return;
               }
@@ -846,7 +890,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         updatePreview();
       }
     })();
-    const paletteStyle=document.createElement('style');paletteStyle.textContent=".font-color-palette{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin-left:7px;padding:7px;border:1px solid rgba(220,174,187,.35);border-radius:9px;background:rgba(91,20,39,.22);color:var(--palette-color,#e8dce0);cursor:pointer;vertical-align:middle;transition:background .2s,border-color .2s,transform .2s}.font-color-palette:hover{background:rgba(130,30,57,.35);border-color:rgba(220,174,187,.7);transform:translateY(-1px)}.font-color-palette:focus-visible{outline:2px solid #d99aaa;outline-offset:2px}.font-color-palette svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.font-color-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}";document.head.append(paletteStyle);
+    const paletteStyle=document.createElement('style');paletteStyle.textContent=".font-color-palette-popover{position:absolute;z-index:1000;display:grid;grid-template-columns:repeat(7,25px);gap:5px;padding:9px;margin-top:5px;border:1px solid rgba(220,174,187,.4);border-radius:10px;background:#171115;box-shadow:0 10px 28px rgba(0,0,0,.45)}.font-color-palette-popover[hidden]{display:none}.font-color-swatch{width:25px;height:25px;border:1px solid rgba(255,255,255,.35);border-radius:6px;background:var(--swatch-color);cursor:pointer}.font-color-swatch:focus-visible,.font-color-custom:focus-visible{outline:2px solid #d99aaa;outline-offset:2px}.font-color-custom{grid-column:1/-1;padding:6px;border:1px solid rgba(220,174,187,.35);border-radius:6px;background:#26171d;color:#fff;cursor:pointer;font:11px Ubuntu,sans-serif}.font-color-palette{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin-left:7px;padding:7px;border:1px solid rgba(220,174,187,.35);border-radius:9px;background:rgba(91,20,39,.22);color:var(--palette-color,#e8dce0);cursor:pointer;vertical-align:middle;transition:background .2s,border-color .2s,transform .2s}.font-color-palette:hover{background:rgba(130,30,57,.35);border-color:rgba(220,174,187,.7);transform:translateY(-1px)}.font-color-palette:focus-visible{outline:2px solid #d99aaa;outline-offset:2px}.font-color-palette svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.font-color-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}";document.head.append(paletteStyle);
     (() => {
       const tabs = [...document.querySelectorAll('[data-page-tab]')];
       if (!tabs.length) return;
