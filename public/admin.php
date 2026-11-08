@@ -700,7 +700,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                   <div class="footer-preview-col"><b id="preview-footer-discover-title"><?=e($footerSettings['discover_title'])?></b><div id="preview-footer-discover-links"><?php foreach($footerSettings['discover_links'] as $link): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php endforeach; ?></div></div>
                 </div>
               </div>
-              <p class="header-preview-help">This preview is for appearance only. Links are not clickable here.</p>
+              <p class="header-preview-help">Preview updates as you edit.</p>
             </aside>
             <div class="footer-settings-fields">
               <div class="footer-column-editor"><h3>Column 1 — Brand</h3>
