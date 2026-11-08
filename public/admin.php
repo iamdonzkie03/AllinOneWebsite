@@ -695,7 +695,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <div class="header-preview-title">Footer Preview</div>
               <div class="footer-preview-frame" inert aria-label="Non-interactive live preview of the public website footer">
                 <div class="wrap footer-grid">
-                  <div class="footer-preview-col"><a class="brand" id="preview-footer-brand" href="index.php"><?=e($footerSettings['brand'])?><span>.</span></a><p id="preview-footer-description"><?=e($footerSettings['description'])?></p><p id="preview-footer-copyright"><?=e(str_replace('{year}',date('Y'),$footerSettings['copyright']))?></p></div>
+                  <div class="footer-preview-col"><a class="brand" id="preview-footer-brand" href="index.php"><?=e($footerSettings['brand'])?></a><p id="preview-footer-description"><?=e($footerSettings['description'])?></p><p id="preview-footer-copyright"><?=e(str_replace('{year}',date('Y'),$footerSettings['copyright']))?></p></div>
                   <div class="footer-preview-col"><b id="preview-footer-explore-title"><?=e($footerSettings['explore_title'])?></b><div id="preview-footer-explore-links"><?php foreach($footerSettings['explore_links'] as $link): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php endforeach; ?></div></div>
                   <div class="footer-preview-col"><b id="preview-footer-discover-title"><?=e($footerSettings['discover_title'])?></b><div id="preview-footer-discover-links"><?php foreach($footerSettings['discover_links'] as $link): ?><a href="<?=e($link['url'])?>"><?=e($link['label'])?></a><?php endforeach; ?></div></div>
                 </div>
