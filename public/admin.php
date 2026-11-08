@@ -199,9 +199,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $label = trim((string)$label);
             $url = trim((string)(($_POST['header_link_url'][$index] ?? '')));
             $labelHtml = cleanHeaderRichHtml((string)(($_POST['header_link_html'][$index] ?? '')));
+            // A title may be saved before its destination is assigned. This lets
+            // administrators add and edit navigation labels independently.
             if ($label === '' && $url === '') continue;
-            if ($label === '' || $url === '' || !preg_match('~^(https?://|/|#|\\.\\./|\\./)~i', $url)) {
-                $message = 'Each header link needs a label and a valid URL (http://, https://, /, or #).';
+            if ($label === '') {
+                $message = 'Enter a link title before saving the header link.';
+                break;
+            }
+            if ($url !== '' && !preg_match('~^(https?://|/|#|\\.\\./|\\./)~i', $url)) {
+                $message = 'Enter a valid Page URL (http://, https://, /, or #), or leave it blank.';
                 break;
             }
             $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>'','url'=>mb_substr($url,0,500)];
