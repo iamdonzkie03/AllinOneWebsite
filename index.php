@@ -35,18 +35,10 @@ foreach (['title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hid
 }
 $databaseHeaderSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
 
-// The GitHub-published values are the public site's authoritative Header tab
-// configuration. The database row is retained as a fallback for installations
-// that have not yet published their Header settings to GitHub.
-// BEGIN GITHUB-PUBLISHED HEADER SETTINGS
-$githubPublishedHeaderSettings = json_decode(base64_decode('W10=', true) ?: '[]', true);
-// END GITHUB-PUBLISHED HEADER SETTINGS
-
-// Prefer the settings embedded into this actual index.php by Page Management.
-// The database remains the fallback if the file has not yet been updated.
-$publicHeader = is_array($githubPublishedHeaderSettings) && !empty($githubPublishedHeaderSettings)
-    ? array_merge($databaseHeaderSettings, $githubPublishedHeaderSettings)
-    : $databaseHeaderSettings;
+// The database row is the single source of truth shared by Page Management
+// and the public homepage. This prevents stale embedded/published values in
+// index.php from overriding the latest settings saved by the administrator.
+$publicHeader = $databaseHeaderSettings;
 
 $publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? ''));
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
