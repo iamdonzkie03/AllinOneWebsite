@@ -295,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // arbitrary paths stored in the settings row.
             if ($logoPath !== '' && $logoPath !== $previousLogoPath
                 && $previousLogoPath !== ''
-                && str_starts_with(str_replace('\\\\', '/', $previousLogoPath), 'uploads/site-header/')) {
+                && str_starts_with(str_replace('\\', '/', $previousLogoPath), 'uploads/site-header/')) {
                 $oldLogoName = basename($previousLogoPath);
                 if ($oldLogoName !== '' && $oldLogoName !== '.' && $oldLogoName !== '..') {
                     $oldLogoFile = __DIR__ . '/uploads/site-header/' . $oldLogoName;
