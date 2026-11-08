@@ -21,6 +21,8 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
   font_weight SMALLINT UNSIGNED NOT NULL DEFAULT 700,
   logo_position_x TINYINT UNSIGNED NOT NULL DEFAULT 50,
   logo_position_y TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  logo_width SMALLINT UNSIGNED NOT NULL DEFAULT 200,
+  logo_height SMALLINT UNSIGNED NOT NULL DEFAULT 70,
   title_html LONGTEXT NULL,
   hidden_left_html LONGTEXT NULL,
   hidden_right_html LONGTEXT NULL,
@@ -28,7 +30,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
-foreach (['title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hidden_right_html'=>'LONGTEXT NULL','typography_json'=>'LONGTEXT NULL'] as $column=>$definition) {
+foreach (['logo_width'=>'SMALLINT UNSIGNED NOT NULL DEFAULT 200','logo_height'=>'SMALLINT UNSIGNED NOT NULL DEFAULT 70','title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hidden_right_html'=>'LONGTEXT NULL','typography_json'=>'LONGTEXT NULL'] as $column=>$definition) {
     $exists=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='site_header_settings' AND COLUMN_NAME=?");
     $exists->execute([$column]);
     if (!(int)$exists->fetchColumn()) $pdo->exec("ALTER TABLE site_header_settings ADD COLUMN {$column} {$definition}");
@@ -95,6 +97,8 @@ $renderHeaderRich = static function($html,$fallback): string {
 };
 $publicHeaderLogoX = max(0, min(100, (int)($publicHeader['logo_position_x'] ?? 50)));
 $publicHeaderLogoY = max(0, min(100, (int)($publicHeader['logo_position_y'] ?? 50)));
+$publicHeaderLogoWidth = max(50, min(400, (int)($publicHeader['logo_width'] ?? 200)));
+$publicHeaderLogoHeight = max(30, min(200, (int)($publicHeader['logo_height'] ?? 70)));
 
 $loginError = '';
 $showLoginProgress = !empty($_SESSION['login_progress']);
@@ -179,7 +183,7 @@ $modules = [
 <style id="public-header-typography-rules"><?=$publicHeaderTypographyCss?></style>
 <div class="topbar" id="public-site-header-topbar" data-header-source="page-management"><div class="wrap"><span class="header-type-left" style="<?=e($headerTextStyle($publicLeftTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span class="header-type-right" style="<?=e($headerTextStyle($publicRightTypography))?>"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div>
 <header id="public-site-header" data-header-source="page-management"><div class="wrap nav">
-<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle !== '' ? $publicHeaderTitle : 'Home')?> " style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:70px;height:70px;max-width:70px;max-height:70px;object-fit:cover;object-position:<?=$publicHeaderLogoX?>% <?=$publicHeaderLogoY?>%;border-radius:7px"><?php endif; ?><span class="public-header-title header-type-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
+<a class="brand" href="index.php" aria-label="<?=e($publicHeaderTitle !== '' ? $publicHeaderTitle : 'Home')?> " style="<?=e($headerTextStyle($publicTitleTypography))?>"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:<?=$publicHeaderLogoWidth?>px;height:<?=$publicHeaderLogoHeight?>px;max-width:100%;object-fit:contain;object-position:center;border-radius:0"><?php endif; ?><span class="public-header-title header-type-title"><?=$renderHeaderRich($publicHeader['title_html'] ?? '',$publicHeaderTitle)?></span></a>
 <nav class="navlinks">
 <?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '' || trim((string)($headerLink['url'] ?? '')) === '') continue; ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e((string)$headerLink['url'])?>" style="<?=e($headerTextStyle((array)($headerLink['typography'] ?? ['family'=>'Ubuntu','style'=>'normal','size'=>13,'weight'=>500,'color'=>'#e8dce0'])))?>"><?=$renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label'])?></a><?php endforeach; ?>
 <a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
