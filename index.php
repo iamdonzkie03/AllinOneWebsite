@@ -325,9 +325,9 @@ $modules = [
 </script>
 <?php endif; ?>
 <footer><div class="wrap footer-grid">
-<div><b><?=e($publicFooter['brand'])?></b><p><?=e($publicFooter['description'])?></p><p><?=e(str_replace('{year}',date('Y'),$publicFooter['copyright']))?></p></div>
-<div><b><?=e($publicFooter['explore_title'])?></b><?php foreach($publicFooter['explore_links'] as $footerLink): ?><a href="<?=e($footerLink['url'])?>"><?=e($footerLink['label'])?></a><?php endforeach; ?></div>
-<div><b><?=e($publicFooter['discover_title'])?></b><?php foreach($publicFooter['discover_links'] as $footerLink): ?><a href="<?=e($footerLink['url'])?>"><?=e($footerLink['label'])?></a><?php endforeach; ?></div>
+<div><b><?=e($publicFooter['brand'])?></b><p><?=e($publicFooter['description'])?></p><p><?=e(str_replace('{year}',date('Y'),$publicFooter['copyright']))?></p><?php foreach(($publicFooter['brand_links'] ?? []) as $footerLink): ?><?php if(trim((string)($footerLink['url'] ?? '')) !== ''): ?><a href="<?=e($footerLink['url'])?>"><?=e($footerLink['label'])?></a><?php else: ?><span class="footer-text-item"><?=e($footerLink['label'])?></span><?php endif; ?><?php endforeach; ?></div>
+<div><b><?=e($publicFooter['explore_title'])?></b><?php foreach($publicFooter['explore_links'] as $footerLink): ?><?php if(trim((string)($footerLink['url'] ?? '')) !== ''): ?><a href="<?=e($footerLink['url'])?>"><?=e($footerLink['label'])?></a><?php else: ?><span class="footer-text-item"><?=e($footerLink['label'])?></span><?php endif; ?><?php endforeach; ?></div>
+<div><b><?=e($publicFooter['discover_title'])?></b><?php foreach($publicFooter['discover_links'] as $footerLink): ?><?php if(trim((string)($footerLink['url'] ?? '')) !== ''): ?><a href="<?=e($footerLink['url'])?>"><?=e($footerLink['label'])?></a><?php else: ?><span class="footer-text-item"><?=e($footerLink['label'])?></span><?php endif; ?><?php endforeach; ?></div>
 </div></footer>
 <script>
 (() => {
