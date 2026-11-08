@@ -1025,7 +1025,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     modal.addEventListener('click',event=>{if(event.target===modal)modal.remove();});
     document.body.append(modal);close.focus();
   };
-  document.addEventListener('submit',async event=>{
+  form.addEventListener('submit',async event=>{
     if(event.target!==form)return;
     event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();
     if(saving)return;
@@ -1044,7 +1044,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     });
     form.querySelectorAll('.header-link-row').forEach((row,index)=>{
       row.querySelectorAll('[name^="typography[links]"]').forEach(field=>{
-        field.name=field.name.replace(/typography\\[links\\]\\[\\d+\\]/,'typography[links]['+index+']');
+        field.name=field.name.replace(/typography\[links\]\[\d+\]/,'typography[links]['+index+']');
       });
     });
     const submit=form.querySelector('button[type="submit"],input[type="submit"]');
