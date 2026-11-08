@@ -653,7 +653,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           const savedTypography=<?=json_encode(json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: [],JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
           const styleFor=(key)=>{const group=form.querySelectorAll('[name^="typography['+key+']"]');const values={};group.forEach(el=>values[el.name.match(/\[([^\]]+)\]$/)[1]]=el.value);return values;};
           const previewTypography=(key,fallback)=>{const st=styleFor(key);const saved=savedTypography[key]||{};const formats=(st.format??saved.format??'').split(/[ ,]+/).filter(Boolean);return {family:st.family||saved.family||'Ubuntu',style:formats.includes('italic')?'italic':(saved.style||'normal'),size:(st.size||saved.size||fallback.size)+'px',weight:formats.includes('bold')?700:(saved.weight||fallback.weight),decoration:formats.includes('underline')?'underline':'none',color:st.color||saved.color||fallback.color};};
-          const titleStyle=previewTypography('title',{size:20,weight:700,color:'#f7eef0'});const titlePreviewElement=document.getElementById('preview-header-title');Object.assign(titlePreviewElement.style,{fontFamily:titleStyle.family,fontStyle:titleStyle.style,fontSize:titleStyle.size,fontWeight:titleStyle.weight,textDecoration:titleStyle.decoration,color:titleStyle.color});
+          const titleStyle=previewTypography('title',{size:20,weight:700,color:'#f7eef0'});const titlePreviewElement=document.getElementById('preview-header-title');Object.assign(titlePreviewElement.style,{fontFamily:titleStyle.family,fontStyle:titleStyle.style,fontSize:titleStyle.size,fontWeight:titleStyle.weight,textDecoration:'none',color:titleStyle.color});
           ['hidden_left','hidden_right'].forEach(key=>{const st=previewTypography(key,{size:10,weight:400,color:'#cdbdc2'});const el=document.getElementById(key==='hidden_left'?'preview-hidden-left':'preview-hidden-right');Object.assign(el.style,{fontFamily:st.family,fontStyle:st.style,fontSize:st.size,fontWeight:st.weight,textDecoration:st.decoration,color:st.color});});
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{const target=form.querySelector('[data-rich-value="'+editor.dataset.richEditor+'"]');if(target)target.value=editor.innerHTML;});
           const titlePreview=document.getElementById('preview-header-title');renderTitlePreview();titlePreview.style.setProperty('font-family',titleStyle.family||'Ubuntu','important');
@@ -766,6 +766,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const renderTitlePreview=()=>{
           const text=titleEditor.value||'';
+          const baseFormats=new Set((titleTypographyGroup?.querySelector('[data-format-value]')?.value||'').split(/[ ,]+/).filter(Boolean));
           const boundaries=new Set([0,text.length]);
           titlePreviewStyles.forEach(item=>{
             boundaries.add(Math.max(0,Math.min(text.length,item.start)));
@@ -777,13 +778,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             const start=points[i],end=points[i+1];
             if(end<=start)continue;
             const styles={};
+            if(baseFormats.has('bold'))styles.fontWeight='700';
+            if(baseFormats.has('italic'))styles.fontStyle='italic';
+            if(baseFormats.has('underline'))styles.textDecoration='underline';
             titlePreviewStyles.filter(item=>item.start<end&&item.end>start).forEach(item=>Object.assign(styles,item.styles));
+            const underline=styles.textDecoration==='underline';
+            delete styles.textDecoration;
             const content=escapePreviewText(text.slice(start,end));
             const declarations=Object.entries(styles).map(([key,value])=>{
               const cssName=key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase());
               return cssName+':'+String(value);
             }).join(';');
-            html+=declarations?'<span style="'+declarations+'">'+content+'</span>':content;
+            const formatted=underline?'<u>'+content+'</u>':content;
+            html+=declarations?'<span style="'+declarations+'">'+formatted+'</span>':formatted;
           }
           titlePreview.innerHTML=html||escapePreviewText(text);
           const richField=form.querySelector('[data-rich-value="title"]');
@@ -826,8 +833,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         titleTypographyGroup?.querySelectorAll('input[type="color"]').forEach(attachColorPalette);
 
         titleTypographyGroup?.querySelectorAll('[data-format-toggle]').forEach(button=>{
-          button.addEventListener('mousedown',event=>event.preventDefault());
+          // Snapshot the textarea range before the browser moves focus to the
+          // toolbar button. Preventing the pointer default also keeps the
+          // highlighted text visibly selected while the command is applied.
+          button.addEventListener('pointerdown',event=>{rememberTitleSelection();event.preventDefault();});
+          button.addEventListener('mousedown',event=>{rememberTitleSelection();event.preventDefault();});
           button.addEventListener('click',()=>{
+            const currentRange=readTitleSelection();
+            if(currentRange)savedTitleSelection=currentRange;
             const fmt=button.dataset.formatToggle;
             if(savedTitleSelection&&savedTitleSelection.end>savedTitleSelection.start){
               const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
