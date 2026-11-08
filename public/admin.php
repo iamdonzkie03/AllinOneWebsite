@@ -715,6 +715,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         // Rebuild selected-range formatting from the last saved title HTML so the
         // preview remains identical after a save or a later visit to this tab.
         const savedTitleHtml=<?=json_encode((string)($headerSettings['title_html'] ?? ''),JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
+        let titlePreviewHasUserEdits=false;
+        let titlePreviewFirstRender=true;
         if(savedTitleHtml){
           const savedTemplate=document.createElement('template');
           savedTemplate.innerHTML=savedTitleHtml;
@@ -766,6 +768,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         const renderTitlePreview=()=>{
           const text=titleEditor.value||'';
+          const richField=form.querySelector('[data-rich-value="title"]');
+          // On first load, show the exact HTML that was saved in the database.
+          // This avoids a lossy reconstruction of nested/overlapping inline styles
+          // and guarantees the preview starts from the persisted configuration.
+          if(titlePreviewFirstRender && !titlePreviewHasUserEdits && savedTitleHtml){
+            titlePreview.innerHTML=savedTitleHtml;
+            if(richField)richField.value=savedTitleHtml;
+            titlePreviewFirstRender=false;
+            return;
+          }
+          titlePreviewFirstRender=false;
           const baseFormats=new Set((titleTypographyGroup?.querySelector('[data-format-value]')?.value||'').split(/[ ,]+/).filter(Boolean));
           const boundaries=new Set([0,text.length]);
           titlePreviewStyles.forEach(item=>{
@@ -793,7 +806,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             html+=declarations?'<span style="'+declarations+'">'+formatted+'</span>':formatted;
           }
           titlePreview.innerHTML=html||escapePreviewText(text);
-          const richField=form.querySelector('[data-rich-value="title"]');
           if(richField)richField.value=html||escapePreviewText(text);
         };
         const applyTitleSelectionStyle=(property,value)=>{
@@ -805,6 +817,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           // Add a range override instead of mutating a matching interval. This
           // preserves earlier formatting outside the newly selected text, even
           // when the new selection partially overlaps an existing formatted range.
+          titlePreviewHasUserEdits=true;
+          titlePreviewFirstRender=false;
           titlePreviewStyles.push({start,end,styles:{[property]:value}});
           renderTitlePreview();
           return true;
@@ -901,7 +915,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
             if(editor.dataset.ready)return;editor.dataset.ready='1';
             const key=editor.dataset.richEditor;
-            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=key==='title'?(form.querySelector('[data-rich-value="title"]')?.value||escapePreviewText(editor.value)):editor.innerHTML;if(key==='title'){titlePreviewStyles.length=0;savedTitleSelection=null;}const plain=key==='title'?editor.value.trim():editor.innerText.trim();const plainField=form.querySelector('[data-plain-value="'+key+'"]');if(plainField)plainField.value=plain;updatePreview();});
+            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=key==='title'?(form.querySelector('[data-rich-value="title"]')?.value||escapePreviewText(editor.value)):editor.innerHTML;if(key==='title'){titlePreviewHasUserEdits=true;titlePreviewFirstRender=false;titlePreviewStyles.length=0;savedTitleSelection=null;}const plain=key==='title'?editor.value.trim():editor.innerText.trim();const plainField=form.querySelector('[data-plain-value="'+key+'"]');if(plainField)plainField.value=plain;updatePreview();});
           });
           form.querySelectorAll('[data-style-controls="link"]').forEach((box)=>{
             if(box.dataset.ready)return;box.dataset.ready='1';const row=box.closest('.header-link-row');const idx=[...links.querySelectorAll('.header-link-row')].indexOf(row);let saved={};try{saved=JSON.parse(box.dataset.typography||'{}')}catch(e){}
