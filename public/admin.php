@@ -204,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = 'Each header link needs a label and a valid URL (http://, https://, /, or #).';
                 break;
             }
-            $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>$labelHtml,'url'=>mb_substr($url,0,500),'typography'=>headerTypography((array)($_POST['typography']['links'][$index] ?? []), ['size'=>13,'weight'=>500,'color'=>'#e8dce0'])];
+            $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>'','url'=>mb_substr($url,0,500)];
         }
         $previousLogoPath = (string)($headerSettings['logo_path'] ?? '');
         $logoPath = $previousLogoPath;
