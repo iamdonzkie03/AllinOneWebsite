@@ -687,7 +687,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         </form>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
-        <h2>Footer</h2><p class="muted">Edit the three footer columns. The preview updates as you type and mirrors the public website footer.</p>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
           <input type="hidden" name="action" value="save_footer_settings">
