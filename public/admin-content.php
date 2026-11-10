@@ -122,6 +122,6 @@ try {
 }
 
 $returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory'], true);
-$redirect = $returnToCategoryList ? 'admin.php?section=category-list&notice=' : 'admin.php?section=page-management&tab=contents&notice=';
-header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? '' : '#pm-panel-contents'), true, 303);
+$redirect = $returnToCategoryList ? 'admin.php?section=page-management&tab=contents&view=categories&notice=' : 'admin.php?section=page-management&tab=contents&notice=';
+header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? '#pm-panel-contents' : '#pm-panel-contents'), true, 303);
 exit;
