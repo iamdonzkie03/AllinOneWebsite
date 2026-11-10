@@ -53,10 +53,12 @@ try {
             if (!$exists->fetch()) throw new RuntimeException('subcategory_missing');
             $save = $pdo->prepare('UPDATE categories SET name=?,description=?,parent_id=? WHERE id=? AND parent_id IS NOT NULL');
             $save->execute([$name, mb_substr($description, 0, 255), $parentId, $id]);
+            $successNames[] = $name;
             $notice = 'subcategory_updated';
         } else {
             $save = $pdo->prepare('INSERT INTO categories (name,slug,description,is_active,parent_id) VALUES (?,?,?,1,?)');
             $save->execute([$name, $slugify($name), mb_substr($description, 0, 255), $parentId]);
+            $successNames[] = $name;
             $notice = 'subcategory_created';
         }
     } elseif ($action === 'delete_category' || $action === 'delete_subcategory') {
