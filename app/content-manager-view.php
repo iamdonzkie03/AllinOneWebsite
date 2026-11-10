@@ -66,6 +66,15 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-table .muted{font-size:10px}.content-manager-table a{color:#e4a2b1;text-decoration:none}.content-manager-table a:hover{text-decoration:underline}
 .content-manager-subcat{padding-left:20px!important}.content-manager-subcat:before{content:"↳ ";color:#b85a70}.content-manager-notice{padding:11px 13px;border:1px solid rgba(184,50,63,.38);border-radius:9px;background:rgba(128,20,39,.13);color:#f1dce1;font-size:12px}
 .content-manager-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.content-manager-section-head h3{margin:0}.content-manager-section-head>.content-manager-actions{margin-left:auto;flex-wrap:nowrap}
+.content-manager-category-toolbar{justify-content:flex-end;align-items:center}
+.content-manager-table-tools{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
+.content-manager-filter,.content-manager-page-size{display:flex;align-items:center;gap:8px;color:#d9cbd0;font-size:11px}
+.content-manager-filter{flex:1;max-width:360px}.content-manager-filter .field{min-width:180px}
+.content-manager-page-size .field{width:76px;padding:7px}
+.content-manager-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px}
+.content-manager-page-buttons{display:flex;align-items:center;gap:8px}
+.content-manager-page-buttons .btn{padding:7px 10px;font-size:11px}
+@media(max-width:760px){.content-manager-section-head>.content-manager-actions{margin-left:0;flex-wrap:wrap}.content-manager-category-toolbar{justify-content:flex-start}.content-manager-table-tools{align-items:stretch;flex-direction:column}.content-manager-filter{max-width:none;align-items:stretch;flex-direction:column}.content-manager-pagination{align-items:flex-start;flex-direction:column}}
 .content-manager-editor{grid-column:1/-1}.content-manager-article-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.content-manager-article-grid .full{grid-column:1/-1}
 @media(max-width:760px){.content-manager-grid{grid-template-columns:1fr}.content-manager-article-grid{grid-template-columns:1fr}.content-manager-article-grid .full{grid-column:auto}.content-manager-section-head{align-items:flex-start;flex-direction:column}}
 </style>
@@ -75,12 +84,12 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
   <div class="content-manager-grid">
     <?php if ($cmShowCategories): ?>
     <section class="content-manager-card content-manager-editor">
-      <div class="content-manager-section-head"><h3>Category and Subcategory List</h3></div>
-      <div class="content-manager-actions" style="justify-content:flex-start;margin:0 0 16px">
+      <div class="content-manager-section-head"><h3>Category List</h3>
+      <div class="content-manager-actions content-manager-category-toolbar">
         <a class="btn" href="<?=e($cmCategoryModeUrl.'&add_category=1')?>">+ Add Category</a>
         <a class="btn light" href="<?=e($cmCategoryModeUrl.'&add_subcategory=1')?>">+ Add Subcategory</a>
         <a class="btn light" href="<?=e($cmArticleModeUrl)?>">← Back to Articles</a>
-      </div>
+      </div></div>
       <?php if ($cmAddCategory || $cmEditCategory): ?>
       <section class="content-manager-card" style="margin-bottom:14px"><div class="content-manager-section-head"><h3><?= $cmEditCategory ? 'Edit Category' : 'Add Category' ?></h3><a href="<?=e($cmCategoryModeUrl)?>">Cancel</a></div>
         <form class="content-manager-form" method="post" action="admin-content.php">
@@ -100,11 +109,13 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditSubcategory ? 'Update Subcategory' : 'Save Subcategory' ?></button></div>
         </form>
       </section><?php endif; ?>
-      <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Category / Subcategory</th><th>Description</th><th>Actions</th></tr></thead><tbody>
+      <div class="content-manager-table-tools"><label class="content-manager-filter">Filter categories<input type="search" class="field" id="managed-category-filter" placeholder="Search category or description"></label><label class="content-manager-page-size">Show<select class="field" id="managed-category-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
+      <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-category-table"><thead><tr><th>Category</th><th>Description</th><th>Actions</th></tr></thead><tbody>
       <?php foreach($cmCategories as $cat): ?>
-        <tr><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><a href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this category?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="item_id" value="<?=(int)$cat['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr>
-        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr><td class="content-manager-subcat"><?=e($sub['name'])?></td><td><?=e((string)$sub['description'])?></td><td><a href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this subcategory?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
+        <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><a href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this category?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="item_id" value="<?=(int)$cat['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr>
+        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-subcat"><?=e($sub['name'])?> <span class="muted">— <?=e($sub['parent_name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><a href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this subcategory?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
       <?php endforeach; ?></tbody></table></div>
+      <div class="content-manager-pagination"><span class="muted" id="managed-category-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-category-prev">Previous</button><span class="muted" id="managed-category-page"></span><button type="button" class="btn light" id="managed-category-next">Next</button></div></div>
     </section>
     <?php else: ?>
     <section class="content-manager-card content-manager-editor">
@@ -171,4 +182,36 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     filterSubcategories();
   }
 
+  const categoryTable = document.getElementById('managed-category-table');
+  if (categoryTable) {
+    const rows = [...categoryTable.querySelectorAll('tbody .managed-category-row')];
+    const filter = document.getElementById('managed-category-filter');
+    const pageSize = document.getElementById('managed-category-page-size');
+    const count = document.getElementById('managed-category-count');
+    const pageLabel = document.getElementById('managed-category-page');
+    const previous = document.getElementById('managed-category-prev');
+    const next = document.getElementById('managed-category-next');
+    let page = 1;
+    const renderCategoryRows = () => {
+      const query = (filter?.value || '').trim().toLocaleLowerCase();
+      const matching = rows.filter(row => (row.dataset.search || row.textContent).toLocaleLowerCase().includes(query));
+      const size = Math.max(1, Number(pageSize?.value || 10));
+      const pages = Math.max(1, Math.ceil(matching.length / size));
+      page = Math.min(page, pages);
+      rows.forEach(row => { row.hidden = true; });
+      matching.slice((page - 1) * size, page * size).forEach(row => { row.hidden = false; });
+      const start = matching.length ? (page - 1) * size + 1 : 0;
+      const end = Math.min(page * size, matching.length);
+      if (count) count.textContent = 'Showing ' + start + '–' + end + ' of ' + matching.length + ' entries';
+      if (pageLabel) pageLabel.textContent = 'Page ' + page + ' of ' + pages;
+      if (previous) previous.disabled = page <= 1;
+      if (next) next.disabled = page >= pages;
+    };
+    filter?.addEventListener('input', () => { page = 1; renderCategoryRows(); });
+    pageSize?.addEventListener('change', () => { page = 1; renderCategoryRows(); });
+    previous?.addEventListener('click', () => { page = Math.max(1, page - 1); renderCategoryRows(); });
+    next?.addEventListener('click', () => { page += 1; renderCategoryRows(); });
+    renderCategoryRows();
+  }
+})();
 </script>
