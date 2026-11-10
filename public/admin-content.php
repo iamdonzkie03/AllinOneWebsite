@@ -27,8 +27,8 @@ try {
             $check->execute([$id]);
             $existing = $check->fetch();
             if (!$existing || $existing['slug'] === 'uncategorized') throw new RuntimeException('category_locked');
-            $save = $pdo->prepare('UPDATE categories SET name=?, slug=?, description=? WHERE id=? AND parent_id IS NULL');
-            $save->execute([$name, $slugify($name), mb_substr($description, 0, 255), $id]);
+            $save = $pdo->prepare('UPDATE categories SET name=?, description=? WHERE id=? AND parent_id IS NULL');
+            $save->execute([$name, mb_substr($description, 0, 255), $id]);
             $notice = 'category_updated';
         } else {
             $save = $pdo->prepare('INSERT INTO categories (name,slug,description,is_active,parent_id) VALUES (?,?,?,1,NULL)');
@@ -48,8 +48,8 @@ try {
             $exists = $pdo->prepare('SELECT id FROM categories WHERE id=? AND parent_id IS NOT NULL');
             $exists->execute([$id]);
             if (!$exists->fetch()) throw new RuntimeException('subcategory_missing');
-            $save = $pdo->prepare('UPDATE categories SET name=?,slug=?,description=?,parent_id=? WHERE id=? AND parent_id IS NOT NULL');
-            $save->execute([$name, $slugify($name), mb_substr($description, 0, 255), $parentId, $id]);
+            $save = $pdo->prepare('UPDATE categories SET name=?,description=?,parent_id=? WHERE id=? AND parent_id IS NOT NULL');
+            $save->execute([$name, mb_substr($description, 0, 255), $parentId, $id]);
             $notice = 'subcategory_updated';
         } else {
             $save = $pdo->prepare('INSERT INTO categories (name,slug,description,is_active,parent_id) VALUES (?,?,?,1,?)');
