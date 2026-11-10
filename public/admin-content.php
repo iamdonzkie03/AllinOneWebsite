@@ -278,7 +278,7 @@ try {
             $exists->execute([$id]);
             $previousArticle = $exists->fetch(PDO::FETCH_ASSOC);
             if (!$previousArticle) throw new RuntimeException('article_missing');
-            $previousCoverPhoto = (string)($previousArticle['cover_photo'] ?? '');
+            $previousCoverPhoto = isset($previousArticle['cover_photo']) && $previousArticle['cover_photo'] !== '' ? (string)$previousArticle['cover_photo'] : null;
             $previousImageFiles = $articleUploadFiles((string)($previousArticle['body'] ?? ''));
             $currentImageFiles = $articleUploadFiles($body);
         } else {
