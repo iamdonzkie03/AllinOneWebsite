@@ -191,6 +191,9 @@ try {
             $findChildren = $pdo->prepare('SELECT id,name FROM categories WHERE parent_id=? ORDER BY name');
             $deleteArticlesByCategory = $pdo->prepare("DELETE FROM content WHERE category_id=? AND content_type='article'");
             $deleteArticlesBySubcategory = $pdo->prepare("DELETE FROM content WHERE subcategory_id=? AND content_type='article'");
+            $findCoversByCategory = $pdo->prepare("SELECT cover_photo FROM content WHERE category_id=? AND content_type='article' AND cover_photo IS NOT NULL AND cover_photo<>''");
+            $findCoversBySubcategory = $pdo->prepare("SELECT cover_photo FROM content WHERE subcategory_id=? AND content_type='article' AND cover_photo IS NOT NULL AND cover_photo<>''");
+            $coverPhotosToClean = [];
             $deleteCategory = $pdo->prepare('DELETE FROM categories WHERE id=?');
             $deletedGroups = [];
 
@@ -211,10 +214,14 @@ try {
                 $findChildren->execute([$id]);
                 $children = $findChildren->fetchAll(PDO::FETCH_ASSOC);
                 $childNames = [];
+                $findCoversByCategory->execute([$id]);
+                foreach ($findCoversByCategory->fetchAll(PDO::FETCH_COLUMN) as $coverName) $coverPhotosToClean[(string)$coverName] = true;
                 $deleteArticlesByCategory->execute([$id]);
                 foreach ($children as $child) {
                     $childId = (int)$child['id'];
                     $childNames[] = (string)$child['name'];
+                    $findCoversBySubcategory->execute([$childId]);
+                    foreach ($findCoversBySubcategory->fetchAll(PDO::FETCH_COLUMN) as $coverName) $coverPhotosToClean[(string)$coverName] = true;
                     $deleteArticlesBySubcategory->execute([$childId]);
                     $deleteCategory->execute([$childId]);
                 }
@@ -236,6 +243,8 @@ try {
                 $find->execute([(int)$subcategory['parent_id']]);
                 $parent = $find->fetch();
                 $parentName = $parent ? (string)$parent['name'] : 'Other subcategories';
+                $findCoversBySubcategory->execute([$id]);
+                foreach ($findCoversBySubcategory->fetchAll(PDO::FETCH_COLUMN) as $coverName) $coverPhotosToClean[(string)$coverName] = true;
                 $deleteArticlesBySubcategory->execute([$id]);
                 $deleteCategory->execute([$id]);
                 $deletedGroups[$parentName] ??= [];
@@ -244,6 +253,7 @@ try {
             }
 
             $pdo->commit();
+            foreach (array_keys($coverPhotosToClean) as $coverFilename) $deleteOrphanedCoverPhoto($coverFilename);
             $notice = 'categories_bulk_deleted';
             $bulkCategoryCount = count($selectedCategoryIds);
             $bulkType = filter_var($_POST['select_all_categories'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'all' : ($bulkCategoryCount === 1 ? 'single' : ($bulkCategoryCount > 1 ? 'multiple' : 'subcategories'));
