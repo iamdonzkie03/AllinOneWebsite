@@ -157,7 +157,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <?php endforeach; ?>
         </ul>
       <?php endif; ?>
-      <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">OK</a></div>
+      <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e($cmIsArticleCreated ? $cmArticleModeUrl : $cmCategoryModeUrl)?>">OK</a></div>
     </section>
   </div>
   <?php endif; ?>
