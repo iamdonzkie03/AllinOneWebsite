@@ -378,7 +378,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     const wordCount = document.getElementById('managed-rich-word-count');
     const csrf = richForm.querySelector('input[name="csrf"]')?.value || '';
     const updateWordCount = () => {
-      const words = (richEditor.innerText || '').trim().split(/\\s+/).filter(Boolean).length;
+      const words = (richEditor.innerText || '').trim().split(/\s+/).filter(Boolean).length;
       if (wordCount) wordCount.textContent = words + (words === 1 ? ' word' : ' words');
     };
     const runCommand = (command, value = null) => {
@@ -396,7 +396,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     document.getElementById('managed-rich-color')?.addEventListener('input', event => runCommand('foreColor', event.target.value));
     document.querySelector('#managed-article-rich-editor [data-action="link"]')?.addEventListener('click', () => {
       const url = window.prompt('Enter the link URL (https://, http://, or mailto:):');
-      if (url && /^(https?:\\/\\/|mailto:)/i.test(url.trim())) runCommand('createLink', url.trim());
+      if (url && /^(https?:\/\/|mailto:)/i.test(url.trim())) runCommand('createLink', url.trim());
     });
     document.querySelector('#managed-article-rich-editor [data-action="quote"]')?.addEventListener('click', () => runCommand('formatBlock', '<BLOCKQUOTE>'));
     document.querySelector('#managed-article-rich-editor [data-action="table"]')?.addEventListener('click', () => {
