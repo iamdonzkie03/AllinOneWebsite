@@ -81,6 +81,12 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-modal-backdrop{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(7,3,6,.78);backdrop-filter:blur(5px)}
 .content-manager-modal-backdrop[hidden]{display:none!important}.content-manager-modal{width:min(100%,460px);max-height:calc(100vh - 40px);overflow-y:auto;padding:22px;border:1px solid rgba(191,89,112,.42);border-radius:16px;background:#170f14;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .content-manager-modal .content-manager-section-head{margin-bottom:18px}
+.content-manager-success-modal{text-align:center;padding:28px 24px}
+.content-manager-success-icon{display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto 15px;border:2px solid #72c99a;border-radius:50%;background:rgba(56,157,103,.14);color:#8be0ae;font:700 31px Ubuntu,sans-serif;box-shadow:0 0 22px rgba(81,190,130,.13)}
+.content-manager-success-modal h3{margin:0 0 11px;color:#f7e9ed;font:700 16px Ubuntu,sans-serif}
+.content-manager-success-modal p{margin:0;color:#e9dce1;font:12px/1.7 Ubuntu,sans-serif;overflow-wrap:anywhere}
+.content-manager-success-modal p strong{color:#fff;font-weight:700}
+.content-manager-success-modal .content-manager-modal-actions{justify-content:center;margin-top:22px}
 .content-manager-modal-actions{justify-content:flex-end;margin-top:8px}
 .content-manager-row-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.content-manager-action{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}.content-manager-action:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);transform:translateY(-1px)}.content-manager-action--delete{border-color:rgba(210,83,99,.32);background:rgba(139,31,48,.12);color:#eaa0aa}.content-manager-action--delete:hover{background:rgba(159,35,54,.25);border-color:rgba(226,105,119,.65)}.content-manager-action--protected{font-size:10px;color:#aa969d}.content-manager-bulk-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}.content-manager-bulk-toolbar .muted{font-size:11px}.content-manager-select-cell{width:38px;text-align:center!important}.content-manager-select-cell input{accent-color:#a83d59;width:14px;height:14px;cursor:pointer}.content-manager-delete-selected{border:1px solid rgba(210,83,99,.42);border-radius:999px;background:rgba(139,31,48,.18);color:#f0b2bb;padding:8px 15px;font:600 11px Ubuntu,sans-serif;cursor:pointer}.content-manager-delete-selected:disabled{opacity:.4;cursor:not-allowed}.content-manager-table-tools{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
 .content-manager-filter,.content-manager-page-size{display:flex;align-items:center;gap:8px;color:#d9cbd0;font-size:11px}
@@ -97,9 +103,10 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
   <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_deleted','categories_bulk_deleted'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
   <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_deleted','categories_bulk_deleted'], true)): ?>
   <div class="content-manager-modal-backdrop" id="managed-category-success-modal" role="presentation">
-    <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-success-title">
-      <div class="content-manager-section-head"><h3 id="managed-category-success-title"><?=($_GET['notice'] ?? '') === 'category_created' ? 'Category Successfully Created' : 'Category Successfully Deleted'?></h3></div>
-      <p style="margin:0;color:#e9dce1;font-size:12px;line-height:1.65"><?=($_GET['notice'] ?? '') === 'category_created' ? 'The category has been successfully created.' : 'The selected category/ies and their related content have been successfully deleted.'?></p>
+    <section class="content-manager-modal content-manager-success-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-success-title">
+      <div class="content-manager-success-icon" aria-hidden="true">✓</div>
+      <h3 id="managed-category-success-title"><?=($_GET['notice'] ?? '') === 'category_created' ? 'Category Successfully Created' : 'Category Successfully Deleted'?></h3>
+      <p><?=($_GET['notice'] ?? '') === 'category_created' ? 'The category' : 'The category'?> <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'selected item(s)')?></strong> <?=($_GET['notice'] ?? '') === 'category_created' ? 'has' : 'has'?> been successfully <?=($_GET['notice'] ?? '') === 'category_created' ? 'created' : 'deleted'?>.</p>
       <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">OK</a></div>
     </section>
   </div>
