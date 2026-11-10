@@ -11,7 +11,8 @@ verify_csrf();
 
 $action = (string)($_POST['action'] ?? '');
 $notice = 'saved';
-$successNames = [];\n$bulkDetailsQuery = '';
+$successNames = [];
+$bulkDetailsQuery = '';
 $slugify = static function(string $value): string {
     $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($value)), '-');
     return substr($slug !== '' ? $slug : 'content', 0, 120) . '-' . bin2hex(random_bytes(3));
