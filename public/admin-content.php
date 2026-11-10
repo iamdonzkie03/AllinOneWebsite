@@ -45,9 +45,11 @@ try {
         $parent->execute([$parentId]);
         if (!$parent->fetch()) throw new RuntimeException('category_invalid');
         if ($id > 0) {
+            $exists = $pdo->prepare('SELECT id FROM categories WHERE id=? AND parent_id IS NOT NULL');
+            $exists->execute([$id]);
+            if (!$exists->fetch()) throw new RuntimeException('subcategory_missing');
             $save = $pdo->prepare('UPDATE categories SET name=?,slug=?,description=?,parent_id=? WHERE id=? AND parent_id IS NOT NULL');
             $save->execute([$name, $slugify($name), mb_substr($description, 0, 255), $parentId, $id]);
-            if (!$save->rowCount()) throw new RuntimeException('subcategory_missing');
             $notice = 'subcategory_updated';
         } else {
             $save = $pdo->prepare('INSERT INTO categories (name,slug,description,is_active,parent_id) VALUES (?,?,?,1,?)');
