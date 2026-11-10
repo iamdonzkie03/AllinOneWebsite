@@ -61,6 +61,35 @@ $pdo = new PDO($dsn, $db['user'], $db['pass'], [
     PDO::ATTR_EMULATE_PREPARES => false,
 ]);
 
+// Joomla-style content taxonomy: one root category may contain one level of
+// subcategories. Articles retain a required root category and may optionally
+// reference one of its child categories.
+$taxonomyColumnExists = static function(string $table, string $column) use ($pdo): bool {
+    $check = $pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?');
+    $check->execute([$table, $column]);
+    return (int)$check->fetchColumn() > 0;
+};
+if (!$taxonomyColumnExists('categories', 'parent_id')) {
+    $pdo->exec('ALTER TABLE categories ADD COLUMN parent_id BIGINT UNSIGNED NULL AFTER description');
+    $pdo->exec('ALTER TABLE categories ADD INDEX idx_categories_parent (parent_id)');
+}
+if (!$taxonomyColumnExists('content', 'subcategory_id')) {
+    $pdo->exec('ALTER TABLE content ADD COLUMN subcategory_id BIGINT UNSIGNED NULL AFTER category_id');
+    $pdo->exec('ALTER TABLE content ADD INDEX idx_content_subcategory (subcategory_id)');
+}
+$taxonomyForeignKeyExists = static function(string $constraint) use ($pdo): bool {
+    $check = $pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME IN (\'categories\',\'content\') AND CONSTRAINT_NAME=? AND CONSTRAINT_TYPE=\'FOREIGN KEY\'');
+    $check->execute([$constraint]);
+    return (int)$check->fetchColumn() > 0;
+};
+if (!$taxonomyForeignKeyExists('fk_categories_parent')) {
+    $pdo->exec('ALTER TABLE categories ADD CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL');
+}
+if (!$taxonomyForeignKeyExists('fk_content_subcategory')) {
+    $pdo->exec('ALTER TABLE content ADD CONSTRAINT fk_content_subcategory FOREIGN KEY (subcategory_id) REFERENCES categories(id) ON DELETE SET NULL');
+}
+$pdo->exec("INSERT INTO categories (name, slug, description, is_active, parent_id) VALUES ('Uncategorized', 'uncategorized', 'Articles that have not been assigned to a specific category.', 1, NULL) ON DUPLICATE KEY UPDATE description=VALUES(description), is_active=1, parent_id=NULL");
+
 function e(?string $value): string {
     return htmlspecialchars($value ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
