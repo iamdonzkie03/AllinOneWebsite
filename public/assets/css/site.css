@@ -158,3 +158,7 @@ hr{border:0;border-top:1px solid var(--line)}
 @media(max-width:850px){.culture-slideshow{height:520px}.slide-shade{background:linear-gradient(0deg,rgba(5,5,7,.94),rgba(8,6,8,.18) 90%)}.slide-content{padding:30px;padding-bottom:82px}.home-art{min-height:300px}}
 @media(max-width:560px){.module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.module-card{min-height:220px;padding:17px 14px}.culture-slideshow{height:560px;border-radius:17px}.slide-content{padding:23px;padding-bottom:78px}.slide-content p{font-size:13px}.slide-content>a{font-size:9px}.slide-arrow{width:35px;height:35px;top:28px;transform:none}.slide-prev{left:auto;right:60px}.slide-next{right:17px}.slide-dots{right:22px;bottom:20px}.hero-note{align-items:flex-start}.contributor-panel{padding:23px}.home-art{min-height:260px}}
 @media(prefers-reduced-motion:reduce){.culture-slide,.slide-dot{transition:none}}
+
+/* Article cover photos fill the public story-card image area. */
+.story-img{position:relative;overflow:hidden}
+.story-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
