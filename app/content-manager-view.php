@@ -100,13 +100,14 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 @media(max-width:760px){.content-manager-grid{grid-template-columns:1fr}.content-manager-article-grid{grid-template-columns:1fr}.content-manager-article-grid .full{grid-column:auto}.content-manager-section-head{align-items:flex-start;flex-direction:column}}
 </style>
 <div class="content-manager">
-  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
-  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted'], true)): ?>
+  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
+  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated'], true)): ?>
+  <?php $cmSuccessNotice = (string)($_GET['notice'] ?? ''); $cmIsSubcategorySuccess = str_starts_with($cmSuccessNotice, 'subcategory_'); $cmSuccessVerb = str_ends_with($cmSuccessNotice, '_created') ? 'created' : (str_ends_with($cmSuccessNotice, '_updated') ? 'updated' : 'deleted'); ?>
   <div class="content-manager-modal-backdrop" id="managed-category-success-modal" role="presentation">
     <section class="content-manager-modal content-manager-success-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-success-title">
       <div class="content-manager-success-icon" aria-hidden="true">✓</div>
-      <h3 id="managed-category-success-title"><?=($_GET['notice'] ?? '') === 'category_created' ? 'Category Successfully Created' : (($_GET['notice'] ?? '') === 'category_updated' ? 'Category Successfully Updated' : 'Category Successfully Deleted')?></h3>
-      <p>The category <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'selected item(s)')?></strong> has been successfully <?=($_GET['notice'] ?? '') === 'category_created' ? 'created' : (($_GET['notice'] ?? '') === 'category_updated' ? 'updated' : 'deleted')?>.</p>
+      <h3 id="managed-category-success-title"><?= $cmIsSubcategorySuccess ? 'Subcategory Successfully ' . ucfirst($cmSuccessVerb) : 'Category Successfully ' . ucfirst($cmSuccessVerb) ?></h3>
+      <p>The <?= $cmIsSubcategorySuccess ? 'subcategory' : 'category' ?> <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'selected item(s)')?></strong> has been successfully <?=e($cmSuccessVerb)?>.</p>
       <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">OK</a></div>
     </section>
   </div>
