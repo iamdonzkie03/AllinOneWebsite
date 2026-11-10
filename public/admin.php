@@ -732,7 +732,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           if (moveFocus) tab.focus();
         };
         const initial = tabNav.dataset.initialTab || 'header';
-        activate(tabs.find(tab => tab.dataset.pageTab === initial) || tabs[0]);
+        const activateInitialTab = () => activate(tabs.find(tab => tab.dataset.pageTab === initial) || tabs[0]);
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', activateInitialTab, { once: true });
+        } else {
+          activateInitialTab();
+        }
         tabs.forEach((tab, index) => {
           tab.addEventListener('click', () => activate(tab));
           tab.addEventListener('keydown', event => {
