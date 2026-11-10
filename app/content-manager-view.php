@@ -39,7 +39,7 @@ $cmArticles = $pdo->query("SELECT c.id,c.title,c.status,c.updated_at,cat.name AS
 $cmNotices = [
     'category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.',
     'subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.',
-    'article_created'=>'Article created successfully.','article_updated'=>'Article updated successfully.','article_deleted'=>'Article deleted successfully.',
+    'article_created'=>'Article created successfully.','article_updated'=>'Article updated successfully.','article_deleted'=>'Article deleted successfully.','articles_bulk_deleted'=>'Selected articles deleted successfully.','article_status_updated'=>'Article status updated successfully.',
     'category_in_use'=>'This category or subcategory is assigned to existing content.',
     'category_locked'=>'This category cannot be changed or deleted.','category_invalid'=>'Choose a valid parent category.','subcategory_invalid'=>'The selected subcategory does not belong to the selected category.',
     'subcategory_missing'=>'The subcategory could not be found.','article_invalid'=>'Enter an article title and choose a category.','article_missing'=>'The article could not be found.',
@@ -106,10 +106,12 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-page-size .field{width:76px;padding:7px}
 .content-manager-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px}
 .content-manager-status-form{display:inline-flex;margin:0}
-.content-manager-status-toggle{position:relative;display:inline-flex;align-items:center;gap:7px;min-width:112px;padding:5px 10px;border:1px solid;border-radius:999px;font:600 10px Ubuntu,sans-serif;cursor:pointer;transition:all .18s ease}
-.content-manager-status-toggle:before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
-.content-manager-status-toggle.is-published{border-color:rgba(74,190,126,.55);background:rgba(39,148,88,.18);color:#83e0aa}
-.content-manager-status-toggle.is-unpublished{border-color:rgba(220,83,99,.55);background:rgba(157,37,56,.2);color:#f08d9b}
+.content-manager-status-toggle{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:112px;height:29px;padding:4px 24px;border:1px solid;border-radius:999px;font:600 10px Ubuntu,sans-serif;cursor:pointer;transition:all .18s ease}
+.content-manager-status-toggle:before{content:"";position:absolute;left:5px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:left .18s ease}
+.content-manager-status-toggle.is-published{border-color:rgba(74,190,126,.65);background:rgba(39,148,88,.28);color:#a5f0c2}
+.content-manager-status-toggle.is-published:before{left:calc(100% - 22px);background:#baf5ce}
+.content-manager-status-toggle.is-unpublished{border-color:rgba(220,83,99,.65);background:rgba(157,37,56,.28);color:#ffb0bb}
+.content-manager-status-toggle.is-unpublished:before{left:5px;background:#ffd0d5}
 .content-manager-article-bulk-modal .content-manager-modal{width:min(100%,500px)}
 .content-manager-page-buttons{display:flex;align-items:center;gap:8px}
 .content-manager-page-buttons .btn{padding:7px 10px;font-size:11px}
@@ -118,8 +120,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 @media(max-width:760px){.content-manager-grid{grid-template-columns:1fr}.content-manager-article-grid{grid-template-columns:1fr}.content-manager-article-grid .full{grid-column:auto}.content-manager-section-head{align-items:flex-start;flex-direction:column}}
 </style>
 <div class="content-manager">
-  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
-  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created'], true)): ?>
+  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created','articles_bulk_deleted'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
+  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created','articles_bulk_deleted'], true)): ?>
   <?php
     $cmSuccessNotice = (string)($_GET['notice'] ?? '');
     $cmIsBulkDelete = $cmSuccessNotice === 'categories_bulk_deleted';
@@ -131,6 +133,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     }
     $cmIsSubcategorySuccess = str_starts_with($cmSuccessNotice, 'subcategory_');
     $cmIsArticleCreated = $cmSuccessNotice === 'article_created';
+    $cmIsArticleBulkDelete = $cmSuccessNotice === 'articles_bulk_deleted';
     $cmSuccessVerb = str_ends_with($cmSuccessNotice, '_created') ? 'created' : (str_ends_with($cmSuccessNotice, '_updated') ? 'updated' : 'deleted');
     $cmBulkCategoryCount = count($cmBulkDetails);
     $cmBulkSingleName = (string)(array_key_first($cmBulkDetails) ?? '');
@@ -142,6 +145,10 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       <?php if ($cmIsArticleCreated): ?>
         <h3 id="managed-category-success-title">Article Successfully Created</h3>
         <p>The Article with the title <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'Untitled')?></strong> has been successfully created.</p>
+      <?php elseif ($cmIsArticleBulkDelete): ?>
+        <h3 id="managed-category-success-title">Selected Articles Successfully Deleted</h3>
+        <p>The following articles have been successfully deleted:</p>
+        <ul class="content-manager-success-list"><?php foreach (array_filter(array_map('trim', explode(',', (string)($_GET['names'] ?? '')))) as $articleName): ?><li><?=e($articleName)?></li><?php endforeach; ?></ul>
       <?php elseif ($cmIsBulkDelete && $cmBulkType === 'all'): ?>
         <h3 id="managed-category-success-title">All Categories and its subcategories are successfully deleted</h3>
         <p>The following categories and subcategories were deleted:</p>
@@ -164,7 +171,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <?php endforeach; ?>
         </ul>
       <?php endif; ?>
-      <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e($cmIsArticleCreated ? $cmArticleModeUrl : $cmCategoryModeUrl)?>">OK</a></div>
+      <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e(($cmIsArticleCreated || $cmIsArticleBulkDelete) ? $cmArticleModeUrl : $cmCategoryModeUrl)?>">OK</a></div>
     </section>
   </div>
   <?php endif; ?>
