@@ -160,7 +160,8 @@ $sql = "SELECT c.*, cat.name AS category_name, cat.slug AS category_slug, sub.na
 $params = [];
 if ($search !== '') { $sql .= " AND (c.title LIKE ? OR c.excerpt LIKE ? OR c.body LIKE ?)"; $like = "%$search%"; array_push($params,$like,$like,$like); }
 if ($category !== '') { $sql .= " AND cat.slug=?"; $params[] = $category; }
-$sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC LIMIT 18";
+$showAllStories = (string)($_GET['show_all'] ?? '') === '1';
+$sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC" . ($showAllStories ? "" : " LIMIT 6");
 $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 $categories=$pdo->query("SELECT name,slug,description FROM categories WHERE is_active=1 ORDER BY id")->fetchAll();
 $modules = [
@@ -178,7 +179,7 @@ $modules = [
 <meta name="description" content="Explore Zamboanga City's history and culture, photography, community news, marketplace, entertainment and public affairs.">
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="public/assets/css/site.css?v=read-story-red-20261110">
+<link rel="stylesheet" href="public/assets/css/site.css?v=stories-slider-20261110">
 <style>.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.nav .navlinks a[class^="header-type-link-"]:hover{color:var(--gold)!important}.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}.hero-photo-caption{position:absolute;left:28px;bottom:25px;color:#f8e9eb;font-size:10px;font-weight:800;letter-spacing:2.5px;text-shadow:0 2px 8px #000;z-index:1}.home-art-photo .art-stamp{z-index:2;background:rgba(10,8,10,.48)}@media(max-width:560px){.hero-photo-caption{left:18px;bottom:17px;font-size:8px;letter-spacing:1.5px}}
 .register-modal{position:fixed;inset:0;z-index:1001;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.82);backdrop-filter:blur(7px)}
 .register-modal.is-open{display:flex}.register-dialog{position:relative;width:min(100%,960px);height:min(94vh,900px);overflow:hidden;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.6)}.register-dialog iframe{display:block;width:100%;height:100%;border:0;background:#100b0e;overflow:hidden}.register-close{position:absolute;right:12px;top:10px;z-index:2;width:38px;height:38px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;text-align:center;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:#241219;color:#fff;font-size:23px;font-family:Arial,sans-serif;cursor:pointer;box-shadow:0 2px 12px #0008;box-sizing:border-box}
@@ -251,8 +252,26 @@ $modules = [
 <section class="section" id="latest"><div class="wrap"><div class="section-head">
 <form class="searchbar" method="get"><input name="q" value="<?=e($search)?>" placeholder="Search stories, creators and listings…" aria-label="Search public content"><?php if($category!==''): ?><input type="hidden" name="category" value="<?=e($category)?>"><?php endif; ?><button class="btn">Search</button></form></div>
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
-<div class="cards"><?php if (!$items): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
-<?php foreach($items as $i=>$item): ?><article class="story"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?php if(!empty($item['cover_photo'])): ?><img src="public/uploads/articles/cover_photos/<?=e(rawurlencode((string)$item['cover_photo']))?>" alt="<?=e($item['title'])?> cover photo"><?php else: ?><?=e(strtoupper($item['category_name']))?><?php endif; ?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?> · <?=e($item['subcategory_name'])?><?php endif; ?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span class="story-actions"><?php if($item['price']!==null): ?><span class="story-price">₱<?=number_format((float)$item['price'],2)?></span><?php endif; ?><a class="story-read-link" href="article.php?id=<?= (int)$item['id'] ?>">Read Story ↗</a></span></div></div></article><?php endforeach; ?></div></div></section>
+<?php if (!$showAllStories): ?>
+<div class="stories-slider" id="stories-slider">
+  <button class="stories-slider-arrow stories-slider-prev" type="button" aria-label="Previous stories" disabled>‹</button>
+  <div class="stories-slider-viewport" id="stories-slider-viewport">
+    <div class="stories-slider-track">
+      <?php if (!$items): ?><div class="panel empty-state stories-slider-empty"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
+      <?php foreach($items as $i=>$item): ?><article class="story stories-slider-card"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?php if(!empty($item['cover_photo'])): ?><img src="public/uploads/articles/cover_photos/<?=e(rawurlencode((string)$item['cover_photo']))?>" alt="<?=e($item['title'])?> cover photo"><?php else: ?><?=e(strtoupper($item['category_name']))?><?php endif; ?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?> · <?=e($item['subcategory_name'])?><?php endif; ?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span class="story-actions"><?php if($item['price']!==null): ?><span class="story-price">₱<?=number_format((float)$item['price'],2)?></span><?php endif; ?><a class="story-read-link" href="article.php?id=<?= (int)$item['id'] ?>">Read Story ↗</a></span></div></div></article><?php endforeach; ?>
+      <?php if ($items): ?><a class="story stories-slider-card stories-show-all" href="index.php?<?=e(http_build_query(array_filter(['q'=>$search,'category'=>$category,'show_all'=>'1'],static fn($v)=>$v!=='')))?>#latest"><span class="show-all-mark">↗</span><strong>Show all stories</strong><span>Explore every published story</span></a><?php endif; ?>
+    </div>
+  </div>
+  <button class="stories-slider-arrow stories-slider-next" type="button" aria-label="Next stories">›</button>
+</div>
+<div class="stories-slider-status" id="stories-slider-status" aria-live="polite">Showing up to 3 stories at a time</div>
+<?php else: ?>
+<div class="cards">
+<?php if (!$items): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
+<?php foreach($items as $i=>$item): ?><article class="story"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?php if(!empty($item['cover_photo'])): ?><img src="public/uploads/articles/cover_photos/<?=e(rawurlencode((string)$item['cover_photo']))?>" alt="<?=e($item['title'])?> cover photo"><?php else: ?><?=e(strtoupper($item['category_name']))?><?php endif; ?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?> · <?=e($item['subcategory_name'])?><?php endif; ?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span class="story-actions"><?php if($item['price']!==null): ?><span class="story-price">₱<?=number_format((float)$item['price'],2)?></span><?php endif; ?><a class="story-read-link" href="article.php?id=<?= (int)$item['id'] ?>">Read Story ↗</a></span></div></div></article><?php endforeach; ?>
+</div>
+<p class="stories-show-latest"><a class="btn light" href="index.php<?=($search!==''||$category!=='')?'?'.e(http_build_query(array_filter(['q'=>$search,'category'=>$category],static fn($v)=>$v!=='')):''?>#latest">Back to featured stories</a></p>
+<?php endif; ?></div></section>
 
 <section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="#create-account-modal" data-open-create-account>Apply for a creator account ↗</a></div></section>
 </main>
@@ -466,5 +485,32 @@ $(function(){
  $('#culture-slideshow').on('mouseenter focusin',()=>{if(timer)clearInterval(timer)}).on('mouseleave focusout',restart);
  showSlide(0);restart();
 });
+</script>
+<script>
+(() => {
+  const viewport = document.getElementById('stories-slider-viewport');
+  const slider = document.getElementById('stories-slider');
+  if (!viewport || !slider) return;
+  const previous = slider.querySelector('.stories-slider-prev');
+  const next = slider.querySelector('.stories-slider-next');
+  const status = document.getElementById('stories-slider-status');
+  const step = () => viewport.clientWidth;
+  function update() {
+    const max = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    previous.disabled = viewport.scrollLeft <= 2;
+    next.disabled = viewport.scrollLeft >= max - 2;
+    if (status) {
+      const cards = [...viewport.querySelectorAll('.stories-slider-card')];
+      const visible = cards.filter(card => card.offsetLeft + card.offsetWidth > viewport.scrollLeft + 2 && card.offsetLeft < viewport.scrollLeft + viewport.clientWidth - 2);
+      const articleVisible = visible.filter(card => !card.classList.contains('stories-show-all')).length;
+      status.textContent = articleVisible ? 'Showing ' + articleVisible + ' ' + (articleVisible === 1 ? 'story' : 'stories') + ' in this view' : 'Show all published stories';
+    }
+  }
+  previous.addEventListener('click', () => viewport.scrollBy({left: -step(), behavior: 'smooth'}));
+  next.addEventListener('click', () => viewport.scrollBy({left: step(), behavior: 'smooth'}));
+  viewport.addEventListener('scroll', update, {passive:true});
+  window.addEventListener('resize', update);
+  update();
+})();
 </script>
 </body></html>
