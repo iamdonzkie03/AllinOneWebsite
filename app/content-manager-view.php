@@ -93,6 +93,9 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-success-modal h3{margin:0 0 11px;color:#f7e9ed;font:700 16px Ubuntu,sans-serif}
 .content-manager-success-modal p{margin:0;color:#e9dce1;font:12px/1.7 Ubuntu,sans-serif;overflow-wrap:anywhere}
 .content-manager-success-modal p strong{color:#fff;font-weight:700}
+.content-manager-success-list{display:inline-block;max-width:100%;margin:14px auto 0;padding-left:22px;text-align:left;color:#e9dce1;font:12px/1.8 Ubuntu,sans-serif}
+.content-manager-success-list ul{margin:3px 0 5px;padding-left:20px;color:#cdb8c0}
+.content-manager-success-list>li{margin:4px 0}
 .content-manager-success-modal .content-manager-modal-actions{justify-content:center;margin-top:22px}
 .content-manager-modal-actions{justify-content:flex-end;margin-top:8px}
 .content-manager-row-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.content-manager-action{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}.content-manager-action:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);transform:translateY(-1px)}.content-manager-action--delete{border-color:rgba(210,83,99,.32);background:rgba(139,31,48,.12);color:#eaa0aa}.content-manager-action--delete:hover{background:rgba(159,35,54,.25);border-color:rgba(226,105,119,.65)}.content-manager-action--protected{font-size:10px;color:#aa969d}.content-manager-bulk-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}.content-manager-bulk-toolbar .muted{font-size:11px}.content-manager-select-cell{width:38px;text-align:center!important}.content-manager-select-cell input{accent-color:#a83d59;width:14px;height:14px;cursor:pointer}.content-manager-delete-selected{border:1px solid rgba(210,83,99,.42);border-radius:999px;background:rgba(139,31,48,.18);color:#f0b2bb;padding:8px 15px;font:600 11px Ubuntu,sans-serif;cursor:pointer}.content-manager-delete-selected:disabled{opacity:.4;cursor:not-allowed}.content-manager-table-tools{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
@@ -109,12 +112,46 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 <div class="content-manager">
   <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
   <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated'], true)): ?>
-  <?php $cmSuccessNotice = (string)($_GET['notice'] ?? ''); $cmIsSubcategorySuccess = str_starts_with($cmSuccessNotice, 'subcategory_'); $cmSuccessVerb = str_ends_with($cmSuccessNotice, '_created') ? 'created' : (str_ends_with($cmSuccessNotice, '_updated') ? 'updated' : 'deleted'); ?>
+  <?php
+    $cmSuccessNotice = (string)($_GET['notice'] ?? '');
+    $cmIsBulkDelete = $cmSuccessNotice === 'categories_bulk_deleted';
+    $cmBulkType = (string)($_GET['bulk_type'] ?? '');
+    $cmBulkDetails = [];
+    if ($cmIsBulkDelete && isset($_GET['bulk_details'])) {
+        $decodedDetails = json_decode((string)$_GET['bulk_details'], true);
+        if (is_array($decodedDetails)) $cmBulkDetails = $decodedDetails;
+    }
+    $cmIsSubcategorySuccess = str_starts_with($cmSuccessNotice, 'subcategory_');
+    $cmSuccessVerb = str_ends_with($cmSuccessNotice, '_created') ? 'created' : (str_ends_with($cmSuccessNotice, '_updated') ? 'updated' : 'deleted');
+    $cmBulkCategoryCount = count($cmBulkDetails);
+    $cmBulkSingleName = (string)(array_key_first($cmBulkDetails) ?? '');
+    $cmBulkSingleChildren = is_array($cmBulkDetails[$cmBulkSingleName] ?? null) ? $cmBulkDetails[$cmBulkSingleName] : [];
+  ?>
   <div class="content-manager-modal-backdrop" id="managed-category-success-modal" role="presentation">
     <section class="content-manager-modal content-manager-success-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-success-title">
       <div class="content-manager-success-icon" aria-hidden="true">✓</div>
-      <h3 id="managed-category-success-title"><?= $cmIsSubcategorySuccess ? 'Subcategory Successfully ' . ucfirst($cmSuccessVerb) : 'Category Successfully ' . ucfirst($cmSuccessVerb) ?></h3>
-      <p>The <?= $cmIsSubcategorySuccess ? 'subcategory' : 'category' ?> <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'selected item(s)')?></strong> has been successfully <?=e($cmSuccessVerb)?>.</p>
+      <?php if ($cmIsBulkDelete && $cmBulkType === 'all'): ?>
+        <h3 id="managed-category-success-title">All Categories and its subcategories are successfully deleted</h3>
+        <p>The following categories and subcategories were deleted:</p>
+      <?php elseif ($cmIsBulkDelete && $cmBulkCategoryCount === 1): ?>
+        <h3 id="managed-category-success-title">Category and Subcategories Successfully Deleted</h3>
+        <p>The category <strong><?=e($cmBulkSingleName)?></strong><?= $cmBulkSingleChildren ? ' and subcategory ' . e(implode(', ', $cmBulkSingleChildren)) : ' and its subcategories' ?> are successfully deleted.</p>
+      <?php elseif ($cmIsBulkDelete): ?>
+        <h3 id="managed-category-success-title">Categories and Subcategories Successfully Deleted</h3>
+        <p>The following categories and its corresponding subcategories are successfully deleted:</p>
+      <?php else: ?>
+        <h3 id="managed-category-success-title"><?= $cmIsSubcategorySuccess ? 'Subcategory Successfully ' . ucfirst($cmSuccessVerb) : 'Category Successfully ' . ucfirst($cmSuccessVerb) ?></h3>
+        <p>The <?= $cmIsSubcategorySuccess ? 'subcategory' : 'category' ?> <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'selected item(s)')?></strong> has been successfully <?=e($cmSuccessVerb)?>.</p>
+      <?php endif; ?>
+      <?php if ($cmIsBulkDelete): ?>
+        <ul class="content-manager-success-list">
+          <?php foreach ($cmBulkDetails as $categoryName => $children): ?>
+            <li><strong><?=e((string)$categoryName)?></strong>
+              <?php if (is_array($children) && $children): ?><ul><?php foreach ($children as $childName): ?><li><?=e((string)$childName)?></li><?php endforeach; ?></ul><?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
       <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">OK</a></div>
     </section>
   </div>
@@ -155,7 +192,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         </section>
       </div><?php endif; ?>
       <div class="content-manager-table-tools"><label class="content-manager-filter">Filter categories<input type="search" class="field" id="managed-category-filter" placeholder="Search category or description"></label><label class="content-manager-page-size">Show<select class="field" id="managed-category-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
-      <form id="managed-category-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_categories"></form>
+      <form id="managed-category-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_categories"><input type="hidden" name="select_all_categories" id="managed-category-select-all-flag" value="0"></form>
       <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-category-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="button" id="managed-category-delete-selected" disabled>Delete Selected</button></div>
       <div class="content-manager-modal-backdrop" id="managed-category-delete-modal" hidden role="presentation">
         <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-delete-title" aria-describedby="managed-category-delete-description">
@@ -172,8 +209,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       </div>
       <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-category-table"><thead><tr><th class="content-manager-select-cell"><input type="checkbox" id="managed-category-select-all" aria-label="Select all visible categories"></th><th>Category</th><th>Description</th><th>Actions</th></tr></thead><tbody>
       <?php foreach($cmCategories as $cat): ?>
-        <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td class="content-manager-select-cell"><?php if($cat['slug']!=='uncategorized'): ?><input type="checkbox" class="managed-category-select" name="selected_items[]" value="category:<?=(int)$cat['id']?>" form="managed-category-bulk-delete" aria-label="Select category <?=e($cat['name'])?>" data-item-name="<?=e($cat['name'])?>"><?php endif; ?></td><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
-        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row managed-subcategory-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-category-select" name="selected_items[]" value="subcategory:<?=(int)$sub['id']?>" form="managed-category-bulk-delete" aria-label="Select subcategory <?=e($sub['name'])?>" data-item-name="<?=e($sub['name'])?>"></td><td class="content-manager-subcat"><span class="subcategory-arrow" aria-hidden="true">›</span><span class="subcategory-name"><?=e($sub['name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a></div></td></tr><?php endforeach; ?>
+        <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td class="content-manager-select-cell"><?php if($cat['slug']!=='uncategorized'): ?><input type="checkbox" class="managed-category-select" name="selected_items[]" value="category:<?=(int)$cat['id']?>" form="managed-category-bulk-delete" aria-label="Select category <?=e($cat['name'])?>" data-item-name="<?=e($cat['name'])?>" data-category-id="<?=(int)$cat['id']?>"><?php endif; ?></td><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
+        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row managed-subcategory-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-category-select" name="selected_items[]" value="subcategory:<?=(int)$sub['id']?>" form="managed-category-bulk-delete" aria-label="Select subcategory <?=e($sub['name'])?>" data-item-name="<?=e($sub['name'])?>" data-parent-id="<?=(int)$sub['parent_id']?>"></td><td class="content-manager-subcat"><span class="subcategory-arrow" aria-hidden="true">›</span><span class="subcategory-name"><?=e($sub['name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a></div></td></tr><?php endforeach; ?>
       <?php endforeach; ?></tbody></table></div>
       <div class="content-manager-pagination"><span class="muted" id="managed-category-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-category-prev">Previous</button><span class="muted" id="managed-category-page"></span><button type="button" class="btn light" id="managed-category-next">Next</button></div></div>
     </section>
@@ -258,16 +295,53 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     const deleteList = document.getElementById('managed-category-delete-list');
     const cancelDelete = document.getElementById('managed-category-delete-cancel');
     const selections = [...categoryTable.querySelectorAll('.managed-category-select')];
+    const selectAllFlag = document.getElementById('managed-category-select-all-flag');
+    const deleteDescription = document.getElementById('managed-category-delete-description');
     const closeDeleteModal = () => { if (deleteModal) deleteModal.hidden = true; };
-    deleteSelected?.addEventListener('click', () => {
+    const getSelectedGroups = () => {
       const checked = selections.filter(box => box.checked);
+      const selectedCategoryIds = new Set(checked.filter(box => box.value.startsWith('category:')).map(box => box.dataset.categoryId));
+      const groups = new Map();
+      checked.filter(box => box.value.startsWith('category:')).forEach(box => groups.set(box.dataset.itemName || 'Category', []));
+      checked.filter(box => box.value.startsWith('subcategory:') && !selectedCategoryIds.has(box.dataset.parentId)).forEach(box => {
+        const parentRow = rows.find(row => row.querySelector('[data-category-id="' + box.dataset.parentId + '"]'));
+        const parentName = parentRow?.querySelector('td:nth-child(2) strong')?.textContent?.trim() || 'Other subcategories';
+        if (!groups.has(parentName)) groups.set(parentName, []);
+        groups.get(parentName).push(box.dataset.itemName || 'Subcategory');
+      });
+      checked.filter(box => box.value.startsWith('category:')).forEach(box => {
+        const categoryId = box.dataset.categoryId;
+        const categoryName = box.dataset.itemName || 'Category';
+        const childBoxes = selections.filter(child => child.value.startsWith('subcategory:') && child.dataset.parentId === categoryId && child.checked);
+        groups.set(categoryName, childBoxes.map(child => child.dataset.itemName || 'Subcategory'));
+      });
+      return {checked, groups, categoryCount: checked.filter(box => box.value.startsWith('category:')).length};
+    };
+    deleteSelected?.addEventListener('click', () => {
+      const {checked, groups, categoryCount} = getSelectedGroups();
       if (!checked.length || !deleteModal || !deleteList) return;
       deleteList.replaceChildren();
-      checked.forEach(box => {
+      groups.forEach((children, categoryName) => {
         const item = document.createElement('li');
-        item.textContent = box.dataset.itemName || 'Selected item';
+        const label = document.createElement('strong');
+        label.textContent = categoryName;
+        item.appendChild(label);
+        if (children.length) {
+          const nested = document.createElement('ul');
+          children.forEach(childName => { const child = document.createElement('li'); child.textContent = childName; nested.appendChild(child); });
+          item.appendChild(nested);
+        }
         deleteList.appendChild(item);
       });
+      if (deleteDescription) {
+        deleteDescription.textContent = selectAll?.checked
+          ? 'All categories and their subcategories will be permanently deleted.'
+          : categoryCount === 1
+            ? 'The selected category and all of its subcategories will be permanently deleted.'
+            : categoryCount > 1
+              ? 'The selected categories and all of their subcategories will be permanently deleted.'
+              : 'You are about to permanently delete the selected subcategory/ies.';
+      }
       deleteModal.hidden = false;
       document.getElementById('managed-category-delete-cancel')?.focus();
     });
@@ -287,8 +361,25 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     };
     selections.forEach(box => box.addEventListener('change', updateSelection));
     selectAll?.addEventListener('change', () => {
-      selections.filter(box => !box.closest('tr').hidden).forEach(box => { box.checked = selectAll.checked; });
+      selections.forEach(box => { box.checked = selectAll.checked; });
+      if (selectAllFlag) selectAllFlag.value = selectAll.checked ? '1' : '0';
       updateSelection();
+    });
+    selections.filter(box => box.value.startsWith('category:')).forEach(categoryBox => {
+      categoryBox.addEventListener('change', () => {
+        selections.filter(child => child.value.startsWith('subcategory:') && child.dataset.parentId === categoryBox.dataset.categoryId)
+          .forEach(child => { child.checked = categoryBox.checked; });
+        if (selectAllFlag) selectAllFlag.value = '0';
+        updateSelection();
+      });
+    });
+    selections.filter(box => box.value.startsWith('subcategory:')).forEach(childBox => {
+      childBox.addEventListener('change', () => {
+        const parentBox = selections.find(box => box.value.startsWith('category:') && box.dataset.categoryId === childBox.dataset.parentId);
+        if (parentBox && !childBox.checked) parentBox.checked = false;
+        if (selectAllFlag) selectAllFlag.value = '0';
+        updateSelection();
+      });
     });
     let page = 1;
     const renderCategoryRows = () => {
