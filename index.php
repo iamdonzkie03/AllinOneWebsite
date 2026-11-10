@@ -146,6 +146,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
 }
 $search = trim((string)($_GET['q'] ?? ''));
 $category = trim((string)($_GET['category'] ?? ''));
+// Defensive, idempotent upgrade for databases created before optional subcategories
+// were introduced. Keep this immediately before the public query as well as the
+// shared bootstrap migration so older local installations cannot fatal here.
+$subcategoryColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='content' AND COLUMN_NAME='subcategory_id'");
+$subcategoryColumnCheck->execute();
+if (!(int)$subcategoryColumnCheck->fetchColumn()) {
+    $pdo->exec('ALTER TABLE content ADD COLUMN subcategory_id BIGINT UNSIGNED NULL AFTER category_id');
+    $pdo->exec('ALTER TABLE content ADD INDEX idx_content_subcategory (subcategory_id)');
+}
 $sql = "SELECT c.*, cat.name AS category_name, cat.slug AS category_slug, sub.name AS subcategory_name, u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id JOIN users u ON u.id=c.owner_id WHERE c.status='published' AND cat.is_active=1";
 $params = [];
 if ($search !== '') { $sql .= " AND (c.title LIKE ? OR c.excerpt LIKE ? OR c.body LIKE ?)"; $like = "%$search%"; array_push($params,$like,$like,$like); }
