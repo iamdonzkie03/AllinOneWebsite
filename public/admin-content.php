@@ -30,6 +30,7 @@ try {
             if (!$existing || $existing['slug'] === 'uncategorized') throw new RuntimeException('category_locked');
             $save = $pdo->prepare('UPDATE categories SET name=?, description=? WHERE id=? AND parent_id IS NULL');
             $save->execute([$name, mb_substr($description, 0, 255), $id]);
+            $successNames[] = $name;
             $notice = 'category_updated';
         } else {
             $save = $pdo->prepare('INSERT INTO categories (name,slug,description,is_active,parent_id) VALUES (?,?,?,1,NULL)');
