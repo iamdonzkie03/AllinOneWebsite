@@ -384,6 +384,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       updateWordCount();
     };
     document.querySelectorAll('#managed-article-rich-editor [data-command]').forEach(button => {
+      button.addEventListener('mousedown', event => event.preventDefault());
       button.addEventListener('click', () => runCommand(button.dataset.command));
     });
     document.getElementById('managed-rich-block')?.addEventListener('change', event => {
