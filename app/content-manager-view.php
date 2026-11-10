@@ -98,7 +98,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-modal .content-manager-section-head{margin-bottom:18px}
 .content-manager-article-modal{width:min(100%,940px);max-height:92vh;overflow:auto}
 .content-manager-public-story .story-img{position:relative;overflow:hidden}.content-manager-public-story .story-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.content-manager-cover-field{display:grid;gap:9px;padding:13px;border:1px solid rgba(190,126,145,.24);border-radius:10px;background:rgba(255,255,255,.018)}.content-manager-cover-preview{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}.content-manager-cover-preview[hidden]{display:none!important}.content-manager-cover-preview img{display:block;width:min(100%,260px);max-height:170px;object-fit:cover;border:1px solid rgba(190,126,145,.35);border-radius:9px}.content-manager-cover-hint{color:#a9949c;font-size:10px;line-height:1.5}
+.content-manager-cover-field{display:grid;gap:9px;padding:13px;border:1px solid rgba(190,126,145,.24);border-radius:10px;background:rgba(255,255,255,.018)}.content-manager-cover-preview{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}.content-manager-cover-preview[hidden]{display:none!important}.content-manager-cover-preview img{display:block;width:min(100%,260px);max-height:170px;object-fit:cover;border:1px solid rgba(190,126,145,.35);border-radius:9px}.content-manager-cover-preview.is-removing img{opacity:.3;filter:grayscale(1)}.content-manager-cover-hint{color:#a9949c;font-size:10px;line-height:1.5}
 .content-manager-rich-field{display:grid;gap:7px;min-width:0}
 .content-manager-rich-label{color:#d9cbd0;font-size:11px;font-weight:600}
 .content-manager-rich-editor{overflow:hidden;border:1px solid rgba(190,126,145,.35);border-radius:11px;background:#171115}
@@ -376,7 +376,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
             <label for="managed-cover-photo">Cover Photo (optional)</label>
             <input class="field" type="file" id="managed-cover-photo" name="cover_photo" accept="image/jpeg,image/png,image/gif,image/webp">
             <div class="content-manager-cover-hint">Upload a JPG, PNG, GIF or WebP image up to 8 MB. The cover photo is saved separately from photos inside the article body.</div>
-            <div class="content-manager-cover-preview" id="managed-cover-photo-preview" <?=!empty($cmEditArticle['cover_photo'])?'':'hidden'?>><img id="managed-cover-photo-preview-image" src="<?=!empty($cmEditArticle['cover_photo'])?'uploads/articles/cover_photos/'.rawurlencode((string)$cmEditArticle['cover_photo']):''?>" alt="Article cover photo preview"><label><input type="checkbox" name="remove_cover_photo" id="managed-remove-cover-photo" value="1"> Remove current cover photo</label></div>
+            <div class="content-manager-cover-preview" id="managed-cover-photo-preview" <?=!empty($cmEditArticle['cover_photo'])?'':'hidden'?>><img id="managed-cover-photo-preview-image" src="<?=!empty($cmEditArticle['cover_photo'])?'uploads/articles/cover_photos/'.rawurlencode((string)$cmEditArticle['cover_photo']):''?>" alt="Article cover photo preview"><?php if(!empty($cmEditArticle['cover_photo'])): ?><label><input type="checkbox" name="remove_cover_photo" id="managed-remove-cover-photo" value="1"> Remove existing cover photo</label><?php endif; ?></div>
           </div>
           <div class="full content-manager-rich-field">
             <div class="content-manager-rich-label">Article body</div>
@@ -444,10 +444,10 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     if (coverPhotoPreviewImage) coverPhotoPreviewImage.src = coverPhotoObjectUrl;
     if (coverPhotoPreview) coverPhotoPreview.hidden = false;
     if (removeCoverPhoto) removeCoverPhoto.checked = false;
+    coverPhotoPreview?.classList.remove('is-removing');
   });
   removeCoverPhoto?.addEventListener('change', () => {
-    if (removeCoverPhoto.checked && !coverPhotoInput?.files?.length && coverPhotoPreview) coverPhotoPreview.hidden = true;
-    else if (coverPhotoPreview) coverPhotoPreview.hidden = false;
+    coverPhotoPreview?.classList.toggle('is-removing', removeCoverPhoto.checked);
   });
 
   const articleCategory = document.getElementById('managed-article-category');
