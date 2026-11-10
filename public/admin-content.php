@@ -82,6 +82,7 @@ try {
             $items[$match[1] . ':' . (int)$match[2]] = [$match[1], (int)$match[2]];
         }
         if (!$items) throw new RuntimeException('nothing_selected');
+        usort($items, static fn(array $a, array $b): int => ($a[0] === 'subcategory' ? 0 : 1) <=> ($b[0] === 'subcategory' ? 0 : 1));
         $pdo->beginTransaction();
         try {
             foreach ($items as [$kind, $id]) {
