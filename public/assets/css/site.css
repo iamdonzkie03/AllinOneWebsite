@@ -189,7 +189,7 @@ a.story-read-link:focus-visible{
 
 /* Homepage featured stories: three cards per view, six stories maximum, then a Show all stories tile. */
 .stories-slider{position:relative;display:flex;align-items:center;gap:10px}
-.stories-slider-viewport{width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
+.stories-slider-viewport{flex:1 1 auto;min-width:0;width:auto;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
 .stories-slider-viewport::-webkit-scrollbar{display:none}
 .stories-slider-track{display:flex;gap:18px;align-items:stretch}
 .stories-slider-card{flex:0 0 calc((100% - 36px)/3);min-width:0;scroll-snap-align:start}
