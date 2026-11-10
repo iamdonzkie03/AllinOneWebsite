@@ -101,7 +101,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 </style>
 <div class="content-manager">
   <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
-  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_deleted','categories_bulk_deleted'], true)): ?>
+  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted'], true)): ?>
   <div class="content-manager-modal-backdrop" id="managed-category-success-modal" role="presentation">
     <section class="content-manager-modal content-manager-success-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-success-title">
       <div class="content-manager-success-icon" aria-hidden="true">✓</div>
