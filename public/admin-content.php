@@ -45,7 +45,7 @@ $bulkDetailsQuery = '';
  * The editor and sanitizer restrict these to /public/uploads/articles/.
  */
 $articleUploadFiles = static function(string $html): array {
-    if (!preg_match_all('~<img\\b[^>]*\\bsrc="([^"]+)"~i', $html, $matches)) return [];
+    if (!preg_match_all('~<img[^>]*src="([^"]+)"~i', $html, $matches)) return [];
     $files = [];
     foreach ($matches[1] as $src) {
         $path = (string)(parse_url(html_entity_decode((string)$src, ENT_QUOTES | ENT_HTML5, 'UTF-8'), PHP_URL_PATH) ?? '');
