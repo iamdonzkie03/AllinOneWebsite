@@ -97,6 +97,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-modal-backdrop[hidden]{display:none!important}.content-manager-modal{width:min(100%,460px);max-height:calc(100vh - 40px);overflow-y:auto;padding:22px;border:1px solid rgba(191,89,112,.42);border-radius:16px;background:#170f14;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .content-manager-modal .content-manager-section-head{margin-bottom:18px}
 .content-manager-article-modal{width:min(100%,940px);max-height:92vh;overflow:auto}
+.content-manager-public-story .story-img{position:relative;overflow:hidden}.content-manager-public-story .story-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .content-manager-cover-field{display:grid;gap:9px;padding:13px;border:1px solid rgba(190,126,145,.24);border-radius:10px;background:rgba(255,255,255,.018)}.content-manager-cover-preview{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}.content-manager-cover-preview[hidden]{display:none!important}.content-manager-cover-preview img{display:block;width:min(100%,260px);max-height:170px;object-fit:cover;border:1px solid rgba(190,126,145,.35);border-radius:9px}.content-manager-cover-hint{color:#a9949c;font-size:10px;line-height:1.5}
 .content-manager-rich-field{display:grid;gap:7px;min-width:0}
 .content-manager-rich-label{color:#d9cbd0;font-size:11px;font-weight:600}
