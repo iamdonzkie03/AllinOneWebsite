@@ -265,10 +265,16 @@ try {
         }, $selected), static fn($id) => $id > 0)));
         if (!$ids) throw new RuntimeException('nothing_selected');
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $find = $pdo->prepare("SELECT id,title FROM content WHERE content_type='article' AND id IN ($placeholders) ORDER BY title");
+        $find = $pdo->prepare("SELECT id,title,body FROM content WHERE content_type='article' AND id IN ($placeholders) ORDER BY title");
         $find->execute($ids);
         $found = $find->fetchAll(PDO::FETCH_ASSOC);
         if (!$found) throw new RuntimeException('article_missing');
+        $filesToClean = [];
+        foreach ($found as $articleRow) {
+            foreach (array_keys($articleUploadFiles((string)($articleRow['body'] ?? ''))) as $filename) {
+                $filesToClean[$filename] = true;
+            }
+        }
         $pdo->beginTransaction();
         try {
             $delete = $pdo->prepare("DELETE FROM content WHERE content_type='article' AND id IN ($placeholders)");
@@ -277,6 +283,16 @@ try {
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
+        }
+        // Remove only uploaded article files that are no longer referenced by
+        // any remaining content record. Shared media is deliberately retained.
+        $stillReferenced = $pdo->prepare('SELECT COUNT(*) FROM content WHERE body LIKE ?');
+        $uploadDirectory = __DIR__ . '/uploads/articles';
+        foreach (array_keys($filesToClean) as $filename) {
+            $stillReferenced->execute(['%' . $filename . '%']);
+            if ((int)$stillReferenced->fetchColumn() > 0) continue;
+            $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+            if (is_file($filePath) && !is_link($filePath)) @unlink($filePath);
         }
         foreach ($found as $articleRow) $successNames[] = (string)$articleRow['title'];
         $notice = 'articles_bulk_deleted';
@@ -292,9 +308,22 @@ try {
         $notice = 'article_status_updated';
     } elseif ($action === 'delete_article') {
         $id = (int)($_POST['item_id'] ?? 0);
+        $find = $pdo->prepare("SELECT body FROM content WHERE id=? AND content_type='article'");
+        $find->execute([$id]);
+        $articleBody = $find->fetchColumn();
+        if ($articleBody === false) throw new RuntimeException('article_missing');
+        $filesToClean = array_keys($articleUploadFiles((string)$articleBody));
         $delete = $pdo->prepare("DELETE FROM content WHERE id=? AND content_type='article'");
         $delete->execute([$id]);
         if (!$delete->rowCount()) throw new RuntimeException('article_missing');
+        $stillReferenced = $pdo->prepare('SELECT COUNT(*) FROM content WHERE body LIKE ?');
+        $uploadDirectory = __DIR__ . '/uploads/articles';
+        foreach ($filesToClean as $filename) {
+            $stillReferenced->execute(['%' . $filename . '%']);
+            if ((int)$stillReferenced->fetchColumn() > 0) continue;
+            $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+            if (is_file($filePath) && !is_link($filePath)) @unlink($filePath);
+        }
         $notice = 'article_deleted';
     } else {
         throw new RuntimeException('unknown_action');
