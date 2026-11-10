@@ -1,5 +1,20 @@
 <?php
 // Included by public/admin.php inside the Page Management → Contents panel.
+// Keep this view self-healing for older Laragon databases, even when the
+// shared bootstrap migration has not yet been applied to the local copy.
+$cmHasColumn = static function(string $table, string $column) use ($pdo): bool {
+    $check = $pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?');
+    $check->execute([$table, $column]);
+    return (int)$check->fetchColumn() > 0;
+};
+if (!$cmHasColumn('categories', 'parent_id')) {
+    $pdo->exec('ALTER TABLE categories ADD COLUMN parent_id BIGINT UNSIGNED NULL');
+    $pdo->exec('ALTER TABLE categories ADD INDEX idx_categories_parent (parent_id)');
+}
+if (!$cmHasColumn('content', 'subcategory_id')) {
+    $pdo->exec('ALTER TABLE content ADD COLUMN subcategory_id BIGINT UNSIGNED NULL');
+    $pdo->exec('ALTER TABLE content ADD INDEX idx_content_subcategory (subcategory_id)');
+}
 $cmCategories = $pdo->query("SELECT id,name,slug,description FROM categories WHERE parent_id IS NULL AND is_active=1 ORDER BY CASE WHEN slug='uncategorized' THEN 1 ELSE 0 END, name")->fetchAll();
 $cmSubcategories = $pdo->query("SELECT child.id,child.name,child.slug,child.description,child.parent_id,parent.name AS parent_name FROM categories child JOIN categories parent ON parent.id=child.parent_id ORDER BY parent.name,child.name")->fetchAll();
 $cmEditCategory = null;
