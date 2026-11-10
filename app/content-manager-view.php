@@ -89,7 +89,32 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-modal-backdrop{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(7,3,6,.78);backdrop-filter:blur(5px)}
 .content-manager-modal-backdrop[hidden]{display:none!important}.content-manager-modal{width:min(100%,460px);max-height:calc(100vh - 40px);overflow-y:auto;padding:22px;border:1px solid rgba(191,89,112,.42);border-radius:16px;background:#170f14;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .content-manager-modal .content-manager-section-head{margin-bottom:18px}
-.content-manager-article-modal{width:min(100%,680px)}
+.content-manager-article-modal{width:min(100%,940px);max-height:92vh;overflow:auto}
+.content-manager-rich-field{display:grid;gap:7px;min-width:0}
+.content-manager-rich-label{color:#d9cbd0;font-size:11px;font-weight:600}
+.content-manager-rich-editor{overflow:hidden;border:1px solid rgba(190,126,145,.35);border-radius:11px;background:#171115}
+.content-manager-rich-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:9px;border-bottom:1px solid rgba(190,126,145,.22);background:linear-gradient(135deg,rgba(105,34,54,.25),rgba(22,15,19,.95))}
+.content-manager-rich-toolbar button,.content-manager-rich-toolbar select,.content-manager-rich-toolbar input[type=color]{height:30px;border:1px solid rgba(190,126,145,.28);border-radius:6px;background:#24171e;color:#f4e7eb;font:11px Ubuntu,sans-serif}
+.content-manager-rich-toolbar button{min-width:30px;padding:0 8px;cursor:pointer}
+.content-manager-rich-toolbar button:hover{background:#542637;border-color:#a34b65}
+.content-manager-rich-toolbar select{padding:0 7px;max-width:140px}
+.content-manager-rich-toolbar input[type=color]{width:34px;padding:3px;cursor:pointer}
+.content-manager-rich-divider{width:1px;height:22px;background:rgba(190,126,145,.3);margin:0 3px}
+.content-manager-rich-canvas{min-height:340px;max-height:52vh;overflow:auto;padding:18px 20px;outline:none;color:#f4e9ed;background:#171115;font:14px/1.75 Ubuntu,sans-serif}
+.content-manager-rich-canvas:focus{box-shadow:inset 0 0 0 1px rgba(199,103,133,.3)}
+.content-manager-rich-canvas:empty:before{content:attr(data-placeholder);color:#8f7b83;pointer-events:none}
+.content-manager-rich-canvas h2,.content-manager-rich-canvas h3,.content-manager-rich-canvas h4{color:#fff0f4;margin:1em 0 .45em}
+.content-manager-rich-canvas p{margin:0 0 .85em}
+.content-manager-rich-canvas img{max-width:100%;height:auto;border-radius:8px}
+.content-manager-rich-canvas figure{margin:18px auto;text-align:center}
+.content-manager-rich-canvas figcaption{color:#bba8b0;font-size:12px}
+.content-manager-rich-canvas blockquote{margin:14px 0;padding:10px 15px;border-left:3px solid #a94c68;background:rgba(145,51,78,.13);color:#e8d4dc}
+.content-manager-rich-canvas table{width:100%;border-collapse:collapse;margin:14px 0}
+.content-manager-rich-canvas th,.content-manager-rich-canvas td{border:1px solid rgba(190,126,145,.35);padding:8px;text-align:left}
+.content-manager-rich-canvas a{color:#f09ab2;text-decoration:underline}
+.content-manager-rich-footer{display:flex;justify-content:space-between;gap:12px;padding:7px 11px;border-top:1px solid rgba(190,126,145,.2);color:#a9949c;font-size:10px}
+.content-manager-rich-footer button{border:0;background:none;color:#e5a5b7;font:inherit;cursor:pointer}
+@media(max-width:700px){.content-manager-rich-canvas{min-height:260px;padding:13px}.content-manager-article-modal{max-height:94vh}.content-manager-rich-toolbar{gap:4px}}
 .content-manager-success-modal{text-align:center;padding:28px 24px}
 .content-manager-success-icon{display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto 15px;border:2px solid #72c99a;border-radius:50%;background:rgba(56,157,103,.14);color:#8be0ae;font:700 31px Ubuntu,sans-serif;box-shadow:0 0 22px rgba(81,190,130,.13)}
 .content-manager-success-modal h3{margin:0 0 11px;color:#f7e9ed;font:700 16px Ubuntu,sans-serif}
@@ -277,7 +302,41 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <label>Subcategory (optional)<select class="field" name="subcategory_id" id="managed-article-subcategory"><option value="">No subcategory — directly under category</option><?php foreach($cmSubcategories as $sub): ?><option value="<?=(int)$sub['id']?>" data-parent="<?=(int)$sub['parent_id']?>" <?=isset($cmEditArticle['subcategory_id'])&&(int)$cmEditArticle['subcategory_id']===(int)$sub['id']?'selected':''?>><?=e($sub['parent_name'].' / '.$sub['name'])?></option><?php endforeach; ?></select></label>
           <label>Status<select class="field" name="status"><option value="published" <?=($cmEditArticle['status'] ?? '')==='published'?'selected':''?>>Published</option><option value="draft" <?=($cmEditArticle['status'] ?? 'draft')==='draft'?'selected':''?>>Unpublished</option></select></label>
           <label>Short description<input class="field" name="excerpt" maxlength="500" value="<?=e((string)($cmEditArticle['excerpt'] ?? ''))?>" placeholder="A short summary"></label>
-          <label class="full">Article body<textarea class="field" name="body" rows="8" placeholder="Write the article here"><?=e((string)($cmEditArticle['body'] ?? ''))?></textarea></label>
+          <div class="full content-manager-rich-field">
+            <div class="content-manager-rich-label">Article body</div>
+            <div class="content-manager-rich-editor" id="managed-article-rich-editor">
+              <div class="content-manager-rich-toolbar" role="toolbar" aria-label="Article formatting tools">
+                <select id="managed-rich-block" aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
+                <span class="content-manager-rich-divider"></span>
+                <button type="button" data-command="bold" title="Bold"><strong>B</strong></button>
+                <button type="button" data-command="italic" title="Italic"><em>I</em></button>
+                <button type="button" data-command="underline" title="Underline"><u>U</u></button>
+                <button type="button" data-command="strikeThrough" title="Strikethrough"><s>S</s></button>
+                <button type="button" data-command="removeFormat" title="Clear formatting">Tx</button>
+                <span class="content-manager-rich-divider"></span>
+                <button type="button" data-command="justifyLeft" title="Align left">≡</button>
+                <button type="button" data-command="justifyCenter" title="Center">☰</button>
+                <button type="button" data-command="justifyRight" title="Align right">≡</button>
+                <button type="button" data-command="justifyFull" title="Justify">▤</button>
+                <span class="content-manager-rich-divider"></span>
+                <button type="button" data-command="insertUnorderedList" title="Bulleted list">• List</button>
+                <button type="button" data-command="insertOrderedList" title="Numbered list">1. List</button>
+                <button type="button" data-action="link" title="Insert link">Link</button>
+                <button type="button" data-command="unlink" title="Remove link">Unlink</button>
+                <button type="button" data-action="quote" title="Quote">❝</button>
+                <button type="button" data-action="table" title="Insert table">Table</button>
+                <span class="content-manager-rich-divider"></span>
+                <button type="button" data-action="image" title="Upload photo">Photo</button>
+                <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" id="managed-rich-color" value="#f4e9ed" aria-label="Text color"></label>
+                <button type="button" data-command="undo" title="Undo">↶</button>
+                <button type="button" data-command="redo" title="Redo">↷</button>
+                <input type="file" id="managed-rich-image-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+              </div>
+              <div id="managed-article-editor" class="content-manager-rich-canvas" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Article body editor" data-placeholder="Start writing your article. Format text, add headings, lists, links, tables and photos..."><?=sanitize_rich_content((string)($cmEditArticle['body'] ?? ''))?></div>
+              <div class="content-manager-rich-footer"><span id="managed-rich-word-count">0 words</span><span>Photos: JPG, PNG, GIF or WebP · Up to 8 MB each</span></div>
+            </div>
+            <textarea class="field" name="body" id="managed-article-body" hidden><?=e((string)($cmEditArticle['body'] ?? ''))?></textarea>
+          </div>
         </div>
         <div class="content-manager-actions content-manager-modal-actions"><a class="btn light" href="<?=e($cmArticleModeUrl)?>">Cancel</a><button class="btn" type="submit"><?= $cmEditArticle ? 'Update Article' : 'Save Article' ?></button></div>
       </form>
@@ -306,6 +365,81 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     };
     articleCategory.addEventListener('change', filterSubcategories);
     filterSubcategories();
+  }
+
+  const richEditor = document.getElementById('managed-article-editor');
+  const richForm = document.getElementById('managed-article-form');
+  if (richEditor && richForm) {
+    const bodyField = document.getElementById('managed-article-body');
+    const imageInput = document.getElementById('managed-rich-image-input');
+    const wordCount = document.getElementById('managed-rich-word-count');
+    const csrf = richForm.querySelector('input[name="csrf"]')?.value || '';
+    const updateWordCount = () => {
+      const words = (richEditor.innerText || '').trim().split(/\\s+/).filter(Boolean).length;
+      if (wordCount) wordCount.textContent = words + (words === 1 ? ' word' : ' words');
+    };
+    const runCommand = (command, value = null) => {
+      richEditor.focus();
+      document.execCommand(command, false, value);
+      updateWordCount();
+    };
+    document.querySelectorAll('#managed-article-rich-editor [data-command]').forEach(button => {
+      button.addEventListener('click', () => runCommand(button.dataset.command));
+    });
+    document.getElementById('managed-rich-block')?.addEventListener('change', event => {
+      runCommand('formatBlock', '<' + event.target.value + '>');
+    });
+    document.getElementById('managed-rich-color')?.addEventListener('input', event => runCommand('foreColor', event.target.value));
+    document.querySelector('#managed-article-rich-editor [data-action="link"]')?.addEventListener('click', () => {
+      const url = window.prompt('Enter the link URL (https://, http://, or mailto:):');
+      if (url && /^(https?:\\/\\/|mailto:)/i.test(url.trim())) runCommand('createLink', url.trim());
+    });
+    document.querySelector('#managed-article-rich-editor [data-action="quote"]')?.addEventListener('click', () => runCommand('formatBlock', '<BLOCKQUOTE>'));
+    document.querySelector('#managed-article-rich-editor [data-action="table"]')?.addEventListener('click', () => {
+      const rows = Math.min(10, Math.max(1, Number(window.prompt('Number of table rows?', '3') || 0)));
+      const cols = Math.min(8, Math.max(1, Number(window.prompt('Number of table columns?', '3') || 0)));
+      if (!rows || !cols) return;
+      let table = '<table><tbody>';
+      for (let row = 0; row < rows; row++) {
+        table += '<tr>';
+        for (let col = 0; col < cols; col++) table += row === 0 ? '<th>Heading</th>' : '<td>Text</td>';
+        table += '</tr>';
+      }
+      table += '</tbody></table><p><br></p>';
+      richEditor.focus(); document.execCommand('insertHTML', false, table); updateWordCount();
+    });
+    document.querySelector('#managed-article-rich-editor [data-action="image"]')?.addEventListener('click', () => imageInput?.click());
+    const insertUploadedImage = async file => {
+      if (!file || !file.type.startsWith('image/')) return;
+      if (file.size > 8 * 1024 * 1024) { window.alert('Please choose an image smaller than 8 MB.'); return; }
+      const data = new FormData();
+      data.append('csrf', csrf); data.append('action', 'upload_article_image'); data.append('image', file);
+      try {
+        const response = await fetch('admin-content.php?session_context=admin', {method:'POST',body:data,credentials:'same-origin'});
+        const result = await response.json();
+        if (!response.ok || !result.url) throw new Error(result.message || 'The image could not be uploaded.');
+        const safeAlt = (file.name || 'Article photo').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+        richEditor.focus();
+        document.execCommand('insertHTML', false, '<figure><img src="' + result.url + '" alt="' + safeAlt + '"><figcaption>' + safeAlt + '</figcaption></figure><p><br></p>');
+        updateWordCount();
+      } catch (error) { window.alert(error.message || 'Image upload failed.'); }
+    };
+    imageInput?.addEventListener('change', async () => {
+      if (imageInput.files?.[0]) await insertUploadedImage(imageInput.files[0]);
+      imageInput.value = '';
+    });
+    richEditor.addEventListener('dragover', event => { if ([...event.dataTransfer.types].includes('Files')) event.preventDefault(); });
+    richEditor.addEventListener('drop', async event => {
+      const files = [...(event.dataTransfer.files || [])].filter(file => file.type.startsWith('image/'));
+      if (files.length) { event.preventDefault(); for (const file of files) await insertUploadedImage(file); }
+    });
+    richEditor.addEventListener('paste', async event => {
+      const files = [...(event.clipboardData?.items || [])].filter(item => item.type.startsWith('image/')).map(item => item.getAsFile()).filter(Boolean);
+      if (files.length) { event.preventDefault(); for (const file of files) await insertUploadedImage(file); }
+    });
+    richEditor.addEventListener('input', updateWordCount);
+    richForm.addEventListener('submit', () => { if (bodyField) bodyField.value = richEditor.innerHTML; });
+    updateWordCount();
   }
 
   const articleTable = document.getElementById('managed-article-table');
