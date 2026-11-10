@@ -186,3 +186,23 @@ a.story-read-link:focus-visible{
   text-decoration:underline !important;
   text-underline-offset:3px;
 }
+
+/* Homepage featured stories: three cards per view, six stories maximum, then a Show all stories tile. */
+.stories-slider{position:relative;display:flex;align-items:center;gap:10px}
+.stories-slider-viewport{width:100%;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
+.stories-slider-viewport::-webkit-scrollbar{display:none}
+.stories-slider-track{display:flex;gap:18px;align-items:stretch}
+.stories-slider-card{flex:0 0 calc((100% - 36px)/3);min-width:0;scroll-snap-align:start}
+.stories-slider-arrow{flex:0 0 38px;width:38px;height:38px;border:1px solid rgba(184,50,63,.55);border-radius:50%;background:#241016;color:#ff7187;font-size:27px;line-height:1;cursor:pointer;display:grid;place-items:center;z-index:2}
+.stories-slider-arrow:hover:not(:disabled){background:#8b1728;color:#fff}
+.stories-slider-arrow:disabled{opacity:.28;cursor:not-allowed}
+.stories-slider-status{text-align:center;margin-top:13px;color:#a99ba0;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.stories-show-all{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:30px;text-align:center;border:1px solid rgba(184,50,63,.5);background:radial-gradient(circle at 50% 35%,rgba(184,50,63,.24),transparent 55%),linear-gradient(145deg,#281019,#111114);color:#f8e9ec;transition:border-color .2s ease,transform .2s ease}
+.stories-show-all:hover{border-color:#ff6078;transform:translateY(-4px);color:#fff}
+.stories-show-all .show-all-mark{width:52px;height:52px;border:1px solid rgba(255,96,120,.55);border-radius:50%;display:grid;place-items:center;color:#ff6078;font-size:27px}
+.stories-show-all strong{font:500 25px/1.15 Georgia,serif;color:#ff7187}
+.stories-show-all>span:last-child{font-size:11px;color:#b9aab0}
+.stories-slider-empty{flex:0 0 100%}
+.stories-show-latest{margin-top:20px;text-align:center}
+@media(max-width:850px){.stories-slider-card{flex-basis:calc((100% - 18px)/2)}}
+@media(max-width:560px){.stories-slider{gap:6px}.stories-slider-arrow{flex-basis:30px;width:30px;height:30px;font-size:23px}.stories-slider-card{flex-basis:100%}.stories-slider-track{gap:12px}}
