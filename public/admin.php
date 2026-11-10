@@ -747,8 +747,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         </form>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-contents" role="tabpanel" aria-labelledby="pm-tab-contents" hidden>
-        <h2>Contents</h2><p class="muted">Manage articles, sections, and other content displayed on the public website.</p>
-        <div class="admin-note">Content management controls can be added here. No existing website content has been changed.</div>
+        <h2>Contents</h2><p class="muted">Create and organize categories, subcategories, and articles.</p>
+        <?php require __DIR__ . '/../app/content-manager-view.php'; ?>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
         <h2>Sections</h2><p class="muted">Manage the sections displayed on the public website.</p>
