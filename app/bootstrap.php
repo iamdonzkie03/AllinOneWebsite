@@ -14,7 +14,7 @@ $scriptName = basename((string)($_SERVER['SCRIPT_NAME'] ?? 'index.php'));
 $requestedContext = (string)($_GET['session_context'] ?? $_GET['scope'] ?? '');
 if (in_array($requestedContext, ['admin', 'creator', 'public'], true)) {
     $sessionContext = $requestedContext;
-} elseif ($scriptName === 'admin.php') {
+} elseif (in_array($scriptName, ['admin.php', 'admin-content.php'], true)) {
     $sessionContext = 'admin';
 } elseif (in_array($scriptName, ['workspace.php', 'content-edit.php', 'content-delete.php'], true)) {
     $sessionContext = 'creator';
