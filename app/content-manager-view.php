@@ -65,7 +65,6 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
 @media(max-width:760px){.content-manager-grid{grid-template-columns:1fr}.content-manager-article-grid{grid-template-columns:1fr}.content-manager-article-grid .full{grid-column:auto}.content-manager-section-head{align-items:flex-start;flex-direction:column}}
 </style>
 <div class="content-manager">
-  <p class="content-manager-intro">Organize articles using a Joomla-style hierarchy. Create top-level categories, add subcategories beneath them, then assign each article to a required category. A subcategory is optional, so an article can also sit directly under its category. Use <strong>Uncategorized</strong> when no specific category applies.</p>
   <?php if ($cmNotice !== ''): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
 
   <div class="content-manager-grid">
