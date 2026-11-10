@@ -69,10 +69,22 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
 
   <div class="content-manager-grid">
     <section class="content-manager-card content-manager-editor">
-      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span><div class="content-manager-actions"><button type="button" class="btn" id="managed-create-category-toggle" aria-controls="managed-category-form-panel" aria-expanded="<?= $cmEditCategory ? "true" : "false" ?>">+ Create Category</button><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
+      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span><div class="content-manager-actions"><button type="button" class="btn" id="managed-view-categories-toggle" aria-controls="managed-categories-panel" aria-expanded="false">View Categories</button><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
       <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Article</th><th>Category</th><th>Status</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead><tbody>
       <?php foreach($cmArticles as $article): ?><tr><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><?=e(str_replace('_',' ',$article['status']))?></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><a href="admin.php?section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this article permanently?');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_article"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
       <?php if(!$cmArticles): ?><tr><td colspan="6" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
+      </tbody></table></div>
+    </section>
+    <section class="content-manager-card content-manager-editor" id="managed-categories-panel" hidden>
+      <div class="content-manager-section-head"><h3>Categories and Subcategories</h3><span class="muted"><?=count($cmCategories)?> categories · <?=count($cmSubcategories)?> subcategories</span></div>
+      <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Category / Subcategory</th><th>Description</th><th>Actions</th></tr></thead><tbody>
+      <?php foreach($cmCategories as $cat): ?>
+        <tr><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><a href="admin.php?section=page-management&tab=contents&edit_category=<?=(int)$cat['id']?>#pm-panel-contents">Edit</a><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr>
+        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?>
+          <tr><td class="content-manager-subcat">↳ <?=e($sub['name'])?></td><td><?=e((string)$sub['description'])?></td><td><span class="muted">Subcategory</span></td></tr>
+        <?php endforeach; ?>
+      <?php endforeach; ?>
+      <?php if(!$cmCategories): ?><tr><td colspan="3" class="muted">No categories have been created yet.</td></tr><?php endif; ?>
       </tbody></table></div>
     </section>
     <section class="content-manager-card" id="managed-category-form-panel"<?= $cmEditCategory ? "" : " hidden" ?>>
@@ -106,14 +118,13 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
 </div>
 <script>
 (() => {
-  const createCategoryButton = document.getElementById('managed-create-category-toggle');
-  const categoryPanel = document.getElementById('managed-category-form-panel');
-  if (createCategoryButton && categoryPanel) {
-    createCategoryButton.addEventListener('click', () => {
-      const opening = categoryPanel.hidden;
-      categoryPanel.hidden = !opening;
-      createCategoryButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
-      if (opening) categoryPanel.querySelector('input[name="name"]')?.focus();
+  const viewCategoriesButton = document.getElementById('managed-view-categories-toggle');
+  const categoriesPanel = document.getElementById('managed-categories-panel');
+  if (viewCategoriesButton && categoriesPanel) {
+    viewCategoriesButton.addEventListener('click', () => {
+      const opening = categoriesPanel.hidden;
+      categoriesPanel.hidden = !opening;
+      viewCategoriesButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
     });
   }
 
