@@ -38,7 +38,7 @@ if (!empty($_GET['edit_article'])) {
     $q->execute([(int)$_GET['edit_article']]);
     $cmEditArticle = $q->fetch() ?: null;
 }
-$cmArticles = $pdo->query("SELECT c.id,c.title,c.status,c.updated_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
+$cmArticles = $pdo->query("SELECT c.id,c.title,c.excerpt,c.body,c.price,c.status,c.updated_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
 $cmNotices = [
     'category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.',
     'subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.',
@@ -141,6 +141,38 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-status-toggle.is-unpublished{border-color:rgba(220,83,99,.65);background:rgba(157,37,56,.28);color:#ffb0bb}
 .content-manager-status-toggle.is-unpublished:before{left:5px;background:#ffd0d5}
 .content-manager-article-bulk-modal .content-manager-modal{width:min(100%,500px)}
+.content-manager-action--view{background:rgba(117,75,132,.18);border-color:rgba(184,145,205,.42);color:#e5c9f2}
+.content-manager-action--view:hover{background:rgba(117,75,132,.32);border-color:rgba(208,171,226,.75)}
+.content-manager-article-preview-modal{width:min(100%,1000px);padding:24px}
+.content-manager-article-preview-modal .content-manager-section-head{align-items:center}
+.content-manager-preview-close{width:32px;height:32px;border:1px solid rgba(190,126,145,.3);border-radius:50%;background:#24171e;color:#f4e7eb;font:22px/1 Ubuntu,sans-serif;cursor:pointer}
+.content-manager-article-preview-stage{display:flex;justify-content:center;max-height:68vh;overflow:auto;padding:12px;border:1px solid rgba(190,126,145,.18);border-radius:12px;background:#0d0d10}
+.content-manager-public-story{width:min(100%,520px);align-self:flex-start;background:linear-gradient(155deg,#1b1b20,#111114);border:1px solid rgba(222,229,218,.12);border-radius:18px;overflow:hidden;box-shadow:0 12px 35px rgba(0,0,0,.18);color:#f2f0e8;font:15px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.01em}
+.content-manager-public-story .story-img{height:195px;display:flex;align-items:end;padding:18px;color:#f4d8dc;font-size:10px;letter-spacing:1.8px;font-weight:850;background:radial-gradient(circle at 70% 20%,rgba(184,50,63,.35),transparent 28%),linear-gradient(135deg,#4b101b,#121114)}
+.content-manager-public-story .story-img.art{background:radial-gradient(circle at 25% 35%,#a21f31,transparent 32%),linear-gradient(135deg,#2c0d13,#151519 72%)}
+.content-manager-public-story .story-img.home{background:radial-gradient(circle at 70% 25%,#a52335,transparent 32%),linear-gradient(135deg,#3b0b14,#111114 75%)}
+.content-manager-public-story .story-img.news{background:radial-gradient(circle at 65% 25%,#a51d31,transparent 30%),linear-gradient(135deg,#260b11,#111114 75%)}
+.content-manager-public-story .story-body{padding:21px}
+.content-manager-public-story .tag{font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:#b8323f;font-weight:850}
+.content-manager-public-story h3{font:500 24px/1.15 Georgia,"Times New Roman",serif;letter-spacing:-.35px;margin:9px 0;color:#f2f0e8}
+.content-manager-public-story p{font-size:13px;color:#aaa0a3;line-height:1.75;margin:1em 0}
+.content-manager-public-story .story-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11px;color:#c2ccc4;margin-top:18px;padding-top:13px;border-top:1px solid rgba(222,229,218,.12)}
+.content-manager-public-story .story-details{border-top:1px solid rgba(222,229,218,.12);margin-top:14px;padding-top:10px;font-size:12px;color:#cfc5c8}
+.content-manager-public-story .story-details summary{cursor:pointer;color:#e05260;font-weight:700}
+.content-manager-public-story .story-rich-content{margin-top:12px;color:#d9d0d3;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
+.content-manager-public-story .story-rich-content p{margin:0 0 13px;color:inherit;font-size:inherit;line-height:inherit}
+.content-manager-public-story .story-rich-content h2,.content-manager-public-story .story-rich-content h3,.content-manager-public-story .story-rich-content h4{margin:20px 0 9px;color:#f4e9ec;line-height:1.25}
+.content-manager-public-story .story-rich-content h2{font-size:23px}.content-manager-public-story .story-rich-content h3{font-size:19px}.content-manager-public-story .story-rich-content h4{font-size:16px}
+.content-manager-public-story .story-rich-content img{display:block;max-width:100%;height:auto;margin:16px auto;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.content-manager-public-story .story-rich-content figure{margin:18px 0;text-align:center}
+.content-manager-public-story .story-rich-content figcaption{margin-top:7px;color:#a9949c;font-size:11px}
+.content-manager-public-story .story-rich-content blockquote{margin:16px 0;padding:12px 16px;border-left:3px solid #a83d59;background:rgba(139,31,48,.13);color:#e8d4dc}
+.content-manager-public-story .story-rich-content ul,.content-manager-public-story .story-rich-content ol{padding-left:24px;margin:10px 0 16px}
+.content-manager-public-story .story-rich-content table{width:100%;border-collapse:collapse;margin:16px 0;overflow-x:auto}
+.content-manager-public-story .story-rich-content th,.content-manager-public-story .story-rich-content td{border:1px solid rgba(190,126,145,.3);padding:8px 10px;text-align:left}
+.content-manager-public-story .story-rich-content th{background:rgba(105,34,54,.2);color:#f1dce3}
+.content-manager-public-story .story-rich-content a{color:#f09ab2;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:700px){.content-manager-article-preview-modal{padding:16px}.content-manager-article-preview-stage{padding:7px}.content-manager-public-story .story-body{padding:17px}}
 .content-manager-page-buttons{display:flex;align-items:center;gap:8px}
 .content-manager-page-buttons .btn{padding:7px 10px;font-size:11px}
 @media(max-width:760px){.content-manager-section-head>.content-manager-actions{margin-left:0;flex-wrap:wrap}.content-manager-category-toolbar{justify-content:flex-start}.content-manager-table-tools{align-items:stretch;flex-direction:column}.content-manager-filter{max-width:none;align-items:stretch;flex-direction:column}.content-manager-pagination{align-items:flex-start;flex-direction:column}}
@@ -284,10 +316,31 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         </section>
       </div>
       <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-article-table"><thead><tr><th class="content-manager-select-cell"><input type="checkbox" id="managed-article-table-select-all" aria-label="Select all articles"></th><th>Article</th><th>Category</th><th>Status</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead><tbody>
-      <?php foreach($cmArticles as $article): ?><tr class="managed-article-row" data-search="<?=e(mb_strtolower($article['title'].' '.$article['category_name'].' '.(string)$article['subcategory_name'].' '.(string)$article['full_name'].' '.($article['status']==='published'?'published':'unpublished')))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-article-select" name="selected_articles[]" value="<?=(int)$article['id']?>" form="managed-article-bulk-delete" aria-label="Select article <?=e($article['title'])?>" data-title="<?=e($article['title'])?>"></td><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><form class="content-manager-status-form" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="toggle_article_status"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" class="content-manager-status-toggle <?=$article['status']==='published'?'is-published':'is-unpublished'?>" aria-label="Change status for <?=e($article['title'])?>"><?=e($article['status']==='published'?'Published':'Unpublished')?></button></form></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><a class="content-manager-action" href="admin.php?session_context=admin&section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a></td></tr><?php endforeach; ?>
+      <?php foreach($cmArticles as $article): ?><tr class="managed-article-row" data-search="<?=e(mb_strtolower($article['title'].' '.$article['category_name'].' '.(string)$article['subcategory_name'].' '.(string)$article['full_name'].' '.($article['status']==='published'?'published':'unpublished')))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-article-select" name="selected_articles[]" value="<?=(int)$article['id']?>" form="managed-article-bulk-delete" aria-label="Select article <?=e($article['title'])?>" data-title="<?=e($article['title'])?>"></td><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><form class="content-manager-status-form" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="toggle_article_status"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" class="content-manager-status-toggle <?=$article['status']==='published'?'is-published':'is-unpublished'?>" aria-label="Change status for <?=e($article['title'])?>"><?=e($article['status']==='published'?'Published':'Unpublished')?></button></form></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><div class="content-manager-row-actions"><button type="button" class="content-manager-action content-manager-action--view" data-view-article="<?=(int)$article['id']?>">View</button><a class="content-manager-action" href="admin.php?session_context=admin&section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a></div></td></tr><?php endforeach; ?>
       <?php if(!$cmArticles): ?><tr><td colspan="7" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
       </tbody></table></div>
       <div class="content-manager-pagination"><span class="muted" id="managed-article-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-article-prev">Previous</button><span class="muted" id="managed-article-page"></span><button type="button" class="btn light" id="managed-article-next">Next</button></div></div>
+      <div class="content-manager-modal-backdrop content-manager-article-preview-backdrop" id="managed-article-preview-modal" hidden role="presentation">
+        <section class="content-manager-modal content-manager-article-preview-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-preview-heading">
+          <div class="content-manager-section-head"><div><h3 id="managed-article-preview-heading">Article Preview</h3><span class="muted">Public website appearance</span></div><button type="button" class="content-manager-preview-close" id="managed-article-preview-close" aria-label="Close article preview">×</button></div>
+          <div class="content-manager-article-preview-stage" id="managed-article-preview-stage"></div>
+          <div class="content-manager-actions content-manager-modal-actions"><button type="button" class="btn light" id="managed-article-preview-done">Close Preview</button></div>
+        </section>
+      </div>
+      <?php foreach($cmArticles as $previewIndex=>$previewArticle): ?>
+        <template id="managed-article-preview-template-<?=(int)$previewArticle['id']?>">
+          <article class="story content-manager-public-story">
+            <div class="story-img <?= $previewIndex%3===0?'art':($previewIndex%3===1?'home':'news') ?>"><?=e(strtoupper($previewArticle['category_name']))?></div>
+            <div class="story-body">
+              <div class="tag"><?=e($previewArticle['category_name'])?><?php if(!empty($previewArticle['subcategory_name'])): ?> · <?=e($previewArticle['subcategory_name'])?><?php endif; ?></div>
+              <h3><?=e($previewArticle['title'])?></h3>
+              <p><?=e((string)($previewArticle['excerpt'] ?? ''))?></p>
+              <div class="story-foot"><span>By <?=e((string)$previewArticle['full_name'])?></span><span><?= $previewArticle['price']!==null ? '₱'.number_format((float)$previewArticle['price'],2) : 'Read more ↗' ?></span></div>
+              <?php if(!empty($previewArticle['body'])): ?><details class="story-details"><summary>Read story</summary><div class="story-rich-content"><?=sanitize_rich_content((string)$previewArticle['body'])?></div></details><?php endif; ?>
+            </div>
+          </article>
+        </template>
+      <?php endforeach; ?>
     </section>
     <?php endif; ?>
     <section class="content-manager-card" id="managed-category-form-panel"<?= $cmEditCategory ? "" : " hidden" ?>>
@@ -453,6 +506,28 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     richForm.addEventListener('submit', () => { if (bodyField) bodyField.value = richEditor.innerHTML; });
     updateWordCount();
   }
+
+  const articlePreviewModal = document.getElementById('managed-article-preview-modal');
+  const articlePreviewStage = document.getElementById('managed-article-preview-stage');
+  const closeArticlePreview = () => {
+    if (articlePreviewModal) articlePreviewModal.hidden = true;
+    if (articlePreviewStage) articlePreviewStage.replaceChildren();
+  };
+  document.querySelectorAll('[data-view-article]').forEach(button => {
+    button.addEventListener('click', () => {
+      const articleId = button.dataset.viewArticle;
+      const template = document.getElementById('managed-article-preview-template-' + articleId);
+      if (!template || !articlePreviewModal || !articlePreviewStage) return;
+      articlePreviewStage.replaceChildren(template.content.cloneNode(true));
+      articlePreviewModal.hidden = false;
+      document.getElementById('managed-article-preview-close')?.focus();
+    });
+  });
+  document.getElementById('managed-article-preview-close')?.addEventListener('click', closeArticlePreview);
+  document.getElementById('managed-article-preview-done')?.addEventListener('click', closeArticlePreview);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && articlePreviewModal && !articlePreviewModal.hidden) closeArticlePreview();
+  });
 
   const articleTable = document.getElementById('managed-article-table');
   if (articleTable) {
