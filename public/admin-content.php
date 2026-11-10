@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
+require __DIR__ . '/../app/rich-content.php';
 $admin = require_admin();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -10,6 +11,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 verify_csrf();
 
 $action = (string)($_POST['action'] ?? '');
+if ($action === 'upload_article_image') {
+    header('Content-Type: application/json; charset=utf-8');
+    $respond = static function(int $status, array $payload): never {
+        http_response_code($status);
+        echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    };
+    if (!isset($_FILES['image']) || !is_array($_FILES['image'])) $respond(400, ['message'=>'Choose an image to upload.']);
+    $upload = $_FILES['image'];
+    if ((int)($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) $respond(400, ['message'=>'The image upload failed. Please try again.']);
+    if ((int)($upload['size'] ?? 0) < 1 || (int)$upload['size'] > 8 * 1024 * 1024) $respond(413, ['message'=>'Images must be 8 MB or smaller.']);
+    if (!is_uploaded_file((string)$upload['tmp_name'])) $respond(400, ['message'=>'Invalid image upload.']);
+    $imageInfo = @getimagesize((string)$upload['tmp_name']);
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file((string)$upload['tmp_name']);
+    $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'];
+    if (!$imageInfo || !isset($extensions[$mime])) $respond(415, ['message'=>'Use a JPG, PNG, GIF or WebP image.']);
+    $directory = __DIR__ . '/uploads/articles';
+    if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) $respond(500, ['message'=>'The article image folder could not be created.']);
+    $filename = bin2hex(random_bytes(18)) . '.' . $extensions[$mime];
+    if (!move_uploaded_file((string)$upload['tmp_name'], $directory . '/' . $filename)) $respond(500, ['message'=>'The image could not be saved on the server.']);
+    $respond(200, ['url'=>'uploads/articles/' . $filename]);
+}
 $notice = 'saved';
 $successNames = [];
 $bulkDetailsQuery = '';
@@ -161,7 +185,7 @@ try {
         $id = (int)($_POST['article_id'] ?? 0);
         $title = trim((string)($_POST['title'] ?? ''));
         $excerpt = trim((string)($_POST['excerpt'] ?? ''));
-        $body = trim((string)($_POST['body'] ?? ''));
+        $body = sanitize_rich_content(trim((string)($_POST['body'] ?? '')));
         $categoryId = (int)($_POST['category_id'] ?? 0);
         $subcategoryId = (int)($_POST['subcategory_id'] ?? 0);
         $status = (string)($_POST['status'] ?? 'draft');
