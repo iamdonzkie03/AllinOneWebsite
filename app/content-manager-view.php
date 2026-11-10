@@ -82,7 +82,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-modal{width:min(100%,460px);max-height:calc(100vh - 40px);overflow-y:auto;padding:22px;border:1px solid rgba(191,89,112,.42);border-radius:16px;background:#170f14;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .content-manager-modal .content-manager-section-head{margin-bottom:18px}
 .content-manager-modal-actions{justify-content:flex-end;margin-top:8px}
-.content-manager-table-tools{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
+.content-manager-row-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.content-manager-action{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}.content-manager-action:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);transform:translateY(-1px)}.content-manager-action--delete{border-color:rgba(210,83,99,.32);background:rgba(139,31,48,.12);color:#eaa0aa}.content-manager-action--delete:hover{background:rgba(159,35,54,.25);border-color:rgba(226,105,119,.65)}.content-manager-action--protected{font-size:10px;color:#aa969d}.content-manager-bulk-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}.content-manager-bulk-toolbar .muted{font-size:11px}.content-manager-select-cell{width:38px;text-align:center!important}.content-manager-select-cell input{accent-color:#a83d59;width:14px;height:14px;cursor:pointer}.content-manager-delete-selected{border:1px solid rgba(210,83,99,.42);border-radius:999px;background:rgba(139,31,48,.18);color:#f0b2bb;padding:8px 15px;font:600 11px Ubuntu,sans-serif;cursor:pointer}.content-manager-delete-selected:disabled{opacity:.4;cursor:not-allowed}.content-manager-table-tools{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
 .content-manager-filter,.content-manager-page-size{display:flex;align-items:center;gap:8px;color:#d9cbd0;font-size:11px}
 .content-manager-filter{flex:1;max-width:360px}.content-manager-filter .field{min-width:180px}
 .content-manager-page-size .field{width:76px;padding:7px}
@@ -128,10 +128,12 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         </form>
       </section><?php endif; ?>
       <div class="content-manager-table-tools"><label class="content-manager-filter">Filter categories<input type="search" class="field" id="managed-category-filter" placeholder="Search category or description"></label><label class="content-manager-page-size">Show<select class="field" id="managed-category-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
-      <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-category-table"><thead><tr><th>Category</th><th>Description</th><th>Actions</th></tr></thead><tbody>
+      <form id="managed-category-bulk-delete" method="post" action="admin-content.php?session_context=admin" onsubmit="return confirm('Delete the selected categories and subcategories? Items in use or categories with subcategories cannot be deleted.');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_categories"></form>
+      <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-category-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="submit" form="managed-category-bulk-delete" id="managed-category-delete-selected" disabled>Delete Selected</button></div>
+      <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-category-table"><thead><tr><th class="content-manager-select-cell"><input type="checkbox" id="managed-category-select-all" aria-label="Select all visible categories"></th><th>Category</th><th>Description</th><th>Actions</th></tr></thead><tbody>
       <?php foreach($cmCategories as $cat): ?>
-        <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a><form method="post" action="admin-content.php?session_context=admin" style="display:inline" onsubmit="return confirm('Delete this category?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="item_id" value="<?=(int)$cat['id']?>"><button class="content-manager-action content-manager-action--delete" type="submit">Delete</button></form></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
-        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-subcat"><?=e($sub['name'])?> <span class="muted">— <?=e($sub['parent_name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a><form method="post" action="admin-content.php?session_context=admin" style="display:inline" onsubmit="return confirm('Delete this subcategory?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button class="content-manager-action content-manager-action--delete" type="submit">Delete</button></form></div></td></tr><?php endforeach; ?>
+        <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td class="content-manager-select-cell"><?php if($cat['slug']!=='uncategorized'): ?><input type="checkbox" class="managed-category-select" name="selected_items[]" value="category:<?=(int)$cat['id']?>" form="managed-category-bulk-delete" aria-label="Select category <?=e($cat['name'])?>"><?php endif; ?></td><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a><form method="post" action="admin-content.php?session_context=admin" style="display:inline" onsubmit="return confirm('Delete this category?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="item_id" value="<?=(int)$cat['id']?>"><button class="content-manager-action content-manager-action--delete" type="submit">Delete</button></form></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
+        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-category-select" name="selected_items[]" value="subcategory:<?=(int)$sub['id']?>" form="managed-category-bulk-delete" aria-label="Select subcategory <?=e($sub['name'])?>"></td><td class="content-manager-subcat"><?=e($sub['name'])?> <span class="muted">— <?=e($sub['parent_name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a><form method="post" action="admin-content.php?session_context=admin" style="display:inline" onsubmit="return confirm('Delete this subcategory?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button class="content-manager-action content-manager-action--delete" type="submit">Delete</button></form></div></td></tr><?php endforeach; ?>
       <?php endforeach; ?></tbody></table></div>
       <div class="content-manager-pagination"><span class="muted" id="managed-category-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-category-prev">Previous</button><span class="muted" id="managed-category-page"></span><button type="button" class="btn light" id="managed-category-next">Next</button></div></div>
     </section>
@@ -209,6 +211,25 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     const pageLabel = document.getElementById('managed-category-page');
     const previous = document.getElementById('managed-category-prev');
     const next = document.getElementById('managed-category-next');
+    const selectAll = document.getElementById('managed-category-select-all');
+    const deleteSelected = document.getElementById('managed-category-delete-selected');
+    const selectionLabel = document.getElementById('managed-category-selection');
+    const selections = [...categoryTable.querySelectorAll('.managed-category-select')];
+    const updateSelection = () => {
+      const checked = selections.filter(box => box.checked);
+      if (deleteSelected) deleteSelected.disabled = checked.length === 0;
+      if (selectionLabel) selectionLabel.textContent = checked.length + (checked.length === 1 ? ' item selected' : ' items selected');
+      if (selectAll) {
+        const visible = selections.filter(box => !box.closest('tr').hidden);
+        selectAll.checked = visible.length > 0 && visible.every(box => box.checked);
+        selectAll.indeterminate = visible.some(box => box.checked) && !selectAll.checked;
+      }
+    };
+    selections.forEach(box => box.addEventListener('change', updateSelection));
+    selectAll?.addEventListener('change', () => {
+      selections.filter(box => !box.closest('tr').hidden).forEach(box => { box.checked = selectAll.checked; });
+      updateSelection();
+    });
     let page = 1;
     const renderCategoryRows = () => {
       const query = (filter?.value || '').trim().toLocaleLowerCase();
@@ -224,6 +245,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       if (pageLabel) pageLabel.textContent = 'Page ' + page + ' of ' + pages;
       if (previous) previous.disabled = page <= 1;
       if (next) next.disabled = page >= pages;
+      updateSelection();
     };
     filter?.addEventListener('input', () => { page = 1; renderCategoryRows(); });
     pageSize?.addEventListener('change', () => { page = 1; renderCategoryRows(); });
