@@ -67,6 +67,10 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-subcat{padding-left:20px!important}.content-manager-subcat:before{content:"↳ ";color:#b85a70}.content-manager-notice{padding:11px 13px;border:1px solid rgba(184,50,63,.38);border-radius:9px;background:rgba(128,20,39,.13);color:#f1dce1;font-size:12px}
 .content-manager-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.content-manager-section-head h3{margin:0}.content-manager-section-head>.content-manager-actions{margin-left:auto;flex-wrap:nowrap}
 .content-manager-category-toolbar{justify-content:flex-end;align-items:center}
+.content-manager-modal-backdrop{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(7,3,6,.78);backdrop-filter:blur(5px)}
+.content-manager-modal{width:min(100%,460px);max-height:calc(100vh - 40px);overflow-y:auto;padding:22px;border:1px solid rgba(191,89,112,.42);border-radius:16px;background:#170f14;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.content-manager-modal .content-manager-section-head{margin-bottom:18px}
+.content-manager-modal-actions{justify-content:flex-end;margin-top:8px}
 .content-manager-table-tools{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
 .content-manager-filter,.content-manager-page-size{display:flex;align-items:center;gap:8px;color:#d9cbd0;font-size:11px}
 .content-manager-filter{flex:1;max-width:360px}.content-manager-filter .field{min-width:180px}
@@ -91,14 +95,17 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         <a class="btn light" href="<?=e($cmArticleModeUrl)?>">← Back to Articles</a>
       </div></div>
       <?php if ($cmAddCategory || $cmEditCategory): ?>
-      <section class="content-manager-card" style="margin-bottom:14px"><div class="content-manager-section-head"><h3><?= $cmEditCategory ? 'Edit Category' : 'Add Category' ?></h3><a href="<?=e($cmCategoryModeUrl)?>">Cancel</a></div>
-        <form class="content-manager-form" method="post" action="admin-content.php">
-          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_category"><input type="hidden" name="category_id" value="<?=(int)($cmEditCategory['id'] ?? 0)?>">
-          <label>Category name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($cmEditCategory['name'] ?? ''))?>" placeholder="Enter category name"></label>
-          <label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($cmEditCategory['description'] ?? ''))?></textarea></label>
-          <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditCategory ? 'Update Category' : 'Save Category' ?></button></div>
-        </form>
-      </section><?php endif; ?>
+      <div class="content-manager-modal-backdrop" id="managed-category-modal" role="presentation">
+        <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-modal-title">
+          <div class="content-manager-section-head"><h3 id="managed-category-modal-title"><?= $cmEditCategory ? 'Edit Category' : 'Add Category' ?></h3></div>
+          <form class="content-manager-form" method="post" action="admin-content.php">
+            <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_category"><input type="hidden" name="category_id" value="<?=(int)($cmEditCategory['id'] ?? 0)?>">
+            <label>Category name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($cmEditCategory['name'] ?? ''))?>" placeholder="Enter category name"></label>
+            <label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($cmEditCategory['description'] ?? ''))?></textarea></label>
+            <div class="content-manager-actions content-manager-modal-actions"><a class="btn light" href="<?=e($cmCategoryModeUrl)?>">Cancel</a><button class="btn" type="submit"><?= $cmEditCategory ? 'Update Category' : 'Save Category' ?></button></div>
+          </form>
+        </section>
+      </div><?php endif; ?>
       <?php if ($cmAddSubcategory || $cmEditSubcategory): ?>
       <section class="content-manager-card" style="margin-bottom:14px"><div class="content-manager-section-head"><h3><?= $cmEditSubcategory ? 'Edit Subcategory' : 'Add Subcategory' ?></h3><a href="<?=e($cmCategoryModeUrl)?>">Cancel</a></div>
         <form class="content-manager-form" method="post" action="admin-content.php">
