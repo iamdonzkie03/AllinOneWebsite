@@ -27,12 +27,14 @@ if ($action === 'upload_article_image') {
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file((string)$upload['tmp_name']);
     $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'];
-    if (!$imageInfo || !isset($extensions[$mime])) $respond(415, ['message'=>'Use a JPG, PNG, GIF or WebP image.']);
+    if (!$imageInfo || !isset($extensions[$mime]) || (int)$imageInfo[0] > 8000 || (int)$imageInfo[1] > 8000) $respond(415, ['message'=>'Use a JPG, PNG, GIF or WebP image with dimensions no larger than 8000 × 8000 pixels.']);
     $directory = __DIR__ . '/uploads/articles';
     if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) $respond(500, ['message'=>'The article image folder could not be created.']);
     $filename = bin2hex(random_bytes(18)) . '.' . $extensions[$mime];
     if (!move_uploaded_file((string)$upload['tmp_name'], $directory . '/' . $filename)) $respond(500, ['message'=>'The image could not be saved on the server.']);
-    $respond(200, ['url'=>'uploads/articles/' . $filename]);
+    $appBasePath = dirname(dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/public/admin-content.php')));
+    $appBasePath = $appBasePath === DIRECTORY_SEPARATOR || $appBasePath === '.' ? '' : rtrim(str_replace('\\', '/', $appBasePath), '/');
+    $respond(200, ['url'=>$appBasePath . '/public/uploads/articles/' . $filename]);
 }
 $notice = 'saved';
 $successNames = [];
