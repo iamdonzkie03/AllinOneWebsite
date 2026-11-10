@@ -82,25 +82,49 @@ try {
             $items[$match[1] . ':' . (int)$match[2]] = [$match[1], (int)$match[2]];
         }
         if (!$items) throw new RuntimeException('nothing_selected');
-        usort($items, static fn(array $a, array $b): int => ($a[0] === 'subcategory' ? 0 : 1) <=> ($b[0] === 'subcategory' ? 0 : 1));
+
         $pdo->beginTransaction();
         try {
+            $find = $pdo->prepare('SELECT id,slug,parent_id FROM categories WHERE id=?');
+            $deleteArticlesByCategory = $pdo->prepare("DELETE FROM content WHERE category_id=? AND content_type='article'");
+            $deleteArticlesBySubcategory = $pdo->prepare("DELETE FROM content WHERE subcategory_id=? AND content_type='article'");
+            $findChildren = $pdo->prepare('SELECT id FROM categories WHERE parent_id=?');
+            $deleteCategory = $pdo->prepare('DELETE FROM categories WHERE id=?');
+
+            // Delete explicitly selected subcategories first. If a parent category
+            // is also selected, its cascade below will remove any remaining children.
             foreach ($items as [$kind, $id]) {
-                $find = $pdo->prepare('SELECT id,slug,parent_id FROM categories WHERE id=?');
+                if ($kind !== 'subcategory') continue;
                 $find->execute([$id]);
                 $category = $find->fetch();
-                $isSubcategory = $kind === 'subcategory';
-                if (!$category || ($isSubcategory ? $category['parent_id'] === null : $category['parent_id'] !== null) || $category['slug'] === 'uncategorized') {
+                if (!$category || $category['parent_id'] === null || $category['slug'] === 'uncategorized') {
                     throw new RuntimeException('category_locked');
                 }
-                $children = $pdo->prepare('SELECT COUNT(*) FROM categories WHERE parent_id=?');
-                $children->execute([$id]);
-                $usage = $pdo->prepare($isSubcategory ? 'SELECT COUNT(*) FROM content WHERE subcategory_id=?' : 'SELECT COUNT(*) FROM content WHERE category_id=?');
-                $usage->execute([$id]);
-                if ((int)$children->fetchColumn() > 0 || (int)$usage->fetchColumn() > 0) throw new RuntimeException('category_in_use');
-                $delete = $pdo->prepare('DELETE FROM categories WHERE id=?');
-                $delete->execute([$id]);
+                $deleteArticlesBySubcategory->execute([$id]);
+                $deleteCategory->execute([$id]);
             }
+
+            foreach ($items as [$kind, $id]) {
+                if ($kind !== 'category') continue;
+                $find->execute([$id]);
+                $category = $find->fetch();
+                if (!$category || $category['parent_id'] !== null || $category['slug'] === 'uncategorized') {
+                    throw new RuntimeException('category_locked');
+                }
+
+                // Articles are assigned to the parent category even when they
+                // also have a subcategory, so this removes all articles in it.
+                $deleteArticlesByCategory->execute([$id]);
+
+                $findChildren->execute([$id]);
+                $childIds = array_map('intval', $findChildren->fetchAll(PDO::FETCH_COLUMN));
+                foreach ($childIds as $childId) {
+                    $deleteArticlesBySubcategory->execute([$childId]);
+                    $deleteCategory->execute([$childId]);
+                }
+                $deleteCategory->execute([$id]);
+            }
+
             $pdo->commit();
             $notice = 'categories_bulk_deleted';
         } catch (Throwable $e) {
