@@ -163,5 +163,26 @@ hr{border:0;border-top:1px solid var(--line)}
 .story-img{position:relative;overflow:hidden}
 .story-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 
-/* Public article-card story link */
-.story-read-link{color:#e12b4d!important;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:.02em;white-space:nowrap}.story-read-link:hover{color:#ff6078!important;text-decoration:underline}
+/* Public article-card story link: high-specificity styling overrides inherited card/footer link rules. */
+.story .story-body .story-foot .story-actions a.story-read-link,
+.story .story-body .story-foot a.story-read-link,
+a.story-read-link{
+  color:#ff304f !important;
+  -webkit-text-fill-color:#ff304f !important;
+  font-weight:900 !important;
+  text-decoration:none !important;
+  text-shadow:0 0 10px rgba(255,48,79,.16);
+  font-size:12px;
+  letter-spacing:.02em;
+  white-space:nowrap;
+}
+.story .story-body .story-foot .story-actions a.story-read-link:hover,
+.story .story-body .story-foot a.story-read-link:hover,
+a.story-read-link:hover,
+a.story-read-link:focus-visible{
+  color:#ff7187 !important;
+  -webkit-text-fill-color:#ff7187 !important;
+  font-weight:900 !important;
+  text-decoration:underline !important;
+  text-underline-offset:3px;
+}
