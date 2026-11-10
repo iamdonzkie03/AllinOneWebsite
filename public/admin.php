@@ -675,7 +675,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </section>
     <style>.category-form-card{padding:17px;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.018)}.category-form-card h3{margin:0 0 12px;color:#f4e9ec;font:600 14px Ubuntu,sans-serif}.category-form{display:grid;gap:10px}.category-form label{display:grid;gap:6px;color:#d9cbd0;font-size:11px}.category-form .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.category-link-button{border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit}</style>
     <script>(()=>{const c=document.getElementById('cl-category-form'),s=document.getElementById('cl-subcategory-form');document.getElementById('cl-add-category')?.addEventListener('click',()=>{c.hidden=!c.hidden;s.hidden=true;c.querySelector('input[name="name"]')?.focus()});document.getElementById('cl-add-subcategory')?.addEventListener('click',()=>{s.hidden=!s.hidden;c.hidden=true;s.querySelector('select[name="parent_id"]')?.focus()})})();</script>
-  <?php elseif($section==='page-management'): ?
+  <?php elseif($section==='page-management'): ?>
     <style>
       .page-management-tabs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:20px 0 0;padding:0 0 12px;border-bottom:1px solid var(--line)}
       .page-management-tabs button{appearance:none;border:1px solid transparent;border-radius:10px;padding:10px 17px;background:transparent;color:#c8bec1;font:500 13px 'Ubuntu',sans-serif;cursor:pointer;transition:background .2s,border-color .2s,color .2s,box-shadow .2s}
