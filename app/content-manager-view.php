@@ -1,4 +1,7 @@
 <?php
+// Load the rich-content sanitizer for article editing in the Admin Content Manager.
+require_once __DIR__ . '/rich-content.php';
+
 // Included by public/admin.php inside the Page Management → Contents panel.
 // Keep this view self-healing for older Laragon databases, even when the
 // shared bootstrap migration has not yet been applied to the local copy.
