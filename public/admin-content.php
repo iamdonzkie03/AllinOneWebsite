@@ -39,6 +39,40 @@ if ($action === 'upload_article_image') {
 $notice = 'saved';
 $successNames = [];
 $bulkDetailsQuery = '';
+
+/**
+ * Return only server-managed article image filenames referenced by rich HTML.
+ * The editor and sanitizer restrict these to /public/uploads/articles/.
+ */
+$articleUploadFiles = static function(string $html): array {
+    if (!preg_match_all('/<img\\b[^>]*\\bsrc\\s*=\\s*(["\\\'])(.*?)\\1/is', $html, $matches)) return [];
+    $files = [];
+    foreach ($matches[2] as $src) {
+        $path = (string)(parse_url(html_entity_decode((string)$src, ENT_QUOTES | ENT_HTML5, 'UTF-8'), PHP_URL_PATH) ?? '');
+        if (preg_match('~(?:^|/)public/uploads/articles/([A-Za-z0-9._-]+)$~', $path, $match)) {
+            $filename = basename($match[1]);
+            if ($filename !== '' && $filename !== '.' && $filename !== '..') $files[$filename] = true;
+        }
+    }
+    return $files;
+};
+
+/**
+ * Remove old article images only after a successful edit and only when no
+ * other content record still references the same uploaded file.
+ */
+$deleteOrphanedArticleImages = static function(array $oldFiles, array $newFiles, int $articleId) use ($pdo): void {
+    $directory = __DIR__ . '/uploads/articles';
+    if (!is_dir($directory)) return;
+    $stillReferenced = $pdo->prepare('SELECT COUNT(*) FROM content WHERE id<>? AND body LIKE ?');
+    foreach (array_keys($oldFiles) as $filename) {
+        if (isset($newFiles[$filename])) continue;
+        $stillReferenced->execute([$articleId, '%' . $filename . '%']);
+        if ((int)$stillReferenced->fetchColumn() > 0) continue;
+        $path = $directory . DIRECTORY_SEPARATOR . $filename;
+        if (is_file($path) && !is_link($path)) @unlink($path);
+    }
+};
 $slugify = static function(string $value): string {
     $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($value)), '-');
     return substr($slug !== '' ? $slug : 'content', 0, 120) . '-' . bin2hex(random_bytes(3));
@@ -204,11 +238,17 @@ try {
         }
         $slug = $slugify($title);
         if ($id > 0) {
-            $exists = $pdo->prepare("SELECT id FROM content WHERE id=? AND content_type='article'");
+            $exists = $pdo->prepare("SELECT body FROM content WHERE id=? AND content_type='article'");
             $exists->execute([$id]);
-            if (!$exists->fetch()) throw new RuntimeException('article_missing');
+            $previousArticle = $exists->fetch(PDO::FETCH_ASSOC);
+            if (!$previousArticle) throw new RuntimeException('article_missing');
+            $previousImageFiles = $articleUploadFiles((string)($previousArticle['body'] ?? ''));
+            $currentImageFiles = $articleUploadFiles($body);
             $save = $pdo->prepare("UPDATE content SET category_id=?,subcategory_id=?,title=?,slug=?,excerpt=?,body=?,status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
             $save->execute([$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$body,$status,$status,$id]);
+            // Wait until the database update succeeds before removing files.
+            // A shared image is retained while any other content still uses it.
+            $deleteOrphanedArticleImages($previousImageFiles, $currentImageFiles, $id);
             $notice = 'article_updated';
         } else {
             $save = $pdo->prepare("INSERT INTO content (owner_id,category_id,subcategory_id,content_type,title,slug,excerpt,body,status,published_at) VALUES (?,?,?,'article',?,?,?,?,?,IF(?='published',NOW(),NULL))");
