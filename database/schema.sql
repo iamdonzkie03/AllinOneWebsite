@@ -28,7 +28,10 @@ CREATE TABLE categories (
   name VARCHAR(120) NOT NULL UNIQUE,
   slug VARCHAR(140) NOT NULL UNIQUE,
   description VARCHAR(255) NULL,
-  is_active TINYINT(1) NOT NULL DEFAULT 1
+  parent_id BIGINT UNSIGNED NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL,
+  INDEX idx_categories_parent (parent_id)
 ) ENGINE=InnoDB;
 
 INSERT INTO categories(name, slug, description) VALUES
@@ -36,12 +39,14 @@ INSERT INTO categories(name, slug, description) VALUES
 ('News Connect','news-connect','Community updates, civic stories and current affairs'),
 ('Marketplace','marketplace','Products, makers, services and listings'),
 ('Entertainment & Politics','entertainment-politics','Entertainment, public figures, political discussion and analysis'),
-('History & Culture','history-culture','Zamboanga heritage, Chavacano identity and living traditions');
+('History & Culture','history-culture','Zamboanga heritage, Chavacano identity and living traditions'),
+('Uncategorized','uncategorized','Articles that have not been assigned to a specific category.');
 
 CREATE TABLE content (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   owner_id BIGINT UNSIGNED NOT NULL,
   category_id BIGINT UNSIGNED NOT NULL,
+  subcategory_id BIGINT UNSIGNED NULL,
   content_type ENUM('article','product','property','video','news') NOT NULL DEFAULT 'article',
   title VARCHAR(220) NOT NULL,
   slug VARCHAR(240) NOT NULL,
@@ -56,6 +61,8 @@ CREATE TABLE content (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_content_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_content_category FOREIGN KEY (category_id) REFERENCES categories(id),
+  CONSTRAINT fk_content_subcategory FOREIGN KEY (subcategory_id) REFERENCES categories(id) ON DELETE SET NULL,
+  INDEX idx_content_subcategory (subcategory_id),
   INDEX idx_content_public (status, published_at),
   INDEX idx_content_owner (owner_id, status),
   FULLTEXT INDEX ft_content_search (title, excerpt, body)
