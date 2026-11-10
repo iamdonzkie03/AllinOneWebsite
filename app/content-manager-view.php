@@ -94,7 +94,16 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 @media(max-width:760px){.content-manager-grid{grid-template-columns:1fr}.content-manager-article-grid{grid-template-columns:1fr}.content-manager-article-grid .full{grid-column:auto}.content-manager-section-head{align-items:flex-start;flex-direction:column}}
 </style>
 <div class="content-manager">
-  <?php if ($cmNotice !== ''): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
+  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_deleted','categories_bulk_deleted'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
+  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_deleted','categories_bulk_deleted'], true)): ?>
+  <div class="content-manager-modal-backdrop" id="managed-category-success-modal" role="presentation">
+    <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-success-title">
+      <div class="content-manager-section-head"><h3 id="managed-category-success-title"><?=($_GET['notice'] ?? '') === 'category_created' ? 'Category Successfully Created' : 'Category Successfully Deleted'?></h3></div>
+      <p style="margin:0;color:#e9dce1;font-size:12px;line-height:1.65"><?=($_GET['notice'] ?? '') === 'category_created' ? 'The category has been successfully created.' : 'The selected category/ies and their related content have been successfully deleted.'?></p>
+      <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">OK</a></div>
+    </section>
+  </div>
+  <?php endif; ?>
 
   <div class="content-manager-grid">
     <?php if ($cmShowCategories): ?>
