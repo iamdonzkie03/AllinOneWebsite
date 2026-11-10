@@ -188,6 +188,7 @@ try {
             $save = $pdo->prepare("INSERT INTO content (owner_id,category_id,subcategory_id,content_type,title,slug,excerpt,body,status,published_at) VALUES (?,?,?,'article',?,?,?,?,?,IF(?='published',NOW(),NULL))");
             $save->execute([(int)$admin['id'],$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$body,$status,$status]);
             $notice = 'article_created';
+            $successNames[] = $title;
         }
     } elseif ($action === 'delete_article') {
         $id = (int)($_POST['item_id'] ?? 0);
@@ -211,5 +212,5 @@ $redirect = $returnToCategoryList
     : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
 $successNames = array_values(array_unique(array_filter(array_map('trim', $successNames))));
 $successNameQuery = $successNames ? '&names=' . rawurlencode(implode(', ', $successNames)) : '';
-header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery . $bulkDetailsQuery : '') . '#pm-panel-contents', true, 303);
+header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery . $bulkDetailsQuery : ($action === 'save_article' ? $successNameQuery : '')) . '#pm-panel-contents', true, 303);
 exit;
