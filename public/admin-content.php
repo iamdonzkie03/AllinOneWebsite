@@ -4,6 +4,10 @@ require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/rich-content.php';
 $admin = require_admin();
 
+$coverColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='content' AND COLUMN_NAME='cover_photo'");
+$coverColumnCheck->execute();
+if (!(int)$coverColumnCheck->fetchColumn()) $pdo->exec('ALTER TABLE content ADD COLUMN cover_photo VARCHAR(255) NULL AFTER excerpt');
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     header('Location: admin.php?session_context=admin&section=page-management&tab=contents#pm-panel-contents');
     exit;
@@ -39,6 +43,35 @@ if ($action === 'upload_article_image') {
 $notice = 'saved';
 $successNames = [];
 $bulkDetailsQuery = '';
+$newCoverFilePath = null;
+
+$storeArticleCoverPhoto = static function(array $upload) use (&$newCoverFilePath): string {
+    if ((int)($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) throw new RuntimeException('cover_photo_upload_failed');
+    if ((int)($upload['size'] ?? 0) < 1 || (int)$upload['size'] > 8 * 1024 * 1024) throw new RuntimeException('cover_photo_too_large');
+    if (!is_uploaded_file((string)($upload['tmp_name'] ?? ''))) throw new RuntimeException('cover_photo_invalid');
+    $imageInfo = @getimagesize((string)$upload['tmp_name']);
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file((string)$upload['tmp_name']);
+    $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'];
+    if (!$imageInfo || !isset($extensions[$mime]) || (int)$imageInfo[0] > 8000 || (int)$imageInfo[1] > 8000) throw new RuntimeException('cover_photo_invalid');
+    $directory = __DIR__ . '/uploads/articles/cover_photos';
+    if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) throw new RuntimeException('cover_photo_folder_failed');
+    $filename = bin2hex(random_bytes(18)) . '.' . $extensions[$mime];
+    $destination = $directory . DIRECTORY_SEPARATOR . $filename;
+    if (!move_uploaded_file((string)$upload['tmp_name'], $destination)) throw new RuntimeException('cover_photo_upload_failed');
+    $newCoverFilePath = $destination;
+    return $filename;
+};
+
+$deleteOrphanedCoverPhoto = static function(?string $filename, int $excludeArticleId = 0) use ($pdo): void {
+    $filename = trim((string)$filename);
+    if ($filename === '' || !preg_match('/^[A-Za-z0-9._-]+$/', $filename) || $filename === '.' || $filename === '..') return;
+    $check = $pdo->prepare('SELECT COUNT(*) FROM content WHERE id<>? AND cover_photo=?');
+    $check->execute([$excludeArticleId, $filename]);
+    if ((int)$check->fetchColumn() > 0) return;
+    $path = __DIR__ . '/uploads/articles/cover_photos/' . $filename;
+    if (is_file($path) && !is_link($path)) @unlink($path);
+};
 
 /**
  * Return only server-managed article image filenames referenced by rich HTML.
@@ -239,23 +272,36 @@ try {
             $subcategoryValue = $subcategoryId;
         }
         $slug = $slugify($title);
+        $previousCoverPhoto = null;
         if ($id > 0) {
-            $exists = $pdo->prepare("SELECT body FROM content WHERE id=? AND content_type='article'");
+            $exists = $pdo->prepare("SELECT body,cover_photo FROM content WHERE id=? AND content_type='article'");
             $exists->execute([$id]);
             $previousArticle = $exists->fetch(PDO::FETCH_ASSOC);
             if (!$previousArticle) throw new RuntimeException('article_missing');
+            $previousCoverPhoto = (string)($previousArticle['cover_photo'] ?? '');
             $previousImageFiles = $articleUploadFiles((string)($previousArticle['body'] ?? ''));
             $currentImageFiles = $articleUploadFiles($body);
-            $save = $pdo->prepare("UPDATE content SET category_id=?,subcategory_id=?,title=?,slug=?,excerpt=?,body=?,status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
-            $save->execute([$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$body,$status,$status,$id]);
-            // Wait until the database update succeeds before removing files.
-            // A shared image is retained while any other content still uses it.
+        } else {
+            $previousImageFiles = [];
+            $currentImageFiles = $articleUploadFiles($body);
+        }
+        $coverPhoto = $previousCoverPhoto;
+        if (filter_var($_POST['remove_cover_photo'] ?? false, FILTER_VALIDATE_BOOLEAN)) $coverPhoto = null;
+        if (isset($_FILES['cover_photo']) && is_array($_FILES['cover_photo']) && (int)($_FILES['cover_photo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $coverPhoto = $storeArticleCoverPhoto($_FILES['cover_photo']);
+        }
+        if ($id > 0) {
+            $save = $pdo->prepare("UPDATE content SET category_id=?,subcategory_id=?,title=?,slug=?,excerpt=?,cover_photo=?,body=?,status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
+            $save->execute([$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$coverPhoto,$body,$status,$status,$id]);
             $deleteOrphanedArticleImages($previousImageFiles, $currentImageFiles, $id);
+            if ($previousCoverPhoto !== (string)($coverPhoto ?? '')) $deleteOrphanedCoverPhoto($previousCoverPhoto, $id);
+            $newCoverFilePath = null;
             $successNames[] = $title;
             $notice = 'article_updated';
         } else {
-            $save = $pdo->prepare("INSERT INTO content (owner_id,category_id,subcategory_id,content_type,title,slug,excerpt,body,status,published_at) VALUES (?,?,?,'article',?,?,?,?,?,IF(?='published',NOW(),NULL))");
-            $save->execute([(int)$admin['id'],$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$body,$status,$status]);
+            $save = $pdo->prepare("INSERT INTO content (owner_id,category_id,subcategory_id,content_type,title,slug,excerpt,cover_photo,body,status,published_at) VALUES (?,?,?,'article',?,?,?,?,?,?,IF(?='published',NOW(),NULL))");
+            $save->execute([(int)$admin['id'],$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$coverPhoto,$body,$status,$status]);
+            $newCoverFilePath = null;
             $notice = 'article_created';
             $successNames[] = $title;
         }
@@ -267,15 +313,17 @@ try {
         }, $selected), static fn($id) => $id > 0)));
         if (!$ids) throw new RuntimeException('nothing_selected');
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $find = $pdo->prepare("SELECT id,title,body FROM content WHERE content_type='article' AND id IN ($placeholders) ORDER BY title");
+        $find = $pdo->prepare("SELECT id,title,body,cover_photo FROM content WHERE content_type='article' AND id IN ($placeholders) ORDER BY title");
         $find->execute($ids);
         $found = $find->fetchAll(PDO::FETCH_ASSOC);
         if (!$found) throw new RuntimeException('article_missing');
         $filesToClean = [];
+        $coverPhotosToClean = [];
         foreach ($found as $articleRow) {
             foreach (array_keys($articleUploadFiles((string)($articleRow['body'] ?? ''))) as $filename) {
                 $filesToClean[$filename] = true;
             }
+            if (!empty($articleRow['cover_photo'])) $coverPhotosToClean[(string)$articleRow['cover_photo']] = true;
         }
         $pdo->beginTransaction();
         try {
@@ -296,6 +344,7 @@ try {
             $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
             if (is_file($filePath) && !is_link($filePath)) @unlink($filePath);
         }
+        foreach (array_keys($coverPhotosToClean) as $coverFilename) $deleteOrphanedCoverPhoto($coverFilename);
         foreach ($found as $articleRow) $successNames[] = (string)$articleRow['title'];
         $notice = 'articles_bulk_deleted';
     } elseif ($action === 'toggle_article_status') {
@@ -310,11 +359,13 @@ try {
         $notice = 'article_status_updated';
     } elseif ($action === 'delete_article') {
         $id = (int)($_POST['item_id'] ?? 0);
-        $find = $pdo->prepare("SELECT body FROM content WHERE id=? AND content_type='article'");
+        $find = $pdo->prepare("SELECT body,cover_photo FROM content WHERE id=? AND content_type='article'");
         $find->execute([$id]);
-        $articleBody = $find->fetchColumn();
-        if ($articleBody === false) throw new RuntimeException('article_missing');
-        $filesToClean = array_keys($articleUploadFiles((string)$articleBody));
+        $articleRow = $find->fetch(PDO::FETCH_ASSOC);
+        if (!$articleRow) throw new RuntimeException('article_missing');
+        $articleBody = (string)($articleRow['body'] ?? '');
+        $articleCoverPhoto = (string)($articleRow['cover_photo'] ?? '');
+        $filesToClean = array_keys($articleUploadFiles($articleBody));
         $delete = $pdo->prepare("DELETE FROM content WHERE id=? AND content_type='article'");
         $delete->execute([$id]);
         if (!$delete->rowCount()) throw new RuntimeException('article_missing');
@@ -326,14 +377,17 @@ try {
             $filePath = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
             if (is_file($filePath) && !is_link($filePath)) @unlink($filePath);
         }
+        $deleteOrphanedCoverPhoto($articleCoverPhoto);
         $notice = 'article_deleted';
     } else {
         throw new RuntimeException('unknown_action');
     }
 } catch (PDOException $e) {
+    if ($newCoverFilePath && is_file($newCoverFilePath) && !is_link($newCoverFilePath)) @unlink($newCoverFilePath);
     error_log('Content manager database error: ' . $e->getMessage());
     $notice = 'duplicate_or_database_error';
 } catch (RuntimeException $e) {
+    if ($newCoverFilePath && is_file($newCoverFilePath) && !is_link($newCoverFilePath)) @unlink($newCoverFilePath);
     $notice = $e->getMessage();
 }
 
