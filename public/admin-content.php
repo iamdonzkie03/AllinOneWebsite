@@ -249,6 +249,7 @@ try {
             // Wait until the database update succeeds before removing files.
             // A shared image is retained while any other content still uses it.
             $deleteOrphanedArticleImages($previousImageFiles, $currentImageFiles, $id);
+            $successNames[] = $title;
             $notice = 'article_updated';
         } else {
             $save = $pdo->prepare("INSERT INTO content (owner_id,category_id,subcategory_id,content_type,title,slug,excerpt,body,status,published_at) VALUES (?,?,?,'article',?,?,?,?,?,IF(?='published',NOW(),NULL))");
