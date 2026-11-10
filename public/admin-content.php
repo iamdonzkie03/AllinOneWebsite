@@ -11,6 +11,7 @@ verify_csrf();
 
 $action = (string)($_POST['action'] ?? '');
 $notice = 'saved';
+$successNames = [];
 $slugify = static function(string $value): string {
     $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($value)), '-');
     return substr($slug !== '' ? $slug : 'content', 0, 120) . '-' . bin2hex(random_bytes(3));
@@ -34,6 +35,7 @@ try {
             $save = $pdo->prepare('INSERT INTO categories (name,slug,description,is_active,parent_id) VALUES (?,?,?,1,NULL)');
             $save->execute([$name, $slugify($name), mb_substr($description, 0, 255)]);
             $notice = 'category_created';
+            $successNames[] = $name;
         }
     } elseif ($action === 'save_subcategory') {
         $id = (int)($_POST['subcategory_id'] ?? 0);
@@ -59,7 +61,7 @@ try {
     } elseif ($action === 'delete_category' || $action === 'delete_subcategory') {
         $id = (int)($_POST['item_id'] ?? 0);
         $isSubcategory = $action === 'delete_subcategory';
-        $find = $pdo->prepare('SELECT id,slug,parent_id FROM categories WHERE id=?');
+        $find = $pdo->prepare('SELECT id,name,slug,parent_id FROM categories WHERE id=?');
         $find->execute([$id]);
         $category = $find->fetch();
         if (!$category || ($isSubcategory ? $category['parent_id'] === null : $category['parent_id'] !== null) || $category['slug'] === 'uncategorized') {
@@ -70,6 +72,7 @@ try {
         $usage = $pdo->prepare($isSubcategory ? 'SELECT COUNT(*) FROM content WHERE subcategory_id=?' : 'SELECT COUNT(*) FROM content WHERE category_id=?');
         $usage->execute([$id]);
         if ((int)$children->fetchColumn() > 0 || (int)$usage->fetchColumn() > 0) throw new RuntimeException('category_in_use');
+        $successNames[] = (string)$category['name'];
         $delete = $pdo->prepare('DELETE FROM categories WHERE id=?');
         $delete->execute([$id]);
         $notice = $isSubcategory ? 'subcategory_deleted' : 'category_deleted';
@@ -85,7 +88,7 @@ try {
 
         $pdo->beginTransaction();
         try {
-            $find = $pdo->prepare('SELECT id,slug,parent_id FROM categories WHERE id=?');
+            $find = $pdo->prepare('SELECT id,name,slug,parent_id FROM categories WHERE id=?');
             $deleteArticlesByCategory = $pdo->prepare("DELETE FROM content WHERE category_id=? AND content_type='article'");
             $deleteArticlesBySubcategory = $pdo->prepare("DELETE FROM content WHERE subcategory_id=? AND content_type='article'");
             $findChildren = $pdo->prepare('SELECT id FROM categories WHERE parent_id=?');
@@ -100,6 +103,7 @@ try {
                 if (!$category || $category['parent_id'] === null || $category['slug'] === 'uncategorized') {
                     throw new RuntimeException('category_locked');
                 }
+                $successNames[] = (string)$category['name'];
                 $deleteArticlesBySubcategory->execute([$id]);
                 $deleteCategory->execute([$id]);
             }
@@ -112,6 +116,7 @@ try {
                     throw new RuntimeException('category_locked');
                 }
 
+                $successNames[] = (string)$category['name'];
                 // Articles are assigned to the parent category even when they
                 // also have a subcategory, so this removes all articles in it.
                 $deleteArticlesByCategory->execute([$id]);
@@ -183,5 +188,7 @@ $returnToCategoryList = in_array($action, ['save_category','save_subcategory','d
 $redirect = $returnToCategoryList
     ? 'admin.php?session_context=admin&section=page-management&tab=contents&view=categories&notice='
     : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
-header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? '#pm-panel-contents' : '#pm-panel-contents'), true, 303);
+$successNames = array_values(array_unique(array_filter(array_map('trim', $successNames))));
+$successNameQuery = $successNames ? '&names=' . rawurlencode(implode(', ', $successNames)) : '';
+header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery : '') . '#pm-panel-contents', true, 303);
 exit;
