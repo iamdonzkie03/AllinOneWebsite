@@ -46,7 +46,7 @@ $bulkDetailsQuery = '';
  */
 $articleUploadFiles = static function(string $html): array {
     // Capture uploaded files used as image/media sources or direct file links.
-    $attributePattern = "~\\b(?:src|href)\\s*=\\s*([\\"'])(.*?)\\1~is";
+    $attributePattern = '~\b(?:src|href)\s*=\s*(["\'])(.*?)\1~is';
     if (!preg_match_all($attributePattern, $html, $matches)) return [];
     $files = [];
     foreach ($matches[2] as $src) {
