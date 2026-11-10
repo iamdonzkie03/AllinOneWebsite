@@ -4,7 +4,7 @@ require __DIR__ . '/../app/bootstrap.php';
 $admin = require_admin();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    header('Location: admin.php?section=page-management&tab=contents#pm-panel-contents');
+    header('Location: admin.php?session_context=admin&section=page-management&tab=contents#pm-panel-contents');
     exit;
 }
 verify_csrf();
@@ -123,7 +123,7 @@ try {
 
 $returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory'], true);
 $redirect = $returnToCategoryList
-    ? 'admin.php?section=page-management&tab=contents&view=categories&notice='
-    : 'admin.php?section=page-management&tab=contents&notice=';
+    ? 'admin.php?session_context=admin&section=page-management&tab=contents&view=categories&notice='
+    : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
 header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? '#pm-panel-contents' : '#pm-panel-contents'), true, 303);
 exit;
