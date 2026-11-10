@@ -50,7 +50,7 @@ $cmNotice = $cmNotices[(string)($_GET['notice'] ?? '')] ?? '';
 $cmEditUrl = 'admin.php?section=page-management&tab=contents';
 ?>
 <style>
-.content-manager{display:grid;gap:20px}.content-manager-intro{margin:0 0 4px;color:var(--muted);font-size:12px;line-height:1.6}
+.content-manager{display:grid;gap:16px}.content-manager-page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 0 2px}.content-manager-page-head h3{margin:0;color:#f4e9ec;font:600 15px Ubuntu,sans-serif}
 .content-manager-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 .content-manager-card{min-width:0;padding:17px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.018)}
 .content-manager-card h3{margin:0 0 12px;color:#f4e9ec;font:600 14px Ubuntu,sans-serif}
@@ -67,8 +67,19 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
 <div class="content-manager">
   <?php if ($cmNotice !== ''): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
 
+  <div class="content-manager-page-head">
+    <h3>Articles</h3>
+    <button type="button" class="btn" id="managed-create-category-toggle" aria-controls="managed-category-form-panel" aria-expanded="<?= $cmEditCategory ? "true" : "false" ?>">+ Create Category</button>
+  </div>
   <div class="content-manager-grid">
-    <section class="content-manager-card">
+    <section class="content-manager-card content-manager-editor">
+      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span></div>
+      <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Article</th><th>Category</th><th>Status</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead><tbody>
+      <?php foreach($cmArticles as $article): ?><tr><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><?=e(str_replace('_',' ',$article['status']))?></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><a href="admin.php?section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this article permanently?');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_article"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
+      <?php if(!$cmArticles): ?><tr><td colspan="6" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
+      </tbody></table></div>
+    </section>
+    <section class="content-manager-card" id="managed-category-form-panel"<?= $cmEditCategory ? "" : " hidden" ?>>
       <div class="content-manager-section-head"><h3><?= $cmEditCategory ? 'Edit Category' : 'Create Category' ?></h3><?php if($cmEditCategory): ?><a href="<?=e($cmEditUrl)?>">Cancel edit</a><?php endif; ?></div>
       <form class="content-manager-form" method="post" action="admin-content.php">
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_category">
@@ -120,17 +131,20 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
       </tbody></table></div>
     </section>
 
-    <section class="content-manager-card content-manager-editor">
-      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span></div>
-      <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Article</th><th>Category</th><th>Status</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead><tbody>
-      <?php foreach($cmArticles as $article): ?><tr><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><?=e(str_replace('_',' ',$article['status']))?></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><a href="admin.php?section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this article permanently?');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_article"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
-      <?php if(!$cmArticles): ?><tr><td colspan="6" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
-      </tbody></table></div>
-    </section>
   </div>
 </div>
 <script>
 (() => {
+  const createCategoryButton = document.getElementById('managed-create-category-toggle');
+  const categoryPanel = document.getElementById('managed-category-form-panel');
+  if (createCategoryButton && categoryPanel) {
+    createCategoryButton.addEventListener('click', () => {
+      const opening = categoryPanel.hidden;
+      categoryPanel.hidden = !opening;
+      createCategoryButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      if (opening) categoryPanel.querySelector('input[name="name"]')?.focus();
+    });
+  }
   const category = document.getElementById('managed-article-category');
   const subcategory = document.getElementById('managed-article-subcategory');
   if (!category || !subcategory) return;
