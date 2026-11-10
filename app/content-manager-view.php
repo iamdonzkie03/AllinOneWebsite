@@ -77,10 +77,11 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-table a:hover{text-decoration:none}
 .content-manager-table tbody tr.managed-subcategory-row td{background:rgba(255,255,255,.018)}
 .content-manager-table tbody tr.managed-subcategory-row:hover td{background:rgba(133,43,68,.14)}
-.content-manager-subcat{position:relative;padding-left:68px!important;color:#e5cbd3!important;font-weight:500}
-.content-manager-subcat:before{content:"";position:absolute;left:28px;top:-1px;bottom:-1px;width:2px;background:rgba(205,112,139,.72)}
-.content-manager-subcat:after{content:"";position:absolute;left:28px;top:50%;width:27px;height:2px;background:rgba(205,112,139,.9);transform:translateY(-50%)}
-.content-manager-subcat .subcategory-arrow{position:absolute;left:51px;top:50%;transform:translateY(-50%);color:#f09ab2;font-size:17px;font-weight:800;line-height:1}
+.content-manager-subcat{position:relative;padding-left:78px!important;color:#e5cbd3!important;font-weight:500}
+.content-manager-subcat:before{content:"";position:absolute;left:29px;top:-1px;width:23px;height:calc(50% + 1px);border-left:2px solid rgba(205,112,139,.82);border-bottom:2px solid rgba(205,112,139,.9);border-bottom-left-radius:10px}
+.content-manager-subcat:after{content:"";position:absolute;left:49px;top:calc(50% - 4px);width:9px;height:9px;border-top:2px solid #f09ab2;border-right:2px solid #f09ab2;transform:rotate(45deg)}
+.content-manager-subcat .subcategory-arrow{display:none}
+.content-manager-subcat .subcategory-name{color:#f1dce3;font-weight:600}
 .content-manager-subcat .subcategory-name{color:#f1dce3;font-weight:600}.content-manager-notice{padding:11px 13px;border:1px solid rgba(184,50,63,.38);border-radius:9px;background:rgba(128,20,39,.13);color:#f1dce1;font-size:12px}
 .content-manager-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.content-manager-section-head h3{margin:0}.content-manager-section-head>.content-manager-actions{margin-left:auto;flex-wrap:nowrap}
 .content-manager-category-toolbar{justify-content:flex-end;align-items:center}
