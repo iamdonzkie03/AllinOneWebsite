@@ -64,7 +64,7 @@ function sanitize_rich_content(string $html): string {
                     } elseif ($attributeName === 'rel') {
                         $node->setAttribute('rel', 'noopener noreferrer');
                     } elseif ($attributeName === 'src') {
-                        if (!preg_match('~^uploads/articles/[A-Za-z0-9._-]+$~', $value)) $node->removeAttribute('src');
+                        if (!preg_match('~^/(?:[A-Za-z0-9_-]+/)*public/uploads/articles/[A-Za-z0-9._-]+$~', $value)) $node->removeAttribute('src');
                     } elseif (in_array($attributeName, ['width','height','colspan','rowspan'], true)) {
                         if (!preg_match('/^[0-9]{1,4}$/', $value)) $node->removeAttribute($attributeName);
                     } elseif ($attributeName === 'style') {
@@ -82,6 +82,7 @@ function sanitize_rich_content(string $html): string {
                 }
             }
             if ($node->parentNode) $clean($node);
+            if ($node instanceof DOMElement && strtolower($node->tagName) === 'a' && $node->getAttribute('target') === '_blank') $node->setAttribute('rel', 'noopener noreferrer');
         }
     };
     $clean($root);
