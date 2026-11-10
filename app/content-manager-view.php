@@ -86,47 +86,6 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
       </form>
     </section>
 
-    <section class="content-manager-card">
-      <div class="content-manager-section-head"><h3><?= $cmEditSubcategory ? 'Edit Subcategory' : 'Create Subcategory' ?></h3><?php if($cmEditSubcategory): ?><a href="<?=e($cmEditUrl)?>">Cancel edit</a><?php endif; ?></div>
-      <form class="content-manager-form" method="post" action="admin-content.php">
-        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_subcategory">
-        <input type="hidden" name="subcategory_id" value="<?=(int)($cmEditSubcategory['id'] ?? 0)?>">
-        <label>Parent category *<select class="field" name="parent_id" required><option value="">Select a category</option><?php foreach($cmCategories as $cat): if($cat['slug']==='uncategorized') continue; ?><option value="<?=(int)$cat['id']?>" <?=isset($cmEditSubcategory['parent_id'])&&(int)$cmEditSubcategory['parent_id']===(int)$cat['id']?'selected':''?>><?=e($cat['name'])?></option><?php endforeach; ?></select></label>
-        <label>Subcategory name *<input class="field" name="name" maxlength="120" required placeholder="e.g. Photography" value="<?=e((string)($cmEditSubcategory['name'] ?? ''))?>"></label>
-        <label>Description (optional)<textarea class="field" name="description" maxlength="255" placeholder="Briefly describe this subcategory"><?=e((string)($cmEditSubcategory['description'] ?? ''))?></textarea></label>
-        <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditSubcategory ? 'Update Subcategory' : '+ Create Subcategory' ?></button></div>
-      </form>
-    </section>
-
-    <section class="content-manager-card content-manager-editor">
-      <div class="content-manager-section-head"><h3><?= $cmEditArticle ? 'Edit Article' : 'Create Article' ?></h3><?php if($cmEditArticle): ?><a href="<?=e($cmEditUrl)?>">Cancel edit</a><?php endif; ?></div>
-      <form class="content-manager-form" method="post" action="admin-content.php" id="managed-article-form">
-        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_article">
-        <input type="hidden" name="article_id" value="<?=(int)($cmEditArticle['id'] ?? 0)?>">
-        <div class="content-manager-article-grid">
-          <label class="full">Article title *<input class="field" name="title" maxlength="220" required placeholder="Enter article title" value="<?=e((string)($cmEditArticle['title'] ?? ''))?>"></label>
-          <label>Category *<select class="field" name="category_id" id="managed-article-category" required><option value="">Select a category</option><?php foreach($cmCategories as $cat): ?><option value="<?=(int)$cat['id']?>" <?=isset($cmEditArticle['category_id'])&&(int)$cmEditArticle['category_id']===(int)$cat['id']?'selected':''?>><?=e($cat['name'])?></option><?php endforeach; ?></select></label>
-          <label>Subcategory (optional)<select class="field" name="subcategory_id" id="managed-article-subcategory"><option value="">No subcategory — directly under category</option><?php foreach($cmSubcategories as $sub): ?><option value="<?=(int)$sub['id']?>" data-parent="<?=(int)$sub['parent_id']?>" <?=isset($cmEditArticle['subcategory_id'])&&(int)$cmEditArticle['subcategory_id']===(int)$sub['id']?'selected':''?>><?=e($sub['parent_name'].' / '.$sub['name'])?></option><?php endforeach; ?></select></label>
-          <label>Status<select class="field" name="status"><option value="draft" <?=($cmEditArticle['status'] ?? 'draft')==='draft'?'selected':''?>>Draft</option><option value="published" <?=($cmEditArticle['status'] ?? '')==='published'?'selected':''?>>Published</option></select></label>
-          <label>Short description<input class="field" name="excerpt" maxlength="500" value="<?=e((string)($cmEditArticle['excerpt'] ?? ''))?>" placeholder="A short summary"></label>
-          <label class="full">Article body<textarea class="field" name="body" rows="8" placeholder="Write the article here"><?=e((string)($cmEditArticle['body'] ?? ''))?></textarea></label>
-        </div>
-        <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditArticle ? 'Update Article' : '+ Create Article' ?></button></div>
-      </form>
-    </section>
-
-    <section class="content-manager-card content-manager-editor">
-      <div class="content-manager-section-head"><h3>Categories and Subcategories</h3><span class="muted"><?=count($cmCategories)?> categories · <?=count($cmSubcategories)?> subcategories</span></div>
-      <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Category / Subcategory</th><th>Description</th><th>Actions</th></tr></thead><tbody>
-      <?php foreach($cmCategories as $cat): ?>
-        <tr><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><span class="muted"> · Default option</span><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><a href="admin.php?section=page-management&tab=contents&edit_category=<?=(int)$cat['id']?>#pm-panel-contents">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this category? It must not contain subcategories or assigned articles.');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="item_id" value="<?=(int)$cat['id']?>"><button type="submit" class="link-button" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr>
-        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?>
-          <tr><td class="content-manager-subcat"><?=e($sub['name'])?></td><td><?=e((string)$sub['description'])?></td><td><a href="admin.php?section=page-management&tab=contents&edit_subcategory=<?=(int)$sub['id']?>#pm-panel-contents">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this subcategory? It must not be assigned to any article.');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr>
-        <?php endforeach; ?>
-      <?php endforeach; ?>
-      </tbody></table></div>
-    </section>
-
   </div>
 </div>
 <script>
@@ -141,18 +100,5 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
       if (opening) categoryPanel.querySelector('input[name="name"]')?.focus();
     });
   }
-  const category = document.getElementById('managed-article-category');
-  const subcategory = document.getElementById('managed-article-subcategory');
-  if (!category || !subcategory) return;
-  const filter = () => {
-    const selected = category.value;
-    [...subcategory.options].forEach(option => {
-      if (!option.value) { option.hidden = false; return; }
-      option.hidden = option.dataset.parent !== selected;
-      if (option.hidden && option.selected) subcategory.value = '';
-    });
-  };
-  category.addEventListener('change', filter);
-  filter();
-})();
+
 </script>
