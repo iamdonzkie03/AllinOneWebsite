@@ -11,7 +11,7 @@ verify_csrf();
 
 $action = (string)($_POST['action'] ?? '');
 $notice = 'saved';
-$successNames = [];
+$successNames = [];\n$bulkDetailsQuery = '';
 $slugify = static function(string $value): string {
     $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($value)), '-');
     return substr($slug !== '' ? $slug : 'content', 0, 120) . '-' . bin2hex(random_bytes(3));
@@ -92,25 +92,19 @@ try {
         $pdo->beginTransaction();
         try {
             $find = $pdo->prepare('SELECT id,name,slug,parent_id FROM categories WHERE id=?');
+            $findChildren = $pdo->prepare('SELECT id,name FROM categories WHERE parent_id=? ORDER BY name');
             $deleteArticlesByCategory = $pdo->prepare("DELETE FROM content WHERE category_id=? AND content_type='article'");
             $deleteArticlesBySubcategory = $pdo->prepare("DELETE FROM content WHERE subcategory_id=? AND content_type='article'");
-            $findChildren = $pdo->prepare('SELECT id FROM categories WHERE parent_id=?');
             $deleteCategory = $pdo->prepare('DELETE FROM categories WHERE id=?');
+            $deletedGroups = [];
 
-            // Delete explicitly selected subcategories first. If a parent category
-            // is also selected, its cascade below will remove any remaining children.
+            $selectedCategoryIds = [];
             foreach ($items as [$kind, $id]) {
-                if ($kind !== 'subcategory') continue;
-                $find->execute([$id]);
-                $category = $find->fetch();
-                if (!$category || $category['parent_id'] === null || $category['slug'] === 'uncategorized') {
-                    throw new RuntimeException('category_locked');
-                }
-                $successNames[] = (string)$category['name'];
-                $deleteArticlesBySubcategory->execute([$id]);
-                $deleteCategory->execute([$id]);
+                if ($kind === 'category') $selectedCategoryIds[$id] = true;
             }
 
+            // A selected parent always includes every child, whether or not its
+            // subcategory checkboxes were individually selected.
             foreach ($items as [$kind, $id]) {
                 if ($kind !== 'category') continue;
                 $find->execute([$id]);
@@ -118,23 +112,46 @@ try {
                 if (!$category || $category['parent_id'] !== null || $category['slug'] === 'uncategorized') {
                     throw new RuntimeException('category_locked');
                 }
-
-                $successNames[] = (string)$category['name'];
-                // Articles are assigned to the parent category even when they
-                // also have a subcategory, so this removes all articles in it.
-                $deleteArticlesByCategory->execute([$id]);
-
                 $findChildren->execute([$id]);
-                $childIds = array_map('intval', $findChildren->fetchAll(PDO::FETCH_COLUMN));
-                foreach ($childIds as $childId) {
+                $children = $findChildren->fetchAll(PDO::FETCH_ASSOC);
+                $childNames = [];
+                $deleteArticlesByCategory->execute([$id]);
+                foreach ($children as $child) {
+                    $childId = (int)$child['id'];
+                    $childNames[] = (string)$child['name'];
                     $deleteArticlesBySubcategory->execute([$childId]);
                     $deleteCategory->execute([$childId]);
                 }
                 $deleteCategory->execute([$id]);
+                $deletedGroups[(string)$category['name']] = $childNames;
+                $successNames[] = (string)$category['name'];
+                foreach ($childNames as $childName) $successNames[] = $childName;
+            }
+
+            // A subcategory selected without its parent is deleted on its own.
+            foreach ($items as [$kind, $id]) {
+                if ($kind !== 'subcategory') continue;
+                $find->execute([$id]);
+                $subcategory = $find->fetch();
+                if (!$subcategory || $subcategory['parent_id'] === null || $subcategory['slug'] === 'uncategorized') {
+                    throw new RuntimeException('category_locked');
+                }
+                if (isset($selectedCategoryIds[(int)$subcategory['parent_id']])) continue;
+                $find->execute([(int)$subcategory['parent_id']]);
+                $parent = $find->fetch();
+                $parentName = $parent ? (string)$parent['name'] : 'Other subcategories';
+                $deleteArticlesBySubcategory->execute([$id]);
+                $deleteCategory->execute([$id]);
+                $deletedGroups[$parentName] ??= [];
+                $deletedGroups[$parentName][] = (string)$subcategory['name'];
+                $successNames[] = (string)$subcategory['name'];
             }
 
             $pdo->commit();
             $notice = 'categories_bulk_deleted';
+            $bulkCategoryCount = count($selectedCategoryIds);
+            $bulkType = filter_var($_POST['select_all_categories'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'all' : ($bulkCategoryCount === 1 ? 'single' : ($bulkCategoryCount > 1 ? 'multiple' : 'subcategories'));
+            $bulkDetailsQuery = '&bulk_type=' . rawurlencode($bulkType) . '&bulk_details=' . rawurlencode((string)json_encode($deletedGroups, JSON_UNESCAPED_UNICODE));
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
@@ -193,5 +210,5 @@ $redirect = $returnToCategoryList
     : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
 $successNames = array_values(array_unique(array_filter(array_map('trim', $successNames))));
 $successNameQuery = $successNames ? '&names=' . rawurlencode(implode(', ', $successNames)) : '';
-header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery : '') . '#pm-panel-contents', true, 303);
+header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery . $bulkDetailsQuery : '') . '#pm-panel-contents', true, 303);
 exit;
