@@ -118,15 +118,18 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         </section>
       </div><?php endif; ?>
       <?php if ($cmAddSubcategory || $cmEditSubcategory): ?>
-      <section class="content-manager-card" style="margin-bottom:14px"><div class="content-manager-section-head"><h3><?= $cmEditSubcategory ? 'Edit Subcategory' : 'Add Subcategory' ?></h3><a href="<?=e($cmCategoryModeUrl)?>">Cancel</a></div>
-        <form class="content-manager-form" method="post" action="admin-content.php?session_context=admin">
-          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_subcategory"><input type="hidden" name="subcategory_id" value="<?=(int)($cmEditSubcategory['id'] ?? 0)?>">
-          <label>Parent category *<select class="field" name="parent_id" required><option value="">Select a category</option><?php foreach($cmCategories as $cat): if($cat['slug']==='uncategorized') continue; ?><option value="<?=(int)$cat['id']?>" <?=isset($cmEditSubcategory['parent_id'])&&(int)$cmEditSubcategory['parent_id']===(int)$cat['id']?'selected':''?>><?=e($cat['name'])?></option><?php endforeach; ?></select></label>
-          <label>Subcategory name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($cmEditSubcategory['name'] ?? ''))?>" placeholder="Enter subcategory name"></label>
-          <label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($cmEditSubcategory['description'] ?? ''))?></textarea></label>
-          <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditSubcategory ? 'Update Subcategory' : 'Save Subcategory' ?></button></div>
-        </form>
-      </section><?php endif; ?>
+      <div class="content-manager-modal-backdrop" id="managed-subcategory-modal" role="presentation">
+        <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-subcategory-modal-title">
+          <div class="content-manager-section-head"><h3 id="managed-subcategory-modal-title"><?= $cmEditSubcategory ? 'Edit Subcategory' : 'Add Subcategory' ?></h3></div>
+          <form class="content-manager-form" method="post" action="admin-content.php?session_context=admin">
+            <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_subcategory"><input type="hidden" name="subcategory_id" value="<?=(int)($cmEditSubcategory['id'] ?? 0)?>">
+            <label>Parent category *<select class="field" name="parent_id" required><option value="">Select a category</option><?php foreach($cmCategories as $cat): if($cat['slug']==='uncategorized') continue; ?><option value="<?=(int)$cat['id']?>" <?=isset($cmEditSubcategory['parent_id'])&&(int)$cmEditSubcategory['parent_id']===(int)$cat['id']?'selected':''?>><?=e($cat['name'])?></option><?php endforeach; ?></select></label>
+            <label>Subcategory name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($cmEditSubcategory['name'] ?? ''))?>" placeholder="Enter subcategory name"></label>
+            <label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($cmEditSubcategory['description'] ?? ''))?></textarea></label>
+            <div class="content-manager-actions content-manager-modal-actions"><a class="btn light" href="<?=e($cmCategoryModeUrl)?>">Cancel</a><button class="btn" type="submit"><?= $cmEditSubcategory ? 'Update Subcategory' : 'Save Subcategory' ?></button></div>
+          </form>
+        </section>
+      </div><?php endif; ?>
       <div class="content-manager-table-tools"><label class="content-manager-filter">Filter categories<input type="search" class="field" id="managed-category-filter" placeholder="Search category or description"></label><label class="content-manager-page-size">Show<select class="field" id="managed-category-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
       <form id="managed-category-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_categories"></form>
       <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-category-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="button" id="managed-category-delete-selected" disabled>Delete Selected</button></div>
