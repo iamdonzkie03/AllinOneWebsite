@@ -105,6 +105,12 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-filter{flex:1;max-width:360px}.content-manager-filter .field{min-width:180px}
 .content-manager-page-size .field{width:76px;padding:7px}
 .content-manager-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px}
+.content-manager-status-form{display:inline-flex;margin:0}
+.content-manager-status-toggle{position:relative;display:inline-flex;align-items:center;gap:7px;min-width:112px;padding:5px 10px;border:1px solid;border-radius:999px;font:600 10px Ubuntu,sans-serif;cursor:pointer;transition:all .18s ease}
+.content-manager-status-toggle:before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.content-manager-status-toggle.is-published{border-color:rgba(74,190,126,.55);background:rgba(39,148,88,.18);color:#83e0aa}
+.content-manager-status-toggle.is-unpublished{border-color:rgba(220,83,99,.55);background:rgba(157,37,56,.2);color:#f08d9b}
+.content-manager-article-bulk-modal .content-manager-modal{width:min(100%,500px)}
 .content-manager-page-buttons{display:flex;align-items:center;gap:8px}
 .content-manager-page-buttons .btn{padding:7px 10px;font-size:11px}
 @media(max-width:760px){.content-manager-section-head>.content-manager-actions{margin-left:0;flex-wrap:wrap}.content-manager-category-toolbar{justify-content:flex-start}.content-manager-table-tools{align-items:stretch;flex-direction:column}.content-manager-filter{max-width:none;align-items:stretch;flex-direction:column}.content-manager-pagination{align-items:flex-start;flex-direction:column}}
@@ -223,10 +229,22 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     <?php else: ?>
     <section class="content-manager-card content-manager-editor">
       <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span><div class="content-manager-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">View Categories</a><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
-      <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Article</th><th>Category</th><th>Status</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead><tbody>
-      <?php foreach($cmArticles as $article): ?><tr><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><?=e($article['status'] === 'published' ? 'Published' : 'Unpublished')?></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><a href="admin.php?section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a> · <form method="post" action="admin-content.php?session_context=admin" style="display:inline" onsubmit="return confirm('Delete this article permanently?');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_article"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
-      <?php if(!$cmArticles): ?><tr><td colspan="6" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
+      <div class="content-manager-table-tools"><label class="content-manager-filter">Filter articles<input type="search" class="field" id="managed-article-filter" placeholder="Search title, category, author or status"></label><label class="content-manager-page-size">Show<select class="field" id="managed-article-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
+      <form id="managed-article-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_articles"><input type="hidden" name="select_all_articles" id="managed-article-select-all-flag" value="0"></form>
+      <div class="content-manager-bulk-toolbar"><label class="muted" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="managed-article-select-all" aria-label="Select all articles" style="accent-color:#a83d59;width:14px;height:14px"> Select All <span id="managed-article-selection" aria-live="polite">No items selected</span></label><button class="content-manager-delete-selected" type="button" id="managed-article-delete-selected" disabled>Delete Selected</button></div>
+      <div class="content-manager-modal-backdrop content-manager-article-bulk-modal" id="managed-article-delete-modal" hidden role="presentation">
+        <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-delete-title">
+          <div class="content-manager-section-head"><h3 id="managed-article-delete-title">Delete Selected Articles?</h3></div>
+          <p style="color:#e9dce1;font-size:12px;line-height:1.65">You are about to permanently delete the selected article(s). This action cannot be undone.</p>
+          <div><strong style="color:#f0dce2;font-size:12px">Selected Articles:</strong><ul id="managed-article-delete-list" style="margin:7px 0 0;padding-left:20px;color:#d8c2ca;font-size:12px;line-height:1.8"></ul></div>
+          <div class="content-manager-actions content-manager-modal-actions"><button type="button" class="btn light" id="managed-article-delete-cancel">Cancel</button><button type="submit" class="content-manager-delete-selected" form="managed-article-bulk-delete">Delete Selected</button></div>
+        </section>
+      </div>
+      <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-article-table"><thead><tr><th class="content-manager-select-cell"><input type="checkbox" id="managed-article-table-select-all" aria-label="Select all articles"></th><th>Article</th><th>Category</th><th>Status</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead><tbody>
+      <?php foreach($cmArticles as $article): ?><tr class="managed-article-row" data-search="<?=e(mb_strtolower($article['title'].' '.$article['category_name'].' '.(string)$article['subcategory_name'].' '.(string)$article['full_name'].' '.($article['status']==='published'?'published':'unpublished')))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-article-select" name="selected_articles[]" value="<?=(int)$article['id']?>" form="managed-article-bulk-delete" aria-label="Select article <?=e($article['title'])?>" data-title="<?=e($article['title'])?>"></td><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><form class="content-manager-status-form" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="toggle_article_status"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" class="content-manager-status-toggle <?=$article['status']==='published'?'is-published':'is-unpublished'?>" aria-label="Change status for <?=e($article['title'])?>"><?=e($article['status']==='published'?'Published':'Unpublished')?></button></form></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><a class="content-manager-action" href="admin.php?session_context=admin&section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a></td></tr><?php endforeach; ?>
+      <?php if(!$cmArticles): ?><tr><td colspan="7" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
       </tbody></table></div>
+      <div class="content-manager-pagination"><span class="muted" id="managed-article-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-article-prev">Previous</button><span class="muted" id="managed-article-page"></span><button type="button" class="btn light" id="managed-article-next">Next</button></div></div>
     </section>
     <?php endif; ?>
     <section class="content-manager-card" id="managed-category-form-panel"<?= $cmEditCategory ? "" : " hidden" ?>>
@@ -281,6 +299,75 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     };
     articleCategory.addEventListener('change', filterSubcategories);
     filterSubcategories();
+  }
+
+  const articleTable = document.getElementById('managed-article-table');
+  if (articleTable) {
+    const rows = [...articleTable.querySelectorAll('tbody .managed-article-row')];
+    const boxes = [...articleTable.querySelectorAll('.managed-article-select')];
+    const filter = document.getElementById('managed-article-filter');
+    const pageSize = document.getElementById('managed-article-page-size');
+    const count = document.getElementById('managed-article-count');
+    const pageLabel = document.getElementById('managed-article-page');
+    const previous = document.getElementById('managed-article-prev');
+    const next = document.getElementById('managed-article-next');
+    const selectAll = document.getElementById('managed-article-select-all');
+    const tableSelectAll = document.getElementById('managed-article-table-select-all');
+    const deleteButton = document.getElementById('managed-article-delete-selected');
+    const selectionLabel = document.getElementById('managed-article-selection');
+    const selectAllFlag = document.getElementById('managed-article-select-all-flag');
+    const deleteModal = document.getElementById('managed-article-delete-modal');
+    const deleteList = document.getElementById('managed-article-delete-list');
+    const closeModal = () => { if (deleteModal) deleteModal.hidden = true; };
+    let page = 1;
+    const updateSelection = () => {
+      const selected = boxes.filter(box => box.checked);
+      if (deleteButton) deleteButton.disabled = selected.length === 0;
+      if (selectionLabel) selectionLabel.textContent = selected.length ? selected.length + ' selected' : 'No items selected';
+      [selectAll, tableSelectAll].forEach(control => {
+        if (!control) return;
+        control.checked = boxes.length > 0 && selected.length === boxes.length;
+        control.indeterminate = selected.length > 0 && selected.length < boxes.length;
+      });
+    };
+    const setAll = checked => {
+      boxes.forEach(box => { box.checked = checked; });
+      if (selectAllFlag) selectAllFlag.value = checked ? '1' : '0';
+      updateSelection();
+    };
+    [selectAll, tableSelectAll].forEach(control => control?.addEventListener('change', () => setAll(control.checked)));
+    boxes.forEach(box => box.addEventListener('change', () => { if (selectAllFlag) selectAllFlag.value = '0'; updateSelection(); }));
+    deleteButton?.addEventListener('click', () => {
+      const selected = boxes.filter(box => box.checked);
+      if (!selected.length || !deleteModal || !deleteList) return;
+      deleteList.replaceChildren();
+      selected.forEach(box => { const li = document.createElement('li'); li.textContent = box.dataset.title || 'Article'; deleteList.appendChild(li); });
+      deleteModal.hidden = false;
+      document.getElementById('managed-article-delete-cancel')?.focus();
+    });
+    document.getElementById('managed-article-delete-cancel')?.addEventListener('click', closeModal);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && deleteModal && !deleteModal.hidden) closeModal(); });
+    const renderRows = () => {
+      const query = (filter?.value || '').trim().toLocaleLowerCase();
+      const matching = rows.filter(row => (row.dataset.search || row.textContent).toLocaleLowerCase().includes(query));
+      const size = Math.max(1, Number(pageSize?.value || 10));
+      const pages = Math.max(1, Math.ceil(matching.length / size));
+      page = Math.min(page, pages);
+      rows.forEach(row => { row.hidden = true; });
+      matching.slice((page - 1) * size, page * size).forEach(row => { row.hidden = false; });
+      const start = matching.length ? (page - 1) * size + 1 : 0;
+      const end = Math.min(page * size, matching.length);
+      if (count) count.textContent = 'Showing ' + start + '–' + end + ' of ' + matching.length + ' entries';
+      if (pageLabel) pageLabel.textContent = 'Page ' + page + ' of ' + pages;
+      if (previous) previous.disabled = page <= 1;
+      if (next) next.disabled = page >= pages;
+    };
+    filter?.addEventListener('input', () => { page = 1; renderRows(); });
+    pageSize?.addEventListener('change', () => { page = 1; renderRows(); });
+    previous?.addEventListener('click', () => { page = Math.max(1, page - 1); renderRows(); });
+    next?.addEventListener('click', () => { page += 1; renderRows(); });
+    renderRows();
+    updateSelection();
   }
 
   const categoryTable = document.getElementById('managed-category-table');
