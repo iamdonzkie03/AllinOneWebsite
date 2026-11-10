@@ -122,9 +122,8 @@ try {
 }
 
 $returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory'], true);
-$keepCategoryModalOpen = $action === 'save_category' && $notice === 'category_created';
 $redirect = $returnToCategoryList
-    ? 'admin.php?section=page-management&tab=contents&view=categories' . ($keepCategoryModalOpen ? '&add_category=1&notice=' : '&notice=')
+    ? 'admin.php?section=page-management&tab=contents&view=categories&notice='
     : 'admin.php?section=page-management&tab=contents&notice=';
 header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? '#pm-panel-contents' : '#pm-panel-contents'), true, 303);
 exit;
