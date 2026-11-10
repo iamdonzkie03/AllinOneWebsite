@@ -17,7 +17,8 @@ function sanitize_rich_content(string $html): string {
     $dom->loadHTML('<?xml encoding="utf-8" ?><div id="rich-article-root">'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
     libxml_clear_errors();
     libxml_use_internal_errors($previous);
-    $root = $dom->getElementById('rich-article-root');
+    $xpath = new DOMXPath($dom);
+    $root = $xpath->query('//*[@id="rich-article-root"]')->item(0);
     if (!$root) return '';
     $clean = static function(DOMNode $parent) use (&$clean, $allowed, $drop): void {
         $children = [];
@@ -30,6 +31,7 @@ function sanitize_rich_content(string $html): string {
                     continue;
                 }
                 if (!in_array($tag, $allowed, true)) {
+                    $clean($node);
                     $parentNode = $node->parentNode;
                     if ($parentNode) {
                         while ($node->firstChild) $parentNode->insertBefore($node->firstChild, $node);
@@ -57,7 +59,10 @@ function sanitize_rich_content(string $html): string {
                     if ($attributeName === 'href') {
                         $scheme = strtolower((string)parse_url($value, PHP_URL_SCHEME));
                         if ($value === '' || str_starts_with($value, '//') || ($scheme !== '' && !in_array($scheme, ['http','https','mailto','tel'], true))) $node->removeAttribute('href');
-                        if ($node->getAttribute('target') === '_blank') $node->setAttribute('rel', 'noopener noreferrer');
+                    } elseif ($attributeName === 'target') {
+                        if ($value !== '_blank' && $value !== '_self') $node->removeAttribute('target');
+                    } elseif ($attributeName === 'rel') {
+                        $node->setAttribute('rel', 'noopener noreferrer');
                     } elseif ($attributeName === 'src') {
                         if (!preg_match('~^uploads/articles/[A-Za-z0-9._-]+$~', $value)) $node->removeAttribute('src');
                     } elseif (in_array($attributeName, ['width','height','colspan','rowspan'], true)) {
