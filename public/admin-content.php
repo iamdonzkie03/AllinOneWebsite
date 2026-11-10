@@ -293,9 +293,9 @@ try {
         if ($id > 0) {
             $save = $pdo->prepare("UPDATE content SET category_id=?,subcategory_id=?,title=?,slug=?,excerpt=?,cover_photo=?,body=?,status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
             $save->execute([$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$coverPhoto,$body,$status,$status,$id]);
+            $newCoverFilePath = null;
             $deleteOrphanedArticleImages($previousImageFiles, $currentImageFiles, $id);
             if ($previousCoverPhoto !== (string)($coverPhoto ?? '')) $deleteOrphanedCoverPhoto($previousCoverPhoto, $id);
-            $newCoverFilePath = null;
             $successNames[] = $title;
             $notice = 'article_updated';
         } else {
