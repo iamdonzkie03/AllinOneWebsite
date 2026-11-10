@@ -685,6 +685,39 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <button type="button" id="pm-tab-gallery" role="tab" aria-controls="pm-panel-gallery" aria-selected="false" tabindex="-1" data-page-tab="gallery">Gallery</button>
         <button type="button" id="pm-tab-video" role="tab" aria-controls="pm-panel-video" aria-selected="false" tabindex="-1" data-page-tab="video">Video</button>
       </div>
+      <script>
+      (() => {
+        const tabNav = document.querySelector('.page-management-tabs');
+        if (!tabNav || tabNav.dataset.handlersReady === '1') return;
+        tabNav.dataset.handlersReady = '1';
+        const tabs = [...tabNav.querySelectorAll('[data-page-tab]')];
+        const activate = (tab, moveFocus = false) => {
+          tabs.forEach(item => {
+            const selected = item === tab;
+            item.setAttribute('aria-selected', String(selected));
+            item.tabIndex = selected ? 0 : -1;
+            const panel = document.getElementById(item.getAttribute('aria-controls'));
+            if (panel) panel.hidden = !selected;
+          });
+          if (moveFocus) tab.focus();
+        };
+        const initial = tabNav.dataset.initialTab || 'header';
+        activate(tabs.find(tab => tab.dataset.pageTab === initial) || tabs[0]);
+        tabs.forEach((tab, index) => {
+          tab.addEventListener('click', () => activate(tab));
+          tab.addEventListener('keydown', event => {
+            let next = index;
+            if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+            else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+            else if (event.key === 'Home') next = 0;
+            else if (event.key === 'End') next = tabs.length - 1;
+            else return;
+            event.preventDefault();
+            activate(tabs[next], true);
+          });
+        });
+      })();
+      </script>
       <section class="page-management-tabpanel" id="pm-panel-header" role="tabpanel" aria-labelledby="pm-tab-header">
         <form method="post" enctype="multipart/form-data" id="header-settings-form" class="header-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
@@ -1167,36 +1200,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       }
     })();
     const paletteStyle=document.createElement('style');paletteStyle.textContent=".font-color-palette-popover{position:absolute;z-index:1000;display:grid;grid-template-columns:repeat(7,25px);gap:5px;padding:9px;margin-top:5px;border:1px solid rgba(220,174,187,.4);border-radius:10px;background:#171115;box-shadow:0 10px 28px rgba(0,0,0,.45)}.font-color-palette-popover[hidden]{display:none}.font-color-swatch{width:25px;height:25px;border:1px solid rgba(255,255,255,.35);border-radius:6px;background:var(--swatch-color);cursor:pointer}.font-color-swatch:focus-visible,.font-color-custom:focus-visible{outline:2px solid #d99aaa;outline-offset:2px}.font-color-custom{grid-column:1/-1;padding:6px;border:1px solid rgba(220,174,187,.35);border-radius:6px;background:#26171d;color:#fff;cursor:pointer;font:11px Ubuntu,sans-serif}.font-color-palette{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin-left:7px;padding:7px;border:1px solid rgba(220,174,187,.35);border-radius:9px;background:rgba(91,20,39,.22);color:var(--palette-color,#e8dce0);cursor:pointer;vertical-align:middle;transition:background .2s,border-color .2s,transform .2s}.font-color-palette:hover{background:rgba(130,30,57,.35);border-color:rgba(220,174,187,.7);transform:translateY(-1px)}.font-color-palette:focus-visible{outline:2px solid #d99aaa;outline-offset:2px}.font-color-palette svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.font-color-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}";document.head.append(paletteStyle);
-    (() => {
-      const tabs = [...document.querySelectorAll('[data-page-tab]')];
-      if (!tabs.length) return;
-      const activate = (tab, moveFocus = false) => {
-        tabs.forEach(item => {
-          const selected = item === tab;
-          item.setAttribute('aria-selected', String(selected));
-          item.tabIndex = selected ? 0 : -1;
-          const panel = document.getElementById(item.getAttribute('aria-controls'));
-          if (panel) panel.hidden = !selected;
-        });
-        if (moveFocus) tab.focus();
-      };
-      const tabNav = document.querySelector('.page-management-tabs');
-      const initialTabName = tabNav?.dataset.initialTab || 'header';
-      activate(tabs.find(tab => tab.dataset.pageTab === initialTabName) || tabs[0]);
-      tabs.forEach((tab, index) => {
-        tab.addEventListener('click', () => activate(tab));
-        tab.addEventListener('keydown', event => {
-          let next = index;
-          if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
-          else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
-          else if (event.key === 'Home') next = 0;
-          else if (event.key === 'End') next = tabs.length - 1;
-          else return;
-          event.preventDefault();
-          activate(tabs[next], true);
-        });
-      });
-    })();
+
     </script>
   <?php else: $info=$settings[$section]; ?>
     <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted"><?=e($info[1])?></p><div class="admin-note">This Settings tab is ready for its management controls. No existing records have been changed.</div></section>
