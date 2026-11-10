@@ -50,6 +50,7 @@ $cmNotices = [
     'category_locked'=>'This category cannot be changed or deleted.','category_invalid'=>'Choose a valid parent category.','subcategory_invalid'=>'The selected subcategory does not belong to the selected category.',
     'subcategory_missing'=>'The subcategory could not be found.','article_invalid'=>'Enter an article title and choose a category.','article_missing'=>'The article could not be found.',
     'duplicate_or_database_error'=>'The change could not be saved. Check that the category or subcategory name is not already in use.',
+    'cover_photo_upload_failed'=>'The cover photo could not be uploaded. Please try again.','cover_photo_too_large'=>'Cover photos must be 8 MB or smaller.','cover_photo_invalid'=>'Use a valid JPG, PNG, GIF or WebP cover photo with dimensions no larger than 8000 × 8000 pixels.','cover_photo_folder_failed'=>'The cover photo folder could not be created.',
     'categories_bulk_deleted'=>'Selected categories, subcategories, and their articles were deleted successfully.','nothing_selected'=>'Select at least one category or subcategory to delete.','unknown_action'=>'The requested action is not available.'
 ];
 $cmNotice = $cmNotices[(string)($_GET['notice'] ?? '')] ?? '';
