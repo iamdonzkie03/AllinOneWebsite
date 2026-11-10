@@ -148,8 +148,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 @media(max-width:760px){.content-manager-grid{grid-template-columns:1fr}.content-manager-article-grid{grid-template-columns:1fr}.content-manager-article-grid .full{grid-column:auto}.content-manager-section-head{align-items:flex-start;flex-direction:column}}
 </style>
 <div class="content-manager">
-  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created','articles_bulk_deleted','article_status_updated'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
-  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created','articles_bulk_deleted','article_status_updated'], true)): ?>
+  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created','article_updated','articles_bulk_deleted','article_status_updated'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
+  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created','article_updated','articles_bulk_deleted','article_status_updated'], true)): ?>
   <?php
     $cmSuccessNotice = (string)($_GET['notice'] ?? '');
     $cmIsBulkDelete = $cmSuccessNotice === 'categories_bulk_deleted';
@@ -161,6 +161,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     }
     $cmIsSubcategorySuccess = str_starts_with($cmSuccessNotice, 'subcategory_');
     $cmIsArticleCreated = $cmSuccessNotice === 'article_created';
+    $cmIsArticleUpdated = $cmSuccessNotice === 'article_updated';
     $cmIsArticleBulkDelete = $cmSuccessNotice === 'articles_bulk_deleted';
     $cmIsArticleStatusUpdated = $cmSuccessNotice === 'article_status_updated';
     $cmSuccessVerb = str_ends_with($cmSuccessNotice, '_created') ? 'created' : (str_ends_with($cmSuccessNotice, '_updated') ? 'updated' : 'deleted');
@@ -174,6 +175,9 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       <?php if ($cmIsArticleCreated): ?>
         <h3 id="managed-category-success-title">Article Successfully Created</h3>
         <p>The Article with the title <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'Untitled')?></strong> has been successfully created.</p>
+      <?php elseif ($cmIsArticleUpdated): ?>
+        <h3 id="managed-category-success-title">Article Successfully Updated</h3>
+        <p>The article with the title <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'Untitled')?></strong> has been successfully updated.</p>
       <?php elseif ($cmIsArticleStatusUpdated): ?>
         <h3 id="managed-category-success-title">Article Status Updated</h3>
         <p>Article status updated successfully.</p>
@@ -203,7 +207,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <?php endforeach; ?>
         </ul>
       <?php endif; ?>
-      <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e(($cmIsArticleCreated || $cmIsArticleBulkDelete || $cmIsArticleStatusUpdated) ? $cmArticleModeUrl : $cmCategoryModeUrl)?>">OK</a></div>
+      <div class="content-manager-actions content-manager-modal-actions"><a class="btn" href="<?=e(($cmIsArticleCreated || $cmIsArticleUpdated || $cmIsArticleBulkDelete || $cmIsArticleStatusUpdated) ? $cmArticleModeUrl : $cmCategoryModeUrl)?>">OK</a></div>
     </section>
   </div>
   <?php endif; ?>
