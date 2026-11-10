@@ -190,6 +190,39 @@ try {
             $notice = 'article_created';
             $successNames[] = $title;
         }
+    } elseif ($action === 'bulk_delete_articles') {
+        $selected = $_POST['selected_articles'] ?? [];
+        if (!is_array($selected)) $selected = [];
+        $ids = array_values(array_unique(array_filter(array_map(static function($value) {
+            return is_scalar($value) && ctype_digit((string)$value) ? (int)$value : 0;
+        }, $selected), static fn($id) => $id > 0)));
+        if (!$ids) throw new RuntimeException('nothing_selected');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $find = $pdo->prepare("SELECT id,title FROM content WHERE content_type='article' AND id IN ($placeholders) ORDER BY title");
+        $find->execute($ids);
+        $found = $find->fetchAll(PDO::FETCH_ASSOC);
+        if (!$found) throw new RuntimeException('article_missing');
+        $pdo->beginTransaction();
+        try {
+            $delete = $pdo->prepare("DELETE FROM content WHERE content_type='article' AND id IN ($placeholders)");
+            $delete->execute($ids);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        foreach ($found as $articleRow) $successNames[] = (string)$articleRow['title'];
+        $notice = 'articles_bulk_deleted';
+    } elseif ($action === 'toggle_article_status') {
+        $id = (int)($_POST['item_id'] ?? 0);
+        $find = $pdo->prepare("SELECT status FROM content WHERE id=? AND content_type='article'");
+        $find->execute([$id]);
+        $currentStatus = $find->fetchColumn();
+        if ($currentStatus === false) throw new RuntimeException('article_missing');
+        $nextStatus = $currentStatus === 'published' ? 'draft' : 'published';
+        $toggle = $pdo->prepare("UPDATE content SET status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
+        $toggle->execute([$nextStatus,$nextStatus,$id]);
+        $notice = 'article_status_updated';
     } elseif ($action === 'delete_article') {
         $id = (int)($_POST['item_id'] ?? 0);
         $delete = $pdo->prepare("DELETE FROM content WHERE id=? AND content_type='article'");
@@ -212,5 +245,5 @@ $redirect = $returnToCategoryList
     : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
 $successNames = array_values(array_unique(array_filter(array_map('trim', $successNames))));
 $successNameQuery = $successNames ? '&names=' . rawurlencode(implode(', ', $successNames)) : '';
-header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery . $bulkDetailsQuery : ($action === 'save_article' ? $successNameQuery : '')) . '#pm-panel-contents', true, 303);
+header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery . $bulkDetailsQuery : (in_array($action, ['save_article','bulk_delete_articles'], true) ? $successNameQuery : '')) . '#pm-panel-contents', true, 303);
 exit;
