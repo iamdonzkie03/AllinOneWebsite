@@ -18,6 +18,9 @@ if (!$cmHasColumn('content', 'subcategory_id')) {
     $pdo->exec('ALTER TABLE content ADD COLUMN subcategory_id BIGINT UNSIGNED NULL');
     $pdo->exec('ALTER TABLE content ADD INDEX idx_content_subcategory (subcategory_id)');
 }
+if (!$cmHasColumn('content', 'cover_photo')) {
+    $pdo->exec('ALTER TABLE content ADD COLUMN cover_photo VARCHAR(255) NULL AFTER excerpt');
+}
 $cmCategories = $pdo->query("SELECT id,name,slug,description FROM categories WHERE parent_id IS NULL AND is_active=1 ORDER BY CASE WHEN slug='uncategorized' THEN 1 ELSE 0 END, name")->fetchAll();
 $cmSubcategories = $pdo->query("SELECT child.id,child.name,child.slug,child.description,child.parent_id,parent.name AS parent_name FROM categories child JOIN categories parent ON parent.id=child.parent_id ORDER BY parent.name,child.name")->fetchAll();
 $cmEditCategory = null;
@@ -34,11 +37,11 @@ if (!empty($_GET['edit_subcategory'])) {
     $cmEditSubcategory = $q->fetch() ?: null;
 }
 if (!empty($_GET['edit_article'])) {
-    $q = $pdo->prepare("SELECT id,title,excerpt,body,category_id,subcategory_id,status FROM content WHERE id=? AND content_type='article'");
+    $q = $pdo->prepare("SELECT id,title,excerpt,body,cover_photo,category_id,subcategory_id,status FROM content WHERE id=? AND content_type='article'");
     $q->execute([(int)$_GET['edit_article']]);
     $cmEditArticle = $q->fetch() ?: null;
 }
-$cmArticles = $pdo->query("SELECT c.id,c.title,c.excerpt,c.body,c.price,c.status,c.updated_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
+$cmArticles = $pdo->query("SELECT c.id,c.title,c.excerpt,c.body,c.cover_photo,c.price,c.status,c.updated_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
 $cmNotices = [
     'category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.',
     'subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.',
@@ -93,6 +96,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-modal-backdrop[hidden]{display:none!important}.content-manager-modal{width:min(100%,460px);max-height:calc(100vh - 40px);overflow-y:auto;padding:22px;border:1px solid rgba(191,89,112,.42);border-radius:16px;background:#170f14;box-shadow:0 24px 80px rgba(0,0,0,.6)}
 .content-manager-modal .content-manager-section-head{margin-bottom:18px}
 .content-manager-article-modal{width:min(100%,940px);max-height:92vh;overflow:auto}
+.content-manager-cover-field{display:grid;gap:9px;padding:13px;border:1px solid rgba(190,126,145,.24);border-radius:10px;background:rgba(255,255,255,.018)}.content-manager-cover-preview{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}.content-manager-cover-preview[hidden]{display:none!important}.content-manager-cover-preview img{display:block;width:min(100%,260px);max-height:170px;object-fit:cover;border:1px solid rgba(190,126,145,.35);border-radius:9px}.content-manager-cover-hint{color:#a9949c;font-size:10px;line-height:1.5}
 .content-manager-rich-field{display:grid;gap:7px;min-width:0}
 .content-manager-rich-label{color:#d9cbd0;font-size:11px;font-weight:600}
 .content-manager-rich-editor{overflow:hidden;border:1px solid rgba(190,126,145,.35);border-radius:11px;background:#171115}
@@ -330,7 +334,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       <?php foreach($cmArticles as $previewIndex=>$previewArticle): ?>
         <template id="managed-article-preview-template-<?=(int)$previewArticle['id']?>">
           <article class="story content-manager-public-story">
-            <div class="story-img <?= $previewIndex%3===0?'art':($previewIndex%3===1?'home':'news') ?>"><?=e(strtoupper($previewArticle['category_name']))?></div>
+            <div class="story-img <?= $previewIndex%3===0?'art':($previewIndex%3===1?'home':'news') ?>"><?php if(!empty($previewArticle['cover_photo'])): ?><img src="uploads/articles/cover_photos/<?=e(rawurlencode((string)$previewArticle['cover_photo']))?>" alt="<?=e($previewArticle['title'])?> cover photo"><?php else: ?><?=e(strtoupper($previewArticle['category_name']))?><?php endif; ?></div>
             <div class="story-body">
               <div class="tag"><?=e($previewArticle['category_name'])?><?php if(!empty($previewArticle['subcategory_name'])): ?> · <?=e($previewArticle['subcategory_name'])?><?php endif; ?></div>
               <h3><?=e($previewArticle['title'])?></h3>
@@ -357,7 +361,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     <div class="content-manager-modal-backdrop" id="managed-article-form-panel" role="presentation">
       <section class="content-manager-modal content-manager-article-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-modal-title">
       <div class="content-manager-section-head"><h3 id="managed-article-modal-title"><?= $cmEditArticle ? 'Edit Article' : 'Add Article' ?></h3></div>
-      <form class="content-manager-form" method="post" action="admin-content.php?session_context=admin" id="managed-article-form">
+      <form class="content-manager-form" method="post" enctype="multipart/form-data" action="admin-content.php?session_context=admin" id="managed-article-form">
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_article">
         <input type="hidden" name="article_id" value="<?=(int)($cmEditArticle['id'] ?? 0)?>">
         <div class="content-manager-article-grid">
@@ -366,6 +370,12 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <label>Subcategory (optional)<select class="field" name="subcategory_id" id="managed-article-subcategory"><option value="">No subcategory — directly under category</option><?php foreach($cmSubcategories as $sub): ?><option value="<?=(int)$sub['id']?>" data-parent="<?=(int)$sub['parent_id']?>" <?=isset($cmEditArticle['subcategory_id'])&&(int)$cmEditArticle['subcategory_id']===(int)$sub['id']?'selected':''?>><?=e($sub['parent_name'].' / '.$sub['name'])?></option><?php endforeach; ?></select></label>
           <label>Status<select class="field" name="status"><option value="published" <?=($cmEditArticle['status'] ?? '')==='published'?'selected':''?>>Published</option><option value="draft" <?=($cmEditArticle['status'] ?? 'draft')==='draft'?'selected':''?>>Unpublished</option></select></label>
           <label>Short description<input class="field" name="excerpt" maxlength="500" value="<?=e((string)($cmEditArticle['excerpt'] ?? ''))?>" placeholder="A short summary"></label>
+          <div class="full content-manager-cover-field">
+            <label for="managed-cover-photo">Cover Photo (optional)</label>
+            <input class="field" type="file" id="managed-cover-photo" name="cover_photo" accept="image/jpeg,image/png,image/gif,image/webp">
+            <div class="content-manager-cover-hint">Upload a JPG, PNG, GIF or WebP image up to 8 MB. The cover photo is saved separately from photos inside the article body.</div>
+            <div class="content-manager-cover-preview" id="managed-cover-photo-preview" <?=!empty($cmEditArticle['cover_photo'])?'':'hidden'?>><img id="managed-cover-photo-preview-image" src="<?=!empty($cmEditArticle['cover_photo'])?'uploads/articles/cover_photos/'.rawurlencode((string)$cmEditArticle['cover_photo']):''?>" alt="Article cover photo preview"><label><input type="checkbox" name="remove_cover_photo" id="managed-remove-cover-photo" value="1"> Remove current cover photo</label></div>
+          </div>
           <div class="full content-manager-rich-field">
             <div class="content-manager-rich-label">Article body</div>
             <div class="content-manager-rich-editor" id="managed-article-rich-editor">
@@ -416,6 +426,27 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
   if (addArticleButton) addArticleButton.addEventListener('click', () => { window.location.href = 'admin.php?session_context=admin&section=page-management&tab=contents&add_article=1#pm-panel-contents'; });
   const articleTitle = document.querySelector('#managed-article-form-panel input[name="title"]');
   if (articleTitle) articleTitle.focus();
+
+  const coverPhotoInput = document.getElementById('managed-cover-photo');
+  const coverPhotoPreview = document.getElementById('managed-cover-photo-preview');
+  const coverPhotoPreviewImage = document.getElementById('managed-cover-photo-preview-image');
+  const removeCoverPhoto = document.getElementById('managed-remove-cover-photo');
+  let coverPhotoObjectUrl = null;
+  coverPhotoInput?.addEventListener('change', () => {
+    const file = coverPhotoInput.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)) { window.alert('Choose a JPG, PNG, GIF or WebP cover photo.'); coverPhotoInput.value=''; return; }
+    if (file.size > 8 * 1024 * 1024) { window.alert('Cover photos must be 8 MB or smaller.'); coverPhotoInput.value=''; return; }
+    if (coverPhotoObjectUrl) URL.revokeObjectURL(coverPhotoObjectUrl);
+    coverPhotoObjectUrl = URL.createObjectURL(file);
+    if (coverPhotoPreviewImage) coverPhotoPreviewImage.src = coverPhotoObjectUrl;
+    if (coverPhotoPreview) coverPhotoPreview.hidden = false;
+    if (removeCoverPhoto) removeCoverPhoto.checked = false;
+  });
+  removeCoverPhoto?.addEventListener('change', () => {
+    if (removeCoverPhoto.checked && !coverPhotoInput?.files?.length && coverPhotoPreview) coverPhotoPreview.hidden = true;
+    else if (coverPhotoPreview) coverPhotoPreview.hidden = false;
+  });
 
   const articleCategory = document.getElementById('managed-article-category');
   const articleSubcategory = document.getElementById('managed-article-subcategory');
