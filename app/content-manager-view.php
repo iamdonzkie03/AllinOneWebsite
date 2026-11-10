@@ -1,6 +1,6 @@
 <?php
 // Included by public/admin.php inside the Page Management → Contents panel.
-$cmCategories = $pdo->query("SELECT id,name,slug,description FROM categories WHERE parent_id IS NULL ORDER BY CASE WHEN slug='uncategorized' THEN 1 ELSE 0 END, name")->fetchAll();
+$cmCategories = $pdo->query("SELECT id,name,slug,description FROM categories WHERE parent_id IS NULL AND is_active=1 ORDER BY CASE WHEN slug='uncategorized' THEN 1 ELSE 0 END, name")->fetchAll();
 $cmSubcategories = $pdo->query("SELECT child.id,child.name,child.slug,child.description,child.parent_id,parent.name AS parent_name FROM categories child JOIN categories parent ON parent.id=child.parent_id ORDER BY parent.name,child.name")->fetchAll();
 $cmEditCategory = null;
 $cmEditSubcategory = null;
