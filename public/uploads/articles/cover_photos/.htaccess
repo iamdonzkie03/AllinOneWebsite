@@ -1,0 +1,5 @@
+# Cover photos are image-only uploads. Never execute uploaded content.
+Options -ExecCGI
+<FilesMatch "\.(php[0-9]?|phtml|phar|cgi|pl|py|sh)$">
+  Require all denied
+</FilesMatch>
