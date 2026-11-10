@@ -354,9 +354,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       if (deleteSelected) deleteSelected.disabled = checked.length === 0;
       if (selectionLabel) selectionLabel.textContent = checked.length + (checked.length === 1 ? ' item selected' : ' items selected');
       if (selectAll) {
-        const visible = selections.filter(box => !box.closest('tr').hidden);
-        selectAll.checked = visible.length > 0 && visible.every(box => box.checked);
-        selectAll.indeterminate = visible.some(box => box.checked) && !selectAll.checked;
+        selectAll.checked = selections.length > 0 && checked.length === selections.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < selections.length;
       }
     };
     selections.forEach(box => box.addEventListener('change', updateSelection));
