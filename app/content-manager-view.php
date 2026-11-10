@@ -134,19 +134,19 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-delete-title" aria-describedby="managed-category-delete-description">
           <div class="content-manager-section-head"><h3 id="managed-category-delete-title">Delete Selected Items?</h3></div>
           <div style="display:grid;gap:12px;color:#e9dce1;font-size:12px;line-height:1.65">
-            <p id="managed-category-delete-description" style="margin:0">You are about to permanently delete the selected categories and subcategories.</p>
+            <p id="managed-category-delete-description" style="margin:0">You are about to permanently delete the selected category/ies.</p>
             <div style="padding:11px 13px;border:1px solid rgba(210,83,99,.35);border-radius:10px;background:rgba(139,31,48,.13);color:#f0c5cc">
-              <strong>Important:</strong> Deleting a category will also delete all subcategories and articles assigned to that category, including articles assigned through its subcategories. Deleting a subcategory will also delete the articles assigned to that subcategory. This action cannot be undone.
+              <strong>Important:</strong> Deleting a category will also delete all subcategories and articles assigned to it. This action cannot be undone.
             </div>
-            <div><strong>Selected items:</strong><ul id="managed-category-delete-list" style="margin:7px 0 0;padding-left:20px;color:#d8c2ca"></ul></div>
+            <div><strong>Selected Items:</strong><ul id="managed-category-delete-list" style="margin:7px 0 0;padding-left:20px;color:#d8c2ca"></ul></div>
           </div>
           <div class="content-manager-actions content-manager-modal-actions"><button type="button" class="btn light" id="managed-category-delete-cancel">Cancel</button><button type="submit" class="content-manager-delete-selected" form="managed-category-bulk-delete" id="managed-category-delete-confirm">Delete Selected</button></div>
         </section>
       </div>
       <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-category-table"><thead><tr><th class="content-manager-select-cell"><input type="checkbox" id="managed-category-select-all" aria-label="Select all visible categories"></th><th>Category</th><th>Description</th><th>Actions</th></tr></thead><tbody>
       <?php foreach($cmCategories as $cat): ?>
-        <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td class="content-manager-select-cell"><?php if($cat['slug']!=='uncategorized'): ?><input type="checkbox" class="managed-category-select" name="selected_items[]" value="category:<?=(int)$cat['id']?>" form="managed-category-bulk-delete" aria-label="Select category <?=e($cat['name'])?>"><?php endif; ?></td><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
-        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-category-select" name="selected_items[]" value="subcategory:<?=(int)$sub['id']?>" form="managed-category-bulk-delete" aria-label="Select subcategory <?=e($sub['name'])?>"></td><td class="content-manager-subcat"><?=e($sub['name'])?> <span class="muted">— <?=e($sub['parent_name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a></div></td></tr><?php endforeach; ?>
+        <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td class="content-manager-select-cell"><?php if($cat['slug']!=='uncategorized'): ?><input type="checkbox" class="managed-category-select" name="selected_items[]" value="category:<?=(int)$cat['id']?>" form="managed-category-bulk-delete" aria-label="Select category <?=e($cat['name'])?>" data-item-name="<?=e($cat['name'])?>"><?php endif; ?></td><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
+        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-category-select" name="selected_items[]" value="subcategory:<?=(int)$sub['id']?>" form="managed-category-bulk-delete" aria-label="Select subcategory <?=e($sub['name'])?>" data-item-name="<?=e($sub['name'])?>"></td><td class="content-manager-subcat"><?=e($sub['name'])?> <span class="muted">— <?=e($sub['parent_name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a></div></td></tr><?php endforeach; ?>
       <?php endforeach; ?></tbody></table></div>
       <div class="content-manager-pagination"><span class="muted" id="managed-category-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-category-prev">Previous</button><span class="muted" id="managed-category-page"></span><button type="button" class="btn light" id="managed-category-next">Next</button></div></div>
     </section>
@@ -238,16 +238,13 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       deleteList.replaceChildren();
       checked.forEach(box => {
         const item = document.createElement('li');
-        item.textContent = box.getAttribute('aria-label') || 'Selected item';
+        item.textContent = box.dataset.itemName || 'Selected item';
         deleteList.appendChild(item);
       });
       deleteModal.hidden = false;
       document.getElementById('managed-category-delete-cancel')?.focus();
     });
     cancelDelete?.addEventListener('click', closeDeleteModal);
-    deleteModal?.addEventListener('click', event => {
-      if (event.target === deleteModal) closeDeleteModal();
-    });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && deleteModal && !deleteModal.hidden) closeDeleteModal();
     });
