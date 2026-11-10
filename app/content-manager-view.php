@@ -35,7 +35,7 @@ if (!empty($_GET['edit_article'])) {
     $q->execute([(int)$_GET['edit_article']]);
     $cmEditArticle = $q->fetch() ?: null;
 }
-$cmArticles = $pdo->query("SELECT c.id,c.title,c.status,c.updated_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC LIMIT 300")->fetchAll();
+$cmArticles = $pdo->query("SELECT c.id,c.title,c.status,c.updated_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC")->fetchAll();
 $cmNotices = [
     'category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.',
     'subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.',
@@ -235,10 +235,10 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     </section>
     <?php else: ?>
     <section class="content-manager-card content-manager-editor">
-      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span><div class="content-manager-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">View Categories</a><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
+      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles</span><div class="content-manager-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">View Categories</a><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
       <div class="content-manager-table-tools"><label class="content-manager-filter">Filter articles<input type="search" class="field" id="managed-article-filter" placeholder="Search title, category, author or status"></label><label class="content-manager-page-size">Show<select class="field" id="managed-article-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
       <form id="managed-article-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_articles"><input type="hidden" name="select_all_articles" id="managed-article-select-all-flag" value="0"></form>
-      <div class="content-manager-bulk-toolbar"><label class="muted" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="managed-article-select-all" aria-label="Select all articles" style="accent-color:#a83d59;width:14px;height:14px"> Select All <span id="managed-article-selection" aria-live="polite">No items selected</span></label><button class="content-manager-delete-selected" type="button" id="managed-article-delete-selected" disabled>Delete Selected</button></div>
+      <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-article-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="button" id="managed-article-delete-selected" disabled>Delete Selected</button></div>
       <div class="content-manager-modal-backdrop content-manager-article-bulk-modal" id="managed-article-delete-modal" hidden role="presentation">
         <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-delete-title">
           <div class="content-manager-section-head"><h3 id="managed-article-delete-title">Delete Selected Articles?</h3></div>
@@ -318,7 +318,6 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     const pageLabel = document.getElementById('managed-article-page');
     const previous = document.getElementById('managed-article-prev');
     const next = document.getElementById('managed-article-next');
-    const selectAll = document.getElementById('managed-article-select-all');
     const tableSelectAll = document.getElementById('managed-article-table-select-all');
     const deleteButton = document.getElementById('managed-article-delete-selected');
     const selectionLabel = document.getElementById('managed-article-selection');
@@ -331,7 +330,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       const selected = boxes.filter(box => box.checked);
       if (deleteButton) deleteButton.disabled = selected.length === 0;
       if (selectionLabel) selectionLabel.textContent = selected.length ? selected.length + ' selected' : 'No items selected';
-      [selectAll, tableSelectAll].forEach(control => {
+      [tableSelectAll].forEach(control => {
         if (!control) return;
         control.checked = boxes.length > 0 && selected.length === boxes.length;
         control.indeterminate = selected.length > 0 && selected.length < boxes.length;
@@ -342,7 +341,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       if (selectAllFlag) selectAllFlag.value = checked ? '1' : '0';
       updateSelection();
     };
-    [selectAll, tableSelectAll].forEach(control => control?.addEventListener('change', () => setAll(control.checked)));
+    tableSelectAll?.addEventListener('change', () => setAll(tableSelectAll.checked));
     boxes.forEach(box => box.addEventListener('change', () => { if (selectAllFlag) selectAllFlag.value = '0'; updateSelection(); }));
     deleteButton?.addEventListener('click', () => {
       const selected = boxes.filter(box => box.checked);
