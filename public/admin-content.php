@@ -121,5 +121,7 @@ try {
     $notice = $e->getMessage();
 }
 
-header('Location: admin.php?section=page-management&tab=contents&notice=' . rawurlencode($notice) . '#pm-panel-contents', true, 303);
+$returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory'], true);
+$redirect = $returnToCategoryList ? 'admin.php?section=category-list&notice=' : 'admin.php?section=page-management&tab=contents&notice=';
+header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? '' : '#pm-panel-contents'), true, 303);
 exit;
