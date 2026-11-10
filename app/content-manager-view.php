@@ -40,11 +40,11 @@ $cmNotices = [
     'category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.',
     'subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.',
     'article_created'=>'Article created successfully.','article_updated'=>'Article updated successfully.','article_deleted'=>'Article deleted successfully.',
-    'category_in_use'=>'This category or subcategory is assigned to existing content. Reassign or remove that content before deleting it.',
+    'category_in_use'=>'This category or subcategory is assigned to existing content.',
     'category_locked'=>'This category cannot be changed or deleted.','category_invalid'=>'Choose a valid parent category.','subcategory_invalid'=>'The selected subcategory does not belong to the selected category.',
     'subcategory_missing'=>'The subcategory could not be found.','article_invalid'=>'Enter an article title and choose a category.','article_missing'=>'The article could not be found.',
     'duplicate_or_database_error'=>'The change could not be saved. Check that the category or subcategory name is not already in use.',
-    'unknown_action'=>'The requested action is not available.'
+    'categories_bulk_deleted'=>'Selected categories, subcategories, and their articles were deleted successfully.','nothing_selected'=>'Select at least one category or subcategory to delete.','unknown_action'=>'The requested action is not available.'
 ];
 $cmNotice = $cmNotices[(string)($_GET['notice'] ?? '')] ?? '';
 $cmEditUrl = 'admin.php?section=page-management&tab=contents';
@@ -128,8 +128,21 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         </form>
       </section><?php endif; ?>
       <div class="content-manager-table-tools"><label class="content-manager-filter">Filter categories<input type="search" class="field" id="managed-category-filter" placeholder="Search category or description"></label><label class="content-manager-page-size">Show<select class="field" id="managed-category-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
-      <form id="managed-category-bulk-delete" method="post" action="admin-content.php?session_context=admin" onsubmit="return confirm('Delete the selected categories and subcategories? Items in use or categories with subcategories cannot be deleted.');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_categories"></form>
-      <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-category-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="submit" form="managed-category-bulk-delete" id="managed-category-delete-selected" disabled>Delete Selected</button></div>
+      <form id="managed-category-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_categories"></form>
+      <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-category-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="button" id="managed-category-delete-selected" disabled>Delete Selected</button></div>
+      <div class="content-manager-modal-backdrop" id="managed-category-delete-modal" hidden role="presentation">
+        <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-delete-title" aria-describedby="managed-category-delete-description">
+          <div class="content-manager-section-head"><h3 id="managed-category-delete-title">Delete Selected Items?</h3></div>
+          <div style="display:grid;gap:12px;color:#e9dce1;font-size:12px;line-height:1.65">
+            <p id="managed-category-delete-description" style="margin:0">You are about to permanently delete the selected categories and subcategories.</p>
+            <div style="padding:11px 13px;border:1px solid rgba(210,83,99,.35);border-radius:10px;background:rgba(139,31,48,.13);color:#f0c5cc">
+              <strong>Important:</strong> Deleting a category will also delete all subcategories and articles assigned to that category, including articles assigned through its subcategories. Deleting a subcategory will also delete the articles assigned to that subcategory. This action cannot be undone.
+            </div>
+            <div><strong>Selected items:</strong><ul id="managed-category-delete-list" style="margin:7px 0 0;padding-left:20px;color:#d8c2ca"></ul></div>
+          </div>
+          <div class="content-manager-actions content-manager-modal-actions"><button type="button" class="btn light" id="managed-category-delete-cancel">Cancel</button><button type="submit" class="content-manager-delete-selected" form="managed-category-bulk-delete" id="managed-category-delete-confirm">Delete Selected</button></div>
+        </section>
+      </div>
       <div class="content-manager-table-wrap"><table class="content-manager-table" id="managed-category-table"><thead><tr><th class="content-manager-select-cell"><input type="checkbox" id="managed-category-select-all" aria-label="Select all visible categories"></th><th>Category</th><th>Description</th><th>Actions</th></tr></thead><tbody>
       <?php foreach($cmCategories as $cat): ?>
         <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td class="content-manager-select-cell"><?php if($cat['slug']!=='uncategorized'): ?><input type="checkbox" class="managed-category-select" name="selected_items[]" value="category:<?=(int)$cat['id']?>" form="managed-category-bulk-delete" aria-label="Select category <?=e($cat['name'])?>"><?php endif; ?></td><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
@@ -214,7 +227,30 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     const selectAll = document.getElementById('managed-category-select-all');
     const deleteSelected = document.getElementById('managed-category-delete-selected');
     const selectionLabel = document.getElementById('managed-category-selection');
+    const deleteModal = document.getElementById('managed-category-delete-modal');
+    const deleteList = document.getElementById('managed-category-delete-list');
+    const cancelDelete = document.getElementById('managed-category-delete-cancel');
     const selections = [...categoryTable.querySelectorAll('.managed-category-select')];
+    const closeDeleteModal = () => { if (deleteModal) deleteModal.hidden = true; };
+    deleteSelected?.addEventListener('click', () => {
+      const checked = selections.filter(box => box.checked);
+      if (!checked.length || !deleteModal || !deleteList) return;
+      deleteList.replaceChildren();
+      checked.forEach(box => {
+        const item = document.createElement('li');
+        item.textContent = box.getAttribute('aria-label') || 'Selected item';
+        deleteList.appendChild(item);
+      });
+      deleteModal.hidden = false;
+      document.getElementById('managed-category-delete-cancel')?.focus();
+    });
+    cancelDelete?.addEventListener('click', closeDeleteModal);
+    deleteModal?.addEventListener('click', event => {
+      if (event.target === deleteModal) closeDeleteModal();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && deleteModal && !deleteModal.hidden) closeDeleteModal();
+    });
     const updateSelection = () => {
       const checked = selections.filter(box => box.checked);
       if (deleteSelected) deleteSelected.disabled = checked.length === 0;
