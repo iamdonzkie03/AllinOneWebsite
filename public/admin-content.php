@@ -73,6 +73,39 @@ try {
         $delete = $pdo->prepare('DELETE FROM categories WHERE id=?');
         $delete->execute([$id]);
         $notice = $isSubcategory ? 'subcategory_deleted' : 'category_deleted';
+    } elseif ($action === 'bulk_delete_categories') {
+        $selected = $_POST['selected_items'] ?? [];
+        if (!is_array($selected)) $selected = [];
+        $items = [];
+        foreach ($selected as $entry) {
+            if (!is_string($entry) || !preg_match('/^(category|subcategory):(\\d+)$/', $entry, $match)) continue;
+            $items[$match[1] . ':' . (int)$match[2]] = [$match[1], (int)$match[2]];
+        }
+        if (!$items) throw new RuntimeException('nothing_selected');
+        $pdo->beginTransaction();
+        try {
+            foreach ($items as [$kind, $id]) {
+                $find = $pdo->prepare('SELECT id,slug,parent_id FROM categories WHERE id=?');
+                $find->execute([$id]);
+                $category = $find->fetch();
+                $isSubcategory = $kind === 'subcategory';
+                if (!$category || ($isSubcategory ? $category['parent_id'] === null : $category['parent_id'] !== null) || $category['slug'] === 'uncategorized') {
+                    throw new RuntimeException('category_locked');
+                }
+                $children = $pdo->prepare('SELECT COUNT(*) FROM categories WHERE parent_id=?');
+                $children->execute([$id]);
+                $usage = $pdo->prepare($isSubcategory ? 'SELECT COUNT(*) FROM content WHERE subcategory_id=?' : 'SELECT COUNT(*) FROM content WHERE category_id=?');
+                $usage->execute([$id]);
+                if ((int)$children->fetchColumn() > 0 || (int)$usage->fetchColumn() > 0) throw new RuntimeException('category_in_use');
+                $delete = $pdo->prepare('DELETE FROM categories WHERE id=?');
+                $delete->execute([$id]);
+            }
+            $pdo->commit();
+            $notice = 'categories_bulk_deleted';
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
     } elseif ($action === 'save_article') {
         $id = (int)($_POST['article_id'] ?? 0);
         $title = trim((string)($_POST['title'] ?? ''));
@@ -121,7 +154,7 @@ try {
     $notice = $e->getMessage();
 }
 
-$returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory'], true);
+$returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory','bulk_delete_categories'], true);
 $redirect = $returnToCategoryList
     ? 'admin.php?session_context=admin&section=page-management&tab=contents&view=categories&notice='
     : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
