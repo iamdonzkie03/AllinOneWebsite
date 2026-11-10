@@ -51,6 +51,7 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
 $cmShowCategories = (string)($_GET['view'] ?? '') === 'categories';
 $cmAddCategory = (string)($_GET['add_category'] ?? '') === '1';
 $cmAddSubcategory = (string)($_GET['add_subcategory'] ?? '') === '1';
+$cmAddArticle = (string)($_GET['add_article'] ?? '') === '1';
 $cmCategoryModeUrl = 'admin.php?section=page-management&tab=contents&view=categories';
 $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 ?>
@@ -110,8 +111,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 @media(max-width:760px){.content-manager-grid{grid-template-columns:1fr}.content-manager-article-grid{grid-template-columns:1fr}.content-manager-article-grid .full{grid-column:auto}.content-manager-section-head{align-items:flex-start;flex-direction:column}}
 </style>
 <div class="content-manager">
-  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
-  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated'], true)): ?>
+  <?php if ($cmNotice !== '' && !in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created'], true)): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
+  <?php if (in_array((string)($_GET['notice'] ?? ''), ['category_created','category_updated','category_deleted','categories_bulk_deleted','subcategory_created','subcategory_updated','article_created'], true)): ?>
   <?php
     $cmSuccessNotice = (string)($_GET['notice'] ?? '');
     $cmIsBulkDelete = $cmSuccessNotice === 'categories_bulk_deleted';
@@ -122,6 +123,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         if (is_array($decodedDetails)) $cmBulkDetails = $decodedDetails;
     }
     $cmIsSubcategorySuccess = str_starts_with($cmSuccessNotice, 'subcategory_');
+    $cmIsArticleCreated = $cmSuccessNotice === 'article_created';
     $cmSuccessVerb = str_ends_with($cmSuccessNotice, '_created') ? 'created' : (str_ends_with($cmSuccessNotice, '_updated') ? 'updated' : 'deleted');
     $cmBulkCategoryCount = count($cmBulkDetails);
     $cmBulkSingleName = (string)(array_key_first($cmBulkDetails) ?? '');
@@ -130,7 +132,10 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
   <div class="content-manager-modal-backdrop" id="managed-category-success-modal" role="presentation">
     <section class="content-manager-modal content-manager-success-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-success-title">
       <div class="content-manager-success-icon" aria-hidden="true">✓</div>
-      <?php if ($cmIsBulkDelete && $cmBulkType === 'all'): ?>
+      <?php if ($cmIsArticleCreated): ?>
+        <h3 id="managed-category-success-title">Article Successfully Created</h3>
+        <p>The Article with the title <strong><?=e(trim((string)($_GET['names'] ?? '')) ?: 'Untitled')?></strong> has been successfully created.</p>
+      <?php elseif ($cmIsBulkDelete && $cmBulkType === 'all'): ?>
         <h3 id="managed-category-success-title">All Categories and its subcategories are successfully deleted</h3>
         <p>The following categories and subcategories were deleted:</p>
       <?php elseif ($cmIsBulkDelete && $cmBulkCategoryCount === 1): ?>
@@ -233,8 +238,10 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditCategory ? 'Update Category' : '+ Create Category' ?></button></div>
       </form>
     </section>
-    <section class="content-manager-card content-manager-editor" id="managed-article-form-panel"<?= $cmEditArticle ? "" : " hidden" ?>>
-      <div class="content-manager-section-head"><h3><?= $cmEditArticle ? 'Edit Article' : 'Add Article' ?></h3><?php if($cmEditArticle): ?><a href="<?=e($cmEditUrl)?>">Cancel edit</a><?php endif; ?></div>
+    <?php if (!$cmShowCategories && ($cmAddArticle || $cmEditArticle)): ?>
+    <div class="content-manager-modal-backdrop" id="managed-article-form-panel" role="presentation">
+      <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-modal-title">
+      <div class="content-manager-section-head"><h3 id="managed-article-modal-title"><?= $cmEditArticle ? 'Edit Article' : 'Add Article' ?></h3></div>
       <form class="content-manager-form" method="post" action="admin-content.php?session_context=admin" id="managed-article-form">
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_article">
         <input type="hidden" name="article_id" value="<?=(int)($cmEditArticle['id'] ?? 0)?>">
@@ -246,24 +253,20 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <label>Short description<input class="field" name="excerpt" maxlength="500" value="<?=e((string)($cmEditArticle['excerpt'] ?? ''))?>" placeholder="A short summary"></label>
           <label class="full">Article body<textarea class="field" name="body" rows="8" placeholder="Write the article here"><?=e((string)($cmEditArticle['body'] ?? ''))?></textarea></label>
         </div>
-        <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditArticle ? 'Update Article' : 'Save Article' ?></button></div>
+        <div class="content-manager-actions content-manager-modal-actions"><a class="btn light" href="<?=e($cmArticleModeUrl)?>">Cancel</a><button class="btn" type="submit"><?= $cmEditArticle ? 'Update Article' : 'Save Article' ?></button></div>
       </form>
     </section>
+    </div>
+    <?php endif; ?>
 
   </div>
 </div>
 <script>
 (() => {
   const addArticleButton = document.getElementById('managed-add-article-toggle');
-  const articlePanel = document.getElementById('managed-article-form-panel');
-  if (addArticleButton && articlePanel) {
-    addArticleButton.addEventListener('click', () => {
-      const opening = articlePanel.hidden;
-      articlePanel.hidden = !opening;
-      addArticleButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
-      if (opening) articlePanel.querySelector('input[name="title"]')?.focus();
-    });
-  }
+  if (addArticleButton) addArticleButton.addEventListener('click', () => { window.location.href = 'admin.php?session_context=admin&section=page-management&tab=contents&add_article=1#pm-panel-contents'; });
+  const articleTitle = document.querySelector('#managed-article-form-panel input[name="title"]');
+  if (articleTitle) articleTitle.focus();
 
   const articleCategory = document.getElementById('managed-article-category');
   const articleSubcategory = document.getElementById('managed-article-subcategory');
