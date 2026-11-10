@@ -48,6 +48,11 @@ $cmNotices = [
 ];
 $cmNotice = $cmNotices[(string)($_GET['notice'] ?? '')] ?? '';
 $cmEditUrl = 'admin.php?section=page-management&tab=contents';
+$cmShowCategories = (string)($_GET['view'] ?? '') === 'categories';
+$cmAddCategory = (string)($_GET['add_category'] ?? '') === '1';
+$cmAddSubcategory = (string)($_GET['add_subcategory'] ?? '') === '1';
+$cmCategoryModeUrl = 'admin.php?section=page-management&tab=contents&view=categories';
+$cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 ?>
 <style>
 .content-manager{display:grid;gap:16px}
@@ -68,13 +73,48 @@ $cmEditUrl = 'admin.php?section=page-management&tab=contents';
   <?php if ($cmNotice !== ''): ?><div class="content-manager-notice"><?=e($cmNotice)?></div><?php endif; ?>
 
   <div class="content-manager-grid">
+    <?php if ($cmShowCategories): ?>
     <section class="content-manager-card content-manager-editor">
-      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span><div class="content-manager-actions"><a class="btn" href="admin.php?section=category-list">View Categories</a><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
+      <div class="content-manager-section-head"><h3>Category and Subcategory List</h3></div>
+      <div class="content-manager-actions" style="justify-content:flex-start;margin:0 0 16px">
+        <a class="btn" href="<?=e($cmCategoryModeUrl.'&add_category=1')?>">+ Add Category</a>
+        <a class="btn light" href="<?=e($cmCategoryModeUrl.'&add_subcategory=1')?>">+ Add Subcategory</a>
+        <a class="btn light" href="<?=e($cmArticleModeUrl)?>">← Back to Articles</a>
+      </div>
+      <?php if ($cmAddCategory || $cmEditCategory): ?>
+      <section class="content-manager-card" style="margin-bottom:14px"><div class="content-manager-section-head"><h3><?= $cmEditCategory ? 'Edit Category' : 'Add Category' ?></h3><a href="<?=e($cmCategoryModeUrl)?>">Cancel</a></div>
+        <form class="content-manager-form" method="post" action="admin-content.php">
+          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_category"><input type="hidden" name="category_id" value="<?=(int)($cmEditCategory['id'] ?? 0)?>">
+          <label>Category name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($cmEditCategory['name'] ?? ''))?>" placeholder="Enter category name"></label>
+          <label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($cmEditCategory['description'] ?? ''))?></textarea></label>
+          <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditCategory ? 'Update Category' : 'Save Category' ?></button></div>
+        </form>
+      </section><?php endif; ?>
+      <?php if ($cmAddSubcategory || $cmEditSubcategory): ?>
+      <section class="content-manager-card" style="margin-bottom:14px"><div class="content-manager-section-head"><h3><?= $cmEditSubcategory ? 'Edit Subcategory' : 'Add Subcategory' ?></h3><a href="<?=e($cmCategoryModeUrl)?>">Cancel</a></div>
+        <form class="content-manager-form" method="post" action="admin-content.php">
+          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_subcategory"><input type="hidden" name="subcategory_id" value="<?=(int)($cmEditSubcategory['id'] ?? 0)?>">
+          <label>Parent category *<select class="field" name="parent_id" required><option value="">Select a category</option><?php foreach($cmCategories as $cat): if($cat['slug']==='uncategorized') continue; ?><option value="<?=(int)$cat['id']?>" <?=isset($cmEditSubcategory['parent_id'])&&(int)$cmEditSubcategory['parent_id']===(int)$cat['id']?'selected':''?>><?=e($cat['name'])?></option><?php endforeach; ?></select></label>
+          <label>Subcategory name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($cmEditSubcategory['name'] ?? ''))?>" placeholder="Enter subcategory name"></label>
+          <label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($cmEditSubcategory['description'] ?? ''))?></textarea></label>
+          <div class="content-manager-actions"><button class="btn" type="submit"><?= $cmEditSubcategory ? 'Update Subcategory' : 'Save Subcategory' ?></button></div>
+        </form>
+      </section><?php endif; ?>
+      <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Category / Subcategory</th><th>Description</th><th>Actions</th></tr></thead><tbody>
+      <?php foreach($cmCategories as $cat): ?>
+        <tr><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><a href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this category?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="item_id" value="<?=(int)$cat['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr>
+        <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr><td class="content-manager-subcat"><?=e($sub['name'])?></td><td><?=e((string)$sub['description'])?></td><td><a href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this subcategory?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
+      <?php endforeach; ?></tbody></table></div>
+    </section>
+    <?php else: ?>
+    <section class="content-manager-card content-manager-editor">
+      <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles shown (latest 300)</span><div class="content-manager-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">View Categories</a><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
       <div class="content-manager-table-wrap"><table class="content-manager-table"><thead><tr><th>Article</th><th>Category</th><th>Status</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead><tbody>
       <?php foreach($cmArticles as $article): ?><tr><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><?=e(str_replace('_',' ',$article['status']))?></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><a href="admin.php?section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this article permanently?');"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_article"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" style="border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit">Delete</button></form></td></tr><?php endforeach; ?>
       <?php if(!$cmArticles): ?><tr><td colspan="6" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
       </tbody></table></div>
     </section>
+    <?php endif; ?>
     <section class="content-manager-card" id="managed-category-form-panel"<?= $cmEditCategory ? "" : " hidden" ?>>
       <div class="content-manager-section-head"><h3><?= $cmEditCategory ? 'Edit Category' : 'Create Category' ?></h3><?php if($cmEditCategory): ?><a href="<?=e($cmEditUrl)?>">Cancel edit</a><?php endif; ?></div>
       <form class="content-manager-form" method="post" action="admin-content.php">
