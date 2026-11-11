@@ -1071,9 +1071,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       }
     }
     sort($galleryFolders, SORT_NATURAL | SORT_FLAG_CASE);
+    // Keep every physical Gallery folder in the listing, even when it has no photos.
+    // Empty folders remain available for future uploads and display the empty-cover state.
     $galleryGroupedPhotos = [];
+    foreach ($galleryFolders as $folderName) {
+      $galleryGroupedPhotos[$folderName] = [];
+    }
     foreach ($galleryPhotos as $galleryPhoto) {
       $groupKey = (string)($galleryPhoto['folder_name'] ?? '');
+      if (!array_key_exists($groupKey, $galleryGroupedPhotos)) $galleryGroupedPhotos[$groupKey] = [];
       $galleryGroupedPhotos[$groupKey][] = $galleryPhoto;
     }
     $gallerySavedCount = max(0, (int)($_GET['gallery_saved'] ?? 0));
