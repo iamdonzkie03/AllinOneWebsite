@@ -100,7 +100,7 @@ $pdo->exec("INSERT IGNORE INTO site_sections_settings (id,content_json) VALUES (
 $sectionsRow=$pdo->query("SELECT content_json FROM site_sections_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
 $sectionsSettings=json_decode((string)($sectionsRow['content_json']??''),true);
 if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
-$sectionsSettings=array_replace_recursive($defaultSections,$sectionsSettings);
+foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
 
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
@@ -206,9 +206,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $safeText=static fn($v,$max=240)=>mb_substr(trim((string)$v),0,$max);
         $cleanHtml=static function(string $html): string {
             $html=strip_tags($html,'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
-            $html=preg_replace_callback('/<a\\b([^>]*)>/i',static function($m){
-                $href=''; if(preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[1],$x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i',$x[1])) $href=' href="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"';
-                return '<a'.$href.' target="_blank" rel="noopener">';
+            $html=preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i',static function($m){
+                $tag=strtolower($m[1]); if($tag==='br') return '<br>';
+                if($tag==='a'){ $href=''; if(preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i',$x[1])) $href=' href="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; return '<a'.$href.' target="_blank" rel="noopener">'; }
+                return '<'.$tag.'>';
             },$html);
             return trim($html);
         };
@@ -961,7 +962,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <script>
  (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')];tabs.forEach(t=>t.addEventListener('click',()=>{tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));});panels.forEach(p=>p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab)}));
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
- root.querySelectorAll('[data-editor]').forEach(ed=>{const sync=()=>{const src=root.querySelector('[data-editor-source="'+ed.dataset.editor+'"]');if(src)src.value=ed.innerHTML};ed.addEventListener('input',sync);});
+ root.querySelectorAll('[data-editor]').forEach(ed=>{const sync=()=>{const src=root.querySelector('[data-editor-source="'+ed.dataset.editor+'"]');if(src)src.value=ed.innerHTML;const preview=document.getElementById('banner-preview-description');if(preview&&ed.dataset.editor==='banner_description')preview.innerHTML=ed.innerHTML};ed.addEventListener('input',sync);sync();});
  root.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>{const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand(b.dataset.cmd,false,null);ed?.dispatchEvent(new Event('input'))}));
  root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter link URL');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
  const add=(target,html)=>{document.getElementById(target).insertAdjacentHTML('beforeend',html)};
