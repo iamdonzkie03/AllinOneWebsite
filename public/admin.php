@@ -430,7 +430,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $uploadedCount = count($savedFiles);
             if (strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest') {
                 header('Content-Type: application/json; charset=utf-8');
-                echo json_encode(['success'=>true,'count'=>$uploadedCount]);
+                echo json_encode(['success'=>true,'count'=>$uploadedCount,'folder'=>$folder]);
                 exit;
             }
             header('Location: admin.php?section=media-management&media_tab=gallery&gallery_saved=' . $uploadedCount, true, 303);
@@ -1280,7 +1280,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});[prev,prevBottom].forEach(button=>button?.addEventListener('click',()=>{if(page>1){page--;render();}}));[next,nextBottom].forEach(button=>button?.addEventListener('click',()=>{page++;render();}));
     const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
     const progress=document.getElementById('gallery-upload-progress'),progressFill=document.getElementById('gallery-upload-progress-fill'),progressValue=document.getElementById('gallery-upload-progress-value'),progressLabel=document.getElementById('gallery-upload-progress-label'),uploadError=document.getElementById('gallery-upload-error'),successModal=document.getElementById('gallery-upload-success-modal'),successMessage=document.getElementById('gallery-upload-success-message');
-    let uploadInProgress=false;
+    let uploadInProgress=false,uploadedFolder='';
     const resetProgress=()=>{if(progress)progress.hidden=true;if(progressFill)progressFill.style.width='0%';if(progressValue)progressValue.textContent='0%';if(progressLabel)progressLabel.textContent='Uploading photos…';if(uploadError){uploadError.hidden=true;uploadError.textContent='';}};
     const setProgress=value=>{const percent=Math.max(0,Math.min(100,Math.round(value)));if(progressFill)progressFill.style.width=percent+'%';if(progressValue)progressValue.textContent=percent+'%';};
     const resetUploadForm=()=>{
@@ -1319,6 +1319,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           result={success:false,message:bodyLimitMatch?'The selected photos exceed the PHP request-size limit. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.':'The server did not return an upload response. This usually means the total upload exceeds PHP post_max_size or the web server rejected the request. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.'};
         }
         if(xhr.status>=200&&xhr.status<300&&result?.success){
+          uploadedFolder=typeof result.folder==='string'?result.folder:'';
           setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';
           window.setTimeout(()=>{
             uploadInProgress=false;modal.hidden=true;resetUploadForm();
@@ -1340,7 +1341,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       });
       xhr.send(data);
     });
-    document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{if(successModal)successModal.hidden=true;window.location.href='admin.php?section=media-management&media_tab=gallery';});
+    document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{if(successModal)successModal.hidden=true;window.location.href='admin.php?section=media-management&media_tab=gallery'+(uploadedFolder?'&gallery_folder='+encodeURIComponent(uploadedFolder):'');});
     successModal?.addEventListener('click',event=>{if(event.target===successModal)event.preventDefault();});
     modal?.addEventListener('click',event=>{if(event.target===modal)event.preventDefault();});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
