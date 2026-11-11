@@ -206,3 +206,9 @@ a.story-read-link:focus-visible{
 .stories-show-latest{margin-top:20px;text-align:center}
 @media(max-width:850px){.stories-slider-card{flex-basis:calc((100% - 18px)/2)}}
 @media(max-width:560px){.stories-slider{gap:6px}.stories-slider-arrow{flex-basis:30px;width:30px;height:30px;font-size:23px}.stories-slider-card{flex-basis:100%}.stories-slider-track{gap:12px}}
+
+/* Page Management homepage section editor */
+.hero-description{color:var(--muted);font-size:13px;line-height:1.7;max-width:560px}
+.kenburns-slideshow .culture-slide img{animation:sectionKenBurns 12s ease-in-out infinite alternate}
+@keyframes sectionKenBurns{from{transform:scale(1)}to{transform:scale(1.13)}}
+.mega-panel-cover{width:100%;height:110px;object-fit:cover;border-radius:9px;margin-bottom:10px}
