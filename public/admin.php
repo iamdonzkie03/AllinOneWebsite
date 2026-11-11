@@ -915,12 +915,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 <?php if($message==='Sections settings successfully saved.'): ?><div class="panel" role="status" style="border-color:#3c8b65;color:#c8f2d9;margin-top:14px">✓ Sections settings successfully saved.</div><?php endif; ?>
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
  <style>
- .section-builder-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0;border-bottom:1px solid var(--line);padding-bottom:12px}
- .section-builder-tabs button{border:1px solid #44313a;background:#171115;color:#d8cbd0;border-radius:999px;padding:10px 22px;font:600 13px Ubuntu;cursor:pointer}
- .section-builder-tabs button[aria-selected=true]{color:#fff;box-shadow:0 0 0 2px #ffffff12}
- .section-builder-tabs [data-section-tab=banner][aria-selected=true]{background:#57101b;border-color:#ef3340}
- .section-builder-tabs [data-section-tab=slideshow][aria-selected=true]{background:#102c55;border-color:#20b9ff}
- .section-builder-tabs [data-section-tab=mega_menu][aria-selected=true]{background:#514600;border-color:#f5dc00}
+ .section-builder-tabs{--tab-index:0;position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(100%,650px);margin:18px 0 22px;padding:5px;border:1px solid #45313a;border-radius:999px;background:linear-gradient(135deg,#100c0f,#1a1117);box-shadow:inset 0 2px 8px #0009,0 8px 22px #0003;overflow:hidden}
+ .section-tab-indicator{position:absolute;z-index:-1;left:5px;top:5px;bottom:5px;width:calc((100% - 10px - 8px)/3);border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:translateX(calc(var(--tab-index)* (100% + 4px)));transition:transform .38s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s}
+ .section-builder-tabs[data-active=slideshow] .section-tab-indicator{background:linear-gradient(135deg,#164d83,#102849);border-color:#20b9ff;box-shadow:0 4px 14px #20b9ff30,inset 0 1px #ffffff24}
+ .section-builder-tabs[data-active=mega_menu] .section-tab-indicator{background:linear-gradient(135deg,#796800,#403700);border-color:#f5dc00;box-shadow:0 4px 14px #f5dc0030,inset 0 1px #ffffff24}
+ .section-builder-tabs button{position:relative;z-index:1;min-width:0;border:1px solid transparent;background:transparent;color:#cbbdc3;border-radius:999px;padding:11px 14px;font:700 13px Ubuntu;letter-spacing:.02em;cursor:pointer;transition:color .2s,transform .2s}
+ .section-builder-tabs button:hover{color:#fff}
+ .section-builder-tabs button[aria-selected=true]{color:#fff;text-shadow:0 1px 8px #0008}
+ .section-builder-tabs button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+ @media(max-width:520px){.section-builder-tabs{width:100%;gap:2px}.section-builder-tabs button{padding:10px 5px;font-size:11px}.section-tab-indicator{width:calc((100% - 10px - 4px)/3);transform:translateX(calc(var(--tab-index)*(100% + 2px)))}}
  .section-subpanel[hidden]{display:none}.section-preview{border:1px solid #55414a;background:#0b090b;border-radius:13px;padding:15px;margin-bottom:20px;overflow:hidden}
  .section-preview h3{font:28px Georgia,serif;margin:5px 0 9px}.section-preview .preview-kicker{font:700 9px Ubuntu;letter-spacing:.18em;color:#ff5268}
  .section-preview .preview-desc{font:12px Ubuntu;color:#d8cbd0}.section-preview-media{display:flex;gap:10px;overflow:auto;margin-top:10px}.section-preview-media img{width:180px;height:105px;object-fit:cover;border-radius:8px}
@@ -930,8 +933,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  @media(max-width:760px){.section-form-grid{grid-template-columns:1fr}}
  </style>
  
- <nav class="section-builder-tabs" aria-label="Homepage section editor">
-  <button type="button" data-section-tab="banner" aria-selected="true">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false">Mega Menu</button>
+ <nav class="section-builder-tabs" data-active="banner" aria-label="Homepage section editor">
+  <span class="section-tab-indicator" aria-hidden="true"></span>
+  <button type="button" data-section-tab="banner" aria-selected="true" role="tab">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab">Mega Menu</button>
  </nav>
  <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings">
  <section class="section-subpanel" data-section-panel="banner">
@@ -960,7 +964,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <div class="header-settings-actions"><button type="submit" class="btn">Save Sections Settings</button></div>
  </form>
  <script>
- (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')];tabs.forEach(t=>t.addEventListener('click',()=>{tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));});panels.forEach(p=>p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab)}));
+ (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const activateSectionTab=(t)=>{const index=tabs.indexOf(t);tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
  root.querySelectorAll('[data-editor]').forEach(ed=>{const sync=()=>{const src=root.querySelector('[data-editor-source="'+ed.dataset.editor+'"]');if(src)src.value=ed.innerHTML;const preview=document.getElementById('banner-preview-description');if(preview&&ed.dataset.editor==='banner_description')preview.innerHTML=ed.innerHTML};ed.addEventListener('input',sync);sync();});
  root.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>{const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand(b.dataset.cmd,false,null);ed?.dispatchEvent(new Event('input'))}));
