@@ -1,4 +1,805 @@
-<?php elseif($section==='media-management'):?>
+<?php
+declare(strict_types=1);
+require __DIR__ . '/../app/bootstrap.php';
+$admin = require_admin();
+$nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1');
+$nicknameStmt->execute([(int)$admin['id']]);
+$adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
+$message = '';
+// Persist public header configuration in a dedicated settings row.
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  header_title VARCHAR(160) NOT NULL DEFAULT 'Z.C. commonplace',
+  logo_path VARCHAR(500) NULL,
+  header_links LONGTEXT NULL,
+  hidden_left VARCHAR(180) NULL,
+  hidden_right VARCHAR(180) NULL,
+  font_family VARCHAR(80) NOT NULL DEFAULT 'Ubuntu',
+  font_style VARCHAR(20) NOT NULL DEFAULT 'normal',
+  font_size TINYINT UNSIGNED NOT NULL DEFAULT 20,
+  font_weight SMALLINT UNSIGNED NOT NULL DEFAULT 700,
+  logo_position_x TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  logo_position_y TINYINT UNSIGNED NOT NULL DEFAULT 50,
+  logo_width SMALLINT UNSIGNED NOT NULL DEFAULT 200,
+  logo_height SMALLINT UNSIGNED NOT NULL DEFAULT 70,
+  title_html LONGTEXT NULL,
+  hidden_left_html LONGTEXT NULL,
+  hidden_right_html LONGTEXT NULL,
+  typography_json LONGTEXT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// Additive compatibility for databases created before independent header typography was introduced.
+foreach (['logo_width'=>'SMALLINT UNSIGNED NOT NULL DEFAULT 200','logo_height'=>'SMALLINT UNSIGNED NOT NULL DEFAULT 70','title_html'=>'LONGTEXT NULL','hidden_left_html'=>'LONGTEXT NULL','hidden_right_html'=>'LONGTEXT NULL','typography_json'=>'LONGTEXT NULL'] as $column=>$definition) {
+    $exists = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='site_header_settings' AND COLUMN_NAME=?");
+    $exists->execute([$column]);
+    if (!(int)$exists->fetchColumn()) $pdo->exec("ALTER TABLE site_header_settings ADD COLUMN {$column} {$definition}");
+}
+function cleanHeaderRichHtml(string $html): string {
+    $html = strip_tags($html, '<span><b><strong><i><em><u>');
+    $html = preg_replace_callback('/<span\\b([^>]*)>/i', static function($m) {
+        $style = '';
+        if (preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[1], $sm)) {
+            $rules = [];
+            foreach (explode(';', $sm[1]) as $rule) {
+                if (!str_contains($rule, ':')) continue;
+                [$key,$value] = array_map('trim', explode(':', $rule, 2));
+                if ($key === 'color' && preg_match('/^#[0-9a-f]{3,8}$/i', $value)) $rules[] = 'color:'.$value;
+                if ($key === 'font-size' && preg_match('/^(?:[8-9]|[1-3][0-9]|40)px$/', $value)) $rules[] = 'font-size:'.$value;
+                if ($key === 'font-weight' && in_array($value, ['300','400','500','600','700','800','bold','normal'], true)) $rules[] = 'font-weight:'.$value;
+                if ($key === 'font-style' && in_array($value, ['normal','italic'], true)) $rules[] = 'font-style:'.$value;
+                if ($key === 'font-family' && in_array(trim($value), ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'], true)) $rules[] = 'font-family:'.trim($value);
+                if ($key === 'text-decoration' && in_array($value, ['none','underline'], true)) $rules[] = 'text-decoration:'.$value;
+            }
+            if ($rules) $style = ' style="'.implode(';',$rules).'"';
+        }
+        return '<span'.$style.'>';
+    }, $html);
+    $html = preg_replace('/<(b|strong|i|em|u)\\b[^>]*>/i', '<$1>', $html);
+    return trim((string)$html);
+}
+function headerTypography(array $input, array $fallback=[]): array {
+    $families=['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'];
+    $family=(string)($input['family'] ?? $fallback['family'] ?? 'Ubuntu');
+    $style=(string)($input['style'] ?? $fallback['style'] ?? 'normal');
+    $size=max(8,min(40,(int)($input['size'] ?? $fallback['size'] ?? 16)));
+    $weight=(int)($input['weight'] ?? $fallback['weight'] ?? 400);
+    $color=(string)($input['color'] ?? $fallback['color'] ?? '#eadde1');
+    $format=(string)($input['format'] ?? (($weight>=700)?'bold':(($style==='italic')?'italic':'normal')));
+    $formatParts=array_values(array_intersect(['bold','italic','underline'],preg_split('/[ ,]+/',$format,-1,PREG_SPLIT_NO_EMPTY) ?: []));
+    $format=implode(' ',$formatParts);
+    return ['family'=>in_array($family,$families,true)?$family:'Ubuntu','style'=>in_array($style,['normal','italic'],true)?$style:'normal','size'=>$size,'weight'=>in_array($weight,[300,400,500,600,700,800],true)?$weight:400,'color'=>preg_match('/^#[0-9a-f]{6}$/i',$color)?$color:'#eadde1','format'=>$format];
+}
+$pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
+$headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
+
+// Footer content is stored separately so the admin preview and public footer
+// always use the same saved configuration.
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_footer_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  content_json LONGTEXT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$defaultFooterContent = json_decode('{"brand":"Z.C. commonplace","description":"Zamboanga stories, culture, creativity and community — shared with care.","copyright":"© {year} Z.C. commonplace. Community publishing with administrator review.","brand_links":[],"explore_title":"Explore","explore_links":[{"label":"Creative Arts and Photography","url":"?category=creative-arts-photography#latest"},{"label":"News Connect","url":"?category=news-connect#latest"},{"label":"Marketplace","url":"?category=marketplace#latest"}],"discover_title":"Discover","discover_links":[{"label":"Entertainment & Politics","url":"?category=entertainment-politics#latest"},{"label":"History & Culture","url":"?category=history-culture#latest"},{"label":"Zamboanga heritage slideshow","url":"#zamboanga"}]}', true) ?: [];
+$pdo->exec("INSERT IGNORE INTO site_footer_settings (id, content_json) VALUES (1, '".str_replace("'", "''", json_encode($defaultFooterContent, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE))."')");
+$footerRow = $pdo->query("SELECT content_json FROM site_footer_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
+$footerSettings = json_decode((string)($footerRow['content_json'] ?? ''), true);
+if (!is_array($footerSettings)) $footerSettings = [];
+$footerSettings = array_replace($defaultFooterContent, $footerSettings);
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_sections_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  content_json LONGTEXT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$defaultSections = [
+ 'banner'=>['main_title'=>'ONE CITY. MANY STORIES.','heading'=>'Zamboanga, through our eyes.','description'=>'<p>A digital home for the city\'s history, culture, creative talent, community news, marketplace, entertainment and public conversation.</p>','button_label'=>'Explore our heritage','button_url'=>'#zamboanga','button_color'=>'#b8323f','button_text_color'=>'#ffffff','button_size'=>'14','button_width'=>'auto','button_height'=>'42','photo'=>''],
+ 'slideshow'=>['main_title'=>'A LIVING HERITAGE','heading'=>'Discover the story of Zamboanga City','subtitle'=>'From historic landmarks to maritime traditions and a vibrant, multilingual culture.','photos'=>[['title'=>'HERITAGE LANDMARK · 17TH CENTURY','heading'=>'Fort Pilar','description'=>'<p>A landmark shaped by centuries of history, faith and city life.</p>','photo'=>'https://commons.wikimedia.org/wiki/Special:FilePath/Fort_Pilar_(NS_Valderoza,_Zamboanga_City;_10-07-2023).jpg?width=1800'],['title'=>'THE CITY BY THE SEA','heading'=>'Life along the waterfront','description'=>'<p>The sea connects Zamboanga communities and neighboring islands.</p>','photo'=>'https://commons.wikimedia.org/wiki/Special:FilePath/Fort_Pilar_Paseo_Del_Mar_bay_view_sunrise_(NS_Valderosa,_Zamboanga_City;_10-11-2023).jpg?width=1800'],['title'=>'MARITIME TRADITION','heading'=>'The colors of the vinta','description'=>'<p>The vinta is an enduring symbol of regional maritime traditions.</p>','photo'=>'https://commons.wikimedia.org/wiki/Special:FilePath/Vinta_at_Zamboanga_City_Tourism_Office,_Mar_2026.jpg?width=1600'],['title'=>'ARTISANSHIP · LIVING CULTURE','heading'=>'Patterns that carry stories','description'=>'<p>Traditional weaving reflects generations of skill and cultural knowledge.</p>','photo'=>'https://commons.wikimedia.org/wiki/Special:FilePath/Yakan_Weavers.jpg?width=1800']]],
+ 'mega_menu'=>['main_title'=>'EXPLORE THE PLATFORM','heading'=>'Five ways to connect','subtitle'=>'A single community space for creativity, information, commerce and cultural memory.','panels'=>[]]
+];
+$pdo->exec("INSERT IGNORE INTO site_sections_settings (id,content_json) VALUES (1,'".str_replace("'","''",json_encode($defaultSections,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE))."')");
+$sectionsRow=$pdo->query("SELECT content_json FROM site_sections_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
+$sectionsSettings=json_decode((string)($sectionsRow['content_json']??''),true);
+if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
+foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
+
+$headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
+if (!is_array($headerLinks)) $headerLinks = [];
+$section = (string)($_GET['section'] ?? 'dashboard');
+$activePageTab = (string)($_GET['tab'] ?? 'header');
+if (!in_array($activePageTab, ['header','footer','contents','sections'], true)) $activePageTab = 'header';
+$activeMediaTab = (string)($_GET['media_tab'] ?? 'gallery');
+if (!in_array($activeMediaTab, ['gallery','video'], true)) $activeMediaTab = 'gallery';
+$allowedSections = ['dashboard', 'settings', 'page-management', 'category-list', 'media-management', 'plugins', 'user-accounts'];
+if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
+
+/**
+ * Publish the saved header row into the actual root index.php on GitHub main.
+ * The token is read only from server-side environment/configuration and is never
+ * sent to the browser or stored in the repository.
+ */
+function publishHeaderSettingsToGitHub(array $header): string {
+    global $config;
+    $token = trim((string)(getenv('ALLINONE_GITHUB_TOKEN') ?: ($config['github']['token'] ?? '')));
+    if ($token === '') {
+        throw new RuntimeException('GitHub publishing is not configured. Set ALLINONE_GITHUB_TOKEN on the Laragon/PHP server (or add github.token to the private config/config.php), then restart the web server.');
+    }
+    if (!function_exists('curl_init')) {
+        throw new RuntimeException('The PHP cURL extension is required for GitHub publishing. Enable extension=curl in Laragon PHP and restart Apache.');
+    }
+
+    $repository = trim((string)(getenv('ALLINONE_GITHUB_REPOSITORY') ?: 'iamdonzkie03/AllInOneWebsite'));
+    $branch = trim((string)(getenv('ALLINONE_GITHUB_BRANCH') ?: 'main'));
+    if (!preg_match('~^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$~', $repository) || $branch === '') {
+        throw new RuntimeException('The GitHub repository or branch configuration is invalid.');
+    }
+
+    $apiUrl = 'https://api.github.com/repos/' . $repository . '/contents/index.php';
+    $headers = [
+        'Accept: application/vnd.github+json',
+        'Authorization: Bearer ' . $token,
+        'X-GitHub-Api-Version: 2022-11-28',
+        'User-Agent: AllInOneWebsite-HeaderPublisher',
+    ];
+    $request = static function(string $url, string $method, array $requestHeaders, ?string $body = null): array {
+        $curl = curl_init($url);
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => $requestHeaders,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+        if ($body !== null) curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
+        $response = curl_exec($curl);
+        $curlError = curl_error($curl);
+        $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        if ($response === false) throw new RuntimeException('GitHub connection failed: ' . ($curlError ?: 'unknown cURL error'));
+        $decoded = json_decode((string)$response, true);
+        if (!is_array($decoded)) throw new RuntimeException('GitHub returned an unreadable response (HTTP ' . $status . ').');
+        return [$status, $decoded];
+    };
+
+    [$readStatus, $file] = $request($apiUrl . '?ref=' . rawurlencode($branch), 'GET', $headers);
+    if ($readStatus !== 200 || empty($file['content']) || empty($file['sha'])) {
+        $detail = (string)($file['message'] ?? ('HTTP ' . $readStatus));
+        throw new RuntimeException('Unable to read index.php from GitHub: ' . $detail);
+    }
+    $source = base64_decode((string)$file['content'], true);
+    if (!is_string($source)) throw new RuntimeException('GitHub index.php content could not be decoded.');
+
+    $json = json_encode($header, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($json)) throw new RuntimeException('Header settings could not be encoded for GitHub.');
+    $encodedSettings = base64_encode($json);
+    $replacement = "// BEGIN GITHUB-PUBLISHED HEADER SETTINGS\n"
+        . "\$githubPublishedHeaderSettings = json_decode(base64_decode('" . $encodedSettings . "'), true) ?: [];\n"
+        . "// END GITHUB-PUBLISHED HEADER SETTINGS";
+    $pattern = '~// BEGIN GITHUB-PUBLISHED HEADER SETTINGS.*?// END GITHUB-PUBLISHED HEADER SETTINGS~s';
+    if (!preg_match($pattern, $source)) {
+        throw new RuntimeException('The GitHub index.php does not contain the header-publishing marker block. Pull the latest project code first.');
+    }
+    $updatedSource = preg_replace($pattern, $replacement, $source, 1);
+    if (!is_string($updatedSource)) throw new RuntimeException('Unable to prepare the updated GitHub index.php.');
+
+    [$writeStatus, $result] = $request($apiUrl, 'PUT', array_merge($headers, ['Content-Type: application/json']), json_encode([
+        'message' => 'Publish Page Management header settings',
+        'content' => base64_encode($updatedSource),
+        'sha' => (string)$file['sha'],
+        'branch' => $branch,
+    ], JSON_UNESCAPED_SLASHES));
+    if (!in_array($writeStatus, [200, 201], true)) {
+        $detail = (string)($result['message'] ?? ('HTTP ' . $writeStatus));
+        if ($writeStatus === 401 || $writeStatus === 403) {
+            $detail .= ' Check that the token is valid and has Contents: Read and write permission for this repository.';
+        }
+        throw new RuntimeException('GitHub did not commit index.php: ' . $detail);
+    }
+    return (string)($result['commit']['sha'] ?? '');
+}
+
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verify_csrf();
+    $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'save_sections_settings') {
+        $activePageTab='sections';
+        $sectionEditorTab=(string)($_POST['section_editor_tab']??'banner');
+        if(!in_array($sectionEditorTab,['banner','slideshow','mega_menu'],true))$sectionEditorTab='banner';
+        $saved=$sectionsSettings;
+        $safeText=static fn($v,$max=240)=>mb_substr(trim((string)$v),0,$max);
+        $cleanHtml=static function(string $html): string {
+            $html=strip_tags($html,'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span><figure><img><figcaption><table><tbody><tr><th><td>');
+            $html=preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i',static function($m){
+                $tag=strtolower($m[1]); if($tag==='br') return '<br>';
+                if($tag==='a'){ $href=''; if(preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i',$x[1])) $href=' href="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; return '<a'.$href.' target="_blank" rel="noopener">'; }
+                if($tag==='img'){ $src=''; $alt=''; if(preg_match('/src\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x) && preg_match('~^(uploads/articles/|/uploads/articles/)~i',$x[1])) $src=' src="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; if(preg_match('/alt\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x)) $alt=' alt="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; return '<img'.$src.$alt.'>'; }
+                $style=''; if(preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x)){ foreach(explode(';',$x[1]) as $declaration){ if(!str_contains($declaration,':')) continue; [$property,$value]=array_map('trim',explode(':',$declaration,2)); $property=strtolower($property); $valid=false; if($property==='color') $valid=(bool)preg_match('/^(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})$/i',$value); elseif($property==='font-size') $valid=(bool)preg_match('/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\\.[0-9]+)?px$/i',$value); elseif($property==='font-family') $valid=(bool)preg_match('/^[a-z0-9 ,\\\'-]{1,80}$/i',$value); elseif($property==='font-weight') $valid=in_array(strtolower($value),['normal','bold','400','500','600','700','800','900'],true); elseif($property==='font-style') $valid=in_array(strtolower($value),['normal','italic','oblique'],true); elseif($property==='text-align') $valid=in_array(strtolower($value),['left','right','center','justify'],true); elseif($property==='text-decoration') $valid=(bool)preg_match('/^(none|underline|line-through|overline)(\\s+(underline|line-through|overline))*$/i',$value); elseif($property==='line-height') $valid=(bool)preg_match('/^(?:[0-9]+(?:\\.[0-9]+)?|[0-9]+(?:\\.[0-9]+)?px|[0-9]+(?:\\.[0-9]+)?%)$/i',$value); elseif($property==='letter-spacing') $valid=(bool)preg_match('/^-?[0-9]+(?:\\.[0-9]+)?px$/i',$value); if($valid) $style.=$property.':'.htmlspecialchars($value,ENT_QUOTES,'UTF-8').';'; } } return '<'.$tag.($style!==''?' style="'.$style.'"':'').'>';
+            },$html);
+            return trim($html);
+        };
+        $upload=static function(array $file,string $prefix): string {
+            if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) return '';
+            if((int)($file['size']??0)>10*1024*1024) throw new RuntimeException('Each section photo must be 10 MB or smaller.');
+            $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+            $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'][$mime]??'';
+            if($ext==='' || @getimagesize((string)$file['tmp_name'])===false) throw new RuntimeException('Upload valid JPG, PNG, GIF or WebP photos only.');
+            $dir=__DIR__.'/uploads/site-sections';
+            if(!is_dir($dir) && !mkdir($dir,0755,true) && !is_dir($dir)) throw new RuntimeException('Unable to create the section photo folder.');
+            $name=$prefix.'-'.bin2hex(random_bytes(9)).'.'.$ext;
+            if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$name)) throw new RuntimeException('Unable to save a section photo.');
+            return 'uploads/site-sections/'.$name;
+        };
+        try {
+            $saved['banner']['main_title']=$cleanHtml((string)($_POST['banner_main_title']??''));
+            $saved['banner']['heading']=$cleanHtml((string)($_POST['banner_heading']??''));
+            $saved['banner']['description']=$cleanHtml((string)($_POST['banner_description']??''));
+            $oldBannerPhoto=(string)($sectionsSettings['banner']['photo']??'');
+            $newBannerPhoto='';
+            if(!empty($_FILES['banner_photo']['name'])) {
+                $file=$_FILES['banner_photo'];
+                if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) throw new RuntimeException('Unable to upload the banner photo.');
+                if((int)($file['size']??0)>10*1024*1024) throw new RuntimeException('Banner photo must be 10 MB or smaller.');
+                $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+                $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'][$mime]??'';
+                if($ext==='' || @getimagesize((string)$file['tmp_name'])===false) throw new RuntimeException('Upload a valid JPG, PNG, GIF or WebP banner photo.');
+                $dir=__DIR__.'/uploads/banner-photos';
+                if(!is_dir($dir) && !mkdir($dir,0755,true) && !is_dir($dir)) throw new RuntimeException('Unable to create the banner-photos folder.');
+                $fileName='banner-'.bin2hex(random_bytes(10)).'.'.$ext;
+                if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$fileName)) throw new RuntimeException('Unable to save the banner photo.');
+                $newBannerPhoto='uploads/banner-photos/'.$fileName;
+                $saved['banner']['photo']=$newBannerPhoto;
+            }
+            $saved['slideshow']['main_title']=$safeText($_POST['slide_main_title']??'',120);
+            $saved['slideshow']['heading']=$safeText($_POST['slide_heading']??'',180);
+            $saved['slideshow']['subtitle']=$safeText($_POST['slide_subtitle']??'',300);
+            $photos=[];
+            $oldPhotos=(array)($sectionsSettings['slideshow']['photos']??[]);
+            foreach((array)($_POST['slide_title']??[]) as $k=>$title){
+                $old=$oldPhotos[$k]??[];
+                $photo=['title'=>$safeText($title,120),'heading'=>$safeText($_POST['slide_photo_heading'][$k]??'',180),'description'=>$cleanHtml((string)($_POST['slide_description'][$k]??'')),'photo'=>(string)($old['photo']??'')];
+                if(isset($_FILES['slide_photo']['error'][$k]) && $_FILES['slide_photo']['error'][$k]===UPLOAD_ERR_OK){
+                    $f=['name'=>$_FILES['slide_photo']['name'][$k],'type'=>$_FILES['slide_photo']['type'][$k],'tmp_name'=>$_FILES['slide_photo']['tmp_name'][$k],'error'=>$_FILES['slide_photo']['error'][$k],'size'=>$_FILES['slide_photo']['size'][$k]];
+                    $photo['photo']=$upload($f,'slide');
+                }
+                if($photo['title']!==''||$photo['heading']!==''||$photo['description']!==''||$photo['photo']!=='') $photos[]=$photo;
+            }
+            $saved['slideshow']['photos']=$photos;
+            $saved['mega_menu']['main_title']=$safeText($_POST['mega_main_title']??'',120);
+            $saved['mega_menu']['heading']=$safeText($_POST['mega_heading']??'',180);
+            $saved['mega_menu']['subtitle']=$safeText($_POST['mega_subtitle']??'',300);
+            $panels=[];
+            $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
+            foreach((array)($_POST['panel_title']??[]) as $k=>$title){
+                $old=$oldPanels[$k]??[];
+                $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'photo'=>(string)($old['photo']??'')];
+                if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
+                    $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
+                    $panel['photo']=$upload($f,'panel');
+                }
+                if($panel['title']!==''||$panel['description']!==''||$panel['url']!==''||$panel['photo']!=='') $panels[]=$panel;
+            }
+            $saved['mega_menu']['panels']=$panels;
+            $save=$pdo->prepare("INSERT INTO site_sections_settings (id,content_json) VALUES (1,?) ON DUPLICATE KEY UPDATE content_json=VALUES(content_json)");
+            $save->execute([json_encode($saved,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            if($newBannerPhoto!=='' && $oldBannerPhoto!=='') {
+                $oldRelative=ltrim($oldBannerPhoto,'/');
+                $oldAbsolute=__DIR__.'/'.str_replace(['\\','..'],['/',''],$oldRelative);
+                $uploadsRoot=realpath(__DIR__.'/uploads');
+                $oldReal=realpath($oldAbsolute);
+                if($uploadsRoot && $oldReal && is_file($oldReal) && strpos($oldReal,$uploadsRoot.DIRECTORY_SEPARATOR)===0 && !is_link($oldReal)) @unlink($oldReal);
+            }
+            $sectionsSettings=$saved;
+            $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':'sections_saved=1';
+            header('Location: admin.php?section=page-management&tab=sections&'.$saveFlag.'#pm-panel-sections',true,303); exit;
+        } catch(Throwable $e) { $message=$e->getMessage(); }
+        $section='page-management';
+    }
+
+    if ($action === 'save_footer_settings') {
+        $activePageTab = 'footer';
+        $content = [
+            'brand' => mb_substr(trim((string)($_POST['footer_brand'] ?? '')), 0, 100),
+            'description' => mb_substr(trim((string)($_POST['footer_description'] ?? '')), 0, 500),
+            'copyright' => mb_substr(trim((string)($_POST['footer_copyright'] ?? '')), 0, 300),
+            'brand_links' => [],
+            'explore_title' => mb_substr(trim((string)($_POST['footer_explore_title'] ?? '')), 0, 60),
+            'discover_title' => mb_substr(trim((string)($_POST['footer_discover_title'] ?? '')), 0, 60),
+            'explore_links' => [],
+            'discover_links' => [],
+        ];
+        foreach (['brand','explore','discover'] as $group) {
+            foreach ((array)($_POST[$group.'_label'] ?? []) as $index => $label) {
+                $label = trim((string)$label);
+                $url = trim((string)($_POST[$group.'_url'][$index] ?? ''));
+                if ($label === '' && $url === '') continue;
+                if ($label === '') {
+                    $columnNumber = ['brand'=>'1','explore'=>'2','discover'=>'3'][$group];
+                    $message = 'Please enter a title in Column ' . $columnNumber . '.';
+                    break 2;
+                }
+                if ($url !== '' && !preg_match('~^(https?://|/|#|\\.\\./|\\./|\\?)~i', $url)) {
+                    $message = 'Enter a valid footer link URL, or use a relative page URL.';
+                    break 2;
+                }
+                $content[$group.'_links'][] = ['label'=>mb_substr($label,0,100),'url'=>mb_substr($url,0,500)];
+            }
+        }
+        if ($message === '') {
+            $saveFooter = $pdo->prepare("INSERT INTO site_footer_settings (id, content_json) VALUES (1, ?) ON DUPLICATE KEY UPDATE content_json=VALUES(content_json)");
+            $saveFooter->execute([json_encode($content, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            $verifyFooter = $pdo->prepare('SELECT content_json FROM site_footer_settings WHERE id=1');
+            $verifyFooter->execute();
+            $savedFooter = json_decode((string)$verifyFooter->fetchColumn(), true);
+            if (!is_array($savedFooter) || $savedFooter !== $content) {
+                throw new RuntimeException('Footer settings were submitted but could not be verified in the connected database.');
+            }
+            $footerSettings = array_replace($defaultFooterContent, $content);
+            // POST/Redirect/GET prevents browser refresh from resubmitting this save.
+            header('Location: admin.php?section=page-management&tab=footer&footer_saved=1#pm-panel-footer', true, 303);
+            exit;
+        }
+    } elseif ($action === 'save_header_settings') {
+        // Header Title is no longer editable in Page Management. Preserve
+        // the currently published title instead of clearing it on unrelated saves.
+        $title = trim((string)($_POST['header_title'] ?? $headerSettings['header_title'] ?? 'Z.C. commonplace'));
+        $left = trim((string)($_POST['hidden_left'] ?? ''));
+        $right = trim((string)($_POST['hidden_right'] ?? ''));
+        $family = (string)($_POST['font_family'] ?? 'Ubuntu');
+        $style = (string)($_POST['font_style'] ?? 'normal');
+        $size = max(12, min(32, (int)($_POST['font_size'] ?? 20)));
+        $weight = (int)($_POST['font_weight'] ?? 700);
+        $weight = in_array($weight, [300,400,500,600,700,800], true) ? $weight : 700;
+        $positionX = max(0, min(100, (int)($_POST['logo_position_x'] ?? 50)));
+        $positionY = max(0, min(100, (int)($_POST['logo_position_y'] ?? 50)));
+        $logoWidth = max(50, min(200, (int)($_POST['logo_width'] ?? 200)));
+        $logoHeight = max(30, min(120, (int)($_POST['logo_height'] ?? 70)));
+        $allowedFamilies = ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'];
+        if (!in_array($family, $allowedFamilies, true)) $family = 'Ubuntu';
+        if (!in_array($style, ['normal','italic'], true)) $style = 'normal';
+        $titleHtml = array_key_exists('header_title_html', $_POST)
+            ? cleanHeaderRichHtml((string)$_POST['header_title_html'])
+            : (string)($headerSettings['title_html'] ?? '');
+        $leftHtml = cleanHeaderRichHtml((string)($_POST['hidden_left_html'] ?? ''));
+        $rightHtml = cleanHeaderRichHtml((string)($_POST['hidden_right_html'] ?? ''));
+        $typography = [
+            'title'=>headerTypography((array)($_POST['typography']['title'] ?? (json_decode((string)($headerSettings['typography_json'] ?? '{}'),true)['title'] ?? [])), ['family'=>$family,'style'=>$style,'size'=>$size,'weight'=>$weight,'color'=>'#f7eef0'])
+        ];
+        $links = [];
+        foreach ((array)($_POST['header_link_label'] ?? []) as $index => $label) {
+            $label = trim((string)$label);
+            $url = trim((string)(($_POST['header_link_url'][$index] ?? '')));
+            $labelHtml = cleanHeaderRichHtml((string)(($_POST['header_link_html'][$index] ?? '')));
+            // A title may be saved before its destination is assigned. This lets
+            // administrators add and edit navigation labels independently.
+            if ($label === '' && $url === '') continue;
+            if ($label === '') {
+                $message = 'Enter a link title before saving the header link.';
+                break;
+            }
+            if ($url !== '' && !preg_match('~^(https?://|/|#|\\.\\./|\\./)~i', $url)) {
+                $message = 'Enter a valid Page URL (http://, https://, /, or #), or leave it blank.';
+                break;
+            }
+            $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>'','url'=>mb_substr($url,0,500)];
+        }
+        $previousLogoPath = (string)($headerSettings['logo_path'] ?? '');
+        $logoPath = $previousLogoPath;
+        if ($message === '' && !empty($_FILES['header_logo']['name'])) {
+            $file = $_FILES['header_logo'];
+            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int)$file['size'] > 3 * 1024 * 1024) {
+                $message = 'Logo upload failed. Choose a PNG, JPG or JPEG image up to 3 MB.';
+            } else {
+                $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+                $extensions = ['image/png'=>'png','image/jpeg'=>'jpg'];
+                if (!isset($extensions[$mime]) || @getimagesize((string)$file['tmp_name']) === false) {
+                    $message = 'Only valid PNG, JPG or JPEG logo images are allowed.';
+                } else {
+                    $uploadDir = __DIR__ . '/uploads/site-header';
+                    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                        $message = 'Unable to create the header logo upload folder.';
+                    } else {
+                        $filename = 'header-logo-' . bin2hex(random_bytes(8)) . '.' . $extensions[$mime];
+                        if (!move_uploaded_file((string)$file['tmp_name'], $uploadDir . '/' . $filename)) {
+                            $message = 'Unable to save the uploaded header logo.';
+                        } else {
+                            $logoPath = 'uploads/site-header/' . $filename;
+                        }
+                    }
+                }
+            }
+        }
+        if ($message === '') {
+            $save = $pdo->prepare("INSERT INTO site_header_settings
+                (id,header_title,logo_path,header_links,hidden_left,hidden_right,font_family,font_style,font_size,font_weight,logo_position_x,logo_position_y,logo_width,logo_height,title_html,hidden_left_html,hidden_right_html,typography_json)
+                VALUES (1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE
+                header_title=VALUES(header_title),logo_path=VALUES(logo_path),header_links=VALUES(header_links),
+                hidden_left=VALUES(hidden_left),hidden_right=VALUES(hidden_right),font_family=VALUES(font_family),
+                font_style=VALUES(font_style),font_size=VALUES(font_size),font_weight=VALUES(font_weight),
+                logo_position_x=VALUES(logo_position_x),logo_position_y=VALUES(logo_position_y),
+                logo_width=VALUES(logo_width),logo_height=VALUES(logo_height),
+                title_html=VALUES(title_html),hidden_left_html=VALUES(hidden_left_html),
+                hidden_right_html=VALUES(hidden_right_html),typography_json=VALUES(typography_json)");
+            $save->execute([$title,$logoPath ?: null,json_encode($links,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),$left,$right,$family,$style,$size,$weight,$positionX,$positionY,$logoWidth,$logoHeight,$titleHtml,$leftHtml,$rightHtml,json_encode($typography,JSON_UNESCAPED_SLASHES)]);
+            // Read the row back from the same connection and verify every public-header
+            // value. A successful SQL execute alone does not prove that the intended
+            // settings were persisted.
+            $verifyStmt = $pdo->prepare('SELECT * FROM site_header_settings WHERE id = 1 LIMIT 1');
+            $verifyStmt->execute();
+            $savedHeader = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+            $expectedLinks = json_encode($links, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $expectedTypography = json_encode($typography, JSON_UNESCAPED_SLASHES);
+            $checks = [
+                'header_title' => $title,
+                'logo_path' => $logoPath ?: null,
+                'header_links' => $expectedLinks,
+                'hidden_left' => $left,
+                'hidden_right' => $right,
+                'font_family' => $family,
+                'font_style' => $style,
+                'font_size' => (string)$size,
+                'font_weight' => (string)$weight,
+                'logo_position_x' => (string)$positionX,
+                'logo_position_y' => (string)$positionY,
+                'logo_width' => (string)$logoWidth,
+                'logo_height' => (string)$logoHeight,
+                'title_html' => $titleHtml,
+                'hidden_left_html' => $leftHtml,
+                'hidden_right_html' => $rightHtml,
+                'typography_json' => $expectedTypography,
+            ];
+            $verificationErrors = [];
+            if (!$savedHeader) {
+                $verificationErrors[] = 'The settings row (id 1) was not found after saving.';
+            } else {
+                foreach ($checks as $column => $expectedValue) {
+                    $actualValue = $savedHeader[$column] ?? null;
+                    if ($expectedValue === null) {
+                        if ($actualValue !== null && $actualValue !== '') $verificationErrors[] = $column;
+                    } elseif ((string)$actualValue !== (string)$expectedValue) {
+                        $verificationErrors[] = $column;
+                    }
+                }
+            }
+            if ($verificationErrors) {
+                error_log('Header settings verification failed for columns: ' . implode(', ', $verificationErrors) . '; database=' . (string)$pdo->query('SELECT DATABASE()')->fetchColumn());
+                throw new RuntimeException('Header settings were submitted but could not be fully verified in the connected database. Please check the database selected in config/config.php and the PHP error log. Fields not verified: ' . implode(', ', $verificationErrors) . '.');
+            }
+            // Once the new logo path is confirmed in the database, remove the
+            // previously saved image from this application's local upload folder.
+            // Only delete files inside public/uploads/site-header; never follow
+            // arbitrary paths stored in the settings row.
+            if ($logoPath !== '' && $logoPath !== $previousLogoPath
+                && $previousLogoPath !== ''
+                && str_starts_with(str_replace('\\', '/', $previousLogoPath), 'uploads/site-header/')) {
+                $oldLogoName = basename($previousLogoPath);
+                if ($oldLogoName !== '' && $oldLogoName !== '.' && $oldLogoName !== '..') {
+                    $oldLogoFile = __DIR__ . '/uploads/site-header/' . $oldLogoName;
+                    if (is_file($oldLogoFile)) {
+                        @unlink($oldLogoFile);
+                    }
+                }
+            }
+            $headerSettings = $savedHeader;
+            $headerLinks = $links;
+            // The public index.php reads this verified database row directly.
+            // Do not rewrite an obsolete embedded marker block here.
+            $message = 'Header settings successfully saved.';
+        }
+        $section = 'page-management';
+    }
+    $id = (int)($_POST['id'] ?? 0);
+    if ($action === 'delete_selected_users') {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['selected_users'] ?? [])), static fn(int $v): bool => $v > 0)));
+        if ($ids) {
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $delete = $pdo->prepare("DELETE FROM users WHERE id IN ($marks) AND role<>'system_admin'");
+            $delete->execute($ids);
+            $message = $delete->rowCount() . ' user account(s) deleted.';
+        } else $message = 'Select at least one account to delete.';
+        $section = 'user-accounts';
+    }
+    if ($action === 'toggle_user_status') {
+        $next = (string)($_POST['next_status'] ?? '') === 'approved' ? 'approved' : 'suspended';
+        // Account access can only be changed after the email address has been verified.
+        $s = $pdo->prepare("UPDATE users SET account_status=?,reviewed_by=?,reviewed_at=NOW() WHERE id=? AND role<>'system_admin' AND email_verified_at IS NOT NULL");
+        $s->execute([$next, $admin['id'], $id]);
+        $message = $s->rowCount() ? 'Account status updated.' : 'This account must verify its email before its status can be changed.';
+        $section = 'user-accounts';
+    }
+    if ($action === 'approve_user' || $action === 'reject_user') {
+        $status = $action === 'approve_user' ? 'approved' : 'rejected';
+        $s = $pdo->prepare("UPDATE users SET account_status=?,reviewed_by=?,reviewed_at=NOW() WHERE id=? AND role<>'system_admin'");
+        $s->execute([$status, $admin['id'], $id]);
+        $message = 'Account review updated.';
+        $section = 'user-accounts';
+    }
+    if ($action === 'publish' || $action === 'reject_content') {
+        $status = $action === 'publish' ? 'published' : 'rejected';
+        $s = $pdo->prepare("UPDATE content SET status=?,published_at=IF(?='published',NOW(),published_at) WHERE id=?");
+        $s->execute([$status, $status, $id]);
+        $message = 'Content moderation updated.';
+        $section = 'dashboard';
+    }
+}
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['banner_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Banner Settings successfully saved.';
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['sections_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Sections settings successfully saved.';
+// A successful Footer save is shown only on the redirected GET request.
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
+    $message = 'Footer settings successfully updated.';
+}
+// Return an unambiguous save result to the background form request.
+if (
+    ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+    && (string)($_POST['action'] ?? '') === 'save_header_settings'
+    && strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+) {
+    header('Content-Type: text/plain; charset=utf-8');
+    if ($message === 'Header settings successfully saved.') {
+        echo 'HEADER_SETTINGS_SAVED';
+    } else {
+        http_response_code(422);
+        echo $message !== '' ? $message : 'Unable to save Header Settings.';
+    }
+    exit;
+}
+$activeUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin' AND account_status='approved'")->fetchColumn();
+$managedUsers = $pdo->query("SELECT id,full_name,email,credential_notes,created_at,updated_at,account_status,email_verified_at,nickname,birthdate,birthplace,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE role<>'system_admin' ORDER BY created_at DESC")->fetchAll();
+$pendingContent = $pdo->query("SELECT c.id,c.title,c.content_type,c.created_at,u.full_name,cat.name category_name FROM content c JOIN users u ON u.id=c.owner_id JOIN categories cat ON cat.id=c.category_id WHERE c.status='pending_review' ORDER BY c.created_at")->fetchAll();
+$totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin'")->fetchColumn();
+$publishedContent = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE status='published'")->fetchColumn();
+function navActive(string $current, string $target): string { return $current === $target ? ' active' : ''; }
+function adminUrl(string $section): string { return 'admin.php?section=' . rawurlencode($section); }
+?><!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>System Administrator | Z.C. Commonplace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css">
+<style>
+/* Keep the entire System Administrator interface in Ubuntu. */
+.admin-shell,.admin-shell *,.admin-shell *::before,.admin-shell *::after,
+body:has(.admin-shell),body:has(.admin-shell) *{
+  font-family:'Ubuntu',sans-serif !important;
+}
+.admin-shell{min-height:calc(100vh - 82px);display:grid;grid-template-columns:250px minmax(0,1fr)}
+.admin-sidebar{background:rgba(9,9,11,.92);border-right:1px solid var(--line);padding:28px 16px;position:sticky;top:82px;height:calc(100vh - 82px);overflow:auto}
+.admin-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);padding:0 13px;margin:8px 0 12px}
+.admin-nav{display:grid;gap:6px}
+.admin-nav a{display:flex;align-items:center;gap:12px;padding:12px 13px;border:1px solid transparent;border-radius:12px;color:#c8bec1;font-size:13px}
+.admin-nav a:hover{background:rgba(255,255,255,.035);color:#fff}
+.admin-nav a.active{background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));border-color:rgba(184,50,63,.35);color:#fff}
+.admin-nav .nav-icon{width:22px;text-align:center;color:var(--gold);font-size:16px}
+.admin-subnav{margin:0 0 10px 22px;padding-left:13px;border-left:1px solid var(--line);display:grid;gap:3px}
+.admin-subnav a{font-size:12px;padding:9px 10px}
+.admin-main{padding:36px clamp(20px,4vw,52px) 60px;min-width:0}
+.admin-topline{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+.admin-heading{font:500 clamp(32px,4vw,48px)/1.1 Georgia,serif;letter-spacing:-1.6px;margin:8px 0 12px}
+.admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin:26px 0}
+.admin-stat{padding:22px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012))}
+.admin-stat span{display:block;color:var(--muted);font-size:12px}
+.admin-stat strong{display:block;font:36px Georgia,serif;margin-top:9px;color:#f7eef0}
+.admin-panel{margin:20px 0;padding:22px;min-width:0}
+.admin-panel h2{font:24px Georgia,serif;margin:0 0 16px}
+.admin-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.admin-panel .table-wrap{overflow:auto}
+.admin-panel .table{min-width:680px;width:100%}
+.admin-empty{padding:28px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);text-align:center}
+.admin-feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}
+.admin-feature{padding:23px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.01))}
+.admin-feature .symbol{font-size:24px;color:var(--gold)}
+.admin-feature h3{font:22px Georgia,serif;margin:12px 0 8px}
+.admin-feature p{font-size:13px;color:var(--muted);margin:0 0 17px}
+.admin-panel .users-table{min-width:1040px}.user-full-name{font-weight:800;color:#fff}.user-subdetails{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.7}.user-select-cell{width:42px;text-align:center}.user-toggle{position:relative;display:inline-flex;align-items:center;justify-content:flex-start;gap:9px;min-width:112px;height:36px;padding:4px 11px 4px 5px;border-radius:999px;border:1px solid rgba(70,180,125,.48);background:rgba(35,130,82,.18);color:#9de0b8;font-size:12px;font-weight:800;cursor:pointer;transition:background .2s,border-color .2s}.user-toggle .toggle-knob{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#62c98d;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:transform .2s,background .2s}.user-toggle.inactive{justify-content:flex-end;padding:4px 5px 4px 11px;border-color:rgba(220,85,100,.48);background:rgba(150,35,55,.2);color:#ff9eaa}.user-toggle.inactive .toggle-knob{order:2;background:#e66b7d}.user-toggle:focus-visible{outline:2px solid #e7b7c1;outline-offset:3px}.bulk-delete{background:#8f2034;border-color:#a62b42;color:#fff}.user-actions{display:flex;gap:7px;align-items:center}.pending-email-verification{display:inline-block;padding:7px 10px;border:1px solid rgba(220,165,70,.38);border-radius:999px;background:rgba(150,105,30,.13);color:#f0ca83;font-size:11px;font-weight:700;white-space:nowrap}.admin-note{padding:14px 16px;border:1px solid rgba(184,50,63,.25);border-radius:12px;color:#d7c9cc;background:rgba(105,8,24,.12);font-size:13px}
+.account-status-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.76);backdrop-filter:blur(5px)}
+.account-status-modal-card{width:min(420px,100%);padding:32px 26px;text-align:center;border:1px solid rgba(184,50,63,.42);border-radius:20px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.account-status-modal-icon{width:52px;height:52px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;background:rgba(54,164,105,.16);border:1px solid rgba(91,205,145,.45);color:#83e0ac;font-size:27px;font-weight:800}
+.account-status-modal-card h2{margin:0 0 22px;color:#fff;font:24px Georgia,serif}
+.account-status-modal-card .btn{min-width:110px;justify-content:center}
+/* Administrator typography scale */
+.admin-main .admin-heading{font-family:'Ubuntu',sans-serif;font-size:18px;line-height:1.35;letter-spacing:0;margin:8px 0 8px;font-weight:700}
+.admin-main .admin-topline p,.admin-main .admin-topline .muted{font-size:13px}
+.admin-panel h2,.admin-feature h3,.account-status-modal-card h2{font-family:'Ubuntu',sans-serif;font-size:14px;line-height:1.4;font-weight:700}
+.admin-panel-head .muted,.admin-panel-head .status,.admin-feature p,.admin-stat span{font-size:12px}
+.admin-main .admin-label,.users-table-controls,.users-table-controls label,.users-pagination,.users-pagination #users-page-info,.users-pagination #users-page-number{font-size:12px}
+.admin-panel .table thead th{font-size:12px}
+.admin-panel .table tbody td{font-size:11px}
+.admin-main button.btn,.admin-main a.btn,.navlinks a.btn{font-size:13px}
+.admin-panel .table button,.admin-panel .table .btn,.admin-panel .table a.btn,.admin-panel .user-toggle,.admin-panel .user-actions button{font-size:12px}
+.users-table-controls select,.users-table-controls input{font-size:12px}
+.pending-email-verification{font-size:12px}
+/* Collapsible Settings menu — match the Dashboard and User Accounts links */
+.admin-nav button.settings-nav{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:12px 13px;border:1px solid transparent;border-radius:12px;
+  background:transparent;color:#c8bec1;font-family:inherit;font-size:13px;
+  font-weight:400;line-height:normal;text-align:left;cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  transition:background .22s ease,border-color .22s ease,color .22s ease,box-shadow .22s ease;
+}
+.admin-nav button.settings-nav:hover{background:rgba(255,255,255,.045);color:#fff}
+.admin-nav button.settings-nav.active{
+  background:linear-gradient(110deg,rgba(128,20,39,.48),rgba(30,12,18,.62));
+  border-color:rgba(184,50,63,.38);color:#fff;
+  box-shadow:inset 1px 1px 3px rgba(255,255,255,.045),inset -2px -2px 5px rgba(0,0,0,.28),0 5px 16px rgba(0,0,0,.16)
+}
+.admin-nav .settings-nav-label{flex:1}
+.admin-nav .settings-chevron{
+  margin-left:auto;display:flex;align-items:center;justify-content:center;
+  align-self:center;width:22px;height:22px;min-width:22px;flex:0 0 22px;
+  padding:0;border:0;border-radius:0;background:transparent;
+  color:#d9b5bd;font-size:0;line-height:1;box-shadow:none;
+  transition:color .2s,transform .3s cubic-bezier(.2,.8,.2,1);
+}
+.admin-nav .settings-chevron::before{
+  content:"";display:block;width:8px;height:8px;flex:0 0 8px;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;
+  transform:translateY(-2px) rotate(45deg);transform-origin:center;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1);
+}
+.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron{
+  color:#fff;
+}
+.admin-nav .settings-nav[aria-expanded="true"] .settings-chevron::before{
+  transform:translateY(2px) rotate(225deg);
+}
+.admin-subnav.settings-subnav{
+  display:grid;gap:3px;margin:0 0 0 22px;padding:0 0 0 13px;
+  border-left:1px solid rgba(184,50,63,.25);overflow:hidden;
+  max-height:0;opacity:0;transform:translateY(-7px);
+  pointer-events:none;visibility:hidden;
+  transition:max-height .34s cubic-bezier(.2,.8,.2,1),opacity .22s ease,transform .3s ease,padding .3s ease,margin .3s ease,visibility .34s;
+  background:linear-gradient(90deg,rgba(255,255,255,.018),rgba(255,255,255,0));
+  border-radius:0 0 0 10px;
+}
+.admin-subnav.settings-subnav.is-open{
+  max-height:180px;opacity:1;transform:translateY(0);
+  pointer-events:auto;visibility:visible;padding:7px 0 7px 13px;margin:3px 0 10px 22px;
+}
+.admin-subnav.settings-subnav a{
+  border-radius:9px;transition:background .2s ease,color .2s ease,transform .2s ease;
+}
+.admin-subnav.settings-subnav a:hover{background:rgba(255,255,255,.045);transform:translateX(3px)}
+@media(prefers-reduced-motion:reduce){
+ .admin-nav button.settings-nav,.admin-nav .settings-chevron,.admin-subnav.settings-subnav,.admin-subnav.settings-subnav a{transition:none}
+}
+.admin-settings-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.admin-settings-tabs a{padding:10px 15px;border:1px solid var(--line);border-radius:10px;color:#c8bec1;font-size:13px}
+.admin-settings-tabs a:hover{background:rgba(255,255,255,.04);color:#fff}
+.admin-settings-tabs a.active{color:#fff;background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));border-color:rgba(184,50,63,.4)}
+@media(max-width:850px){.admin-shell{grid-template-columns:1fr}.admin-sidebar{position:relative;top:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-subnav{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 8px 0;padding:8px 0 0;border-left:0;border-top:1px solid var(--line)}.admin-main{padding-top:25px}}
+@media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
+</style></head><body>
+<header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
+<div class="admin-shell">
+<aside class="admin-sidebar">
+  <div class="admin-label">Administration</div>
+  <nav class="admin-nav" aria-label="Administrator menu">
+    <a class="<?=navActive($section,'dashboard')?>" href="<?=e(adminUrl('dashboard'))?>"><span class="nav-icon">⌂</span>Dashboard</a>
+    <button class="settings-nav<?=in_array($section,['settings','page-management','category-list','media-management','plugins'],true)?' active':''?>" type="button" id="settings-menu-toggle" aria-controls="settings-submenu" aria-expanded="<?=in_array($section,['settings','page-management','media-management','plugins'],true)?'true':'false'?>"><span class="nav-icon">⚙</span><span class="settings-nav-label">Settings</span><span class="settings-chevron" aria-hidden="true">⌄</span></button>
+    <div class="admin-subnav settings-subnav<?=in_array($section,['settings','page-management','media-management','plugins'],true)?' is-open':''?>" id="settings-submenu">
+      <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
+      <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
+      <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
+    </div>
+    <a class="<?=navActive($section,'user-accounts')?>" href="<?=e(adminUrl('user-accounts'))?>"><span class="nav-icon">♙</span>User Accounts </a>
+  </nav>
+  <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
+</aside>
+<main class="admin-main">
+<?php if($message === 'Banner Settings successfully saved.'):?>
+<div class="account-status-modal" id="banner-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="banner-settings-success-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="banner-settings-success-title">Banner Settings successfully saved.</h2>
+    <button type="button" class="btn" id="banner-settings-success-close" onclick="window.location.replace('admin.php?section=page-management&amp;tab=sections#pm-panel-sections')">OK</button>
+  </div>
+</div>
+<?php elseif($message === 'Header settings successfully saved.'):?>
+<div class="account-status-modal" id="header-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="header-settings-success-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="header-settings-success-title">Header settings successfully saved.</h2>
+    <button type="button" class="btn" id="header-settings-success-close" onclick="window.location.replace('admin.php?section=page-management')">OK</button>
+  </div>
+</div>
+<?php elseif(str_starts_with($message, 'Please enter a title in Column ')):?>
+<div class="account-status-modal" id="footer-validation-modal" role="dialog" aria-modal="true" aria-labelledby="footer-validation-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="footer-validation-title"><?=e($message)?></h2><button type="button" class="btn" id="footer-validation-close">OK</button></div></div>
+<?php elseif($message === 'Footer settings successfully updated.'):?>
+<div class="account-status-modal" id="footer-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="footer-settings-success-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="footer-settings-success-title">Footer settings successfully updated.</h2>
+    <button type="button" class="btn" id="footer-settings-success-close" onclick="window.location.replace('admin.php?section=page-management&amp;tab=footer#pm-panel-footer')">OK</button>
+  </div>
+</div>
+<?php elseif($message === 'Account status updated.'):?>
+<div class="account-status-modal" id="account-status-modal" role="dialog" aria-modal="true" aria-labelledby="account-status-modal-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="account-status-modal-title">Account status updated.</h2>
+    <button type="button" class="btn" id="account-status-modal-close">OK</button>
+  </div>
+</div>
+<?php elseif($message):?><div class="panel" style="margin-bottom:20px"><?=e($message)?></div><?php endif;?>
+<?php if($section==='dashboard'):?>
+  <div class="admin-topline"><div><div class="eyebrow">System control</div><h1 class="admin-heading">Dashboard</h1><p class="muted">A clear overview of your website, accounts, and content activity.</p></div><a class="btn" href="<?=e(adminUrl('user-accounts'))?>">Manage accounts <span aria-hidden="true">→</span></a></div>
+  <div class="admin-stats"><div class="admin-stat"><span>Contributor accounts</span><strong><?=$totalUsers?></strong></div><div class="admin-stat"><span>Active accounts</span><strong><?=$activeUsers?></strong></div><div class="admin-stat"><span>Published content</span><strong><?=$publishedContent?></strong></div></div>
+  <section class="panel admin-panel"><div class="admin-panel-head"><h2>Content moderation</h2><span class="status"><?=count($pendingContent)?> awaiting review</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Content</th><th>Creator</th><th>Category</th><th>Submitted</th><th>Decision</th></tr></thead><tbody>
+  <?php foreach($pendingContent as $c):?><tr><td><?=e($c['title'])?><br><small><?=e($c['content_type'])?></small></td><td><?=e($c['full_name'])?></td><td><?=e($c['category_name'])?></td><td><?=e($c['created_at'])?></td><td><form method="post" style="display:flex;gap:6px;flex-wrap:wrap"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$c['id']?>"><button class="btn" name="action" value="publish">Publish</button><button class="btn light" name="action" value="reject_content">Reject</button></form></td></tr><?php endforeach;?>
+  <?php if(!$pendingContent):?><tr><td colspan="5">No content awaiting review.</td></tr><?php endif;?></tbody></table></div></section>
+  <div class="admin-feature-grid"><div class="admin-feature"><div class="symbol">▤</div><h3>Page Management</h3><p>Manage the pages and sections displayed on the public website.</p><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Open settings</a></div><div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize the images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open settings</a></div></div>
+<?php elseif($section==='user-accounts'):?>
+  <div class="admin-topline"><div><div class="eyebrow">Access control</div><h1 class="admin-heading">User Accounts</h1><p class="muted">Manage registered accounts, contributor credentials and account access.</p></div></div>
+  <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
+  <form id="bulk-users" method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_users">
+  <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="submit" onclick="return confirm('Delete all selected user accounts? This action cannot be undone.');">Delete Selected</button></div>
+  <div class="users-table-controls"><label>Show <select id="users-page-size" aria-label="Accounts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label><label><input id="users-filter" type="search" placeholder="Search registered accounts..." aria-label="Search registered accounts"></label></div><div class="users-pagination"><span id="users-page-info" class="muted" aria-live="polite"></span><div class="users-page-buttons"><button type="button" class="btn light" id="users-prev">Previous</button><span id="users-page-number" class="muted"></span><button type="button" class="btn light" id="users-next">Next</button></div></div><div class="table-wrap"><table class="table users-table"><thead><tr><th class="user-select-cell"><input type="checkbox" id="select-all-users" aria-label="Select all user accounts"></th><th>Full Name</th><th>Email Address</th><th>Credential Notes</th><th>Date Created</th><th>Last Update</th><th>Action</th></tr></thead><tbody>
+  <?php foreach($managedUsers as $u):
+    $last = trim((string)($u['lastname'] ?? '')); $first = trim((string)($u['firstname'] ?? '')); $middle = trim((string)($u['middlename'] ?? '')); $suffix = trim((string)($u['suffix'] ?? ''));
+    $middleInitial = $middle !== '' ? mb_strtoupper(mb_substr($middle,0,1,'UTF-8'),'UTF-8').'.' : '';
+    $displayName = ($last !== '' || $first !== '') ? $last . ($first !== '' ? ', '.$first : '') . ($suffix !== '' ? ' '.$suffix : '') . ($middleInitial !== '' ? ', '.$middleInitial : '') : (string)$u['full_name'];
+    $active = $u['account_status'] === 'approved';
+  ?><tr>
+  <td class="user-select-cell"><input type="checkbox" class="user-select" name="selected_users[]" value="<?=(int)$u['id']?>" form="bulk-users" aria-label="Select <?=e($displayName)?>"></td>
+  <td><strong class="user-full-name"><?=e($displayName)?></strong><span class="user-subdetails">Nickname: <?=e($u['nickname'] ?? '—')?> · Birthdate: <?=e($u['birthdate'] ?? '—')?> · Birthplace: <?=e($u['birthplace'] ?? '—')?> · Contact: <?=e($u['mobile_no'] ?? '—')?></span></td>
+  <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><?=e($u['created_at'])?></td><td><?=e($u['updated_at'])?></td>
+  <td><?php if (empty($u['email_verified_at'])): ?><span class="pending-email-verification">Pending Email Verification</span><?php else: ?><form method="post" class="user-actions"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$u['id']?>"><input type="hidden" name="next_status" value="<?=$active?'suspended':'approved'?>"><button class="user-toggle<?=$active?'':' inactive'?>" name="action" value="toggle_user_status" type="submit" role="switch" aria-checked="<?=$active?'true':'false'?>" aria-label="Account status: <?=$active?'Active':'Inactive'?>"><span class="toggle-knob" aria-hidden="true"></span><span><?=$active?'Active':'Inactive'?></span></button></form><?php endif; ?></td>
+  </tr><?php endforeach;?>
+  <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></form></section>
+  <style>
+  .users-table-controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.users-table-controls label{display:flex;align-items:center;gap:9px}.users-table-controls select,.users-table-controls input{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}.users-table-controls input{width:min(280px,65vw)}.users-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 22px}.users-page-buttons{display:flex;align-items:center;gap:8px}.users-page-buttons .btn{padding:8px 12px;font-size:12px}.users-page-buttons .btn:disabled{opacity:.4;cursor:not-allowed}
+  </style>
+  <script>
+  (()=>{const all=document.getElementById('select-all-users');const table=document.querySelector('.users-table');if(!table)return;const rows=[...table.tBodies[0].rows].filter(row=>row.querySelector('.user-select'));const filter=document.getElementById('users-filter');const size=document.getElementById('users-page-size');const info=document.getElementById('users-page-info');const number=document.getElementById('users-page-number');const prev=document.getElementById('users-prev');const next=document.getElementById('users-next');let page=1;function matches(){const q=filter.value.trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));}function render(){const found=matches();const perPage=Number(size.value);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=found.slice(start,end);const visibleSet=new Set(visible);rows.forEach(row=>row.hidden=!visibleSet.has(row));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(all){const checks=visible.map(row=>row.querySelector('.user-select'));all.checked=checks.length>0&&checks.every(box=>box.checked);all.indeterminate=checks.some(box=>box.checked)&&!all.checked;}}filter.addEventListener('input',()=>{page=1;render();});size.addEventListener('change',()=>{page=1;render();});prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{page++;render();});if(all)all.addEventListener('change',()=>{matches().slice((page-1)*Number(size.value),page*Number(size.value)).forEach(row=>row.querySelector('.user-select').checked=all.checked);render();});rows.forEach(row=>row.querySelector('.user-select').addEventListener('change',render));render();})();
+  </script>
+<?php else: $settings = ['page-management'=>['Page Management','Manage the website pages and their publication status.','▤'],'media-management'=>['Media Management','Manage image and media assets used by public pages and contributor content.','▧'],'plugins'=>['Plugins','Review and manage optional website extensions.','⌘']]; ?>
+  <div class="admin-topline"><div><div class="eyebrow">System configuration</div><h1 class="admin-heading">Settings</h1><p class="muted">Manage website pages, media assets, and optional extensions.</p></div></div>
+  <nav class="admin-settings-tabs" aria-label="Settings tabs">
+    <a class="<?=navActive($section,'settings')?>" href="<?=e(adminUrl('settings'))?>">Overview</a>
+    <a class="<?=navActive($section,'page-management')?>" href="<?=e(adminUrl('page-management'))?>">Page Management</a>
+    <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
+    <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
+  </nav>
+  <?php if($section==='settings'): ?>
+    <div class="admin-feature-grid">
+      <div class="admin-feature"><div class="symbol">▤</div><h3>Page Management</h3><p>Manage the pages and sections displayed on the public website.</p><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Open tab</a></div>
+      <div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open tab</a></div>
+      <div class="admin-feature"><div class="symbol">⌘</div><h3>Plugins</h3><p>Review and manage optional website extensions.</p><a class="btn light" href="<?=e(adminUrl('plugins'))?>">Open tab</a></div>
+    </div>
+  <?php elseif($section==='category-list'): ?>
+    <?php
+      $clCategories=$pdo->query("SELECT id,name,slug,description FROM categories WHERE parent_id IS NULL AND is_active=1 ORDER BY CASE WHEN slug='uncategorized' THEN 1 ELSE 0 END,name")->fetchAll();
+      $clSubcategories=$pdo->query("SELECT child.id,child.name,child.description,child.parent_id,parent.name AS parent_name FROM categories child JOIN categories parent ON parent.id=child.parent_id ORDER BY parent.name,child.name")->fetchAll();
+      $clEditCategory=null; $clEditSubcategory=null;
+      if(!empty($_GET['edit_category'])){$q=$pdo->prepare("SELECT id,name,description FROM categories WHERE id=? AND parent_id IS NULL AND slug<>'uncategorized'");$q->execute([(int)$_GET['edit_category']]);$clEditCategory=$q->fetch()?:null;}
+      if(!empty($_GET['edit_subcategory'])){$q=$pdo->prepare("SELECT id,name,description,parent_id FROM categories WHERE id=? AND parent_id IS NOT NULL");$q->execute([(int)$_GET['edit_subcategory']]);$clEditSubcategory=$q->fetch()?:null;}
+      $clMessages=['category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.','subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.','category_in_use'=>'This category or subcategory is assigned to existing content. Reassign or remove that content before deleting it.','category_locked'=>'This category cannot be changed or deleted.','category_invalid'=>'Choose a valid parent category.','subcategory_invalid'=>'The selected subcategory does not belong to the selected category.','subcategory_missing'=>'The subcategory could not be found.','duplicate_or_database_error'=>'The change could not be saved. Check that the category or subcategory name is not already in use.'];
+      $clNotice=$clMessages[(string)($_GET['notice']??'')]??'';
+    ?>
+    <div class="admin-topline"><div><div class="eyebrow">Page Management</div><h1 class="admin-heading">Category List</h1><p class="muted">Manage categories and their subcategories.</p></div><a class="btn light" href="admin.php?section=page-management&amp;tab=contents">← Back to Contents</a></div>
+    <?php if($clNotice!==''): ?><div class="panel" style="margin-bottom:16px;color:#f1dce1"><?=e($clNotice)?></div><?php endif; ?>
+    <section class="panel admin-panel">
+      <div style="display:flex;justify-content:flex-start;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:18px"><button class="btn" type="button" id="cl-add-category">+ Add Category</button><button class="btn light" type="button" id="cl-add-subcategory">+ Add Subcategory</button></div>
+      <div id="cl-category-form" class="category-form-card" <?=($clEditCategory?'':'hidden')?>><h3><?= $clEditCategory?'Edit Category':'Add Category' ?></h3>
+        <form class="category-form" method="post" action="admin-content.php"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_category"><input type="hidden" name="category_id" value="<?=(int)($clEditCategory['id']??0)?>">
+          <label>Category name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($clEditCategory['name']??''))?>" placeholder="Enter category name"></label><label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($clEditCategory['description']??''))?></textarea></label><button class="btn" type="submit"><?= $clEditCategory?'Update Category':'Save Category' ?></button></form>
+      </div>
+      <div id="cl-subcategory-form" class="category-form-card" <?=($clEditSubcategory?'':'hidden')?>><h3><?= $clEditSubcategory?'Edit Subcategory':'Add Subcategory' ?></h3>
+        <form class="category-form" method="post" action="admin-content.php"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_subcategory"><input type="hidden" name="subcategory_id" value="<?=(int)($clEditSubcategory['id']??0)?>">
+          <label>Parent category *<select class="field" name="parent_id" required><option value="">Select a category</option><?php foreach($clCategories as $cat): if($cat['slug']==='uncategorized') continue; ?><option value="<?=(int)$cat['id']?>" <?=isset($clEditSubcategory['parent_id'])&&(int)$clEditSubcategory['parent_id']===(int)$cat['id']?'selected':''?>><?=e($cat['name'])?></option><?php endforeach; ?></select></label><label>Subcategory name *<input class="field" name="name" maxlength="120" required value="<?=e((string)($clEditSubcategory['name']??''))?>" placeholder="Enter subcategory name"></label><label>Description (optional)<textarea class="field" name="description" maxlength="255"><?=e((string)($clEditSubcategory['description']??''))?></textarea></label><button class="btn" type="submit"><?= $clEditSubcategory?'Update Subcategory':'Save Subcategory' ?></button></form>
+      </div>
+      <div class="admin-panel-head"><h2>Categories and Subcategories</h2><span class="muted"><?=count($clCategories)?> categories · <?=count($clSubcategories)?> subcategories</span></div>
+      <div class="table-wrap"><table class="table" style="width:100%;min-width:650px"><thead><tr><th>Category / Subcategory</th><th>Description</th><th>Actions</th></tr></thead><tbody>
+      <?php foreach($clCategories as $cat): ?><tr><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><br><small class="muted">Default category</small><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><a href="admin.php?section=category-list&amp;edit_category=<?=(int)$cat['id']?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this category?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_category"><input type="hidden" name="item_id" value="<?=(int)$cat['id']?>"><button type="submit" class="category-link-button">Delete</button></form><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr>
+        <?php foreach($clSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr><td style="padding-left:28px">↳ <?=e($sub['name'])?></td><td><?=e((string)$sub['description'])?></td><td><a href="admin.php?section=category-list&amp;edit_subcategory=<?=(int)$sub['id']?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this subcategory?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button type="submit" class="category-link-button">Delete</button></form></td></tr><?php endforeach; ?>
+      <?php endforeach; ?></tbody></table></div>
+    </section>
+    <style>.category-form-card{padding:17px;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.018)}.category-form-card h3{margin:0 0 12px;color:#f4e9ec;font:600 14px Ubuntu,sans-serif}.category-form{display:grid;gap:10px}.category-form label{display:grid;gap:6px;color:#d9cbd0;font-size:11px}.category-form .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.category-link-button{border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit}</style>
+    <script>(()=>{const c=document.getElementById('cl-category-form'),s=document.getElementById('cl-subcategory-form');document.getElementById('cl-add-category')?.addEventListener('click',()=>{c.hidden=!c.hidden;s.hidden=true;c.querySelector('input[name="name"]')?.focus()});document.getElementById('cl-add-subcategory')?.addEventListener('click',()=>{s.hidden=!s.hidden;c.hidden=true;s.querySelector('select[name="parent_id"]')?.focus()})})();</script>
+  <?php elseif($section==='media-management'):?>
   <style>
     .page-management-tabs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:20px 0 0;padding:0 0 12px;border-bottom:1px solid var(--line)}
     .page-management-tabs button{appearance:none;border:1px solid transparent;border-radius:10px;padding:10px 17px;background:transparent;color:#c8bec1;font:500 13px 'Ubuntu',sans-serif;cursor:pointer;transition:background .2s,border-color .2s,color .2s,box-shadow .2s}
