@@ -242,6 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $titles = (array)($_POST['photo_title'] ?? []);
             $descriptions = (array)($_POST['photo_description'] ?? []);
             $insert = $pdo->prepare('INSERT INTO site_gallery_photos (title, description, folder_name, file_path) VALUES (?, ?, ?, ?)');
+            $pdo->beginTransaction();
             for ($i = 0; $i < $count; $i++) {
                 $error = (int)($files['error'][$i] ?? UPLOAD_ERR_NO_FILE);
                 if ($error === UPLOAD_ERR_NO_FILE) continue;
@@ -262,9 +263,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insert->execute([$title, $description, $folder, $relativePath]);
             }
             if (!$savedFiles) throw new RuntimeException('No photos were uploaded. Choose valid photo files and try again.');
+            $pdo->commit();
             header('Location: admin.php?section=media-management&media_tab=gallery&gallery_saved=' . count($savedFiles), true, 303);
             exit;
         } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             foreach ($savedFiles as $savedFile) if (is_file($savedFile)) @unlink($savedFile);
             $message = $e->getMessage();
         }
@@ -956,7 +959,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const cards=[...document.querySelectorAll('.gallery-photo-card')],filter=document.getElementById('gallery-filter'),size=document.getElementById('gallery-page-size'),info=document.getElementById('gallery-page-info'),number=document.getElementById('gallery-page-number'),prev=document.getElementById('gallery-prev'),next=document.getElementById('gallery-next'),empty=document.getElementById('gallery-no-results');
     let page=1;
     const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return cards.filter(card=>(card.dataset.gallerySearch||'').includes(q));};
-    const render=()=>{if(!size||!info)return;const found=matches(),perPage=Number(size.value),pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));cards.forEach(card=>card.hidden=!visible.has(card));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' photos':'Showing 0 photos';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(empty)empty.hidden=found.length!==0;};
+    const render=()=>{if(!size||!info)return;const found=matches(),perPage=Number(size.value),pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));cards.forEach(card=>card.hidden=!visible.has(card));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' photos':'Showing 0 photos';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(empty)empty.hidden=cards.length===0||found.length!==0;};
     filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});prev?.addEventListener('click',()=>{if(page>1){page--;render();}});next?.addEventListener('click',()=>{page++;render();});render();
     const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-x'),document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
     const close=()=>{if(modal)modal.hidden=true;};
