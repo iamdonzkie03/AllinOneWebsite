@@ -272,7 +272,6 @@ $modules = [
 <p class="stories-show-latest"><a class="btn light" href="index.php#latest">Back to featured stories</a></p>
 <?php endif; ?></div></section>
 
-<section class="section contributor-section"><div class="wrap contributor-panel"><div><div class="eyebrow">Your voice belongs here</div><h2>Create your own space.</h2><p class="muted">Register, provide your contributor credentials for administrator review, then manage drafts, edit posts, search your work and submit content for publication once approved.</p></div><a class="btn" href="#create-account-modal" data-open-create-account>Apply for a creator account ↗</a></div></section>
 </main>
 
 <div class="register-modal" id="create-account-modal" aria-hidden="true"><div class="register-dialog" role="dialog" aria-modal="true" aria-label="Create an Account"><button type="button" class="register-close" id="close-create-account" aria-label="Close create account">×</button><iframe src="public/register.php" title="Create an Account" loading="lazy"></iframe></div></div>
