@@ -991,13 +991,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      <div class="preview-kicker" id="banner-preview-title"><?=$sectionsSettings['banner']['main_title']?></div>
      <h3 id="banner-preview-heading"><?=$sectionsSettings['banner']['heading']?></h3>
      <div class="preview-desc" id="banner-preview-description"><?=$sectionsSettings['banner']['description']?></div>
-     <div class="banner-preview-actions"><span>Become a contributor ↗</span></div>
-     <div class="banner-preview-note"><i></i>Independent community contributions · Administrator-reviewed publishing</div>
     </div>
     <div class="banner-preview-art">
      <img id="banner-preview-photo" src="<?=e(!empty($sectionsSettings['banner']['photo'])?ltrim((string)$sectionsSettings['banner']['photo'],'/'):'assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png')?>" alt="Banner photo preview">
-     <div class="banner-preview-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div>
-     <div class="banner-preview-caption">ART / IDEAS / EVERYDAY LIFE</div>
     </div>
    </div>
   </div>
