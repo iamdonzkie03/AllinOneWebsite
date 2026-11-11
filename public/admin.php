@@ -740,7 +740,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     .page-management-tabpanel{margin-top:20px;min-height:190px}
     .page-management-tabpanel[hidden]{display:none}
   </style>
-  <div class="admin-topline"><div><div class="eyebrow">System configuration</div><h1 class="admin-heading">Media Management</h1><p class="muted">Manage photographs, image collections, and videos displayed throughout the public website.</p></div></div>
+  <section class="panel admin-panel">
+    <div class="admin-panel-head"><div><h2>Media Management</h2><p class="muted">Manage photographs, image collections, and videos displayed throughout the public website.</p></div></div>
   <nav class="page-management-tabs" role="tablist" aria-label="Media Management tabs" data-initial-tab="<?=e($activeMediaTab)?>">
     <button type="button" id="media-tab-gallery" role="tab" aria-controls="media-panel-gallery" aria-selected="false" tabindex="-1" data-media-tab="gallery">Gallery</button>
     <button type="button" id="media-tab-video" role="tab" aria-controls="media-panel-video" aria-selected="false" tabindex="-1" data-media-tab="video">Video</button>
@@ -785,6 +786,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     });
   })();
   </script>
+  </section>
 <?php elseif($section==='user-accounts'):?>
   <div class="admin-topline"><div><div class="eyebrow">Access control</div><h1 class="admin-heading">User Accounts</h1><p class="muted">Manage registered accounts, contributor credentials and account access.</p></div></div>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
