@@ -1024,9 +1024,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         let result=null;try{result=JSON.parse(xhr.responseText);}catch(error){}
         if(xhr.status>=200&&xhr.status<300&&result?.success){
           setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';
-          uploadInProgress=false;modal.hidden=true;resetUploadForm();
-          if(successMessage)successMessage.textContent=result.count+' '+(result.count===1?'Photo':'Photos')+' uploaded successfully.';
-          if(successModal)successModal.hidden=false;
+          window.setTimeout(()=>{
+            uploadInProgress=false;modal.hidden=true;resetUploadForm();
+            if(successMessage)successMessage.textContent=result.count+' '+(result.count===1?'Photo':'Photos')+' uploaded successfully.';
+            if(successModal)successModal.hidden=false;
+          },450);
           return;
         }
         uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
