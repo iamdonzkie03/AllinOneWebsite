@@ -972,7 +972,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .banner-preview-art{min-height:300px;height:100%;align-self:stretch;position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:22px;box-sizing:border-box;border:1px solid rgba(184,50,63,.28);border-radius:22px;background:radial-gradient(ellipse at 50% 45%,rgba(130,27,48,.36),transparent 52%),linear-gradient(145deg,#2a090f,#0d0d0f 72%);box-shadow:0 14px 36px rgba(0,0,0,.3)}
  .banner-preview-art:before{content:'';position:absolute;width:66%;height:76%;right:18%;top:9%;border-radius:48% 48% 13% 13%;transform:rotate(9deg);background:linear-gradient(145deg,#c72c3b,#6f101f 55%,#210b11);box-shadow:-100px 80px 0 -34px #4b101b,92px 115px 0 -28px #8b1728;opacity:.55;filter:saturate(.8)}
  .banner-preview-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
- .banner-preview-art:after{content:'ART  /  IDEAS  /  EVERYDAY LIFE';position:relative;z-index:1;color:#f8e9eb;font:800 10px Ubuntu,sans-serif;letter-spacing:2.5px}
  .banner-preview-stamp{position:absolute;z-index:1;right:18px;top:18px;padding:9px 11px;border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;text-align:center;font:800 10px/1.3 Ubuntu,sans-serif;letter-spacing:1.4px;background:rgba(12,8,10,.35)}
  .banner-preview-stamp span{font-size:8px;letter-spacing:2px}
  @media(max-width:760px){.banner-preview-grid{grid-template-columns:1fr;gap:22px;padding:24px}.banner-preview-art{min-height:240px}.banner-preview-stage h3{font-size:clamp(32px,9vw,48px)}}
