@@ -107,12 +107,14 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS site_gallery_photos (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(180) NOT NULL,
   description TEXT NULL,
-  folder_name VARCHAR(120) NOT NULL,
+  folder_name VARCHAR(120) NULL DEFAULT NULL,
   file_path VARCHAR(500) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_gallery_created (created_at, id),
   KEY idx_gallery_folder (folder_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$galleryFolderColumn = $pdo->query("SHOW COLUMNS FROM site_gallery_photos LIKE 'folder_name'")->fetch(PDO::FETCH_ASSOC);
+if ($galleryFolderColumn && strtoupper((string)$galleryFolderColumn['Null']) !== 'YES') $pdo->exec("ALTER TABLE site_gallery_photos MODIFY folder_name VARCHAR(120) NULL DEFAULT NULL");
 
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
@@ -262,24 +264,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeMediaTab = 'gallery';
         $savedFiles = [];
         try {
-            $mode = (string)($_POST['gallery_folder_mode'] ?? 'existing');
+            $mode = (string)($_POST['gallery_folder_mode'] ?? 'none');
             $folderInput = trim((string)($_POST['gallery_folder_name'] ?? ''));
-            if ($mode === 'new') {
+            $folder = '';
+            if ($mode === 'none') {
+                $folder = '';
+            } elseif ($mode === 'new') {
                 $folder = strtolower($folderInput);
                 $folder = preg_replace('/[^a-z0-9_-]+/', '-', $folder);
                 $folder = trim((string)$folder, '-_');
                 if ($folder === '' || strlen($folder) > 80) throw new RuntimeException('Enter a valid folder name using letters, numbers, hyphens or underscores.');
-            } else {
+            } elseif ($mode === 'existing') {
                 $folder = basename(trim((string)($_POST['gallery_existing_folder'] ?? '')));
                 if ($folder === '' || $folder === '.' || $folder === '..' || !preg_match('/^[a-zA-Z0-9_-]{1,80}$/', $folder)) throw new RuntimeException('Choose a valid existing photo folder.');
                 $existingPath = __DIR__ . '/uploads/gallery/' . $folder;
                 if (!is_dir($existingPath)) throw new RuntimeException('The selected photo folder no longer exists. Choose another folder.');
+            } else {
+                throw new RuntimeException('Choose where the photos should be saved.');
             }
             if (!isset($_FILES['gallery_photos']) || !is_array($_FILES['gallery_photos']['name'] ?? null)) throw new RuntimeException('Choose at least one photo to upload.');
             $files = $_FILES['gallery_photos'];
             $count = count($files['name']);
             if ($count < 1 || $count > 20) throw new RuntimeException('Choose between 1 and 20 photos per upload.');
-            $uploadDir = __DIR__ . '/uploads/gallery/' . $folder;
+            $uploadDir = __DIR__ . '/uploads/gallery' . ($folder !== '' ? '/' . $folder : '');
             if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) throw new RuntimeException('Unable to create the selected gallery folder.');
             $titles = (array)($_POST['photo_title'] ?? []);
             $descriptions = (array)($_POST['photo_description'] ?? []);
@@ -300,9 +307,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $description = mb_substr(trim((string)($descriptions[$i] ?? '')), 0, 2000);
                 $filename = 'photo-' . date('Ymd-His') . '-' . bin2hex(random_bytes(8)) . '.' . $extensions[$mime];
                 if (!move_uploaded_file($tmp, $uploadDir . '/' . $filename)) throw new RuntimeException('Unable to save one of the selected photos.');
-                $relativePath = 'uploads/gallery/' . $folder . '/' . $filename;
+                $relativePath = 'uploads/gallery/' . ($folder !== '' ? $folder . '/' : '') . $filename;
                 $savedFiles[] = $uploadDir . '/' . $filename;
-                $insert->execute([$title, $description, $folder, $relativePath]);
+                $insert->execute([$title, $description, $folder !== '' ? $folder : null, $relativePath]);
             }
             if (!$savedFiles) throw new RuntimeException('No photos were uploaded. Choose valid photo files and try again.');
             $pdo->commit();
