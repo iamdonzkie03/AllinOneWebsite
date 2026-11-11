@@ -249,8 +249,7 @@ $modules = [
 <?php foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; ?>
 </div></div></section>
 
-<section class="section" id="latest"><div class="wrap"><div class="section-head">
-<form class="searchbar" method="get"><input name="q" value="<?=e($search)?>" placeholder="Search stories, creators and listings…" aria-label="Search public content"><?php if($category!==''): ?><input type="hidden" name="category" value="<?=e($category)?>"><?php endif; ?><button class="btn">Search</button></form></div>
+<section class="section" id="latest"><div class="wrap">
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
 <?php if (!$showAllStories): ?>
 <div class="stories-slider" id="stories-slider">
