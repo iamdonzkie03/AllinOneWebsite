@@ -733,29 +733,29 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-feature-grid"><div class="admin-feature"><div class="symbol">▤</div><h3>Page Management</h3><p>Manage the pages and sections displayed on the public website.</p><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Open settings</a></div><div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize the images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open settings</a></div></div>
 <?php elseif($section==='media-management'):?>
   <style>
-    .media-management-tabs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:20px 0 0;padding:0 0 12px;border-bottom:1px solid var(--line)}
-    .media-management-tabs button{appearance:none;border:1px solid transparent;border-radius:10px;padding:10px 17px;background:transparent;color:#c8bec1;font:500 13px 'Ubuntu',sans-serif;cursor:pointer;transition:background .2s,border-color .2s,color .2s,box-shadow .2s}
-    .media-management-tabs button:hover{background:rgba(255,255,255,.045);color:#fff}
-    .media-management-tabs button[aria-selected="true"]{color:#fff;background:linear-gradient(110deg,rgba(128,20,39,.48),rgba(30,12,18,.62));border-color:rgba(184,50,63,.4);box-shadow:inset 1px 1px 3px rgba(255,255,255,.04),0 4px 12px rgba(0,0,0,.14)}
-    .media-management-panel{margin-top:20px;min-height:190px}
-    .media-management-panel[hidden]{display:none}
+    .page-management-tabs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:20px 0 0;padding:0 0 12px;border-bottom:1px solid var(--line)}
+    .page-management-tabs button{appearance:none;border:1px solid transparent;border-radius:10px;padding:10px 17px;background:transparent;color:#c8bec1;font:500 13px 'Ubuntu',sans-serif;cursor:pointer;transition:background .2s,border-color .2s,color .2s,box-shadow .2s}
+    .page-management-tabs button:hover{background:rgba(255,255,255,.045);color:#fff}
+    .page-management-tabs button[aria-selected="true"]{color:#fff;background:linear-gradient(110deg,rgba(128,20,39,.48),rgba(30,12,18,.62));border-color:rgba(184,50,63,.4);box-shadow:inset 1px 1px 3px rgba(255,255,255,.04),0 4px 12px rgba(0,0,0,.14)}
+    .page-management-tabpanel{margin-top:20px;min-height:190px}
+    .page-management-tabpanel[hidden]{display:none}
   </style>
   <div class="admin-topline"><div><div class="eyebrow">System configuration</div><h1 class="admin-heading">Media Management</h1><p class="muted">Manage photographs, image collections, and videos displayed throughout the public website.</p></div></div>
-  <nav class="media-management-tabs" role="tablist" aria-label="Media Management tabs" data-initial-tab="<?=e($activeMediaTab)?>">
+  <nav class="page-management-tabs" role="tablist" aria-label="Media Management tabs" data-initial-tab="<?=e($activeMediaTab)?>">
     <button type="button" id="media-tab-gallery" role="tab" aria-controls="media-panel-gallery" aria-selected="false" tabindex="-1" data-media-tab="gallery">Gallery</button>
     <button type="button" id="media-tab-video" role="tab" aria-controls="media-panel-video" aria-selected="false" tabindex="-1" data-media-tab="video">Video</button>
   </nav>
-  <section class="panel admin-panel media-management-panel" id="media-panel-gallery" role="tabpanel" aria-labelledby="media-tab-gallery">
+  <section class="page-management-tabpanel" id="media-panel-gallery" role="tabpanel" aria-labelledby="media-tab-gallery">
     <h2>Gallery</h2><p class="muted">Manage photographs and image collections displayed on the public website.</p>
     <div class="admin-note">Gallery management controls can be added here. No existing website content has been changed.</div>
   </section>
-  <section class="panel admin-panel media-management-panel" id="media-panel-video" role="tabpanel" aria-labelledby="media-tab-video" hidden>
+  <section class="page-management-tabpanel" id="media-panel-video" role="tabpanel" aria-labelledby="media-tab-video" hidden>
     <h2>Video</h2><p class="muted">Manage videos displayed on the public website.</p>
     <div class="admin-note">Video management controls can be added here. No existing website content has been changed.</div>
   </section>
   <script>
   (() => {
-    const nav=document.querySelector('.media-management-tabs');
+    const nav=document.querySelector('.page-management-tabs');
     if(!nav||nav.dataset.handlersReady==='1')return;
     nav.dataset.handlersReady='1';
     const tabs=[...nav.querySelectorAll('[data-media-tab]')];
