@@ -103,10 +103,33 @@ $renderHeaderRich = static function($html,$fallback): string {
 $publicHeaderLogoWidth = max(50, min(200, (int)($publicHeader['logo_width'] ?? 200)));
 $publicHeaderLogoHeight = max(30, min(120, (int)($publicHeader['logo_height'] ?? 70)));
 
-$stmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.cover_photo,c.created_at,c.published_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' AND c.status='published' AND cat.is_active=1 ORDER BY COALESCE(c.published_at,c.created_at) DESC, c.id DESC");
-$stmt->execute();
+$search = trim((string)($_GET['q'] ?? ''));
+$currentPage = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 9;
+$where = "c.content_type='article' AND c.status='published' AND cat.is_active=1";
+$params = [];
+if ($search !== '') {
+    $where .= " AND (c.title LIKE ? OR c.excerpt LIKE ? OR u.full_name LIKE ? OR cat.name LIKE ? OR sub.name LIKE ?)";
+    $term = '%' . $search . '%';
+    $params = [$term, $term, $term, $term, $term];
+}
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id JOIN users u ON u.id=c.owner_id WHERE {$where}");
+$countStmt->execute($params);
+$totalArticles = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalArticles / $perPage));
+$currentPage = min($currentPage, $totalPages);
+$offset = ($currentPage - 1) * $perPage;
+$stmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.cover_photo,c.created_at,c.published_at,cat.name AS category_name,sub.name AS subcategory_name,u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id JOIN users u ON u.id=c.owner_id WHERE {$where} ORDER BY COALESCE(c.published_at,c.created_at) DESC, c.id DESC LIMIT {$perPage} OFFSET {$offset}");
+$stmt->execute($params);
 $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $pageTitle = 'All Stories';
+$pageUrl = static function(int $page) use ($search): string {
+    $query = ['page' => $page];
+    if ($search !== '') $query['q'] = $search;
+    return 'all-stories.php?' . http_build_query($query);
+};
+$paginationStart = max(1, min($currentPage - 2, $totalPages - 4));
+$paginationEnd = min($totalPages, $paginationStart + 4);
 ?>
 <!doctype html>
 <html lang="en">
