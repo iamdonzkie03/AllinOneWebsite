@@ -64,24 +64,42 @@ $sectionImageSrc=static fn(string $path): string => preg_match('~^https?://~i',$
 // Render administrator-authored banner formatting while retaining only safe
 // text-formatting tags and a narrow set of inline typography declarations.
 $renderBannerRichText = static function(string $html): string {
-    $html = strip_tags($html, '<span><strong><b><em><i><u><br><p>');
-    $html = preg_replace_callback('/<span\\b([^>]*)>/i', static function(array $match): string {
+    $allowedTags = '<span><strong><b><em><i><u><s><br><p><ul><ol><li><h2><h3><h4><blockquote><a><table><tbody><tr><th><td>';
+    $html = strip_tags($html, $allowedTags);
+    $safeStyle = static function(string $attributes): string {
+        if (!preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $attributes, $match)) return '';
         $rules = [];
-        if (preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $match[1], $styleMatch)) {
-            foreach (explode(';', $styleMatch[1]) as $declaration) {
-                if (!str_contains($declaration, ':')) continue;
-                [$property, $value] = array_map('trim', explode(':', $declaration, 2));
-                $property = strtolower($property);
-                if ($property === 'color' && preg_match('/^(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})$/i', $value)) {
-                    $rules[] = 'color:' . $value . ' !important';
-                } elseif ($property === 'font-size' && preg_match('/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\\.[0-9]+)?px$/i', $value)) {
-                    $rules[] = 'font-size:' . $value . ' !important';
-                }
-            }
+        foreach (explode(';', $match[1]) as $declaration) {
+            if (!str_contains($declaration, ':')) continue;
+            [$property, $value] = array_map('trim', explode(':', $declaration, 2));
+            $property = strtolower($property);
+            $valid = false;
+            if ($property === 'color') $valid = (bool)preg_match('/^(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})$/i', $value);
+            elseif ($property === 'font-size') $valid = (bool)preg_match('/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\\.[0-9]+)?px$/i', $value);
+            elseif ($property === 'font-family') $valid = (bool)preg_match('/^[a-z0-9 ,\\\'-]{1,80}$/i', $value);
+            elseif ($property === 'font-weight') $valid = in_array(strtolower($value), ['normal','bold','400','500','600','700','800','900'], true);
+            elseif ($property === 'font-style') $valid = in_array(strtolower($value), ['normal','italic','oblique'], true);
+            elseif ($property === 'text-align') $valid = in_array(strtolower($value), ['left','right','center','justify'], true);
+            elseif ($property === 'text-decoration') $valid = (bool)preg_match('/^(none|underline|line-through|overline)(\\s+(underline|line-through|overline))*$/i', $value);
+            elseif ($property === 'line-height') $valid = (bool)preg_match('/^(?:[0-9]+(?:\\.[0-9]+)?|[0-9]+(?:\\.[0-9]+)?px|[0-9]+(?:\\.[0-9]+)?%)$/i', $value);
+            elseif ($property === 'letter-spacing') $valid = (bool)preg_match('/^-?[0-9]+(?:\\.[0-9]+)?px$/i', $value);
+            if ($valid) $rules[] = $property . ':' . $value . ' !important';
         }
-        return '<span' . ($rules ? ' style="' . e(implode(';', $rules)) . '"' : '') . '>';
+        return $rules ? ' style="' . e(implode(';', $rules)) . '"' : '';
+    };
+    $html = preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i', static function(array $match) use ($safeStyle): string {
+        $tag = strtolower($match[1]);
+        if ($tag === 'br') return '<br>';
+        $style = $safeStyle($match[2]);
+        if ($tag === 'a') {
+            $href = '';
+            if (preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $match[2], $link) && preg_match('~^(https?://|/|#|\\?|mailto:)~i', $link[1])) {
+                $href = ' href="' . e($link[1]) . '" target="_blank" rel="noopener noreferrer"';
+            }
+            return '<a' . $href . $style . '>';
+        }
+        return '<' . $tag . $style . '>';
     }, $html);
-    $html = preg_replace('/<(strong|b|em|i|u|br|p)\\b[^>]*>/i', '<$1>', $html);
     return (string)$html;
 };
 
