@@ -1069,7 +1069,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(!form)return;
       form.reset();
       if(details)details.replaceChildren();
-      if(existing&&fresh&&mode){const isNew=mode.value==='new';existing.hidden=isNew;fresh.hidden=!isNew;}
+      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;}
       const submit=document.getElementById('gallery-upload-submit');
       if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
       resetProgress();uploadInProgress=false;
@@ -1077,7 +1077,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const close=()=>{if(uploadInProgress)return;if(modal)modal.hidden=true;resetUploadForm();};
     open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
-    mode?.addEventListener('change',()=>{const isNew=mode.value==='new';existing.hidden=isNew;fresh.hidden=!isNew;});
+    mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;});
     files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}selected.forEach((file,index)=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
     form?.addEventListener('submit',event=>{
       event.preventDefault();
