@@ -222,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $photoId = (int)($_POST['photo_id'] ?? 0);
             $targetFolder = trim((string)($_POST['target_folder'] ?? ''));
             if ($photoId < 1) throw new RuntimeException('Select a valid photo.');
-            if ($targetFolder !== '' && !preg_match('/^[a-zA-Z0-9_-]{1,80}$/', $targetFolder)) throw new RuntimeException('Choose a valid destination folder.');
+            if ($targetFolder !== '' && !preg_match('/^[\p{L}\p{N} _-]{1,80}$/u', $targetFolder)) throw new RuntimeException('Choose a valid destination folder.');
             $photoStmt = $pdo->prepare('SELECT id,folder_name,file_path FROM site_gallery_photos WHERE id=? LIMIT 1');
             $photoStmt->execute([$photoId]);
             $photoRow = $photoStmt->fetch(PDO::FETCH_ASSOC);
@@ -270,13 +270,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($mode === 'none') {
                 $folder = '';
             } elseif ($mode === 'new') {
-                $folder = strtolower($folderInput);
-                $folder = preg_replace('/[^a-z0-9_-]+/', '-', $folder);
-                $folder = trim((string)$folder, '-_');
-                if ($folder === '' || strlen($folder) > 80) throw new RuntimeException('Enter a valid folder name using letters, numbers, hyphens or underscores.');
+                $folder = $folderInput;
+                if ($folder === '' || mb_strlen($folder) > 80 || !preg_match('/^[\p{L}\p{N} _-]+$/u', $folder)) throw new RuntimeException('Enter a folder name using letters, numbers, spaces, hyphens or underscores (maximum 80 characters).');
             } elseif ($mode === 'existing') {
                 $folder = basename(trim((string)($_POST['gallery_existing_folder'] ?? '')));
-                if ($folder === '' || $folder === '.' || $folder === '..' || !preg_match('/^[a-zA-Z0-9_-]{1,80}$/', $folder)) throw new RuntimeException('Choose a valid existing photo folder.');
+                if ($folder === '' || $folder === '.' || $folder === '..' || !preg_match('/^[\p{L}\p{N} _-]{1,80}$/u', $folder)) throw new RuntimeException('Choose a valid existing photo folder.');
                 $existingPath = __DIR__ . '/uploads/gallery/' . $folder;
                 if (!is_dir($existingPath)) throw new RuntimeException('The selected photo folder no longer exists. Choose another folder.');
             } else {
