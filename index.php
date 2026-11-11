@@ -209,45 +209,28 @@ $modules = [
 <a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
 </nav></div></header>
 <main>
+<?php $publicSections=$sectionsSettings ?? []; $bannerSection=$publicSections['banner']??[]; ?>
 <section class="hero home-hero"><div class="wrap hero-grid"><div>
-<div class="eyebrow">One city. Many stories.</div>
-<h1>Zamboanga,<br><em>through our eyes.</em></h1>
-<p>A digital home for the city's history, culture, creative talent, community news, marketplace, entertainment and public conversation.</p>
-<div class="hero-actions"><a class="btn" href="#zamboanga">Explore our heritage</a><a class="btn light" href="#create-account-modal" data-open-create-account>Become a contributor ↗</a></div>
+<div class="eyebrow"><?=e($bannerSection['main_title']??'One city. Many stories.')?></div>
+<h1><?=e($bannerSection['heading']??'Zamboanga, through our eyes.')?></h1>
+<div class="hero-description"><?=($bannerSection['description']??'')?></div>
+<div class="hero-actions"><?php if(!empty($bannerSection['button_label'])): ?><a class="btn" href="<?=e($bannerSection['button_url']??'#zamboanga')?>" style="background:<?=e($bannerSection['button_color']??'#b8323f')?>;color:<?=e($bannerSection['button_text_color']??'#fff')?>;font-size:<?=max(10,min(24,(int)($bannerSection['button_size']??14)))?>px;height:<?=max(28,min(80,(int)($bannerSection['button_height']??42)))?>px;<?=($bannerSection['button_width']??'auto')!=='auto'?'width:'.(int)$bannerSection['button_width'].'px;':''?>"><?=e($bannerSection['button_label'])?></a><?php endif; ?><a class="btn light" href="#create-account-modal" data-open-create-account>Become a contributor ↗</a></div>
 <div class="hero-note"><span class="hero-note-dot"></span>Independent community contributions · Administrator-reviewed publishing</div>
 </div>
-<div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage collage featuring Fort Pilar, the Philippine flag, a traditional vinta, and Yakan-inspired textile patterns"><img class="hero-photo" src="public/assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png" alt="Sunset vinta sailing by the historic fort in Zamboanga" fetchpriority="high"><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
+<div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage image"><?php if(!empty($bannerSection['photo'])): ?><img class="hero-photo" src="public/<?=e($bannerSection['photo'])?>" alt="<?=e($bannerSection['heading']??'Zamboanga')?>"><?php else: ?><img class="hero-photo" src="public/assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png" alt="Sunset vinta sailing by the historic fort in Zamboanga"><?php endif; ?><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
 </div></section>
 
+<?php $slideSection=$publicSections['slideshow']??[]; $slidePhotos=(array)($slideSection['photos']??[]); ?>
 <section class="section culture-section" id="zamboanga"><div class="wrap">
-<div class="section-head"><div><div class="eyebrow">A living heritage</div><h2>Discover the story of Zamboanga City</h2><p class="muted">From historic landmarks to maritime traditions and a vibrant, multilingual culture.</p></div><div class="slide-counter" aria-live="polite"><span id="slide-current">01</span> / 04</div></div>
-<div class="culture-slideshow" id="culture-slideshow" aria-label="Zamboanga City history and culture slideshow">
-<article class="culture-slide is-active" data-slide="0">
-<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Fort_Pilar_(NS_Valderoza,_Zamboanga_City;_10-07-2023).jpg?width=1800" alt="Historic stone walls of Fort Pilar in Zamboanga City" fetchpriority="high">
-<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">HERITAGE LANDMARK · 17TH CENTURY</span><h3>Fort Pilar</h3><p>A landmark shaped by centuries of history, faith and city life. Today, Fort Pilar remains one of Zamboanga's best-known cultural landmarks.</p><a href="https://commons.wikimedia.org/wiki/File:Fort_Pilar_(NS_Valderoza,_Zamboanga_City;_10-07-2023).jpg" target="_blank" rel="noopener">Photo credit: Patrickroque01 / Wikimedia Commons ↗</a></div>
-</article>
-<article class="culture-slide" data-slide="1">
-<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Fort_Pilar_Paseo_Del_Mar_bay_view_sunrise_(NS_Valderosa,_Zamboanga_City;_10-11-2023).jpg?width=1800" alt="Zamboanga waterfront near Paseo del Mar at sunrise" loading="lazy">
-<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">THE CITY BY THE SEA</span><h3>Life along the waterfront</h3><p>The sea has long connected Zamboanga's communities, livelihoods and neighboring islands. Paseo del Mar is part of the city's contemporary public life.</p><a href="https://commons.wikimedia.org/wiki/File:Fort_Pilar_Paseo_Del_Mar_bay_view_sunrise_(NS_Valderosa,_Zamboanga_City;_10-11-2023).jpg" target="_blank" rel="noopener">Photo credit: Patrickroque01 / Wikimedia Commons ↗</a></div>
-</article>
-<article class="culture-slide" data-slide="2">
-<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Vinta_at_Zamboanga_City_Tourism_Office,_Mar_2026.jpg?width=1600" alt="Traditional vinta boat representing the maritime heritage of Zamboanga" loading="lazy">
-<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">MARITIME TRADITION</span><h3>The colors of the vinta</h3><p>The vinta's colorful sail is an enduring symbol of the region's relationship with the sea and its rich maritime traditions.</p><a href="https://commons.wikimedia.org/wiki/File:Vinta_at_Zamboanga_City_Tourism_Office,_Mar_2026.jpg" target="_blank" rel="noopener">Photo credit: Ralff Nestor Nacor / Wikimedia Commons ↗</a></div>
-</article>
-<article class="culture-slide" data-slide="3">
-<img src="https://commons.wikimedia.org/wiki/Special:FilePath/Yakan_Weavers.jpg?width=1800" alt="Yakan weavers preserving intricate traditional textile patterns" loading="lazy">
-<div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker">ARTISANSHIP · LIVING CULTURE</span><h3>Patterns that carry stories</h3><p>Traditional weaving and intricate geometric designs reflect generations of skill and cultural knowledge across the Zamboanga Peninsula.</p><a href="https://commons.wikimedia.org/wiki/File:Yakan_Weavers.jpg" target="_blank" rel="noopener">Photo credit: Rauxilian / Wikimedia Commons ↗</a></div>
-</article>
-<button class="slide-arrow slide-prev" type="button" aria-label="Previous slide">‹</button><button class="slide-arrow slide-next" type="button" aria-label="Next slide">›</button>
-<div class="slide-dots" role="group" aria-label="Choose a slide"><button class="slide-dot is-active" type="button" aria-label="Slide 1" aria-pressed="true"></button><button class="slide-dot" type="button" aria-label="Slide 2" aria-pressed="false"></button><button class="slide-dot" type="button" aria-label="Slide 3" aria-pressed="false"></button><button class="slide-dot" type="button" aria-label="Slide 4" aria-pressed="false"></button></div>
-</div>
-<p class="slide-disclaimer">Historical and cultural notes are introductory highlights. Image links lead to Wikimedia Commons pages with source and license information.</p>
-</div></section>
-
-<section class="section" id="modules"><div class="wrap"><div class="section-head"><div><div class="eyebrow">Explore the platform</div><h2>Five ways to connect</h2><p class="muted">A single community space for creativity, information, commerce and cultural memory.</p></div></div>
-<div class="category-row module-grid">
-<?php foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; ?>
+<div class="section-head"><div><div class="eyebrow"><?=e($slideSection['main_title']??'A living heritage')?></div><h2><?=e($slideSection['heading']??'Discover the story of Zamboanga City')?></h2><p class="muted"><?=e($slideSection['subtitle']??'From historic landmarks to maritime traditions and a vibrant, multilingual culture.')?></p></div><div class="slide-counter" aria-live="polite"><span id="slide-current">01</span> / <?=str_pad((string)max(1,count($slidePhotos)),2,'0',STR_PAD_LEFT)?></div></div>
+<div class="culture-slideshow kenburns-slideshow" id="culture-slideshow" aria-label="Zamboanga City history and culture slideshow">
+<?php foreach($slidePhotos as $k=>$ph): if(empty($ph['photo'])) continue; ?><article class="culture-slide<?=$k===0?' is-active':''?>" data-slide="<?=$k?>"><img src="public/<?=e($ph['photo'])?>" alt="<?=e($ph['title']??$ph['heading']??'Zamboanga slideshow photo')?>" loading="<?=$k===0?'eager':'lazy'?>"><div class="slide-shade"></div><div class="slide-content"><span class="slide-kicker"><?=e($ph['title']??'')?></span><h3><?=e($ph['heading']??'')?></h3><div><?=($ph['description']??'')?></div></div></article><?php endforeach; ?>
+<button class="slide-arrow slide-prev" type="button" aria-label="Previous slide">‹</button><button class="slide-arrow slide-next" type="button" aria-label="Next slide">›</button><div class="slide-dots" role="group" aria-label="Choose a slide"><?php foreach($slidePhotos as $k=>$ph): if(empty($ph['photo'])) continue; ?><button class="slide-dot<?=$k===0?' is-active':''?>" type="button" aria-label="Slide <?=$k+1?>" aria-pressed="<?=$k===0?'true':'false'?>"></button><?php endforeach; ?></div>
 </div></div></section>
+
+<?php $megaSection=$publicSections['mega_menu']??[]; $megaPanels=(array)($megaSection['panels']??[]); ?>
+<section class="section mega-menu-section" id="modules"><div class="wrap"><div class="section-head"><div><div class="eyebrow"><?=e($megaSection['main_title']??'Explore the platform')?></div><h2><?=e($megaSection['heading']??'Five ways to connect')?></h2><p class="muted"><?=e($megaSection['subtitle']??'A single community space for creativity, information, commerce and cultural memory.')?></p></div></div>
+<div class="category-row module-grid"><?php if($megaPanels): foreach($megaPanels as $pn): ?><a class="category module-card" href="<?=e($pn['url']??'#')?>"><?php if(!empty($pn['photo'])): ?><img src="public/<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php endif; ?><strong><?=e($pn['title']??'')?></strong><span class="module-description"><?=e($pn['description']??'')?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
 
 <section class="section" id="latest"><div class="wrap">
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
