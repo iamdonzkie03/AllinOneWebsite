@@ -1127,7 +1127,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(progress)progress.hidden=false;
       if(uploadError){uploadError.hidden=true;uploadError.textContent='';}
       setProgress(0);
-      xhr.open('POST',form.action||window.location.href,true);
+      xhr.open('POST',window.location.href,true);
       xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
       xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable)setProgress(event.total?event.loaded/event.total*100:0);});
       xhr.addEventListener('load',()=>{
