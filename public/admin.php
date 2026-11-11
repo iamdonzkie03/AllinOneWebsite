@@ -215,6 +215,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
 
 
+    if ($action === 'move_gallery_photo') {
+        try {
+            $photoId = (int)($_POST['photo_id'] ?? 0);
+            $targetFolder = trim((string)($_POST['target_folder'] ?? ''));
+            if ($photoId < 1) throw new RuntimeException('Select a valid photo.');
+            if ($targetFolder !== '' && !preg_match('/^[a-zA-Z0-9_-]{1,80}$/', $targetFolder)) throw new RuntimeException('Choose a valid destination folder.');
+            $photoStmt = $pdo->prepare('SELECT id,folder_name,file_path FROM site_gallery_photos WHERE id=? LIMIT 1');
+            $photoStmt->execute([$photoId]);
+            $photoRow = $photoStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$photoRow) throw new RuntimeException('The selected photo could not be found.');
+            $galleryRoot = __DIR__ . '/uploads/gallery';
+            $sourcePath = __DIR__ . '/' . ltrim((string)$photoRow['file_path'], '/\\');
+            $realRoot = realpath($galleryRoot);
+            $realSource = realpath($sourcePath);
+            if (!$realRoot || !$realSource || strpos($realSource, $realRoot . DIRECTORY_SEPARATOR) !== 0) throw new RuntimeException('The photo file could not be located inside the Gallery folder.');
+            if ($targetFolder !== '' && !is_dir($galleryRoot . '/' . $targetFolder)) throw new RuntimeException('The destination folder does not exist. Create it from Add Photo first.');
+            $destinationDir = $targetFolder === '' ? $galleryRoot : $galleryRoot . '/' . $targetFolder;
+            $filename = basename($realSource);
+            $destinationPath = $destinationDir . '/' . $filename;
+            if (realpath($destinationDir) === realpath(dirname($realSource))) {
+                header('Location: admin.php?section=media-management&media_tab=gallery&gallery_moved=same', true, 303);
+                exit;
+            }
+            if (file_exists($destinationPath)) $destinationPath = $destinationDir . '/photo-' . bin2hex(random_bytes(6)) . '-' . $filename;
+            if (!rename($realSource, $destinationPath)) throw new RuntimeException('Unable to move the selected photo.');
+            try {
+                $newRelative = 'uploads/gallery/' . ($targetFolder !== '' ? $targetFolder . '/' : '') . basename($destinationPath);
+                $update = $pdo->prepare('UPDATE site_gallery_photos SET folder_name=?,file_path=? WHERE id=?');
+                $update->execute([$targetFolder !== '' ? $targetFolder : null, $newRelative, $photoId]);
+            } catch (Throwable $dbError) {
+                @rename($destinationPath, $realSource);
+                throw $dbError;
+            }
+            header('Location: admin.php?section=media-management&media_tab=gallery&gallery_moved=1', true, 303);
+            exit;
+        } catch (Throwable $e) {
+            $section = 'media-management';
+            $activeMediaTab = 'gallery';
+            $message = $e->getMessage();
+        }
+    }
+
     if ($action === 'add_gallery_photos') {
         $section = 'media-management';
         $activeMediaTab = 'gallery';
