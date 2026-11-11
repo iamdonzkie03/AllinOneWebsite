@@ -266,7 +266,6 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
 <?php endif; ?>
 </div>
 
-<?php if ($totalPages > 1): ?>
 <nav class="stories-pagination" aria-label="Stories pagination">
   <?php if ($currentPage > 1): ?><a class="page-control" href="<?=e($pageUrl($currentPage - 1))?>" aria-label="Previous page">‹ <span>Previous</span></a><?php else: ?><span class="page-control disabled" aria-disabled="true">‹ <span>Previous</span></span><?php endif; ?>
   <div class="page-numbers">
@@ -278,7 +277,6 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
   </div>
   <?php if ($currentPage < $totalPages): ?><a class="page-control" href="<?=e($pageUrl($currentPage + 1))?>" aria-label="Next page"><span>Next</span> ›</a><?php else: ?><span class="page-control disabled" aria-disabled="true"><span>Next</span> ›</span><?php endif; ?>
 </nav>
-<?php endif; ?>
 <a class="all-stories-back" href="index.php#latest">← Back to featured stories</a>
 </main>
 <footer><div class="wrap footer-grid">
