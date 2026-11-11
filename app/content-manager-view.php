@@ -475,9 +475,33 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       const words = (richEditor.innerText || '').trim().split(/\s+/).filter(Boolean).length;
       if (wordCount) wordCount.textContent = words + (words === 1 ? ' word' : ' words');
     };
-    const runCommand = (command, value = null) => {
+    let savedEditorRange = null;
+    const rememberEditorRange = () => {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount && richEditor.contains(selection.anchorNode) && richEditor.contains(selection.focusNode)) {
+        savedEditorRange = selection.getRangeAt(0).cloneRange();
+      }
+    };
+    const restoreEditorRange = () => {
       richEditor.focus();
+      if (savedEditorRange) {
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(savedEditorRange);
+      }
+    };
+    ['keyup','mouseup','touchend'].forEach(name => richEditor.addEventListener(name, rememberEditorRange));
+    document.addEventListener('selectionchange', () => {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount && richEditor.contains(selection.anchorNode)) rememberEditorRange();
+    });
+    document.querySelector('#managed-article-rich-editor')?.addEventListener('pointerdown', event => {
+      if (event.target.closest('button,select,input')) rememberEditorRange();
+    }, true);
+    const runCommand = (command, value = null) => {
+      restoreEditorRange();
       document.execCommand(command, false, value);
+      rememberEditorRange();
       updateWordCount();
     };
     document.querySelectorAll('#managed-article-rich-editor [data-command]').forEach(button => {
@@ -504,7 +528,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         table += '</tr>';
       }
       table += '</tbody></table><p><br></p>';
-      richEditor.focus(); document.execCommand('insertHTML', false, table); updateWordCount();
+      restoreEditorRange(); document.execCommand('insertHTML', false, table); rememberEditorRange(); updateWordCount();
     });
     document.querySelector('#managed-article-rich-editor [data-action="image"]')?.addEventListener('click', () => imageInput?.click());
     const insertUploadedImage = async file => {
@@ -517,8 +541,9 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         const result = await response.json();
         if (!response.ok || !result.url) throw new Error(result.message || 'The image could not be uploaded.');
         const safeAlt = (file.name || 'Article photo').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
-        richEditor.focus();
+        restoreEditorRange();
         document.execCommand('insertHTML', false, '<figure><img src="' + result.url + '" alt="' + safeAlt + '"><figcaption>' + safeAlt + '</figcaption></figure><p><br></p>');
+        rememberEditorRange();
         updateWordCount();
       } catch (error) { window.alert(error.message || 'Image upload failed.'); }
     };
