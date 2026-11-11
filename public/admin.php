@@ -1092,7 +1092,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
          if(child.tagName==='A'){child.setAttribute('target','_blank');child.setAttribute('rel','noopener');}
          if(child.tagName==='IMG'){
            const src=child.getAttribute('src')||'';
-           if(!/^(?:\\/)?uploads\\/articles\\//i.test(src)){child.remove();return;}
+           if(!/^(?:\/)?uploads\/articles\//i.test(src)){child.remove();return;}
            [...child.attributes].forEach(attr=>{if(!['src','alt'].includes(attr.name.toLowerCase()))child.removeAttribute(attr.name);});
          }
          walk(child);
@@ -1145,7 +1145,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  root.querySelectorAll('[data-banner-font-size]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');applyBannerInlineStyle(field,'fontSize',select.value+'px');select.value='';}));
  root.querySelectorAll('[data-banner-font-weight]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');applyBannerInlineStyle(field,'fontWeight',select.value);select.value='';}));
  root.querySelectorAll('[data-banner-color]').forEach(input=>input.addEventListener('input',()=>{const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'foreColor',input.value);}));
- root.querySelectorAll('[data-banner-action="link"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(field&&url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim()))bannerRunCommand(field,'createLink',url.trim());}));
+ root.querySelectorAll('[data-banner-action="link"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(field&&url&&/^(https?:\/\/|mailto:)/i.test(url.trim()))bannerRunCommand(field,'createLink',url.trim());}));
  root.querySelectorAll('[data-banner-action="unlink"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'unlink');}));
  root.querySelectorAll('[data-banner-action="quote"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'formatBlock','<BLOCKQUOTE>');}));
  root.querySelectorAll('[data-banner-action="table"]').forEach(button=>button.addEventListener('click',()=>{
