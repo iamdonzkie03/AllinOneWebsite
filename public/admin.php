@@ -8,6 +8,7 @@ $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'))
 $message = '';
 $galleryDeleteSuccessNames = [];
 $galleryPhotoDeleteSuccessCount = 0;
+$galleryReturnFolder = trim((string)($_POST['gallery_return_folder'] ?? ''));
 $galleryPhotoEditSuccess = false;
 $galleryEditSuccess = false;
 // Persist public header configuration in a dedicated settings row.
@@ -1116,7 +1117,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <div id="gallery-photo-view" hidden>
       <div class="gallery-photo-view-toolbar"><button type="button" class="btn light" id="gallery-back-folders">← All Folders</button><h4 id="gallery-current-folder-title">Folder</h4></div>
       <form method="post" id="gallery-photo-bulk-form" class="gallery-photo-bulk-form">
-        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_gallery_photos"><input type="hidden" name="gallery_return_folder" id="gallery-return-folder" value="">
+        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_gallery_photos"><input type="hidden" name="gallery_return_folder" id="gallery-return-folder" value="<?=e($galleryReturnFolder)?>">
         <div class="gallery-controls gallery-photo-selection-controls"><span class="muted">Select photos to delete</span><button class="btn bulk-delete" type="button" id="gallery-photo-delete-selected" disabled aria-disabled="true">Delete Selected</button></div>
       </form>
       <div class="gallery-controls">
