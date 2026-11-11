@@ -815,8 +815,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <button type="button" id="media-tab-video" role="tab" aria-controls="media-panel-video" aria-selected="false" tabindex="-1" data-media-tab="video">Video</button>
   </nav>
   <section class="page-management-tabpanel" id="media-panel-gallery" role="tabpanel" aria-labelledby="media-tab-gallery">
-    <h2>Gallery</h2><p class="muted">Manage photographs and image collections displayed on the public website.</p>
-    <div class="admin-note">Gallery management controls can be added here. No existing website content has been changed.</div>
   </section>
   <section class="page-management-tabpanel" id="media-panel-video" role="tabpanel" aria-labelledby="media-tab-video" hidden>
     <h2>Video</h2><p class="muted">Manage videos displayed on the public website.</p>
