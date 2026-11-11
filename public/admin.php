@@ -205,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $saved=$sectionsSettings;
         $safeText=static fn($v,$max=240)=>mb_substr(trim((string)$v),0,$max);
         $cleanHtml=static function(string $html): string {
-            $html=strip_tags($html,'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
+            $html=strip_tags($html,'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span><figure><img><figcaption><table><tbody><tr><th><td>');
             $html=preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i',static function($m){
                 $tag=strtolower($m[1]); if($tag==='br') return '<br>';
                 if($tag==='a'){ $href=''; if(preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i',$x[1])) $href=' href="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; return '<a'.$href.' target="_blank" rel="noopener">'; }
@@ -948,11 +948,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .banner-editor-field{grid-column:span 2!important;min-width:0;align-content:start}
  .banner-editor-field:nth-child(3){grid-column:span 3!important}
  .banner-editor-field:nth-child(4){grid-column:span 1!important}
- .banner-rich-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:6px;border:1px solid #49333d;border-bottom:0;border-radius:8px 8px 0 0;background:#21151c}
- .banner-rich-toolbar button,.banner-rich-toolbar select{min-height:28px;border:1px solid #62404d;border-radius:5px;background:#35212b;color:#fff;padding:4px 8px;font:600 11px Ubuntu;cursor:pointer}
- .banner-rich-toolbar button:hover{background:#633044}
- .banner-rich-toolbar input[type=color]{width:30px;height:28px;padding:2px;border:1px solid #62404d;border-radius:5px;background:#35212b;cursor:pointer}
+ .banner-rich-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:9px;border:1px solid rgba(190,126,145,.22);border-bottom:0;border-radius:8px 8px 0 0;background:linear-gradient(135deg,rgba(105,34,54,.25),rgba(22,15,19,.95))}
+ .banner-rich-toolbar button,.banner-rich-toolbar select,.banner-rich-toolbar input[type=color]{height:30px;border:1px solid rgba(190,126,145,.28);border-radius:6px;background:#24171e;color:#f4e7eb;font:11px Ubuntu,sans-serif}
+ .banner-rich-toolbar button{min-width:30px;padding:0 8px;cursor:pointer}.banner-rich-toolbar button:hover{background:#542637;border-color:#a34b65}
+ .banner-rich-toolbar select{padding:0 7px;max-width:140px}.banner-rich-toolbar input[type=color]{width:34px;padding:3px;cursor:pointer}
  .banner-rich-editor{width:100%;min-width:0;min-height:116px;max-height:190px;overflow:auto;box-sizing:border-box;padding:10px 11px;border:1px solid var(--line);border-radius:0 0 8px 8px;background:#171115;color:#f7edf0;font:13px/1.55 Ubuntu,sans-serif;outline:none;overflow-wrap:anywhere}
+ .banner-rich-editor img{max-width:100%;height:auto;border-radius:6px}.banner-rich-editor figure{margin:12px auto;text-align:center}.banner-rich-editor figcaption{color:#bba8b0;font-size:11px}
  .banner-rich-editor:focus{border-color:#b94a61;box-shadow:0 0 0 3px rgba(185,74,97,.16)}
  .banner-rich-editor:empty:before{content:attr(data-placeholder);color:#8f7c83;pointer-events:none}
  .banner-photo-field{min-height:100%;padding:0;align-content:start}
@@ -1004,17 +1005,30 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="section-form-grid banner-editor-grid">
    <?php foreach(['banner_main_title'=>'Main Title','banner_heading'=>'Heading','banner_description'=>'Description'] as $editorKey=>$editorLabel): $storageKey=$editorKey==='banner_main_title'?'main_title':($editorKey==='banner_heading'?'heading':'description'); $editorValue=(string)($sectionsSettings['banner'][$storageKey]??''); ?>
    <label class="section-field banner-editor-field"><?=e($editorLabel)?>
-    <div class="banner-rich-toolbar" role="toolbar" aria-label="<?=e($editorLabel)?> formatting">
-     <button type="button" data-banner-format="bold" title="Bold"><strong>B</strong></button>
-     <button type="button" data-banner-format="italic" title="Italic"><em>I</em></button>
-     <button type="button" data-banner-format="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-format="strikeThrough" title="Strikethrough">S</button>
-     <button type="button" data-banner-format="insertUnorderedList" title="Bulleted list">• List</button>
-     <button type="button" data-banner-format="insertOrderedList" title="Numbered list">1. List</button>
-     <span title="Text color"><input type="color" value="#ffffff" data-banner-color aria-label="Text color"></span>
-     <select data-banner-size aria-label="Font size"><option value="">Size</option><option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option><option value="72">72 px</option></select>
-     <button type="button" data-banner-link title="Insert link">Link</button>
-     <button type="button" data-banner-clear title="Clear formatting">Tx</button>
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="<?=e($editorLabel)?> formatting">
+     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
+     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
+     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
+     <button type="button" data-banner-action="link" title="Insert link">Link</button>
+     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
+     <button type="button" data-banner-action="quote" title="Quote">❝</button>
+     <button type="button" data-banner-action="table" title="Insert table">Table</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
+     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     </div>
     <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="<?=e($editorKey)?>" data-placeholder="Enter <?=e(strtolower($editorLabel))?>..."><?=$editorValue?></div>
     <input type="hidden" name="<?=e($editorKey)?>" data-banner-html="<?=e($editorKey)?>" value="<?=e($editorValue)?>">
@@ -1047,7 +1061,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  const cleanBannerPreviewHtml=html=>{
    const parsed=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
    const rootNode=parsed.body.firstElementChild;
-   const allowed=new Set(['P','BR','STRONG','B','EM','I','U','S','UL','OL','LI','H2','H3','H4','BLOCKQUOTE','A','SPAN']);
+   const allowed=new Set(['P','BR','STRONG','B','EM','I','U','S','UL','OL','LI','H2','H3','H4','BLOCKQUOTE','A','SPAN','FIGURE','IMG','FIGCAPTION','TABLE','TBODY','TR','TH','TD']);
    const walk=node=>{
      [...node.childNodes].forEach(child=>{
        if(child.nodeType===Node.ELEMENT_NODE){
@@ -1095,34 +1109,32 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    field.addEventListener('blur',()=>refreshBannerPreview(key));
    refreshBannerPreview(key);
  });
- root.querySelectorAll('[data-banner-format]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
- root.querySelectorAll('[data-banner-format]').forEach(button=>button.addEventListener('click',()=>{
+ const bannerCsrf=root.querySelector('input[name="csrf"]')?.value||'';
+ const bannerRunCommand=(field,command,value=null)=>{field.focus();document.execCommand(command,false,value);field.dispatchEvent(new Event('input',{bubbles:true}));};
+ root.querySelectorAll('[data-banner-command]').forEach(button=>{
+   button.addEventListener('mousedown',event=>event.preventDefault());
+   button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,button.dataset.bannerCommand);});
+ });
+ root.querySelectorAll('[data-banner-block]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field&&select.value)bannerRunCommand(field,'formatBlock','<'+select.value+'>');}));
+ root.querySelectorAll('[data-banner-color]').forEach(input=>input.addEventListener('input',()=>{const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'foreColor',input.value);}));
+ root.querySelectorAll('[data-banner-action="link"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(field&&url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim()))bannerRunCommand(field,'createLink',url.trim());}));
+ root.querySelectorAll('[data-banner-action="unlink"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'unlink');}));
+ root.querySelectorAll('[data-banner-action="quote"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'formatBlock','<BLOCKQUOTE>');}));
+ root.querySelectorAll('[data-banner-action="table"]').forEach(button=>button.addEventListener('click',()=>{
    const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
-   restoreBannerSelection(field);document.execCommand('styleWithCSS',false,true);document.execCommand(button.dataset.bannerFormat,false,null);
-   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
+   const rows=Math.min(10,Math.max(1,Number(prompt('Number of table rows?','3')||0))),cols=Math.min(8,Math.max(1,Number(prompt('Number of table columns?','3')||0)));if(!rows||!cols)return;
+   let table='<table><tbody>';for(let row=0;row<rows;row++){table+='<tr>';for(let col=0;col<cols;col++)table+=row===0?'<th>Heading</th>':'<td>Text</td>';table+='</tr>';}table+='</tbody></table><p><br></p>';bannerRunCommand(field,'insertHTML',table);
  }));
- root.querySelectorAll('[data-banner-color]').forEach(input=>input.addEventListener('input',()=>{
-   const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
-   restoreBannerSelection(field);document.execCommand('styleWithCSS',false,true);document.execCommand('foreColor',false,input.value);
-   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
- }));
- root.querySelectorAll('[data-banner-size]').forEach(select=>select.addEventListener('change',()=>{
-   const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field||!select.value)return;
-   restoreBannerSelection(field);const selection=window.getSelection();
-   if(selection&&selection.rangeCount&&!selection.isCollapsed){const span=document.createElement('span');span.style.fontSize=select.value+'px';try{const range=selection.getRangeAt(0);range.surroundContents(span)}catch(error){const range=selection.getRangeAt(0);span.append(range.extractContents());range.insertNode(span)}}
-   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);select.value='';
- }));
- root.querySelectorAll('[data-banner-link]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
- root.querySelectorAll('[data-banner-link]').forEach(button=>button.addEventListener('click',()=>{
-   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
-   const url=prompt('Enter link URL');if(!url)return;restoreBannerSelection(field);document.execCommand('createLink',false,url);
-   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
- }));
- root.querySelectorAll('[data-banner-clear]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
- root.querySelectorAll('[data-banner-clear]').forEach(button=>button.addEventListener('click',()=>{
-   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
-   restoreBannerSelection(field);document.execCommand('removeFormat',false,null);field.dispatchEvent(new Event('input',{bubbles:true}));
- }));
+ const uploadBannerEditorImage=async(field,file)=>{
+   if(!file||!file.type.startsWith('image/'))return;if(file.size>8*1024*1024){alert('Please choose an image smaller than 8 MB.');return;}
+   const data=new FormData();data.append('csrf',bannerCsrf);data.append('action','upload_article_image');data.append('image',file);
+   try{const response=await fetch('admin-content.php?session_context=admin',{method:'POST',body:data,credentials:'same-origin'});const result=await response.json();if(!response.ok||!result.url)throw new Error(result.message||'The image could not be uploaded.');
+     const alt=(file.name||'Banner image').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+     bannerRunCommand(field,'insertHTML','<figure><img src="'+result.url+'" alt="'+alt+'"><figcaption>'+alt+'</figcaption></figure><p><br></p>');
+   }catch(error){alert(error.message||'Image upload failed.');}
+ };
+ root.querySelectorAll('[data-banner-action="image"]').forEach(button=>button.addEventListener('click',()=>button.closest('.banner-editor-field')?.querySelector('[data-banner-image-input]')?.click()));
+ root.querySelectorAll('[data-banner-image-input]').forEach(input=>input.addEventListener('change',async()=>{const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(input.files?.[0]&&field)await uploadBannerEditorImage(field,input.files[0]);input.value='';}));
  const sectionsForm=document.getElementById('sections-settings-form');
  sectionsForm?.addEventListener('submit',()=>{
    root.querySelectorAll('[data-banner-text]').forEach(field=>refreshBannerPreview(field.dataset.bannerText));
