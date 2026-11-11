@@ -962,8 +962,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const render=()=>{if(!size||!info)return;const found=matches(),perPage=Number(size.value),pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));cards.forEach(card=>card.hidden=!visible.has(card));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' photos':'Showing 0 photos';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(empty)empty.hidden=cards.length===0||found.length!==0;};
     filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});prev?.addEventListener('click',()=>{if(page>1){page--;render();}});next?.addEventListener('click',()=>{page++;render();});render();
     const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
-    const close=()=>{if(modal)modal.hidden=true;};
-    open?.addEventListener('click',()=>{modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
+    const resetUploadForm=()=>{
+      if(!form)return;
+      form.reset();
+      if(details)details.replaceChildren();
+      if(existing&&fresh&&mode){const isNew=mode.value==='new';existing.hidden=isNew;fresh.hidden=!isNew;}
+      const submit=document.getElementById('gallery-upload-submit');
+      if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
+    };
+    const close=()=>{if(modal)modal.hidden=true;resetUploadForm();};
+    open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new';existing.hidden=isNew;fresh.hidden=!isNew;});
     files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}selected.forEach((file,index)=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
