@@ -944,6 +944,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .section-preview h3{font:28px Georgia,serif;margin:5px 0 9px}.section-preview .preview-kicker{font:700 9px Ubuntu;letter-spacing:.18em;color:#ff5268}
  .section-preview .preview-desc{font:12px Ubuntu;color:#d8cbd0}.section-preview-media{display:flex;gap:10px;overflow:auto;margin-top:10px}.section-preview-media img{width:180px;height:105px;object-fit:cover;border-radius:8px}
  .section-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.section-field{display:grid;gap:7px;font:600 12px Ubuntu;color:#f2e6e9}.section-field input,.section-field textarea,.section-field select{width:100%;box-sizing:border-box;background:#171115;border:1px solid var(--line);border-radius:8px;padding:10px;color:#f7edf0;font:13px Ubuntu}.section-field textarea{min-height:78px}
+ .banner-editor-grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:12px}
+ .banner-editor-field{grid-column:auto!important;min-width:0;align-content:start}
+ .banner-rich-editor{width:100%;min-width:0;min-height:116px;max-height:190px;overflow:auto;box-sizing:border-box;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:#171115;color:#f7edf0;font:13px/1.55 Ubuntu,sans-serif;outline:none;overflow-wrap:anywhere}
+ .banner-rich-editor:focus{border-color:#b94a61;box-shadow:0 0 0 3px rgba(185,74,97,.16)}
+ .banner-rich-editor:empty:before{content:attr(data-placeholder);color:#8f7c83;pointer-events:none}
+ .banner-photo-field{min-height:100%;padding:0;align-content:start}
+ .banner-photo-field input[type=file]{min-height:116px;padding:12px;border-style:dashed;display:flex;align-items:center}
+ .banner-photo-field small{color:#bdaab1;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+ @media(max-width:1050px){.banner-editor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+ @media(max-width:760px){.banner-editor-grid{grid-template-columns:1fr}.banner-editor-field{grid-column:1/-1!important}}
+
  .section-editor{min-height:110px;border:1px solid var(--line);border-radius:8px;background:#120d10;padding:10px;color:#f5e9ed;font:13px Ubuntu}.section-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0}.section-toolbar button{background:#2b1a21;border:1px solid #5b3a46;color:#fff;border-radius:5px;padding:5px 9px;cursor:pointer}
  .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
 
@@ -990,19 +1001,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </div>
    </div>
   </div>
-  <div class="section-form-grid">
-   <?php foreach(['banner_main_title'=>'Main Title','banner_heading'=>'Heading','banner_description'=>'Description'] as $editorKey=>$editorLabel): $storageKey=$editorKey==='banner_main_title'?'main_title':($editorKey==='banner_heading'?'heading':'description'); $editorValue=(string)($sectionsSettings['banner'][$storageKey]??''); $editorPlain=trim(strip_tags($editorValue)); ?>
-   <label class="section-field" style="grid-column:1/-1"><?=e($editorLabel)?>
-    <div class="section-toolbar" data-format-toolbar="<?=e($editorKey)?>">
-     <button type="button" data-format="bold" aria-pressed="false"><strong>B</strong></button><button type="button" data-format="italic" aria-pressed="false"><em>I</em></button><button type="button" data-format="underline" aria-pressed="false"><u>U</u></button>
-     <label>Color <input type="color" data-format-color value="#ffffff"></label>
-     <label>Size <select data-format-size><option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option></select></label>
-    </div>
-    <textarea rows="<?= $editorKey==='banner_description'?5:2 ?>" data-banner-text="<?=e($editorKey)?>" placeholder="Enter <?=e(strtolower($editorLabel))?>..."><?=e($editorPlain)?></textarea>
+  <div class="section-form-grid banner-editor-grid">
+   <?php foreach(['banner_main_title'=>'Main Title','banner_heading'=>'Heading','banner_description'=>'Description'] as $editorKey=>$editorLabel): $storageKey=$editorKey==='banner_main_title'?'main_title':($editorKey==='banner_heading'?'heading':'description'); $editorValue=(string)($sectionsSettings['banner'][$storageKey]??''); ?>
+   <label class="section-field banner-editor-field"><?=e($editorLabel)?>
+    <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="<?=e($editorKey)?>" data-placeholder="Enter <?=e(strtolower($editorLabel))?>..."><?=$editorValue?></div>
     <input type="hidden" name="<?=e($editorKey)?>" data-banner-html="<?=e($editorKey)?>" value="<?=e($editorValue)?>">
    </label>
    <?php endforeach; ?>
-   <label class="section-field">Upload / Replace Banner Photo<input type="file" name="banner_photo" accept="image/png,image/jpeg,image/webp,image/gif"><?php if(!empty($sectionsSettings['banner']['photo'])): ?><small>Current photo: <?=e(basename($sectionsSettings['banner']['photo']))?></small><?php endif; ?></label>
+   <label class="section-field banner-editor-field banner-photo-field">Upload / Replace Banner Photo
+    <input type="file" name="banner_photo" accept="image/png,image/jpeg,image/webp,image/gif">
+    <?php if(!empty($sectionsSettings['banner']['photo'])): ?><small>Current photo: <?=e(basename($sectionsSettings['banner']['photo']))?></small><?php else: ?><small>Choose a JPG, PNG, GIF or WebP image (max. 10 MB).</small><?php endif; ?>
+   </label>
   </div>
  </section>
  <section class="section-subpanel" data-section-panel="slideshow" hidden>
@@ -1022,7 +1031,56 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <script>
  (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const activateSectionTab=(t)=>{const index=tabs.indexOf(t);tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
- const bannerFormatState={};const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description'};const escapeBannerText=value=>value.replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));const refreshBannerPreview=key=>{const field=root.querySelector('[data-banner-text="'+key+'"]'),hidden=root.querySelector('[data-banner-html="'+key+'"]'),preview=document.getElementById(bannerPreviewIds[key]);if(!field||!hidden||!preview)return;const st=bannerFormatState[key];let html=escapeBannerText(field.value).replace(/\\n/g,'<br>');if(st.bold)html='<strong>'+html+'</strong>';if(st.italic)html='<em>'+html+'</em>';if(st.underline)html='<u>'+html+'</u>';html='<span style="color:'+st.color+';font-size:'+st.size+'px">'+html+'</span>';hidden.value=html;preview.innerHTML=html;};root.querySelectorAll('[data-banner-text]').forEach(field=>{const key=field.dataset.bannerText,hidden=root.querySelector('[data-banner-html="'+key+'"]'),toolbar=root.querySelector('[data-format-toolbar="'+key+'"]');const savedHtml=hidden?.value||'';const parsed=document.createElement('div');parsed.innerHTML=savedHtml;const span=parsed.querySelector('span[style]');const style=span?.getAttribute('style')||'';const colorMatch=style.match(/(?:^|;)\\s*color\\s*:\\s*(#[0-9a-f]{3,8})/i);const sizeMatch=style.match(/(?:^|;)\\s*font-size\\s*:\\s*(\\d+(?:\\.\\d+)?)px/i);const initialSize=sizeMatch?Math.round(Number(sizeMatch[1])):(key==='banner_main_title'?20:(key==='banner_heading'?40:14));bannerFormatState[key]={bold:!!parsed.querySelector('strong,b'),italic:!!parsed.querySelector('em,i'),underline:!!parsed.querySelector('u'),color:colorMatch?colorMatch[1]:(key==='banner_description'?'#d9d0d2':'#ffffff'),size:initialSize};if(savedHtml){const plain=parsed.innerHTML.replace(/<br\\s*\\/?\\s*>/gi,'\\n');const textHolder=document.createElement('div');textHolder.innerHTML=plain.replace(/<\\/(p|div)>/gi,'\\n');field.value=textHolder.textContent||field.value;}if(toolbar){toolbar.querySelectorAll('[data-format]').forEach(btn=>btn.setAttribute('aria-pressed',String(bannerFormatState[key][btn.dataset.format])));const color=toolbar.querySelector('[data-format-color]');if(color)color.value=bannerFormatState[key].color;const size=toolbar.querySelector('[data-format-size]');if(size){if(![...size.options].some(option=>Number(option.value)===initialSize)){const option=document.createElement('option');option.value=String(initialSize);option.textContent=initialSize+' px';size.append(option);}size.value=String(initialSize);}}field.addEventListener('input',()=>refreshBannerPreview(key));refreshBannerPreview(key);});root.querySelectorAll('[data-format-toolbar]').forEach(toolbar=>{const key=toolbar.dataset.formatToolbar;toolbar.querySelectorAll('[data-format]').forEach(btn=>btn.addEventListener('click',()=>{const state=bannerFormatState[key];state[btn.dataset.format]=!state[btn.dataset.format];btn.setAttribute('aria-pressed',String(state[btn.dataset.format]));refreshBannerPreview(key);}));toolbar.querySelector('[data-format-color]')?.addEventListener('input',e=>{bannerFormatState[key].color=e.target.value;refreshBannerPreview(key);});toolbar.querySelector('[data-format-size]')?.addEventListener('change',e=>{bannerFormatState[key].size=Math.max(8,Math.min(72,parseInt(e.target.value,10)||14));refreshBannerPreview(key);});});
+ const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description'};
+ const cleanBannerPreviewHtml=html=>{
+   const parsed=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
+   const rootNode=parsed.body.firstElementChild;
+   const allowed=new Set(['P','BR','STRONG','B','EM','I','U','S','UL','OL','LI','H2','H3','H4','BLOCKQUOTE','A','SPAN']);
+   const walk=node=>{
+     [...node.childNodes].forEach(child=>{
+       if(child.nodeType===Node.ELEMENT_NODE){
+         if(!allowed.has(child.tagName)){child.replaceWith(...child.childNodes);return;}
+         [...child.attributes].forEach(attr=>{
+           if(child.tagName==='SPAN'&&attr.name.toLowerCase()==='style'){
+             const declarations=[];
+             attr.value.split(';').forEach(rule=>{
+               const parts=rule.split(':');if(parts.length<2)return;
+               const key=parts.shift().trim().toLowerCase(),value=parts.join(':').trim();
+               if(key==='color'&&/^(#[0-9a-f]{3,8}|rgba?\([0-9.,% ]+\)|[a-z]{3,20})$/i.test(value))declarations.push('color:'+value);
+               if(key==='font-size'&&/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\.\d+)?px$/i.test(value))declarations.push('font-size:'+value);
+             });
+             if(declarations.length)child.setAttribute('style',declarations.join(';'));else child.removeAttribute('style');
+           }else if(child.tagName==='A'&&attr.name.toLowerCase()==='href'&&/^(https?:\/\/|\/|#|\?|mailto:)/i.test(attr.value)){}
+           else child.removeAttribute(attr.name);
+         });
+         if(child.tagName==='A'){child.setAttribute('target','_blank');child.setAttribute('rel','noopener');}
+         walk(child);
+       }else if(child.nodeType!==Node.TEXT_NODE){child.remove();}
+     });
+   };
+   walk(rootNode);return rootNode.innerHTML;
+ };
+ const refreshBannerPreview=key=>{
+   const field=root.querySelector('[data-banner-text="'+key+'"]');
+   const hidden=root.querySelector('[data-banner-html="'+key+'"]');
+   const preview=document.getElementById(bannerPreviewIds[key]);
+   if(!field||!hidden||!preview)return;
+   const html=cleanBannerPreviewHtml(field.innerHTML);
+   hidden.value=html;
+   preview.innerHTML=html;
+ };
+ root.querySelectorAll('[data-banner-text]').forEach(field=>{
+   const key=field.dataset.bannerText;
+   const hidden=root.querySelector('[data-banner-html="'+key+'"]');
+   if(hidden&&hidden.value)field.innerHTML=hidden.value;
+   field.addEventListener('input',()=>refreshBannerPreview(key));
+   field.addEventListener('blur',()=>refreshBannerPreview(key));
+   refreshBannerPreview(key);
+ });
+ const sectionsForm=document.getElementById('sections-settings-form');
+ sectionsForm?.addEventListener('submit',()=>{
+   root.querySelectorAll('[data-banner-text]').forEach(field=>refreshBannerPreview(field.dataset.bannerText));
+ });
  const bannerPhotoInput=root.querySelector('input[name="banner_photo"]');bannerPhotoInput?.addEventListener('change',()=>{const file=bannerPhotoInput.files?.[0],preview=document.getElementById('banner-preview-photo');if(!file||!preview)return;const reader=new FileReader();reader.onload=()=>{preview.src=String(reader.result);};reader.readAsDataURL(file);});
  
  root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter link URL');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
