@@ -295,7 +295,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             for ($i = 0; $i < $count; $i++) {
                 $error = (int)($files['error'][$i] ?? UPLOAD_ERR_NO_FILE);
                 if ($error === UPLOAD_ERR_NO_FILE) continue;
-                if ($error !== UPLOAD_ERR_OK) throw new RuntimeException('One of the photos could not be uploaded. Check the file size and try again.');
+                if ($error !== UPLOAD_ERR_OK) {
+                    $uploadErrors = [
+                        UPLOAD_ERR_INI_SIZE => 'A photo exceeds the PHP upload_max_filesize limit. Increase upload_max_filesize to 10M in your PHP configuration.',
+                        UPLOAD_ERR_FORM_SIZE => 'A photo exceeds the upload form size limit.',
+                        UPLOAD_ERR_PARTIAL => 'A photo was only partially uploaded. Please try again.',
+                        UPLOAD_ERR_NO_FILE => 'A selected photo was not received by the server.',
+                        UPLOAD_ERR_NO_TMP_DIR => 'The PHP temporary upload folder is missing. Configure upload_tmp_dir in php.ini.',
+                        UPLOAD_ERR_CANT_WRITE => 'PHP could not write the uploaded photo to its temporary folder. Check the folder permissions and available disk space.',
+                        UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the photo upload.'
+                    ];
+                    throw new RuntimeException($uploadErrors[$error] ?? 'A photo upload failed (PHP upload error ' . $error . ').');
+                }
                 if ((int)($files['size'][$i] ?? 0) > 10 * 1024 * 1024) throw new RuntimeException('Each gallery photo must be 10 MB or smaller.');
                 $tmp = (string)$files['tmp_name'][$i];
                 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
@@ -1121,6 +1132,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable)setProgress(event.total?event.loaded/event.total*100:0);});
       xhr.addEventListener('load',()=>{
         let result=null;try{result=JSON.parse(xhr.responseText);}catch(error){}
+        if(!result){
+          const bodyLimitMatch=(document.documentElement?.innerText||'').match(/The (?:uploaded file|POST content-length) exceeds the (?:upload_max_filesize|post_max_size) directive/i);
+          result={success:false,message:bodyLimitMatch?'The selected photos exceed the PHP request-size limit. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.':'The server did not return an upload response. This usually means the total upload exceeds PHP post_max_size or the web server rejected the request. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.'};
+        }
         if(xhr.status>=200&&xhr.status<300&&result?.success){
           setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';
           window.setTimeout(()=>{
@@ -1131,7 +1146,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           return;
         }
         uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
-        if(uploadError){uploadError.textContent=result?.message||'The photos could not be uploaded. Please try again.';uploadError.hidden=false;}
+        if(uploadError){uploadError.textContent=result?.message||'The photos could not be uploaded. Please check the PHP upload limits and try again.';uploadError.hidden=false;}
       });
       xhr.addEventListener('error',()=>{
         uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
