@@ -1011,7 +1011,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      <button type="button" data-banner-format="strikeThrough" title="Strikethrough">S</button>
      <button type="button" data-banner-format="insertUnorderedList" title="Bulleted list">• List</button>
      <button type="button" data-banner-format="insertOrderedList" title="Numbered list">1. List</button>
-     <label title="Text color"><input type="color" value="#ffffff" data-banner-color aria-label="Text color"></label>
+     <span title="Text color"><input type="color" value="#ffffff" data-banner-color aria-label="Text color"></span>
      <select data-banner-size aria-label="Font size"><option value="">Size</option><option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option><option value="72">72 px</option></select>
      <button type="button" data-banner-link title="Insert link">Link</button>
      <button type="button" data-banner-clear title="Clear formatting">Tx</button>
