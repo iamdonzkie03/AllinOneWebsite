@@ -478,16 +478,19 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     let savedEditorRange = null;
     const rememberEditorRange = () => {
       const selection = window.getSelection();
-      if (selection && selection.rangeCount && richEditor.contains(selection.anchorNode) && richEditor.contains(selection.focusNode)) {
+      // Keep the last text selection when toolbar controls take focus. Browsers
+      // often collapse the live selection on blur; saving that caret would
+      // discard the range the user intended to format.
+      if (selection && selection.rangeCount && !selection.isCollapsed && richEditor.contains(selection.anchorNode) && richEditor.contains(selection.focusNode)) {
         savedEditorRange = selection.getRangeAt(0).cloneRange();
       }
     };
     const restoreEditorRange = () => {
       richEditor.focus();
-      if (savedEditorRange) {
+      if (savedEditorRange && richEditor.contains(savedEditorRange.commonAncestorContainer)) {
         const selection = window.getSelection();
         selection.removeAllRanges();
-        selection.addRange(savedEditorRange);
+        selection.addRange(savedEditorRange.cloneRange());
       }
     };
     ['keyup','mouseup','touchend'].forEach(name => richEditor.addEventListener(name, rememberEditorRange));
