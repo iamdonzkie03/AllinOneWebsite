@@ -1112,42 +1112,172 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  };
  const bannerEditors=[...root.querySelectorAll('[data-banner-text]')];
  const bannerSelection=new Map();
- const rememberBannerSelection=field=>{const selection=window.getSelection();if(selection&&selection.rangeCount&&!selection.isCollapsed&&field.contains(selection.anchorNode)&&field.contains(selection.focusNode))bannerSelection.set(field.dataset.bannerText,selection.getRangeAt(0).cloneRange());};
- const restoreBannerSelection=field=>{if(!field)return;const range=bannerSelection.get(field.dataset.bannerText);field.focus();if(range&&field.contains(range.commonAncestorContainer)){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range.cloneRange());}};
- document.addEventListener('selectionchange',()=>{const active=bannerEditors.find(field=>field.contains(window.getSelection()?.anchorNode));if(active)rememberBannerSelection(active);});
- root.querySelectorAll('.banner-rich-toolbar').forEach(toolbar=>toolbar.addEventListener('pointerdown',event=>{const field=toolbar.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)rememberBannerSelection(field);},true));
+ const rememberBannerSelection=field=>{
+   const selection=window.getSelection();
+   if(selection&&selection.rangeCount&&!selection.isCollapsed&&field.contains(selection.anchorNode)&&field.contains(selection.focusNode)){
+     bannerSelection.set(field.dataset.bannerText,selection.getRangeAt(0).cloneRange());
+   }
+ };
+ const restoreBannerSelection=field=>{
+   if(!field)return null;
+   const range=bannerSelection.get(field.dataset.bannerText);
+   field.focus({preventScroll:true});
+   if(range&&field.contains(range.commonAncestorContainer)){
+     const selection=window.getSelection();
+     selection.removeAllRanges();
+     selection.addRange(range.cloneRange());
+     return selection.getRangeAt(0);
+   }
+   return null;
+ };
+ document.addEventListener('selectionchange',()=>{
+   const selection=window.getSelection();
+   const active=bannerEditors.find(field=>selection&&field.contains(selection.anchorNode)&&field.contains(selection.focusNode));
+   if(active)rememberBannerSelection(active);
+ });
+ root.querySelectorAll('.banner-rich-toolbar').forEach(toolbar=>{
+   toolbar.addEventListener('pointerdown',event=>{
+     const field=toolbar.closest('.banner-editor-field')?.querySelector('[data-banner-text]');
+     if(field)rememberBannerSelection(field);
+     // Keep the browser's selection in the editable surface when toolbar buttons are pressed.
+     if(event.target.closest('button'))event.preventDefault();
+   },true);
+   toolbar.addEventListener('mousedown',event=>{
+     if(event.target.closest('button'))event.preventDefault();
+   },true);
+ });
  bannerEditors.forEach(field=>{
    const key=field.dataset.bannerText;
    const hidden=root.querySelector('[data-banner-html="'+key+'"]');
    if(hidden&&hidden.value)field.innerHTML=hidden.value;
    field.addEventListener('input',()=>refreshBannerPreview(key));
-   field.addEventListener('keyup',()=>rememberBannerSelection(field));
-   field.addEventListener('mouseup',()=>rememberBannerSelection(field));
+   ['keyup','mouseup','touchend'].forEach(name=>field.addEventListener(name,()=>rememberBannerSelection(field)));
    field.addEventListener('blur',()=>refreshBannerPreview(key));
    refreshBannerPreview(key);
  });
  const bannerCsrf=root.querySelector('input[name="csrf"]')?.value||'';
- const bannerRunCommand=(field,command,value=null)=>{restoreBannerSelection(field);document.execCommand(command,false,value);field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);};
- root.querySelectorAll('[data-banner-command]').forEach(button=>{
-   button.addEventListener('mousedown',event=>event.preventDefault());
-   button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,button.dataset.bannerCommand);});
- });
- root.querySelectorAll('[data-banner-block]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field&&select.value)bannerRunCommand(field,'formatBlock','<'+select.value+'>');}));
- const applyBannerInlineStyle=(field,property,value)=>{
-   if(!field||!value)return;restoreBannerSelection(field);const selection=window.getSelection();
-   if(!selection||!selection.rangeCount||!field.contains(selection.anchorNode)||selection.isCollapsed)return;
-   const range=selection.getRangeAt(0),span=document.createElement('span');span.style[property]=value;
-   try{range.surroundContents(span);}catch(error){span.append(range.extractContents());range.insertNode(span);}
-   selection.removeAllRanges();const next=document.createRange();next.selectNodeContents(span);next.collapse(false);selection.addRange(next);
-   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
+ const placeBannerFragment=(field,fragment)=>{
+   const range=restoreBannerSelection(field)||document.createRange();
+   if(!bannerSelection.has(field.dataset.bannerText)){
+     range.selectNodeContents(field);
+     range.collapse(false);
+   }
+   range.deleteContents();
+   const last=fragment.lastChild;
+   range.insertNode(fragment);
+   if(last){
+     const selection=window.getSelection(),caret=document.createRange();
+     caret.setStartAfter(last);caret.collapse(true);selection.removeAllRanges();selection.addRange(caret);
+   }
+   field.dispatchEvent(new Event('input',{bubbles:true}));
+   const selection=window.getSelection();
+   if(selection&&selection.rangeCount&&!selection.isCollapsed)rememberBannerSelection(field);
+   else bannerSelection.delete(field.dataset.bannerText);
  };
- root.querySelectorAll('[data-banner-font-family]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');applyBannerInlineStyle(field,'fontFamily',select.value);select.value='';}));
- root.querySelectorAll('[data-banner-font-size]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');applyBannerInlineStyle(field,'fontSize',select.value+'px');select.value='';}));
- root.querySelectorAll('[data-banner-font-weight]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');applyBannerInlineStyle(field,'fontWeight',select.value);select.value='';}));
- root.querySelectorAll('[data-banner-color]').forEach(input=>input.addEventListener('input',()=>{const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'foreColor',input.value);}));
- root.querySelectorAll('[data-banner-action="link"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(field&&url&&/^(https?:\/\/|mailto:)/i.test(url.trim()))bannerRunCommand(field,'createLink',url.trim());}));
- root.querySelectorAll('[data-banner-action="unlink"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'unlink');}));
- root.querySelectorAll('[data-banner-action="quote"]').forEach(button=>button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'formatBlock','<BLOCKQUOTE>');}));
+ const wrapBannerSelection=(field,tag,styles={})=>{
+   const range=restoreBannerSelection(field);
+   if(!range||range.collapsed)return false;
+   const wrapper=document.createElement(tag);
+   Object.entries(styles).forEach(([property,value])=>wrapper.style[property]=value);
+   try{range.surroundContents(wrapper);}
+   catch(error){wrapper.append(range.extractContents());range.insertNode(wrapper);}
+   const selection=window.getSelection(),next=document.createRange();
+   next.selectNodeContents(wrapper);selection.removeAllRanges();selection.addRange(next);
+   rememberBannerSelection(field);
+   field.dispatchEvent(new Event('input',{bubbles:true}));
+   return true;
+ };
+ const bannerRunCommand=(field,command,value=null)=>{
+   if(!field)return;
+   const range=restoreBannerSelection(field);
+   if(['bold','italic','underline','strikeThrough'].includes(command)){
+     const tags={bold:'strong',italic:'em',underline:'u',strikeThrough:'s'};
+     if(range&&!range.collapsed)wrapBannerSelection(field,tags[command]);
+     return;
+   }
+   if(command==='foreColor'){wrapBannerSelection(field,'span',{color:value});return;}
+   if(command==='formatBlock'){
+     if(!range)return;
+     const tag=String(value||'P').replace(/[<>]/g,'').toLowerCase();
+     if(!/^(p|h2|h3|h4|blockquote)$/.test(tag))return;
+     const block=document.createElement(tag);
+     if(range.collapsed){block.innerHTML='<br>';range.insertNode(block);}
+     else{try{range.surroundContents(block);}catch(error){block.append(range.extractContents());range.insertNode(block);}}
+     field.dispatchEvent(new Event('input',{bubbles:true}));
+     const selection=window.getSelection(),next=document.createRange();next.selectNodeContents(block);selection.removeAllRanges();selection.addRange(next);rememberBannerSelection(field);return;
+   }
+   if(['justifyLeft','justifyCenter','justifyRight'].includes(command)){
+     if(!range)return;
+     let node=range.startContainer.nodeType===Node.ELEMENT_NODE?range.startContainer:range.startContainer.parentElement;
+     while(node&&node!==field&&!/^(P|H2|H3|H4|BLOCKQUOTE|LI|DIV)$/.test(node.tagName))node=node.parentElement;
+     if(node&&node!==field)node.style.textAlign=command==='justifyLeft'?'left':command==='justifyCenter'?'center':'right';
+     else field.style.textAlign=command==='justifyLeft'?'left':command==='justifyCenter'?'center':'right';
+     field.dispatchEvent(new Event('input',{bubbles:true}));return;
+   }
+   if(command==='insertHTML'){
+     const fragment=document.createRange().createContextualFragment(String(value||''));
+     placeBannerFragment(field,fragment);return;
+   }
+   if(command==='createLink'){
+     if(range&&!range.collapsed){const anchor=document.createElement('a');anchor.href=String(value||'');try{range.surroundContents(anchor);}catch(error){anchor.append(range.extractContents());range.insertNode(anchor);}field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);}return;
+   }
+   if(command==='unlink'){
+     const selection=window.getSelection(),anchor=selection?.anchorNode?.parentElement?.closest('a');
+     if(anchor&&field.contains(anchor)){anchor.replaceWith(...anchor.childNodes);field.dispatchEvent(new Event('input',{bubbles:true}));}return;
+   }
+   if(command==='insertUnorderedList'||command==='insertOrderedList'){
+     if(!range)return;
+     const list=document.createElement(command==='insertUnorderedList'?'ul':'ol');
+     const item=document.createElement('li');
+     if(range.collapsed)item.innerHTML='<br>';else item.append(range.extractContents());
+     list.append(item);range.insertNode(list);field.dispatchEvent(new Event('input',{bubbles:true}));
+     const selection=window.getSelection(),next=document.createRange();next.selectNodeContents(item);selection.removeAllRanges();selection.addRange(next);rememberBannerSelection(field);return;
+   }
+   if(command==='removeFormat'){
+     if(!range||range.collapsed)return;
+     const fragment=range.extractContents();
+     fragment.querySelectorAll?.('[style]').forEach(node=>node.removeAttribute('style'));
+     fragment.querySelectorAll?.('strong,b,em,i,u,s,span,font').forEach(node=>node.replaceWith(...node.childNodes));
+     range.insertNode(fragment);field.dispatchEvent(new Event('input',{bubbles:true}));return;
+   }
+   // Native history commands remain browser-managed; all formatting commands above
+   // operate directly on the saved Range and do not depend on execCommand.
+   if(command==='undo'||command==='redo')document.execCommand(command,false,null);
+   field.dispatchEvent(new Event('input',{bubbles:true}));
+ };
+ root.querySelectorAll('[data-banner-command]').forEach(button=>{
+   button.addEventListener('click',()=>{
+     const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');
+     if(field)bannerRunCommand(field,button.dataset.bannerCommand);
+   });
+ });
+ root.querySelectorAll('[data-banner-block]').forEach(select=>select.addEventListener('change',()=>{
+   const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');
+   if(field&&select.value)bannerRunCommand(field,'formatBlock','<'+select.value+'>');
+ }));
+ const applyBannerInlineStyle=(field,property,value)=>wrapBannerSelection(field,'span',{[property]:value});
+ root.querySelectorAll('[data-banner-font-family]').forEach(select=>select.addEventListener('change',()=>{
+   const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)applyBannerInlineStyle(field,'fontFamily',select.value);select.value='';
+ }));
+ root.querySelectorAll('[data-banner-font-size]').forEach(select=>select.addEventListener('change',()=>{
+   const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)applyBannerInlineStyle(field,'fontSize',select.value+'px');select.value='';
+ }));
+ root.querySelectorAll('[data-banner-font-weight]').forEach(select=>select.addEventListener('change',()=>{
+   const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)applyBannerInlineStyle(field,'fontWeight',select.value);select.value='';
+ }));
+ root.querySelectorAll('[data-banner-color]').forEach(input=>input.addEventListener('input',()=>{
+   const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'foreColor',input.value);
+ }));
+ root.querySelectorAll('[data-banner-action="link"]').forEach(button=>button.addEventListener('click',()=>{
+   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');const url=prompt('Enter the link URL (https://, http://, or mailto:):');
+   if(field&&url&&/^(https?:\/\/|mailto:)/i.test(url.trim()))bannerRunCommand(field,'createLink',url.trim());
+ }));
+ root.querySelectorAll('[data-banner-action="unlink"]').forEach(button=>button.addEventListener('click',()=>{
+   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'unlink');
+ }));
+ root.querySelectorAll('[data-banner-action="quote"]').forEach(button=>button.addEventListener('click',()=>{
+   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'formatBlock','<BLOCKQUOTE>');
+ }));
  root.querySelectorAll('[data-banner-action="table"]').forEach(button=>button.addEventListener('click',()=>{
    const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
    const rows=Math.min(10,Math.max(1,Number(prompt('Number of table rows?','3')||0))),cols=Math.min(8,Math.max(1,Number(prompt('Number of table columns?','3')||0)));if(!rows||!cols)return;
