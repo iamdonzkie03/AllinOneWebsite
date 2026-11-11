@@ -1112,8 +1112,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  };
  const bannerEditors=[...root.querySelectorAll('[data-banner-text]')];
  const bannerSelection=new Map();
- const rememberBannerSelection=field=>{const selection=window.getSelection();if(selection&&selection.rangeCount&&field.contains(selection.anchorNode)&&field.contains(selection.focusNode))bannerSelection.set(field.dataset.bannerText,selection.getRangeAt(0).cloneRange());};
- const restoreBannerSelection=field=>{if(!field)return;const range=bannerSelection.get(field.dataset.bannerText);field.focus();if(range){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}};
+ const rememberBannerSelection=field=>{const selection=window.getSelection();if(selection&&selection.rangeCount&&!selection.isCollapsed&&field.contains(selection.anchorNode)&&field.contains(selection.focusNode))bannerSelection.set(field.dataset.bannerText,selection.getRangeAt(0).cloneRange());};
+ const restoreBannerSelection=field=>{if(!field)return;const range=bannerSelection.get(field.dataset.bannerText);field.focus();if(range&&field.contains(range.commonAncestorContainer)){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range.cloneRange());}};
  document.addEventListener('selectionchange',()=>{const active=bannerEditors.find(field=>field.contains(window.getSelection()?.anchorNode));if(active)rememberBannerSelection(active);});
  root.querySelectorAll('.banner-rich-toolbar').forEach(toolbar=>toolbar.addEventListener('pointerdown',event=>{const field=toolbar.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)rememberBannerSelection(field);},true));
  bannerEditors.forEach(field=>{
