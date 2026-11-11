@@ -1124,6 +1124,41 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  };
  const bannerEditors=[...root.querySelectorAll('[data-banner-text]')];
  const bannerSelection=new Map();
+ // Keep an editor-specific HTML history because Range-based formatting and DOM insertion
+ // do not reliably enter the browser's native contenteditable undo stack.
+ const bannerHistory=new Map();
+ const bannerHistoryTimers=new Map();
+ const commitBannerHistory=field=>{
+   const key=field.dataset.bannerText;
+   const history=bannerHistory.get(key);
+   if(!history)return;
+   const timer=bannerHistoryTimers.get(key);
+   if(timer){clearTimeout(timer);bannerHistoryTimers.delete(key);}
+   const html=field.innerHTML;
+   if(history.entries[history.index]===html)return;
+   history.entries=history.entries.slice(0,history.index+1);
+   history.entries.push(html);
+   history.index=history.entries.length-1;
+ };
+ const scheduleBannerHistory=field=>{
+   const key=field.dataset.bannerText;
+   const oldTimer=bannerHistoryTimers.get(key);
+   if(oldTimer)clearTimeout(oldTimer);
+   bannerHistoryTimers.set(key,setTimeout(()=>commitBannerHistory(field),350));
+ };
+ const moveBannerHistory=(field,direction)=>{
+   const key=field.dataset.bannerText;
+   commitBannerHistory(field);
+   const history=bannerHistory.get(key);
+   if(!history)return;
+   const next=history.index+direction;
+   if(next<0||next>=history.entries.length)return;
+   history.index=next;
+   field.innerHTML=history.entries[history.index];
+   bannerSelection.delete(key);
+   field.focus({preventScroll:true});
+   refreshBannerPreview(key);
+ };
  const rememberBannerSelection=field=>{
    const selection=window.getSelection();
    if(selection&&selection.rangeCount&&!selection.isCollapsed&&field.contains(selection.anchorNode)&&field.contains(selection.focusNode)){
@@ -1162,7 +1197,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const key=field.dataset.bannerText;
    const hidden=root.querySelector('[data-banner-html="'+key+'"]');
    if(hidden&&hidden.value)field.innerHTML=hidden.value;
-   field.addEventListener('input',()=>refreshBannerPreview(key));
+   bannerHistory.set(key,{entries:[field.innerHTML],index:0});
+   field.addEventListener('input',()=>{refreshBannerPreview(key);scheduleBannerHistory(field);});
    ['keyup','mouseup','touchend'].forEach(name=>field.addEventListener(name,()=>rememberBannerSelection(field)));
    field.addEventListener('blur',()=>refreshBannerPreview(key));
    refreshBannerPreview(key);
@@ -1252,9 +1288,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      fragment.querySelectorAll?.('strong,b,em,i,u,s,span,font').forEach(node=>node.replaceWith(...node.childNodes));
      range.insertNode(fragment);field.dispatchEvent(new Event('input',{bubbles:true}));return;
    }
-   // Native history commands remain browser-managed; all formatting commands above
-   // operate directly on the saved Range and do not depend on execCommand.
-   if(command==='undo'||command==='redo')document.execCommand(command,false,null);
+   // Use the editor's own snapshot history for text and formatting changes.
+   if(command==='undo'){moveBannerHistory(field,-1);return;}
+   if(command==='redo'){moveBannerHistory(field,1);return;}
    field.dispatchEvent(new Event('input',{bubbles:true}));
  };
  root.querySelectorAll('[data-banner-command]').forEach(button=>{
