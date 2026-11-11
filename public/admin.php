@@ -102,6 +102,18 @@ $sectionsSettings=json_decode((string)($sectionsRow['content_json']??''),true);
 if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
 foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
 
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_gallery_photos (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(180) NOT NULL,
+  description TEXT NULL,
+  folder_name VARCHAR(120) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_gallery_created (created_at, id),
+  KEY idx_gallery_folder (folder_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
 $section = (string)($_GET['section'] ?? 'dashboard');
@@ -201,6 +213,62 @@ function publishHeaderSettingsToGitHub(array $header): string {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+
+
+    if ($action === 'add_gallery_photos') {
+        $section = 'media-management';
+        $activeMediaTab = 'gallery';
+        $savedFiles = [];
+        try {
+            $mode = (string)($_POST['gallery_folder_mode'] ?? 'existing');
+            $folderInput = trim((string)($_POST['gallery_folder_name'] ?? ''));
+            if ($mode === 'new') {
+                $folder = strtolower($folderInput);
+                $folder = preg_replace('/[^a-z0-9_-]+/', '-', $folder);
+                $folder = trim((string)$folder, '-_');
+                if ($folder === '' || strlen($folder) > 80) throw new RuntimeException('Enter a valid folder name using letters, numbers, hyphens or underscores.');
+            } else {
+                $folder = basename(trim((string)($_POST['gallery_existing_folder'] ?? '')));
+                if ($folder === '' || $folder === '.' || $folder === '..' || !preg_match('/^[a-zA-Z0-9_-]{1,80}$/', $folder)) throw new RuntimeException('Choose a valid existing photo folder.');
+                $existingPath = __DIR__ . '/uploads/gallery/' . $folder;
+                if (!is_dir($existingPath)) throw new RuntimeException('The selected photo folder no longer exists. Choose another folder.');
+            }
+            if (!isset($_FILES['gallery_photos']) || !is_array($_FILES['gallery_photos']['name'] ?? null)) throw new RuntimeException('Choose at least one photo to upload.');
+            $files = $_FILES['gallery_photos'];
+            $count = count($files['name']);
+            if ($count < 1 || $count > 20) throw new RuntimeException('Choose between 1 and 20 photos per upload.');
+            $uploadDir = __DIR__ . '/uploads/gallery/' . $folder;
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) throw new RuntimeException('Unable to create the selected gallery folder.');
+            $titles = (array)($_POST['photo_title'] ?? []);
+            $descriptions = (array)($_POST['photo_description'] ?? []);
+            $insert = $pdo->prepare('INSERT INTO site_gallery_photos (title, description, folder_name, file_path) VALUES (?, ?, ?, ?)');
+            for ($i = 0; $i < $count; $i++) {
+                $error = (int)($files['error'][$i] ?? UPLOAD_ERR_NO_FILE);
+                if ($error === UPLOAD_ERR_NO_FILE) continue;
+                if ($error !== UPLOAD_ERR_OK) throw new RuntimeException('One of the photos could not be uploaded. Check the file size and try again.');
+                if ((int)($files['size'][$i] ?? 0) > 10 * 1024 * 1024) throw new RuntimeException('Each gallery photo must be 10 MB or smaller.');
+                $tmp = (string)$files['tmp_name'][$i];
+                $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+                $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'];
+                if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) throw new RuntimeException('Upload valid JPG, PNG, GIF or WebP photos only.');
+                $title = trim((string)($titles[$i] ?? ''));
+                if ($title === '') $title = pathinfo((string)$files['name'][$i], PATHINFO_FILENAME);
+                $title = mb_substr($title, 0, 180);
+                $description = mb_substr(trim((string)($descriptions[$i] ?? '')), 0, 2000);
+                $filename = 'photo-' . date('Ymd-His') . '-' . bin2hex(random_bytes(8)) . '.' . $extensions[$mime];
+                if (!move_uploaded_file($tmp, $uploadDir . '/' . $filename)) throw new RuntimeException('Unable to save one of the selected photos.');
+                $relativePath = 'uploads/gallery/' . $folder . '/' . $filename;
+                $savedFiles[] = $uploadDir . '/' . $filename;
+                $insert->execute([$title, $description, $folder, $relativePath]);
+            }
+            if (!$savedFiles) throw new RuntimeException('No photos were uploaded. Choose valid photo files and try again.');
+            header('Location: admin.php?section=media-management&media_tab=gallery&gallery_saved=' . count($savedFiles), true, 303);
+            exit;
+        } catch (Throwable $e) {
+            foreach ($savedFiles as $savedFile) if (is_file($savedFile)) @unlink($savedFile);
+            $message = $e->getMessage();
+        }
+    }
 
     if ($action === 'save_sections_settings') {
         $activePageTab='sections';
@@ -814,8 +882,93 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <button type="button" id="media-tab-gallery" role="tab" aria-controls="media-panel-gallery" aria-selected="false" tabindex="-1" data-media-tab="gallery">Gallery</button>
     <button type="button" id="media-tab-video" role="tab" aria-controls="media-panel-video" aria-selected="false" tabindex="-1" data-media-tab="video">Video</button>
   </nav>
+  <?php
+    $galleryPhotos = $pdo->query("SELECT id,title,description,folder_name,file_path,created_at FROM site_gallery_photos ORDER BY created_at DESC,id DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $galleryFolders = [];
+    $galleryRoot = __DIR__ . '/uploads/gallery';
+    if (is_dir($galleryRoot)) {
+      foreach (scandir($galleryRoot) ?: [] as $folderEntry) {
+        if ($folderEntry === '.' || $folderEntry === '..') continue;
+        if (is_dir($galleryRoot . '/' . $folderEntry) && preg_match('/^[a-zA-Z0-9_-]{1,80}$/', $folderEntry)) $galleryFolders[] = $folderEntry;
+      }
+    }
+    sort($galleryFolders, SORT_NATURAL | SORT_FLAG_CASE);
+    $gallerySavedCount = max(0, (int)($_GET['gallery_saved'] ?? 0));
+  ?>
   <section class="page-management-tabpanel" id="media-panel-gallery" role="tabpanel" aria-labelledby="media-tab-gallery">
+    <?php if ($gallerySavedCount > 0): ?><div class="gallery-inline-success" role="status"><?= $gallerySavedCount ?> <?= $gallerySavedCount === 1 ? 'photo was' : 'photos were' ?> successfully added to the Gallery.</div><?php endif; ?>
+    <div class="gallery-panel-top">
+      <div><h3>Photo Gallery</h3><p class="muted">Browse uploaded photos, newest first.</p></div>
+      <button class="btn" type="button" id="gallery-add-photo">+ Add Photo</button>
+    </div>
+    <div class="gallery-controls">
+      <label>Show <select id="gallery-page-size" aria-label="Photos per page"><option value="12">12</option><option value="24">24</option><option value="48">48</option><option value="96">96</option></select> photos</label>
+      <label class="gallery-filter-wrap"><span>Filter</span><input id="gallery-filter" type="search" placeholder="Search photo title, description or folder..." aria-label="Filter gallery photos"></label>
+    </div>
+    <div class="gallery-pagination"><span class="muted" id="gallery-page-info" aria-live="polite"></span><div><button type="button" class="btn light" id="gallery-prev">Previous</button><span id="gallery-page-number" class="muted"></span><button type="button" class="btn light" id="gallery-next">Next</button></div></div>
+    <div class="gallery-grid" id="gallery-grid">
+      <?php foreach ($galleryPhotos as $photo): ?>
+        <article class="gallery-photo-card" data-gallery-search="<?=e(mb_strtolower($photo['title'].' '.$photo['description'].' '.$photo['folder_name']))?>">
+          <div class="gallery-photo-image"><img src="<?=e($photo['file_path'])?>" alt="<?=e($photo['title'])?>" loading="lazy"><div class="gallery-photo-description"><?=e($photo['description'] !== '' ? $photo['description'] : 'No description added.')?></div></div>
+          <div class="gallery-photo-title" title="<?=e($photo['title'])?>"><?=e($photo['title'])?></div>
+          <div class="gallery-photo-meta"><?=e($photo['folder_name'])?> · <?=e(date('M d, Y', strtotime((string)$photo['created_at'])))?></div>
+        </article>
+      <?php endforeach; ?>
+      <?php if (!$galleryPhotos): ?><div class="gallery-empty" id="gallery-empty">No photos have been uploaded yet. Select Add Photo to create your first gallery collection.</div><?php endif; ?>
+    </div>
+    <div class="gallery-empty" id="gallery-no-results" hidden>No photos match your filter.</div>
   </section>
+  <div class="gallery-modal-backdrop" id="gallery-add-modal" hidden>
+    <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-modal-title">
+      <div class="gallery-modal-head"><div><h2 id="gallery-modal-title">Add Photo Form</h2><p class="muted">Upload up to 20 photos in one batch.</p></div><button type="button" class="gallery-modal-close" id="gallery-modal-x" aria-label="Close">×</button></div>
+      <form method="post" enctype="multipart/form-data" id="gallery-upload-form">
+        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="add_gallery_photos">
+        <div class="gallery-form-grid">
+          <label class="gallery-form-field">Save photos to
+            <select name="gallery_folder_mode" id="gallery-folder-mode"><option value="existing" <?=!$galleryFolders?'disabled':''?>>Existing folder</option><option value="new" <?=!$galleryFolders?'selected':''?>>Create new folder</option></select>
+          </label>
+          <label class="gallery-form-field" id="gallery-existing-folder-field">Choose folder
+            <select name="gallery_existing_folder" id="gallery-existing-folder"><?php foreach ($galleryFolders as $folder): ?><option value="<?=e($folder)?>"><?=e($folder)?></option><?php endforeach; ?></select>
+          </label>
+          <label class="gallery-form-field" id="gallery-new-folder-field" hidden>New folder name
+            <input type="text" name="gallery_folder_name" id="gallery-folder-name" maxlength="80" placeholder="e.g. city-events-2026">
+          </label>
+        </div>
+        <label class="gallery-form-field gallery-file-field">Select photos (maximum 20)
+          <input type="file" name="gallery_photos[]" id="gallery-files" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
+          <small>JPG, PNG, GIF or WebP · maximum 10 MB per photo</small>
+        </label>
+        <div class="gallery-photo-details" id="gallery-photo-details"><p class="muted">Choose photo files to enter a title and description for each image.</p></div>
+        <div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-modal-cancel">Cancel</button><button class="btn" type="submit" id="gallery-upload-submit">Upload Photos</button></div>
+      </form>
+    </section>
+  </div>
+  <style>
+    .gallery-panel-top{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:0 0 15px}.gallery-panel-top h3{margin:0 0 4px;font:600 15px Ubuntu,sans-serif;color:#f5e9ed}.gallery-panel-top p{margin:0;font-size:11px}
+    .gallery-controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px;color:var(--muted);font:12px Ubuntu,sans-serif}.gallery-controls label{display:flex;align-items:center;gap:8px}.gallery-controls select,.gallery-controls input,.gallery-form-field input,.gallery-form-field select{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.gallery-filter-wrap input{width:min(340px,65vw)}
+    .gallery-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 18px}.gallery-pagination>div{display:flex;align-items:center;gap:9px}.gallery-pagination .btn{padding:7px 11px;font-size:11px}.gallery-pagination .btn:disabled{opacity:.4;cursor:not-allowed}
+    .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:15px}.gallery-photo-card{min-width:0;overflow:visible}.gallery-photo-image{position:relative;aspect-ratio:4/3;border:1px solid rgba(184,50,63,.25);border-radius:10px;overflow:visible;background:#100c0f}.gallery-photo-image>img{display:block;width:100%;height:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px}.gallery-photo-description{position:absolute;z-index:5;left:50%;bottom:calc(100% + 8px);width:min(250px,80vw);padding:10px 12px;border:1px solid rgba(210,103,126,.42);border-radius:9px;background:rgba(22,12,17,.97);box-shadow:0 12px 28px rgba(0,0,0,.4);color:#f5e9ed;font:11px/1.5 Ubuntu,sans-serif;opacity:0;visibility:hidden;transform:translate(-50%,5px);transition:.18s;pointer-events:none;white-space:normal;overflow-wrap:anywhere}.gallery-photo-image:hover .gallery-photo-description,.gallery-photo-image:focus-within .gallery-photo-description{opacity:1;visibility:visible;transform:translate(-50%,0)}.gallery-photo-title{margin:8px 1px 3px;color:#f4e8eb;font:600 12px/1.4 Ubuntu,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gallery-photo-meta{margin:0 1px;color:#a99aa0;font:10px Ubuntu,sans-serif}.gallery-empty{padding:22px 14px;border:1px dashed rgba(184,50,63,.3);border-radius:10px;color:var(--muted);font:12px Ubuntu,sans-serif;text-align:center;grid-column:1/-1}.gallery-inline-success{padding:10px 12px;margin-bottom:14px;border:1px solid rgba(70,160,110,.35);border-radius:8px;background:rgba(35,110,70,.12);color:#c5f0d6;font:12px Ubuntu,sans-serif}
+    .gallery-modal-backdrop{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.76);backdrop-filter:blur(7px)}.gallery-modal-backdrop[hidden]{display:none}.gallery-modal{width:min(720px,96vw);max-height:90vh;overflow:auto;padding:22px;border:1px solid rgba(184,50,63,.38);border-radius:15px;background:#130e12;box-shadow:0 24px 70px rgba(0,0,0,.55)}.gallery-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}.gallery-modal-head h2{margin:0 0 5px;color:#f5e9ed;font:600 17px Ubuntu,sans-serif}.gallery-modal-head p{margin:0;font-size:11px}.gallery-modal-close{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#21151a;color:#fff;font-size:22px;cursor:pointer}.gallery-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}.gallery-form-field{display:grid;gap:7px;color:#e9dce0;font:600 11px Ubuntu,sans-serif}.gallery-form-field input,.gallery-form-field select{width:100%;box-sizing:border-box}.gallery-form-field[hidden]{display:none}.gallery-file-field{margin-bottom:14px}.gallery-file-field small{color:var(--muted);font-weight:400}.gallery-photo-details{display:grid;gap:10px;max-height:300px;overflow:auto;margin:12px 0}.gallery-photo-detail-row{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.018)}.gallery-photo-detail-row img{width:76px;height:66px;object-fit:cover;border-radius:6px}.gallery-photo-detail-fields{display:grid;gap:7px;min-width:0}.gallery-photo-detail-fields input,.gallery-photo-detail-fields textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:7px;background:#171115;color:#f5e9ed;font:11px Ubuntu,sans-serif}.gallery-photo-detail-fields textarea{min-height:48px;resize:vertical}.gallery-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:17px;padding-top:14px;border-top:1px solid var(--line)}
+    @media(max-width:600px){.gallery-panel-top{align-items:flex-start}.gallery-form-grid{grid-template-columns:1fr}.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gallery-photo-detail-row{grid-template-columns:58px minmax(0,1fr)}.gallery-photo-detail-row img{width:58px;height:58px}}
+  </style>
+  <script>
+  (() => {
+    const cards=[...document.querySelectorAll('.gallery-photo-card')],filter=document.getElementById('gallery-filter'),size=document.getElementById('gallery-page-size'),info=document.getElementById('gallery-page-info'),number=document.getElementById('gallery-page-number'),prev=document.getElementById('gallery-prev'),next=document.getElementById('gallery-next'),empty=document.getElementById('gallery-no-results');
+    let page=1;
+    const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return cards.filter(card=>(card.dataset.gallerySearch||'').includes(q));};
+    const render=()=>{if(!size||!info)return;const found=matches(),perPage=Number(size.value),pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));cards.forEach(card=>card.hidden=!visible.has(card));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' photos':'Showing 0 photos';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(empty)empty.hidden=found.length!==0;};
+    filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});prev?.addEventListener('click',()=>{if(page>1){page--;render();}});next?.addEventListener('click',()=>{page++;render();});render();
+    const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-x'),document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
+    const close=()=>{if(modal)modal.hidden=true;};
+    open?.addEventListener('click',()=>{modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
+    closeButtons.forEach(button=>button?.addEventListener('click',close));
+    mode?.addEventListener('change',()=>{const isNew=mode.value==='new';existing.hidden=isNew;fresh.hidden=!isNew;});
+    files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}selected.forEach((file,index)=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
+    form?.addEventListener('submit',event=>{if(!files.files.length||files.files.length>20){event.preventDefault();alert('Choose between 1 and 20 photos.');return;}if(mode.value==='new'&&!document.getElementById('gallery-folder-name').value.trim()){event.preventDefault();alert('Enter a name for the new folder.');return;}document.getElementById('gallery-upload-submit').disabled=true;document.getElementById('gallery-upload-submit').textContent='Uploading…';});
+    modal?.addEventListener('click',event=>{if(event.target===modal)event.preventDefault();});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
+  })();
+  </script>
   <section class="page-management-tabpanel" id="media-panel-video" role="tabpanel" aria-labelledby="media-tab-video" hidden>
     <h2>Video</h2><p class="muted">Manage videos displayed on the public website.</p>
     <div class="admin-note">Video management controls can be added here. No existing website content has been changed.</div>
