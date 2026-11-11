@@ -962,7 +962,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     if (is_dir($galleryRoot)) {
       foreach (scandir($galleryRoot) ?: [] as $folderEntry) {
         if ($folderEntry === '.' || $folderEntry === '..') continue;
-        if (is_dir($galleryRoot . '/' . $folderEntry) && preg_match('/^[a-zA-Z0-9_-]{1,80}$/', $folderEntry)) $galleryFolders[] = $folderEntry;
+        if (is_dir($galleryRoot . '/' . $folderEntry) && preg_match('/^[\\p{L}\\p{N} _-]{1,80}$/u', $folderEntry)) $galleryFolders[] = $folderEntry;
       }
     }
     sort($galleryFolders, SORT_NATURAL | SORT_FLAG_CASE);
