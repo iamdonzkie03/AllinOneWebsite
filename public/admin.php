@@ -415,7 +415,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/avif'=>'avif'];
                 if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) throw new RuntimeException('Upload valid JPG, JPEG, PNG, WebP or AVIF photos only.');
                 $title = trim((string)($titles[$i] ?? ''));
-                if ($title === '') $title = pathinfo((string)$files['name'][$i], PATHINFO_FILENAME);
+                if ($title === '') throw new RuntimeException('Enter a title for every photo before uploading.');
                 $title = mb_substr($title, 0, 180);
                 $description = mb_substr(trim((string)($descriptions[$i] ?? '')), 0, 2000);
                 $filename = 'photo-' . date('Ymd-His') . '-' . bin2hex(random_bytes(8)) . '.' . $extensions[$mime];
@@ -1134,7 +1134,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <article class="gallery-photo-card" data-photo-id="<?=(int)$photo['id']?>" data-photo-description="<?=e((string)$photo['description'])?>" data-gallery-search="<?=e(mb_strtolower($photo['title'].' '.$photo['description'].' '.($photo['folder_name'] ?? '')))?>">
                 <label class="gallery-photo-select"><input type="checkbox" form="gallery-photo-bulk-form" name="selected_gallery_photos[]" value="<?=(int)$photo['id']?>"> Select</label>
                 <div class="gallery-photo-image"><img src="<?=e($photo['file_path'])?>" alt="<?=e($photo['title'])?>" loading="lazy"><div class="gallery-photo-description"><?=e($photo['description'] !== '' ? $photo['description'] : 'No description added.')?></div></div>
-                <div class="gallery-photo-title" title="<?=e($photo['title'])?>"><?=e($photo['title'])?></div>
+                <div class="gallery-photo-title" data-photo-title="<?=e($photo['title'])?>" title="<?=e($photo['title'])?>"><?=e($photo['title'])?></div>
                 <button type="button" class="btn light gallery-photo-edit" data-gallery-edit-photo="<?=(int)$photo['id']?>" data-photo-title="<?=e($photo['title'])?>" data-photo-description="<?=e($photo['description'])?>" data-photo-src="<?=e($photo['file_path'])?>">Edit</button>
                 <div class="gallery-photo-meta"><?=e(date('M d, Y', strtotime((string)$photo['created_at'])))?></div>
                 <form method="post" class="gallery-move-form">
@@ -1237,9 +1237,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     let currentPhotoIds=new Set();
     const photoChecks=()=>[...document.querySelectorAll('input[name="selected_gallery_photos[]"]')];
     const currentPhotoChecks=()=>photoChecks().filter(box=>currentPhotoIds.has(box.value));
-    const syncPhotoDelete=()=>{const boxes=currentPhotoChecks(),selected=boxes.some(box=>box.checked);if(photoDeleteButton){photoDeleteButton.disabled=!selected;photoDeleteButton.setAttribute('disabled',selected?'':'disabled');photoDeleteButton.setAttribute('aria-disabled',String(!selected));}if(photoSelectAll){photoSelectAll.checked=boxes.length>0&&boxes.every(box=>box.checked);photoSelectAll.indeterminate=boxes.some(box=>box.checked)&&!photoSelectAll.checked;photoSelectAll.disabled=boxes.length===0;}};
+    const syncPhotoDelete=()=>{const boxes=currentPhotoChecks(),selected=boxes.some(box=>box.checked);if(photoDeleteButton){photoDeleteButton.disabled=!selected;photoDeleteButton.toggleAttribute('disabled',!selected);photoDeleteButton.setAttribute('aria-disabled',String(!selected));}if(photoSelectAll){photoSelectAll.checked=boxes.length>0&&boxes.every(box=>box.checked);photoSelectAll.indeterminate=boxes.some(box=>box.checked)&&!photoSelectAll.checked;photoSelectAll.disabled=boxes.length===0;}};
     photoSelectAll?.addEventListener('change',()=>{currentPhotoChecks().forEach(box=>{box.checked=photoSelectAll.checked;});syncPhotoDelete();});
-    photoChecks().forEach(box=>box.addEventListener('change',syncPhotoDelete));syncPhotoDelete();
+    document.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('input[name="selected_gallery_photos[]"]'))syncPhotoDelete();});syncPhotoDelete();
     photoDeleteButton?.addEventListener('click',()=>{if(currentPhotoChecks().some(box=>box.checked)&&photoDeleteModal)photoDeleteModal.hidden=false;});
     document.getElementById('gallery-photo-delete-cancel')?.addEventListener('click',()=>{if(photoDeleteModal)photoDeleteModal.hidden=true;});
     document.getElementById('gallery-photo-delete-confirm')?.addEventListener('click',()=>photoBulkForm?.requestSubmit());
@@ -1288,7 +1288,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;});
-    files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}selected.forEach((file,index)=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
+    files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}selected.forEach((file,index)=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value='';const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
     form?.addEventListener('submit',event=>{
       event.preventDefault();
       if(uploadInProgress)return;
