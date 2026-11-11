@@ -209,6 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $html=preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i',static function($m){
                 $tag=strtolower($m[1]); if($tag==='br') return '<br>';
                 if($tag==='a'){ $href=''; if(preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i',$x[1])) $href=' href="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; return '<a'.$href.' target="_blank" rel="noopener">'; }
+                if($tag==='img'){ $src=''; $alt=''; if(preg_match('/src\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x) && preg_match('~^(uploads/articles/|/uploads/articles/)~i',$x[1])) $src=' src="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; if(preg_match('/alt\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x)) $alt=' alt="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; return '<img'.$src.$alt.'>'; }
                 if($tag==='span'){ $style=''; if(preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x)){ $v=$x[1]; if(preg_match('/(?:^|;)\\s*color\\s*:\\s*(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})\\s*(?:;|$)/i',$v,$c)) $style.='color:'.htmlspecialchars($c[1],ENT_QUOTES,'UTF-8').';'; if(preg_match('/(?:^|;)\\s*font-size\\s*:\\s*(?:[8-9]|[1-6][0-9]|7[0-2])(?:\\.[0-9]+)?px\\s*(?:;|$)/i',$v,$f)) $style.='font-size:'.htmlspecialchars(trim(explode(':',$f[0])[1]," ;"),ENT_QUOTES,'UTF-8').';'; } return '<span'.($style!==''?' style="'.$style.'"':'').'>'; }
                 return '<'.$tag.'>';
             },$html);
@@ -1080,6 +1081,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
            else child.removeAttribute(attr.name);
          });
          if(child.tagName==='A'){child.setAttribute('target','_blank');child.setAttribute('rel','noopener');}
+         if(child.tagName==='IMG'){
+           const src=child.getAttribute('src')||'';
+           if(!/^(?:\\/)?uploads\\/articles\\//i.test(src)){child.remove();return;}
+           [...child.attributes].forEach(attr=>{if(!['src','alt'].includes(attr.name.toLowerCase()))child.removeAttribute(attr.name);});
+         }
          walk(child);
        }else if(child.nodeType!==Node.TEXT_NODE){child.remove();}
      });
