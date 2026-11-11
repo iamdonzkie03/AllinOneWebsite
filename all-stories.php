@@ -197,6 +197,9 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
 .stories-search-icon{width:48px;flex:0 0 48px;text-align:center;color:#e5a2b5;font-size:28px;line-height:1;transform:rotate(-15deg)}
 .stories-search input{width:100%;min-width:0;border:0!important;outline:0!important;background:transparent!important;color:#fff!important;padding:14px 12px 14px 0!important;font:13px Ubuntu,sans-serif!important;box-shadow:none!important}
 .stories-search input::placeholder{color:#9e8992}
+.stories-search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none;}
+.stories-search input::-webkit-search-decoration,.stories-search input::-webkit-search-results-button,.stories-search input::-webkit-search-results-decoration{-webkit-appearance:none;appearance:none;display:none;}
+.stories-search input::-ms-clear,.stories-search input::-ms-reveal{display:none;width:0;height:0;}
 .stories-search-clear{width:38px;flex:0 0 38px;color:#dba0b1;text-decoration:none;text-align:center;font-size:24px;line-height:1}
 .stories-results-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 22px;color:#9e8992;font-size:11px}
 .stories-results-line strong{color:#e8b0bf;font-weight:600}
