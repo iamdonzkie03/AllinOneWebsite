@@ -929,7 +929,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
  @media(max-width:760px){.section-form-grid{grid-template-columns:1fr}}
  </style>
- <h2>Website Sections</h2><p class="muted">Configure the homepage banner, Ken Burns slideshow and mega menu. Each tab has a live preview above its settings.</p>
+ 
  <nav class="section-builder-tabs" aria-label="Homepage section editor">
   <button type="button" data-section-tab="banner" aria-selected="true">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false">Mega Menu</button>
  </nav>
