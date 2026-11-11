@@ -7,6 +7,8 @@ $nicknameStmt->execute([(int)$admin['id']]);
 $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
 $galleryDeleteSuccessNames = [];
+$galleryPhotoDeleteSuccessCount = 0;
+$galleryPhotoEditSuccess = false;
 $galleryEditSuccess = false;
 // Persist public header configuration in a dedicated settings row.
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_header_settings (
@@ -241,6 +243,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $galleryDeleteSuccessNames=$names;
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$message=$e->getMessage();}
+    }
+
+    if ($action === 'delete_selected_gallery_photos') {
+        $section='media-management'; $activeMediaTab='gallery';
+        try {
+            $ids=array_values(array_unique(array_filter(array_map('intval',(array)($_POST['selected_gallery_photos']??[])),static fn($v)=>$v>0)));
+            if(!$ids) throw new RuntimeException('Select at least one photo to delete.');
+            $marks=implode(',',array_fill(0,count($ids),'?'));
+            $q=$pdo->prepare("SELECT id,file_path FROM site_gallery_photos WHERE id IN ($marks)");$q->execute($ids);$photos=$q->fetchAll(PDO::FETCH_ASSOC);
+            if(count($photos)!==count($ids)) throw new RuntimeException('One or more selected photos could not be found. Reload the Gallery and try again.');
+            $root=realpath(__DIR__.'/uploads/gallery');$paths=[];
+            foreach($photos as $photo){$path=realpath(__DIR__.'/'.ltrim((string)$photo['file_path'],'/\\'));if($path&&is_file($path)&&$root&&strpos($path,$root.DIRECTORY_SEPARATOR)===0)$paths[]=$path;}
+            $pdo->beginTransaction();$del=$pdo->prepare("DELETE FROM site_gallery_photos WHERE id IN ($marks)");$del->execute($ids);$pdo->commit();
+            foreach(array_unique($paths) as $path)if(is_file($path)&&!@unlink($path))throw new RuntimeException('The photo records were deleted, but a local photo file could not be removed. Check folder permissions.');
+            $galleryPhotoDeleteSuccessCount=count($photos);
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$message=$e->getMessage();}
+    }
+
+    if ($action === 'edit_gallery_photo') {
+        $section='media-management';$activeMediaTab='gallery';$newFile='';$oldFile='';
+        try{
+            $id=(int)($_POST['photo_id']??0);$title=mb_substr(trim((string)($_POST['photo_title']??'')),0,180);$desc=mb_substr(trim((string)($_POST['photo_description']??'')),0,2000);
+            if($id<1||$title==='')throw new RuntimeException('Enter a valid photo title.');
+            $q=$pdo->prepare('SELECT id,file_path,folder_name FROM site_gallery_photos WHERE id=? LIMIT 1');$q->execute([$id]);$photo=$q->fetch(PDO::FETCH_ASSOC);
+            if(!$photo)throw new RuntimeException('The selected photo could not be found. Reload the Gallery and try again.');
+            $relative=(string)$photo['file_path'];$err=(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE);
+            if($err!==UPLOAD_ERR_NO_FILE){
+                if($err!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded (error '.$err.').');
+                $tmp=(string)($_FILES['replacement_photo']['tmp_name']??'');if(!$tmp||!is_uploaded_file($tmp))throw new RuntimeException('The replacement photo upload is invalid.');
+                if((int)($_FILES['replacement_photo']['size']??0)>10*1024*1024)throw new RuntimeException('The replacement photo must be 10 MB or smaller.');
+                $mime=(new finfo(FILEINFO_MIME_TYPE))->file($tmp);$exts=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/avif'=>'avif'];
+                if(!isset($exts[$mime])||@getimagesize($tmp)===false)throw new RuntimeException('Replacement photos must be valid JPG, JPEG, PNG, WebP or AVIF images.');
+                $folder=(string)($photo['folder_name']??'');$dir=__DIR__.'/uploads/gallery'.($folder!==''?'/'.$folder:'');
+                if(!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('Unable to access the Gallery photo folder.');
+                $filename='photo-'.date('Ymd-His').'-'.bin2hex(random_bytes(8)).'.'.$exts[$mime];$newFile=$dir.'/'.$filename;
+                if(!move_uploaded_file($tmp,$newFile))throw new RuntimeException('Unable to save the replacement photo.');
+                $relative='uploads/gallery'.($folder!==''?'/'.$folder:'').'/'.$filename;$oldFile=__DIR__.'/'.ltrim((string)$photo['file_path'],'/\\');
+            }
+            $update=$pdo->prepare('UPDATE site_gallery_photos SET title=?,description=?,file_path=? WHERE id=?');$update->execute([$title,$desc,$relative,$id]);
+            if($oldFile!==''&&is_file($oldFile))@unlink($oldFile);$galleryPhotoEditSuccess=true;
+        }catch(Throwable $e){if($newFile!==''&&is_file($newFile))@unlink($newFile);$message=$e->getMessage();}
     }
 
     if ($action === 'edit_gallery_folder') {
