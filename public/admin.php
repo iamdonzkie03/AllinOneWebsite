@@ -250,8 +250,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ((int)($files['size'][$i] ?? 0) > 10 * 1024 * 1024) throw new RuntimeException('Each gallery photo must be 10 MB or smaller.');
                 $tmp = (string)$files['tmp_name'][$i];
                 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
-                $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'];
-                if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) throw new RuntimeException('Upload valid JPG, PNG, GIF or WebP photos only.');
+                $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/avif'=>'avif'];
+                if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) throw new RuntimeException('Upload valid JPG, JPEG, PNG, WebP or AVIF photos only.');
                 $title = trim((string)($titles[$i] ?? ''));
                 if ($title === '') $title = pathinfo((string)$files['name'][$i], PATHINFO_FILENAME);
                 $title = mb_substr($title, 0, 180);
@@ -923,7 +923,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </section>
   <div class="gallery-modal-backdrop" id="gallery-add-modal" hidden>
     <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-modal-title">
-      <div class="gallery-modal-head"><div><h2 id="gallery-modal-title">Add Photo Form</h2><p class="muted">Upload up to 20 photos in one batch.</p></div><button type="button" class="gallery-modal-close" id="gallery-modal-x" aria-label="Close">×</button></div>
+      <div class="gallery-modal-head"><div><h2 id="gallery-modal-title">Add Photo Form</h2><p class="muted">Upload up to 20 photos in one batch.</p></div></div>
       <form method="post" enctype="multipart/form-data" id="gallery-upload-form">
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="add_gallery_photos">
         <div class="gallery-form-grid">
@@ -938,8 +938,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           </label>
         </div>
         <label class="gallery-form-field gallery-file-field">Select photos (maximum 20)
-          <input type="file" name="gallery_photos[]" id="gallery-files" accept="image/jpeg,image/png,image/webp,image/gif" multiple required>
-          <small>JPG, PNG, GIF or WebP · maximum 10 MB per photo</small>
+          <input type="file" name="gallery_photos[]" id="gallery-files" accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif" multiple required>
+          <small>JPG, JPEG, PNG, WebP or AVIF · maximum 10 MB per photo</small>
         </label>
         <div class="gallery-photo-details" id="gallery-photo-details"><p class="muted">Choose photo files to enter a title and description for each image.</p></div>
         <div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-modal-cancel">Cancel</button><button class="btn" type="submit" id="gallery-upload-submit">Upload Photos</button></div>
@@ -961,7 +961,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return cards.filter(card=>(card.dataset.gallerySearch||'').includes(q));};
     const render=()=>{if(!size||!info)return;const found=matches(),perPage=Number(size.value),pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));cards.forEach(card=>card.hidden=!visible.has(card));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' photos':'Showing 0 photos';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(empty)empty.hidden=cards.length===0||found.length!==0;};
     filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});prev?.addEventListener('click',()=>{if(page>1){page--;render();}});next?.addEventListener('click',()=>{page++;render();});render();
-    const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-x'),document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
+    const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
     const close=()=>{if(modal)modal.hidden=true;};
     open?.addEventListener('click',()=>{modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
