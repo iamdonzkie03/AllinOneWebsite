@@ -945,15 +945,20 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .section-preview .preview-desc{font:12px Ubuntu;color:#d8cbd0}.section-preview-media{display:flex;gap:10px;overflow:auto;margin-top:10px}.section-preview-media img{width:180px;height:105px;object-fit:cover;border-radius:8px}
  .section-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.section-field{display:grid;gap:7px;font:600 12px Ubuntu;color:#f2e6e9}.section-field input,.section-field textarea,.section-field select{width:100%;box-sizing:border-box;background:#171115;border:1px solid var(--line);border-radius:8px;padding:10px;color:#f7edf0;font:13px Ubuntu}.section-field textarea{min-height:78px}
  .banner-editor-grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:12px}
- .banner-editor-field{grid-column:auto!important;min-width:0;align-content:start}
- .banner-rich-editor{width:100%;min-width:0;min-height:116px;max-height:190px;overflow:auto;box-sizing:border-box;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:#171115;color:#f7edf0;font:13px/1.55 Ubuntu,sans-serif;outline:none;overflow-wrap:anywhere}
+ .banner-editor-field{grid-column:span 2!important;min-width:0;align-content:start}
+ .banner-editor-field:nth-child(3){grid-column:span 3!important}
+ .banner-editor-field:nth-child(4){grid-column:span 1!important}
+ .banner-rich-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:6px;border:1px solid #49333d;border-bottom:0;border-radius:8px 8px 0 0;background:#21151c}
+ .banner-rich-toolbar button,.banner-rich-toolbar select{min-height:28px;border:1px solid #62404d;border-radius:5px;background:#35212b;color:#fff;padding:4px 8px;font:600 11px Ubuntu;cursor:pointer}
+ .banner-rich-toolbar button:hover{background:#633044}
+ .banner-rich-toolbar input[type=color]{width:30px;height:28px;padding:2px;border:1px solid #62404d;border-radius:5px;background:#35212b;cursor:pointer}
+ .banner-rich-editor{width:100%;min-width:0;min-height:116px;max-height:190px;overflow:auto;box-sizing:border-box;padding:10px 11px;border:1px solid var(--line);border-radius:0 0 8px 8px;background:#171115;color:#f7edf0;font:13px/1.55 Ubuntu,sans-serif;outline:none;overflow-wrap:anywhere}
  .banner-rich-editor:focus{border-color:#b94a61;box-shadow:0 0 0 3px rgba(185,74,97,.16)}
  .banner-rich-editor:empty:before{content:attr(data-placeholder);color:#8f7c83;pointer-events:none}
  .banner-photo-field{min-height:100%;padding:0;align-content:start}
  .banner-photo-field input[type=file]{min-height:116px;padding:12px;border-style:dashed;display:flex;align-items:center}
  .banner-photo-field small{color:#bdaab1;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
- @media(max-width:1050px){.banner-editor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
- @media(max-width:760px){.banner-editor-grid{grid-template-columns:1fr}.banner-editor-field{grid-column:1/-1!important}}
+ @media(max-width:760px){.banner-editor-grid{grid-template-columns:1fr}.banner-editor-field,.banner-editor-field:nth-child(3),.banner-editor-field:nth-child(4){grid-column:1/-1!important}}
 
  .section-editor{min-height:110px;border:1px solid var(--line);border-radius:8px;background:#120d10;padding:10px;color:#f5e9ed;font:13px Ubuntu}.section-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0}.section-toolbar button{background:#2b1a21;border:1px solid #5b3a46;color:#fff;border-radius:5px;padding:5px 9px;cursor:pointer}
  .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
@@ -999,6 +1004,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="section-form-grid banner-editor-grid">
    <?php foreach(['banner_main_title'=>'Main Title','banner_heading'=>'Heading','banner_description'=>'Description'] as $editorKey=>$editorLabel): $storageKey=$editorKey==='banner_main_title'?'main_title':($editorKey==='banner_heading'?'heading':'description'); $editorValue=(string)($sectionsSettings['banner'][$storageKey]??''); ?>
    <label class="section-field banner-editor-field"><?=e($editorLabel)?>
+    <div class="banner-rich-toolbar" role="toolbar" aria-label="<?=e($editorLabel)?> formatting">
+     <button type="button" data-banner-format="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-format="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-format="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-format="strikeThrough" title="Strikethrough">S</button>
+     <button type="button" data-banner-format="insertUnorderedList" title="Bulleted list">• List</button>
+     <button type="button" data-banner-format="insertOrderedList" title="Numbered list">1. List</button>
+     <label title="Text color"><input type="color" value="#ffffff" data-banner-color aria-label="Text color"></label>
+     <select data-banner-size aria-label="Font size"><option value="">Size</option><option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="24">24 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option><option value="64">64 px</option><option value="72">72 px</option></select>
+     <button type="button" data-banner-link title="Insert link">Link</button>
+     <button type="button" data-banner-clear title="Clear formatting">Tx</button>
+    </div>
     <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="<?=e($editorKey)?>" data-placeholder="Enter <?=e(strtolower($editorLabel))?>..."><?=$editorValue?></div>
     <input type="hidden" name="<?=e($editorKey)?>" data-banner-html="<?=e($editorKey)?>" value="<?=e($editorValue)?>">
    </label>
@@ -1064,14 +1081,48 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    hidden.value=html;
    preview.innerHTML=html;
  };
- root.querySelectorAll('[data-banner-text]').forEach(field=>{
+ const bannerEditors=[...root.querySelectorAll('[data-banner-text]')];
+ const bannerSelection=new Map();
+ const rememberBannerSelection=field=>{const selection=window.getSelection();if(selection&&selection.rangeCount&&field.contains(selection.anchorNode))bannerSelection.set(field.dataset.bannerText,selection.getRangeAt(0).cloneRange());};
+ const restoreBannerSelection=field=>{field.focus();const range=bannerSelection.get(field.dataset.bannerText);if(range){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}};
+ bannerEditors.forEach(field=>{
    const key=field.dataset.bannerText;
    const hidden=root.querySelector('[data-banner-html="'+key+'"]');
    if(hidden&&hidden.value)field.innerHTML=hidden.value;
    field.addEventListener('input',()=>refreshBannerPreview(key));
+   field.addEventListener('keyup',()=>rememberBannerSelection(field));
+   field.addEventListener('mouseup',()=>rememberBannerSelection(field));
    field.addEventListener('blur',()=>refreshBannerPreview(key));
    refreshBannerPreview(key);
  });
+ root.querySelectorAll('[data-banner-format]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
+ root.querySelectorAll('[data-banner-format]').forEach(button=>button.addEventListener('click',()=>{
+   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
+   restoreBannerSelection(field);document.execCommand('styleWithCSS',false,true);document.execCommand(button.dataset.bannerFormat,false,null);
+   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
+ }));
+ root.querySelectorAll('[data-banner-color]').forEach(input=>input.addEventListener('input',()=>{
+   const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
+   restoreBannerSelection(field);document.execCommand('styleWithCSS',false,true);document.execCommand('foreColor',false,input.value);
+   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
+ }));
+ root.querySelectorAll('[data-banner-size]').forEach(select=>select.addEventListener('change',()=>{
+   const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field||!select.value)return;
+   restoreBannerSelection(field);const selection=window.getSelection();
+   if(selection&&selection.rangeCount&&!selection.isCollapsed){const span=document.createElement('span');span.style.fontSize=select.value+'px';try{const range=selection.getRangeAt(0);range.surroundContents(span)}catch(error){const range=selection.getRangeAt(0);span.append(range.extractContents());range.insertNode(span)}}
+   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);select.value='';
+ }));
+ root.querySelectorAll('[data-banner-link]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
+ root.querySelectorAll('[data-banner-link]').forEach(button=>button.addEventListener('click',()=>{
+   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
+   const url=prompt('Enter link URL');if(!url)return;restoreBannerSelection(field);document.execCommand('createLink',false,url);
+   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
+ }));
+ root.querySelectorAll('[data-banner-clear]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
+ root.querySelectorAll('[data-banner-clear]').forEach(button=>button.addEventListener('click',()=>{
+   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
+   restoreBannerSelection(field);document.execCommand('removeFormat',false,null);field.dispatchEvent(new Event('input',{bubbles:true}));
+ }));
  const sectionsForm=document.getElementById('sections-settings-form');
  sectionsForm?.addEventListener('submit',()=>{
    root.querySelectorAll('[data-banner-text]').forEach(field=>refreshBannerPreview(field.dataset.bannerText));
