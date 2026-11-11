@@ -85,6 +85,23 @@ $footerRow = $pdo->query("SELECT content_json FROM site_footer_settings WHERE id
 $footerSettings = json_decode((string)($footerRow['content_json'] ?? ''), true);
 if (!is_array($footerSettings)) $footerSettings = [];
 $footerSettings = array_replace($defaultFooterContent, $footerSettings);
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_sections_settings (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  content_json LONGTEXT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$defaultSections = [
+ 'banner'=>['main_title'=>'ONE CITY. MANY STORIES.','heading'=>'Zamboanga, through our eyes.','description'=>'<p>A digital home for the city\'s history, culture, creative talent, community news, marketplace, entertainment and public conversation.</p>','button_label'=>'Explore our heritage','button_url'=>'#zamboanga','button_color'=>'#b8323f','button_text_color'=>'#ffffff','button_size'=>'14','button_width'=>'auto','button_height'=>'42','photo'=>''],
+ 'slideshow'=>['main_title'=>'A LIVING HERITAGE','heading'=>'Discover the story of Zamboanga City','subtitle'=>'From historic landmarks to maritime traditions and a vibrant, multilingual culture.','photos'=>[]],
+ 'mega_menu'=>['main_title'=>'EXPLORE THE PLATFORM','heading'=>'Five ways to connect','subtitle'=>'A single community space for creativity, information, commerce and cultural memory.','panels'=>[]]
+];
+$pdo->exec("INSERT IGNORE INTO site_sections_settings (id,content_json) VALUES (1,'".str_replace("'","''",json_encode($defaultSections,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE))."')");
+$sectionsRow=$pdo->query("SELECT content_json FROM site_sections_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
+$sectionsSettings=json_decode((string)($sectionsRow['content_json']??''),true);
+if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
+$sectionsSettings=array_replace_recursive($defaultSections,$sectionsSettings);
+
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
 $section = (string)($_GET['section'] ?? 'dashboard');
@@ -182,6 +199,81 @@ function publishHeaderSettingsToGitHub(array $header): string {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'save_sections_settings') {
+        $activePageTab='sections';
+        $saved=$sectionsSettings;
+        $safeText=static fn($v,$max=240)=>mb_substr(trim((string)$v),0,$max);
+        $cleanHtml=static function(string $html): string {
+            $html=strip_tags($html,'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
+            $html=preg_replace_callback('/<a\\b([^>]*)>/i',static function($m){
+                $href=''; if(preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[1],$x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i',$x[1])) $href=' href="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"';
+                return '<a'.$href.' target="_blank" rel="noopener">';
+            },$html);
+            return trim($html);
+        };
+        $upload=static function(array $file,string $prefix): string {
+            if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) return '';
+            if((int)($file['size']??0)>10*1024*1024) throw new RuntimeException('Each section photo must be 10 MB or smaller.');
+            $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+            $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'][$mime]??'';
+            if($ext==='' || @getimagesize((string)$file['tmp_name'])===false) throw new RuntimeException('Upload valid JPG, PNG, GIF or WebP photos only.');
+            $dir=__DIR__.'/uploads/site-sections';
+            if(!is_dir($dir) && !mkdir($dir,0755,true) && !is_dir($dir)) throw new RuntimeException('Unable to create the section photo folder.');
+            $name=$prefix.'-'.bin2hex(random_bytes(9)).'.'.$ext;
+            if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$name)) throw new RuntimeException('Unable to save a section photo.');
+            return 'uploads/site-sections/'.$name;
+        };
+        try {
+            $saved['banner']['main_title']=$safeText($_POST['banner_main_title']??'',120);
+            $saved['banner']['heading']=$safeText($_POST['banner_heading']??'',180);
+            $saved['banner']['description']=$cleanHtml((string)($_POST['banner_description']??''));
+            $saved['banner']['button_label']=$safeText($_POST['banner_button_label']??'',60);
+            $saved['banner']['button_url']=$safeText($_POST['banner_button_url']??'',500);
+            $saved['banner']['button_color']=preg_match('/^#[0-9a-f]{6}$/i',(string)($_POST['banner_button_color']??''))?(string)$_POST['banner_button_color']:'#b8323f';
+            $saved['banner']['button_text_color']=preg_match('/^#[0-9a-f]{6}$/i',(string)($_POST['banner_button_text_color']??''))?(string)$_POST['banner_button_text_color']:'#ffffff';
+            $saved['banner']['button_size']=(string)max(10,min(24,(int)($_POST['banner_button_size']??14)));
+            $saved['banner']['button_width']=$safeText($_POST['banner_button_width']??'auto',5);
+            $saved['banner']['button_height']=(string)max(28,min(80,(int)($_POST['banner_button_height']??42)));
+            if(!empty($_FILES['banner_photo']['name'])) $saved['banner']['photo']=$upload($_FILES['banner_photo'],'banner');
+            $saved['slideshow']['main_title']=$safeText($_POST['slide_main_title']??'',120);
+            $saved['slideshow']['heading']=$safeText($_POST['slide_heading']??'',180);
+            $saved['slideshow']['subtitle']=$safeText($_POST['slide_subtitle']??'',300);
+            $photos=[];
+            $oldPhotos=(array)($sectionsSettings['slideshow']['photos']??[]);
+            foreach((array)($_POST['slide_title']??[]) as $k=>$title){
+                $old=$oldPhotos[$k]??[];
+                $photo=['title'=>$safeText($title,120),'heading'=>$safeText($_POST['slide_photo_heading'][$k]??'',180),'description'=>$cleanHtml((string)($_POST['slide_description'][$k]??'')),'photo'=>(string)($old['photo']??'')];
+                if(isset($_FILES['slide_photo']['error'][$k]) && $_FILES['slide_photo']['error'][$k]===UPLOAD_ERR_OK){
+                    $f=['name'=>$_FILES['slide_photo']['name'][$k],'type'=>$_FILES['slide_photo']['type'][$k],'tmp_name'=>$_FILES['slide_photo']['tmp_name'][$k],'error'=>$_FILES['slide_photo']['error'][$k],'size'=>$_FILES['slide_photo']['size'][$k]];
+                    $photo['photo']=$upload($f,'slide');
+                }
+                if($photo['title']!==''||$photo['heading']!==''||$photo['description']!==''||$photo['photo']!=='') $photos[]=$photo;
+            }
+            $saved['slideshow']['photos']=$photos;
+            $saved['mega_menu']['main_title']=$safeText($_POST['mega_main_title']??'',120);
+            $saved['mega_menu']['heading']=$safeText($_POST['mega_heading']??'',180);
+            $saved['mega_menu']['subtitle']=$safeText($_POST['mega_subtitle']??'',300);
+            $panels=[];
+            $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
+            foreach((array)($_POST['panel_title']??[]) as $k=>$title){
+                $old=$oldPanels[$k]??[];
+                $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'photo'=>(string)($old['photo']??'')];
+                if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
+                    $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
+                    $panel['photo']=$upload($f,'panel');
+                }
+                if($panel['title']!==''||$panel['description']!==''||$panel['url']!==''||$panel['photo']!=='') $panels[]=$panel;
+            }
+            $saved['mega_menu']['panels']=$panels;
+            $save=$pdo->prepare("INSERT INTO site_sections_settings (id,content_json) VALUES (1,?) ON DUPLICATE KEY UPDATE content_json=VALUES(content_json)");
+            $save->execute([json_encode($saved,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            $sectionsSettings=$saved;
+            header('Location: admin.php?section=page-management&tab=sections&sections_saved=1#pm-panel-sections',true,303); exit;
+        } catch(Throwable $e) { $message=$e->getMessage(); }
+        $section='page-management';
+    }
+
     if ($action === 'save_footer_settings') {
         $activePageTab = 'footer';
         $content = [
@@ -409,6 +501,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section = 'dashboard';
     }
 }
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['sections_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Sections settings successfully saved.';
 // A successful Footer save is shown only on the redirected GET request.
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
     $message = 'Footer settings successfully updated.';
@@ -817,10 +910,68 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <section class="page-management-tabpanel" id="pm-panel-contents" role="tabpanel" aria-labelledby="pm-tab-contents" hidden>
         <?php require __DIR__ . '/../app/content-manager-view.php'; ?>
       </section>
+      
+<?php if($message==='Sections settings successfully saved.'): ?><div class="panel" role="status" style="border-color:#3c8b65;color:#c8f2d9;margin-top:14px">✓ Sections settings successfully saved.</div><?php endif; ?>
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
-        <h2>Sections</h2><p class="muted">Manage the sections displayed on the public website.</p>
-        <div class="admin-note">Section management controls can be added here. No existing website content has been changed.</div>
-      </section>
+ <style>
+ .section-builder-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0;border-bottom:1px solid var(--line);padding-bottom:12px}
+ .section-builder-tabs button{border:1px solid #44313a;background:#171115;color:#d8cbd0;border-radius:999px;padding:10px 22px;font:600 13px Ubuntu;cursor:pointer}
+ .section-builder-tabs button[aria-selected=true]{color:#fff;box-shadow:0 0 0 2px #ffffff12}
+ .section-builder-tabs [data-section-tab=banner][aria-selected=true]{background:#57101b;border-color:#ef3340}
+ .section-builder-tabs [data-section-tab=slideshow][aria-selected=true]{background:#102c55;border-color:#20b9ff}
+ .section-builder-tabs [data-section-tab=mega_menu][aria-selected=true]{background:#514600;border-color:#f5dc00}
+ .section-subpanel[hidden]{display:none}.section-preview{border:1px solid #55414a;background:#0b090b;border-radius:13px;padding:15px;margin-bottom:20px;overflow:hidden}
+ .section-preview h3{font:28px Georgia,serif;margin:5px 0 9px}.section-preview .preview-kicker{font:700 9px Ubuntu;letter-spacing:.18em;color:#ff5268}
+ .section-preview .preview-desc{font:12px Ubuntu;color:#d8cbd0}.section-preview-media{display:flex;gap:10px;overflow:auto;margin-top:10px}.section-preview-media img{width:180px;height:105px;object-fit:cover;border-radius:8px}
+ .section-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.section-field{display:grid;gap:7px;font:600 12px Ubuntu;color:#f2e6e9}.section-field input,.section-field textarea,.section-field select{width:100%;box-sizing:border-box;background:#171115;border:1px solid var(--line);border-radius:8px;padding:10px;color:#f7edf0;font:13px Ubuntu}.section-field textarea{min-height:78px}
+ .section-editor{min-height:110px;border:1px solid var(--line);border-radius:8px;background:#120d10;padding:10px;color:#f5e9ed;font:13px Ubuntu}.section-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0}.section-toolbar button{background:#2b1a21;border:1px solid #5b3a46;color:#fff;border-radius:5px;padding:5px 9px;cursor:pointer}
+ .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
+ @media(max-width:760px){.section-form-grid{grid-template-columns:1fr}}
+ </style>
+ <h2>Website Sections</h2><p class="muted">Configure the homepage banner, Ken Burns slideshow and mega menu. Each tab has a live preview above its settings.</p>
+ <nav class="section-builder-tabs" aria-label="Homepage section editor">
+  <button type="button" data-section-tab="banner" aria-selected="true">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false">Mega Menu</button>
+ </nav>
+ <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings">
+ <section class="section-subpanel" data-section-panel="banner">
+  <div class="section-preview" id="banner-preview"><div class="preview-kicker" id="banner-preview-title"><?=e($sectionsSettings['banner']['main_title'])?></div><h3 id="banner-preview-heading"><?=e($sectionsSettings['banner']['heading'])?></h3><div class="preview-desc" id="banner-preview-description"><?=$sectionsSettings['banner']['description']?></div><div id="banner-preview-button" style="display:inline-block;margin-top:12px;padding:10px 18px;background:<?=e($sectionsSettings['banner']['button_color'])?>;color:<?=e($sectionsSettings['banner']['button_text_color'])?>;border-radius:30px">Preview Button</div><?php if(!empty($sectionsSettings['banner']['photo'])): ?><img src="<?=e($sectionsSettings['banner']['photo'])?>" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:10px"><?php endif; ?></div>
+  <div class="section-form-grid">
+   <label class="section-field">Main Title<input name="banner_main_title" value="<?=e($sectionsSettings['banner']['main_title'])?>" data-preview="banner-preview-title"></label>
+   <label class="section-field">Heading<input name="banner_heading" value="<?=e($sectionsSettings['banner']['heading'])?>" data-preview="banner-preview-heading"></label>
+   <label class="section-field" style="grid-column:1/-1">Description<div class="section-toolbar"><button type="button" data-cmd="bold">B</button><button type="button" data-cmd="italic">I</button><button type="button" data-cmd="underline">U</button><button type="button" data-link>Link</button></div><div class="section-editor" contenteditable="true" data-editor="banner_description"><?=$sectionsSettings['banner']['description']?></div><textarea hidden name="banner_description" data-editor-source="banner_description"></textarea></label>
+   <label class="section-field">Button Label<input name="banner_button_label" value="<?=e($sectionsSettings['banner']['button_label'])?>"></label><label class="section-field">Button URL<input name="banner_button_url" value="<?=e($sectionsSettings['banner']['button_url'])?>"></label>
+   <label class="section-field">Button Color<input type="color" name="banner_button_color" value="<?=e($sectionsSettings['banner']['button_color'])?>"></label><label class="section-field">Button Text Color<input type="color" name="banner_button_text_color" value="<?=e($sectionsSettings['banner']['button_text_color'])?>"></label>
+   <label class="section-field">Button Font Size (px)<input type="number" min="10" max="24" name="banner_button_size" value="<?=e($sectionsSettings['banner']['button_size'])?>"></label><label class="section-field">Button Width (px or auto)<input name="banner_button_width" value="<?=e($sectionsSettings['banner']['button_width'])?>"></label><label class="section-field">Button Height (px)<input type="number" min="28" max="80" name="banner_button_height" value="<?=e($sectionsSettings['banner']['button_height'])?>"></label><label class="section-field">Upload / Replace Banner Photo<input type="file" name="banner_photo" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+  </div>
+ </section>
+ <section class="section-subpanel" data-section-panel="slideshow" hidden>
+  <div class="section-preview"><div class="preview-kicker" id="slide-preview-title"><?=e($sectionsSettings['slideshow']['main_title'])?></div><h3 id="slide-preview-heading"><?=e($sectionsSettings['slideshow']['heading'])?></h3><p class="preview-desc" id="slide-preview-subtitle"><?=e($sectionsSettings['slideshow']['subtitle'])?></p><div class="section-preview-media" id="slide-preview-media"><?php foreach($sectionsSettings['slideshow']['photos'] as $ph): if(!empty($ph['photo'])): ?><img src="<?=e($ph['photo'])?>" alt=""><?php endif; endforeach; ?></div></div>
+  <div class="section-form-grid"><label class="section-field">Main Title<input name="slide_main_title" value="<?=e($sectionsSettings['slideshow']['main_title'])?>" data-preview="slide-preview-title"></label><label class="section-field">Heading<input name="slide_heading" value="<?=e($sectionsSettings['slideshow']['heading'])?>" data-preview="slide-preview-heading"></label><label class="section-field" style="grid-column:1/-1">Subtitle<input name="slide_subtitle" value="<?=e($sectionsSettings['slideshow']['subtitle'])?>" data-preview="slide-preview-subtitle"></label></div>
+  <div class="section-repeat-head"><h3>Slideshow Photos</h3><button type="button" class="btn light" id="add-slide-photo">+ Add Photo</button></div><div id="slide-photo-list">
+  <?php foreach($sectionsSettings['slideshow']['photos'] as $k=>$ph): ?><div class="section-repeat-card"><div class="section-repeat-head"><strong>Photo <?=($k+1)?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Photo Title<input name="slide_title[]" value="<?=e($ph['title']??'')?>"></label><label class="section-field">Photo Heading<input name="slide_photo_heading[]" value="<?=e($ph['heading']??'')?>"></label><label class="section-field" style="grid-column:1/-1">Description<div class="section-toolbar"><button type="button" data-cmd="bold">B</button><button type="button" data-cmd="italic">I</button><button type="button" data-cmd="underline">U</button><button type="button" data-link>Link</button></div><div class="section-editor" contenteditable="true"><?=$ph['description']??''?></div><textarea hidden name="slide_description[]"><?=e($ph['description']??'')?></textarea></label><label class="section-field">Upload Photo<input type="file" name="slide_photo[]" accept="image/*"><?php if(!empty($ph['photo'])): ?><small>Current photo: <?=e(basename($ph['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?>
+  </div>
+ </section>
+ <section class="section-subpanel" data-section-panel="mega_menu" hidden>
+  <div class="section-preview"><div class="preview-kicker" id="mega-preview-title"><?=e($sectionsSettings['mega_menu']['main_title'])?></div><h3 id="mega-preview-heading"><?=e($sectionsSettings['mega_menu']['heading'])?></h3><p class="preview-desc" id="mega-preview-subtitle"><?=e($sectionsSettings['mega_menu']['subtitle'])?></p><div class="section-preview-media"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt=""><?php endif; endforeach; ?></div></div>
+  <div class="section-form-grid"><label class="section-field">Main Title<input name="mega_main_title" value="<?=e($sectionsSettings['mega_menu']['main_title'])?>" data-preview="mega-preview-title"></label><label class="section-field">Heading<input name="mega_heading" value="<?=e($sectionsSettings['mega_menu']['heading'])?>" data-preview="mega-preview-heading"></label><label class="section-field" style="grid-column:1/-1">Subtitle<input name="mega_subtitle" value="<?=e($sectionsSettings['mega_menu']['subtitle'])?>" data-preview="mega-preview-subtitle"></label></div>
+  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
+ </section>
+ <div class="header-settings-actions"><button type="submit" class="btn">Save Sections Settings</button></div>
+ </form>
+ <script>
+ (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')];tabs.forEach(t=>t.addEventListener('click',()=>{tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));});panels.forEach(p=>p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab)}));
+ root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
+ root.querySelectorAll('[data-editor]').forEach(ed=>{const sync=()=>{const src=root.querySelector('[data-editor-source="'+ed.dataset.editor+'"]');if(src)src.value=ed.innerHTML};ed.addEventListener('input',sync);});
+ root.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>{const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand(b.dataset.cmd,false,null);ed?.dispatchEvent(new Event('input'))}));
+ root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter link URL');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
+ const add=(target,html)=>{document.getElementById(target).insertAdjacentHTML('beforeend',html)};
+ document.getElementById('add-slide-photo')?.addEventListener('click',()=>add('slide-photo-list','<div class="section-repeat-card"><div class="section-repeat-head"><strong>New Photo</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Photo Title<input name="slide_title[]"></label><label class="section-field">Photo Heading<input name="slide_photo_heading[]"></label><label class="section-field" style="grid-column:1/-1">Description<div class="section-editor" contenteditable="true"></div><textarea hidden name="slide_description[]"></textarea></label><label class="section-field">Upload Photo<input type="file" name="slide_photo[]" accept="image/*"></label></div></div>'));
+ document.getElementById('add-mega-panel')?.addEventListener('click',()=>add('mega-panel-list','<div class="section-repeat-card"><div class="section-repeat-head"><strong>New Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]"></label><label class="section-field">Panel Description<textarea name="panel_description[]"></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"></label></div></div>'));
+ root.addEventListener('click',e=>{if(e.target.classList.contains('section-remove'))e.target.closest('.section-repeat-card')?.remove()});
+ root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
+ })();
+ </script>
+</section>
       <section class="page-management-tabpanel" id="pm-panel-gallery" role="tabpanel" aria-labelledby="pm-tab-gallery" hidden>
         <h2>Gallery</h2><p class="muted">Manage photographs and image collections displayed on the public website.</p>
         <div class="admin-note">Gallery management controls can be added here. No existing website content has been changed.</div>
