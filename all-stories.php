@@ -304,6 +304,7 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
       if (value) url.searchParams.set('q', value);
       else url.searchParams.delete('q');
       url.searchParams.delete('page');
+      input.blur();
       window.location.assign(url.toString());
     }, 350);
   });
