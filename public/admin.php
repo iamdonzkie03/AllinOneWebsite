@@ -1112,8 +1112,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  };
  const bannerEditors=[...root.querySelectorAll('[data-banner-text]')];
  const bannerSelection=new Map();
- const rememberBannerSelection=field=>{const selection=window.getSelection();if(selection&&selection.rangeCount&&field.contains(selection.anchorNode))bannerSelection.set(field.dataset.bannerText,selection.getRangeAt(0).cloneRange());};
- const restoreBannerSelection=field=>{field.focus();const range=bannerSelection.get(field.dataset.bannerText);if(range){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}};
+ const rememberBannerSelection=field=>{const selection=window.getSelection();if(selection&&selection.rangeCount&&field.contains(selection.anchorNode)&&field.contains(selection.focusNode))bannerSelection.set(field.dataset.bannerText,selection.getRangeAt(0).cloneRange());};
+ const restoreBannerSelection=field=>{if(!field)return;const range=bannerSelection.get(field.dataset.bannerText);field.focus();if(range){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}};
+ document.addEventListener('selectionchange',()=>{const active=bannerEditors.find(field=>field.contains(window.getSelection()?.anchorNode));if(active)rememberBannerSelection(active);});
+ root.querySelectorAll('.banner-rich-toolbar').forEach(toolbar=>toolbar.addEventListener('pointerdown',event=>{const field=toolbar.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)rememberBannerSelection(field);},true));
  bannerEditors.forEach(field=>{
    const key=field.dataset.bannerText;
    const hidden=root.querySelector('[data-banner-html="'+key+'"]');
@@ -1125,19 +1127,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    refreshBannerPreview(key);
  });
  const bannerCsrf=root.querySelector('input[name="csrf"]')?.value||'';
- const bannerRunCommand=(field,command,value=null)=>{field.focus();document.execCommand(command,false,value);field.dispatchEvent(new Event('input',{bubbles:true}));};
+ const bannerRunCommand=(field,command,value=null)=>{restoreBannerSelection(field);document.execCommand(command,false,value);field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);};
  root.querySelectorAll('[data-banner-command]').forEach(button=>{
    button.addEventListener('mousedown',event=>event.preventDefault());
    button.addEventListener('click',()=>{const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,button.dataset.bannerCommand);});
  });
  root.querySelectorAll('[data-banner-block]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field&&select.value)bannerRunCommand(field,'formatBlock','<'+select.value+'>');}));
  const applyBannerInlineStyle=(field,property,value)=>{
-   if(!field||!value)return;field.focus();const selection=window.getSelection();
+   if(!field||!value)return;restoreBannerSelection(field);const selection=window.getSelection();
    if(!selection||!selection.rangeCount||!field.contains(selection.anchorNode)||selection.isCollapsed)return;
    const range=selection.getRangeAt(0),span=document.createElement('span');span.style[property]=value;
    try{range.surroundContents(span);}catch(error){span.append(range.extractContents());range.insertNode(span);}
    selection.removeAllRanges();const next=document.createRange();next.selectNodeContents(span);next.collapse(false);selection.addRange(next);
-   field.dispatchEvent(new Event('input',{bubbles:true}));
+   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
  };
  root.querySelectorAll('[data-banner-font-family]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');applyBannerInlineStyle(field,'fontFamily',select.value);select.value='';}));
  root.querySelectorAll('[data-banner-font-size]').forEach(select=>select.addEventListener('change',()=>{const field=select.closest('.banner-editor-field')?.querySelector('[data-banner-text]');applyBannerInlineStyle(field,'fontSize',select.value+'px');select.value='';}));
