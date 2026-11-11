@@ -61,6 +61,30 @@ if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
 foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
 $sectionImageSrc=static fn(string $path): string => preg_match('~^https?://~i',$path)?$path:'public/'.ltrim($path,'/');
 
+// Render administrator-authored banner formatting while retaining only safe
+// text-formatting tags and a narrow set of inline typography declarations.
+$renderBannerRichText = static function(string $html): string {
+    $html = strip_tags($html, '<span><strong><b><em><i><u><br><p>');
+    $html = preg_replace_callback('/<span\\b([^>]*)>/i', static function(array $match): string {
+        $rules = [];
+        if (preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $match[1], $styleMatch)) {
+            foreach (explode(';', $styleMatch[1]) as $declaration) {
+                if (!str_contains($declaration, ':')) continue;
+                [$property, $value] = array_map('trim', explode(':', $declaration, 2));
+                $property = strtolower($property);
+                if ($property === 'color' && preg_match('/^(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})$/i', $value)) {
+                    $rules[] = 'color:' . $value . ' !important';
+                } elseif ($property === 'font-size' && preg_match('/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\\.[0-9]+)?px$/i', $value)) {
+                    $rules[] = 'font-size:' . $value . ' !important';
+                }
+            }
+        }
+        return '<span' . ($rules ? ' style="' . e(implode(';', $rules)) . '"' : '') . '>';
+    }, $html);
+    $html = preg_replace('/<(strong|b|em|i|u|br|p)\\b[^>]*>/i', '<$1>', $html);
+    return (string)$html;
+};
+
 
 // Load the administrator-managed footer content from the same database row.
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_footer_settings (
@@ -230,9 +254,9 @@ $modules = [
 <main>
 <?php $publicSections=$sectionsSettings ?? []; $bannerSection=$publicSections['banner']??[]; ?>
 <section class="hero home-hero"><div class="wrap hero-grid"><div>
-<div class="eyebrow"><?=($bannerSection['main_title']??'One city. Many stories.')?></div>
-<h1><?=($bannerSection['heading']??'Zamboanga, through our eyes.')?></h1>
-<div class="hero-description"><?=($bannerSection['description']??'')?></div>
+<div class="eyebrow"><?=$renderBannerRichText((string)($bannerSection['main_title']??'One city. Many stories.'))?></div>
+<h1><?=$renderBannerRichText((string)($bannerSection['heading']??'Zamboanga, through our eyes.'))?></h1>
+<div class="hero-description"><?=$renderBannerRichText((string)($bannerSection['description']??''))?></div>
 <div class="hero-actions"><a class="btn light" href="#create-account-modal" data-open-create-account>Become a contributor ↗</a></div>
 <div class="hero-note"><span class="hero-note-dot"></span>Independent community contributions · Administrator-reviewed publishing</div>
 </div>
