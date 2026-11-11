@@ -202,6 +202,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_sections_settings') {
         $activePageTab='sections';
+        $sectionEditorTab=(string)($_POST['section_editor_tab']??'banner');
+        if(!in_array($sectionEditorTab,['banner','slideshow','mega_menu'],true))$sectionEditorTab='banner';
         $saved=$sectionsSettings;
         $safeText=static fn($v,$max=240)=>mb_substr(trim((string)$v),0,$max);
         $cleanHtml=static function(string $html): string {
@@ -286,7 +288,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if($uploadsRoot && $oldReal && is_file($oldReal) && strpos($oldReal,$uploadsRoot.DIRECTORY_SEPARATOR)===0 && !is_link($oldReal)) @unlink($oldReal);
             }
             $sectionsSettings=$saved;
-            header('Location: admin.php?section=page-management&tab=sections&sections_saved=1#pm-panel-sections',true,303); exit;
+            $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':'sections_saved=1';
+            header('Location: admin.php?section=page-management&tab=sections&'.$saveFlag.'#pm-panel-sections',true,303); exit;
         } catch(Throwable $e) { $message=$e->getMessage(); }
         $section='page-management';
     }
@@ -518,6 +521,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $section = 'dashboard';
     }
 }
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['banner_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Banner Settings successfully saved.';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['sections_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Sections settings successfully saved.';
 // A successful Footer save is shown only on the redirected GET request.
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
@@ -683,7 +687,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
 </aside>
 <main class="admin-main">
-<?php if($message === 'Header settings successfully saved.'):?>
+<?php if($message === 'Banner Settings successfully saved.'):?>
+<div class="account-status-modal" id="banner-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="banner-settings-success-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="banner-settings-success-title">Banner Settings successfully saved.</h2>
+    <button type="button" class="btn" id="banner-settings-success-close" onclick="window.location.replace('admin.php?section=page-management&amp;tab=sections#pm-panel-sections')">OK</button>
+  </div>
+</div>
+<?php elseif($message === 'Header settings successfully saved.'):?>
 <div class="account-status-modal" id="header-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="header-settings-success-title">
   <div class="account-status-modal-card">
     <div class="account-status-modal-icon" aria-hidden="true">✓</div>
@@ -988,7 +1000,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <span class="section-tab-indicator" aria-hidden="true"></span>
   <button type="button" data-section-tab="banner" aria-selected="true" role="tab">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab">Mega Menu</button>
  </nav>
- <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings">
+ <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings"><input type="hidden" name="section_editor_tab" id="section-editor-tab" value="banner">
  <section class="section-subpanel" data-section-panel="banner">
   <div class="section-preview banner-preview-stage" id="banner-preview">
    <div class="banner-preview-grid">
@@ -1055,10 +1067,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="section-form-grid"><label class="section-field">Main Title<input name="mega_main_title" value="<?=e($sectionsSettings['mega_menu']['main_title'])?>" data-preview="mega-preview-title"></label><label class="section-field">Heading<input name="mega_heading" value="<?=e($sectionsSettings['mega_menu']['heading'])?>" data-preview="mega-preview-heading"></label><label class="section-field" style="grid-column:1/-1">Subtitle<input name="mega_subtitle" value="<?=e($sectionsSettings['mega_menu']['subtitle'])?>" data-preview="mega-preview-subtitle"></label></div>
   <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
  </section>
- <div class="header-settings-actions"><button type="submit" class="btn">Save Sections Settings</button></div>
+ <div class="header-settings-actions"><button type="submit" class="btn" id="save-section-settings-button">Save Banner Settings</button></div>
  </form>
  <script>
- (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const activateSectionTab=(t)=>{const index=tabs.indexOf(t);tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
+ (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const activateSectionTab=(t)=>{const index=tabs.indexOf(t);tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
  const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description'};
  const cleanBannerPreviewHtml=html=>{
@@ -1746,7 +1758,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   });
 })();
 
-(()=>{['account-status-modal','header-settings-success-modal','footer-settings-success-modal','footer-validation-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
+(()=>{['account-status-modal','banner-settings-success-modal','header-settings-success-modal','footer-settings-success-modal','footer-validation-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
 </script>
 </main></div><script>
 
