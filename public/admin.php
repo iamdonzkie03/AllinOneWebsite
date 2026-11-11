@@ -264,11 +264,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (!$savedFiles) throw new RuntimeException('No photos were uploaded. Choose valid photo files and try again.');
             $pdo->commit();
-            header('Location: admin.php?section=media-management&media_tab=gallery&gallery_saved=' . count($savedFiles), true, 303);
+            $uploadedCount = count($savedFiles);
+            if (strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest') {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success'=>true,'count'=>$uploadedCount]);
+                exit;
+            }
+            header('Location: admin.php?section=media-management&media_tab=gallery&gallery_saved=' . $uploadedCount, true, 303);
             exit;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             foreach ($savedFiles as $savedFile) if (is_file($savedFile)) @unlink($savedFile);
+            if (strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest') {
+                http_response_code(422);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success'=>false,'message'=>$e->getMessage()]);
+                exit;
+            }
             $message = $e->getMessage();
         }
     }
@@ -942,15 +954,28 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <small>JPG, JPEG, PNG, WebP or AVIF · maximum 10 MB per photo</small>
         </label>
         <div class="gallery-photo-details" id="gallery-photo-details"><p class="muted">Choose photo files to enter a title and description for each image.</p></div>
+        <div class="gallery-upload-progress" id="gallery-upload-progress" hidden role="status" aria-live="polite">
+          <div class="gallery-upload-progress-head"><span id="gallery-upload-progress-label">Uploading photos…</span><strong id="gallery-upload-progress-value">0%</strong></div>
+          <div class="gallery-upload-progress-track"><div class="gallery-upload-progress-fill" id="gallery-upload-progress-fill" style="width:0%"></div></div>
+        </div>
+        <div class="gallery-upload-error" id="gallery-upload-error" role="alert" hidden></div>
         <div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-modal-cancel">Cancel</button><button class="btn" type="submit" id="gallery-upload-submit">Upload Photos</button></div>
       </form>
+    </section>
+  </div>
+  <div class="gallery-modal-backdrop" id="gallery-upload-success-modal" hidden>
+    <section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-upload-success-title">
+      <div class="gallery-upload-success-mark" aria-hidden="true">✓</div>
+      <h2 id="gallery-upload-success-title">Photos uploaded successfully.</h2>
+      <p id="gallery-upload-success-message"></p>
+      <div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-upload-success-close">Continue</button></div>
     </section>
   </div>
   <style>
     .gallery-panel-top{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:0 0 15px}.gallery-panel-top h3{margin:0 0 4px;font:600 15px Ubuntu,sans-serif;color:#f5e9ed}.gallery-panel-top p{margin:0;font-size:11px}
     .gallery-controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px;color:var(--muted);font:12px Ubuntu,sans-serif}.gallery-controls label{display:flex;align-items:center;gap:8px}.gallery-controls select,.gallery-controls input,.gallery-form-field input,.gallery-form-field select{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.gallery-filter-wrap input{width:min(340px,65vw)}
     .gallery-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 18px}.gallery-pagination>div{display:flex;align-items:center;gap:9px}.gallery-pagination .btn{padding:7px 11px;font-size:11px}.gallery-pagination .btn:disabled{opacity:.4;cursor:not-allowed}
-    .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:15px}.gallery-photo-card{min-width:0;overflow:visible}.gallery-photo-image{position:relative;aspect-ratio:4/3;border:1px solid rgba(184,50,63,.25);border-radius:10px;overflow:visible;background:#100c0f}.gallery-photo-image>img{display:block;width:100%;height:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px}.gallery-photo-description{position:absolute;z-index:5;left:50%;bottom:calc(100% + 8px);width:min(250px,80vw);padding:10px 12px;border:1px solid rgba(210,103,126,.42);border-radius:9px;background:rgba(22,12,17,.97);box-shadow:0 12px 28px rgba(0,0,0,.4);color:#f5e9ed;font:11px/1.5 Ubuntu,sans-serif;opacity:0;visibility:hidden;transform:translate(-50%,5px);transition:.18s;pointer-events:none;white-space:normal;overflow-wrap:anywhere}.gallery-photo-image:hover .gallery-photo-description,.gallery-photo-image:focus-within .gallery-photo-description{opacity:1;visibility:visible;transform:translate(-50%,0)}.gallery-photo-title{margin:8px 1px 3px;color:#f4e8eb;font:600 12px/1.4 Ubuntu,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gallery-photo-meta{margin:0 1px;color:#a99aa0;font:10px Ubuntu,sans-serif}.gallery-empty{padding:22px 14px;border:1px dashed rgba(184,50,63,.3);border-radius:10px;color:var(--muted);font:12px Ubuntu,sans-serif;text-align:center;grid-column:1/-1}.gallery-inline-success{padding:10px 12px;margin-bottom:14px;border:1px solid rgba(70,160,110,.35);border-radius:8px;background:rgba(35,110,70,.12);color:#c5f0d6;font:12px Ubuntu,sans-serif}
+    .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:15px}.gallery-photo-card{min-width:0;overflow:visible}.gallery-photo-image{position:relative;aspect-ratio:4/3;border:1px solid rgba(184,50,63,.25);border-radius:10px;overflow:visible;background:#100c0f}.gallery-photo-image>img{display:block;width:100%;height:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px}.gallery-photo-description{position:absolute;z-index:5;left:50%;bottom:calc(100% + 8px);width:min(250px,80vw);padding:10px 12px;border:1px solid rgba(210,103,126,.42);border-radius:9px;background:rgba(22,12,17,.97);box-shadow:0 12px 28px rgba(0,0,0,.4);color:#f5e9ed;font:11px/1.5 Ubuntu,sans-serif;opacity:0;visibility:hidden;transform:translate(-50%,5px);transition:.18s;pointer-events:none;white-space:normal;overflow-wrap:anywhere}.gallery-photo-image:hover .gallery-photo-description,.gallery-photo-image:focus-within .gallery-photo-description{opacity:1;visibility:visible;transform:translate(-50%,0)}.gallery-photo-title{margin:8px 1px 3px;color:#f4e8eb;font:600 12px/1.4 Ubuntu,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gallery-photo-meta{margin:0 1px;color:#a99aa0;font:10px Ubuntu,sans-serif}.gallery-empty{padding:22px 14px;border:1px dashed rgba(184,50,63,.3);border-radius:10px;color:var(--muted);font:12px Ubuntu,sans-serif;text-align:center;grid-column:1/-1}.gallery-inline-success{padding:10px 12px;margin-bottom:14px;border:1px solid rgba(70,160,110,.35);border-radius:8px;background:rgba(35,110,70,.12);color:#c5f0d6;font:12px Ubuntu,sans-serif}.gallery-upload-progress{margin:14px 0 4px;padding:12px;border:1px solid rgba(184,50,63,.3);border-radius:9px;background:rgba(255,255,255,.025)}.gallery-upload-progress[hidden],.gallery-upload-error[hidden]{display:none}.gallery-upload-progress-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:9px;color:#e9dce0;font:11px Ubuntu,sans-serif}.gallery-upload-progress-head strong{color:#f0a4b3;font-variant-numeric:tabular-nums}.gallery-upload-progress-track{height:9px;overflow:hidden;border-radius:20px;background:#302128}.gallery-upload-progress-fill{height:100%;width:0;border-radius:20px;background:linear-gradient(90deg,#74182d,#d34c66);transition:width .12s ease}.gallery-upload-error{margin-top:12px;padding:10px 12px;border:1px solid rgba(210,75,95,.4);border-radius:8px;background:rgba(130,25,45,.15);color:#ffc4ce;font:11px/1.5 Ubuntu,sans-serif}.gallery-upload-success-modal{text-align:center;max-width:420px}.gallery-upload-success-mark{display:grid;place-items:center;width:48px;height:48px;margin:4px auto 14px;border-radius:50%;background:rgba(65,155,103,.16);border:1px solid rgba(95,190,130,.45);color:#9ce0b5;font:28px Ubuntu,sans-serif}.gallery-upload-success-modal h2{margin:0 0 8px;color:#f5e9ed;font:600 17px Ubuntu,sans-serif}.gallery-upload-success-modal p{margin:0;color:#cdbfc4;font:12px Ubuntu,sans-serif}
     .gallery-modal-backdrop{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.76);backdrop-filter:blur(7px)}.gallery-modal-backdrop[hidden]{display:none}.gallery-modal{width:min(720px,96vw);max-height:90vh;overflow:auto;padding:22px;border:1px solid rgba(184,50,63,.38);border-radius:15px;background:#130e12;box-shadow:0 24px 70px rgba(0,0,0,.55)}.gallery-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}.gallery-modal-head h2{margin:0 0 5px;color:#f5e9ed;font:600 17px Ubuntu,sans-serif}.gallery-modal-head p{margin:0;font-size:11px}.gallery-modal-close{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#21151a;color:#fff;font-size:22px;cursor:pointer}.gallery-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}.gallery-form-field{display:grid;gap:7px;color:#e9dce0;font:600 11px Ubuntu,sans-serif}.gallery-form-field input,.gallery-form-field select{width:100%;box-sizing:border-box}.gallery-form-field[hidden]{display:none}.gallery-file-field{margin-bottom:14px}.gallery-file-field small{color:var(--muted);font-weight:400}.gallery-photo-details{display:grid;gap:10px;max-height:300px;overflow:auto;margin:12px 0}.gallery-photo-detail-row{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.018)}.gallery-photo-detail-row img{width:76px;height:66px;object-fit:cover;border-radius:6px}.gallery-photo-detail-fields{display:grid;gap:7px;min-width:0}.gallery-photo-detail-fields input,.gallery-photo-detail-fields textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:7px;background:#171115;color:#f5e9ed;font:11px Ubuntu,sans-serif}.gallery-photo-detail-fields textarea{min-height:48px;resize:vertical}.gallery-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:17px;padding-top:14px;border-top:1px solid var(--line)}
     @media(max-width:600px){.gallery-panel-top{align-items:flex-start}.gallery-form-grid{grid-template-columns:1fr}.gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gallery-photo-detail-row{grid-template-columns:58px minmax(0,1fr)}.gallery-photo-detail-row img{width:58px;height:58px}}
   </style>
@@ -962,6 +987,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const render=()=>{if(!size||!info)return;const found=matches(),perPage=Number(size.value),pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));cards.forEach(card=>card.hidden=!visible.has(card));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' photos':'Showing 0 photos';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(empty)empty.hidden=cards.length===0||found.length!==0;};
     filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});prev?.addEventListener('click',()=>{if(page>1){page--;render();}});next?.addEventListener('click',()=>{page++;render();});render();
     const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
+    const progress=document.getElementById('gallery-upload-progress'),progressFill=document.getElementById('gallery-upload-progress-fill'),progressValue=document.getElementById('gallery-upload-progress-value'),progressLabel=document.getElementById('gallery-upload-progress-label'),uploadError=document.getElementById('gallery-upload-error'),successModal=document.getElementById('gallery-upload-success-modal'),successMessage=document.getElementById('gallery-upload-success-message');
+    let uploadInProgress=false;
+    const resetProgress=()=>{if(progress)progress.hidden=true;if(progressFill)progressFill.style.width='0%';if(progressValue)progressValue.textContent='0%';if(progressLabel)progressLabel.textContent='Uploading photos…';if(uploadError){uploadError.hidden=true;uploadError.textContent='';}};
+    const setProgress=value=>{const percent=Math.max(0,Math.min(100,Math.round(value)));if(progressFill)progressFill.style.width=percent+'%';if(progressValue)progressValue.textContent=percent+'%';};
     const resetUploadForm=()=>{
       if(!form)return;
       form.reset();
@@ -969,13 +998,52 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(existing&&fresh&&mode){const isNew=mode.value==='new';existing.hidden=isNew;fresh.hidden=!isNew;}
       const submit=document.getElementById('gallery-upload-submit');
       if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
+      resetProgress();uploadInProgress=false;
     };
-    const close=()=>{if(modal)modal.hidden=true;resetUploadForm();};
+    const close=()=>{if(uploadInProgress)return;if(modal)modal.hidden=true;resetUploadForm();};
     open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new';existing.hidden=isNew;fresh.hidden=!isNew;});
     files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}selected.forEach((file,index)=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
-    form?.addEventListener('submit',event=>{if(!files.files.length||files.files.length>20){event.preventDefault();alert('Choose between 1 and 20 photos.');return;}if(mode.value==='new'&&!document.getElementById('gallery-folder-name').value.trim()){event.preventDefault();alert('Enter a name for the new folder.');return;}document.getElementById('gallery-upload-submit').disabled=true;document.getElementById('gallery-upload-submit').textContent='Uploading…';});
+    form?.addEventListener('submit',event=>{
+      event.preventDefault();
+      if(uploadInProgress)return;
+      if(!files.files.length||files.files.length>20){alert('Choose between 1 and 20 photos.');return;}
+      if(mode.value==='new'&&!document.getElementById('gallery-folder-name').value.trim()){alert('Enter a name for the new folder.');return;}
+      const submit=document.getElementById('gallery-upload-submit');
+      const xhr=new XMLHttpRequest();
+      const data=new FormData(form);
+      uploadInProgress=true;submit.disabled=true;submit.textContent='Uploading…';
+      if(progress)progress.hidden=false;
+      if(uploadError){uploadError.hidden=true;uploadError.textContent='';}
+      setProgress(0);
+      xhr.open('POST',form.action||window.location.href,true);
+      xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
+      xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable)setProgress(event.total?event.loaded/event.total*100:0);});
+      xhr.addEventListener('load',()=>{
+        let result=null;try{result=JSON.parse(xhr.responseText);}catch(error){}
+        if(xhr.status>=200&&xhr.status<300&&result?.success){
+          setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';
+          uploadInProgress=false;modal.hidden=true;resetUploadForm();
+          if(successMessage)successMessage.textContent=result.count+' '+(result.count===1?'Photo':'Photos')+' uploaded successfully.';
+          if(successModal)successModal.hidden=false;
+          return;
+        }
+        uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
+        if(uploadError){uploadError.textContent=result?.message||'The photos could not be uploaded. Please try again.';uploadError.hidden=false;}
+      });
+      xhr.addEventListener('error',()=>{
+        uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
+        if(uploadError){uploadError.textContent='A network error interrupted the upload. Please try again.';uploadError.hidden=false;}
+      });
+      xhr.addEventListener('abort',()=>{
+        uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
+        if(uploadError){uploadError.textContent='The upload was cancelled. Please try again.';uploadError.hidden=false;}
+      });
+      xhr.send(data);
+    });
+    document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{if(successModal)successModal.hidden=true;window.location.href='admin.php?section=media-management&media_tab=gallery';});
+    successModal?.addEventListener('click',event=>{if(event.target===successModal)event.preventDefault();});
     modal?.addEventListener('click',event=>{if(event.target===modal)event.preventDefault();});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
   })();
