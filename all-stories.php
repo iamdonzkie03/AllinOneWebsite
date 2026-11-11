@@ -296,6 +296,12 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
   const input = document.getElementById('stories-search-input');
   if (!form || !input) return;
   let timer;
+  // Restore the search caret after the live-search page reloads.
+  if (new URLSearchParams(window.location.search).has('q') && input.value) {
+    input.focus({ preventScroll: true });
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  }
   input.addEventListener('input', () => {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
@@ -304,7 +310,6 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
       if (value) url.searchParams.set('q', value);
       else url.searchParams.delete('q');
       url.searchParams.delete('page');
-      input.blur();
       window.location.assign(url.toString());
     }, 350);
   });
