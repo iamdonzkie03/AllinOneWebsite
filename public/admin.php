@@ -209,6 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $html=preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i',static function($m){
                 $tag=strtolower($m[1]); if($tag==='br') return '<br>';
                 if($tag==='a'){ $href=''; if(preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i',$x[1])) $href=' href="'.htmlspecialchars($x[1],ENT_QUOTES,'UTF-8').'"'; return '<a'.$href.' target="_blank" rel="noopener">'; }
+                if($tag==='span'){ $style=''; if(preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i',$m[2],$x)){ $v=$x[1]; if(preg_match('/(?:^|;)\\s*color\\s*:\\s*(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})\\s*(?:;|$)/i',$v,$c)) $style.='color:'.htmlspecialchars($c[1],ENT_QUOTES,'UTF-8').';'; if(preg_match('/(?:^|;)\\s*font-size\\s*:\\s*(?:[8-9]|[1-6][0-9])(?:\\.[0-9]+)?px\\s*(?:;|$)/i',$v,$f)) $style.='font-size:'.htmlspecialchars(trim(explode(':',$f[0])[1]," ;"),ENT_QUOTES,'UTF-8').';'; } return '<span'.($style!==''?' style="'.$style.'"':'').'>'; }
                 return '<'.$tag.'>';
             },$html);
             return trim($html);
@@ -226,17 +227,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             return 'uploads/site-sections/'.$name;
         };
         try {
-            $saved['banner']['main_title']=$safeText($_POST['banner_main_title']??'',120);
-            $saved['banner']['heading']=$safeText($_POST['banner_heading']??'',180);
+            $saved['banner']['main_title']=$cleanHtml((string)($_POST['banner_main_title']??''));
+            $saved['banner']['heading']=$cleanHtml((string)($_POST['banner_heading']??''));
             $saved['banner']['description']=$cleanHtml((string)($_POST['banner_description']??''));
-            $saved['banner']['button_label']=$safeText($_POST['banner_button_label']??'',60);
-            $saved['banner']['button_url']=$safeText($_POST['banner_button_url']??'',500);
-            $saved['banner']['button_color']=preg_match('/^#[0-9a-f]{6}$/i',(string)($_POST['banner_button_color']??''))?(string)$_POST['banner_button_color']:'#b8323f';
-            $saved['banner']['button_text_color']=preg_match('/^#[0-9a-f]{6}$/i',(string)($_POST['banner_button_text_color']??''))?(string)$_POST['banner_button_text_color']:'#ffffff';
-            $saved['banner']['button_size']=(string)max(10,min(24,(int)($_POST['banner_button_size']??14)));
-            $saved['banner']['button_width']=$safeText($_POST['banner_button_width']??'auto',5);
-            $saved['banner']['button_height']=(string)max(28,min(80,(int)($_POST['banner_button_height']??42)));
-            if(!empty($_FILES['banner_photo']['name'])) $saved['banner']['photo']=$upload($_FILES['banner_photo'],'banner');
+            $oldBannerPhoto=(string)($sectionsSettings['banner']['photo']??'');
+            $newBannerPhoto='';
+            if(!empty($_FILES['banner_photo']['name'])) {
+                $file=$_FILES['banner_photo'];
+                if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) throw new RuntimeException('Unable to upload the banner photo.');
+                if((int)($file['size']??0)>10*1024*1024) throw new RuntimeException('Banner photo must be 10 MB or smaller.');
+                $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+                $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'][$mime]??'';
+                if($ext==='' || @getimagesize((string)$file['tmp_name'])===false) throw new RuntimeException('Upload a valid JPG, PNG, GIF or WebP banner photo.');
+                $dir=__DIR__.'/uploads/banner-photos';
+                if(!is_dir($dir) && !mkdir($dir,0755,true) && !is_dir($dir)) throw new RuntimeException('Unable to create the banner-photos folder.');
+                $fileName='banner-'.bin2hex(random_bytes(10)).'.'.$ext;
+                if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$fileName)) throw new RuntimeException('Unable to save the banner photo.');
+                $newBannerPhoto='uploads/banner-photos/'.$fileName;
+                $saved['banner']['photo']=$newBannerPhoto;
+            }
             $saved['slideshow']['main_title']=$safeText($_POST['slide_main_title']??'',120);
             $saved['slideshow']['heading']=$safeText($_POST['slide_heading']??'',180);
             $saved['slideshow']['subtitle']=$safeText($_POST['slide_subtitle']??'',300);
@@ -269,6 +278,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $saved['mega_menu']['panels']=$panels;
             $save=$pdo->prepare("INSERT INTO site_sections_settings (id,content_json) VALUES (1,?) ON DUPLICATE KEY UPDATE content_json=VALUES(content_json)");
             $save->execute([json_encode($saved,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            if($newBannerPhoto!=='' && $oldBannerPhoto!=='') {
+                $oldRelative=ltrim($oldBannerPhoto,'/');
+                $oldAbsolute=__DIR__.'/'.str_replace(['\\','..'],['/',''],$oldRelative);
+                $uploadsRoot=realpath(__DIR__.'/uploads');
+                $oldReal=realpath($oldAbsolute);
+                if($uploadsRoot && $oldReal && is_file($oldReal) && strpos($oldReal,$uploadsRoot.DIRECTORY_SEPARATOR)===0 && !is_link($oldReal)) @unlink($oldReal);
+            }
             $sectionsSettings=$saved;
             header('Location: admin.php?section=page-management&tab=sections&sections_saved=1#pm-panel-sections',true,303); exit;
         } catch(Throwable $e) { $message=$e->getMessage(); }
@@ -939,14 +955,21 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </nav>
  <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings">
  <section class="section-subpanel" data-section-panel="banner">
-  <div class="section-preview" id="banner-preview"><div class="preview-kicker" id="banner-preview-title"><?=e($sectionsSettings['banner']['main_title'])?></div><h3 id="banner-preview-heading"><?=e($sectionsSettings['banner']['heading'])?></h3><div class="preview-desc" id="banner-preview-description"><?=$sectionsSettings['banner']['description']?></div><div id="banner-preview-button" style="display:inline-block;margin-top:12px;padding:10px 18px;background:<?=e($sectionsSettings['banner']['button_color'])?>;color:<?=e($sectionsSettings['banner']['button_text_color'])?>;border-radius:30px">Preview Button</div><?php if(!empty($sectionsSettings['banner']['photo'])): ?><img src="<?=e($sectionsSettings['banner']['photo'])?>" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:10px"><?php endif; ?></div>
+  <div class="section-preview" id="banner-preview"><div class="preview-kicker" id="banner-preview-title"><?=$sectionsSettings['banner']['main_title']?></div><h3 id="banner-preview-heading"><?=$sectionsSettings['banner']['heading']?></h3><div class="preview-desc" id="banner-preview-description"><?=$sectionsSettings['banner']['description']?></div><?php if(!empty($sectionsSettings['banner']['photo'])): ?><img src="<?=e('../'.ltrim((string)$sectionsSettings['banner']['photo'],'/'))?>" alt="Current banner photo" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:10px"><?php endif; ?></div>
   <div class="section-form-grid">
-   <label class="section-field">Main Title<input name="banner_main_title" value="<?=e($sectionsSettings['banner']['main_title'])?>" data-preview="banner-preview-title"></label>
-   <label class="section-field">Heading<input name="banner_heading" value="<?=e($sectionsSettings['banner']['heading'])?>" data-preview="banner-preview-heading"></label>
-   <label class="section-field" style="grid-column:1/-1">Description<div class="section-toolbar"><button type="button" data-cmd="bold">B</button><button type="button" data-cmd="italic">I</button><button type="button" data-cmd="underline">U</button><button type="button" data-link>Link</button></div><div class="section-editor" contenteditable="true" data-editor="banner_description"><?=$sectionsSettings['banner']['description']?></div><textarea hidden name="banner_description" data-editor-source="banner_description"></textarea></label>
-   <label class="section-field">Button Label<input name="banner_button_label" value="<?=e($sectionsSettings['banner']['button_label'])?>"></label><label class="section-field">Button URL<input name="banner_button_url" value="<?=e($sectionsSettings['banner']['button_url'])?>"></label>
-   <label class="section-field">Button Color<input type="color" name="banner_button_color" value="<?=e($sectionsSettings['banner']['button_color'])?>"></label><label class="section-field">Button Text Color<input type="color" name="banner_button_text_color" value="<?=e($sectionsSettings['banner']['button_text_color'])?>"></label>
-   <label class="section-field">Button Font Size (px)<input type="number" min="10" max="24" name="banner_button_size" value="<?=e($sectionsSettings['banner']['button_size'])?>"></label><label class="section-field">Button Width (px or auto)<input name="banner_button_width" value="<?=e($sectionsSettings['banner']['button_width'])?>"></label><label class="section-field">Button Height (px)<input type="number" min="28" max="80" name="banner_button_height" value="<?=e($sectionsSettings['banner']['button_height'])?>"></label><label class="section-field">Upload / Replace Banner Photo<input type="file" name="banner_photo" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+   <label class="section-field" style="grid-column:1/-1">Main Title
+    <div class="section-toolbar"><button type="button" data-cmd="bold">B</button><button type="button" data-cmd="italic">I</button><button type="button" data-cmd="underline">U</button><label>Color <input type="color" data-editor-color value="#ffffff"></label><label>Size <select data-editor-size><option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option></select></label></div>
+    <div class="section-editor" contenteditable="true" data-editor="banner_main_title"><?=$sectionsSettings['banner']['main_title']?></div><textarea hidden name="banner_main_title" data-editor-source="banner_main_title"></textarea>
+   </label>
+   <label class="section-field" style="grid-column:1/-1">Heading
+    <div class="section-toolbar"><button type="button" data-cmd="bold">B</button><button type="button" data-cmd="italic">I</button><button type="button" data-cmd="underline">U</button><label>Color <input type="color" data-editor-color value="#ffffff"></label><label>Size <select data-editor-size><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="32">32 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="56">56 px</option></select></label></div>
+    <div class="section-editor" contenteditable="true" data-editor="banner_heading"><?=$sectionsSettings['banner']['heading']?></div><textarea hidden name="banner_heading" data-editor-source="banner_heading"></textarea>
+   </label>
+   <label class="section-field" style="grid-column:1/-1">Description
+    <div class="section-toolbar"><button type="button" data-cmd="bold">B</button><button type="button" data-cmd="italic">I</button><button type="button" data-cmd="underline">U</button><label>Color <input type="color" data-editor-color value="#d9d0d2"></label><label>Size <select data-editor-size><option value="10">10 px</option><option value="11">11 px</option><option value="12" selected>12 px</option><option value="13">13 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="24">24 px</option></select></label></div>
+    <div class="section-editor" contenteditable="true" data-editor="banner_description"><?=$sectionsSettings['banner']['description']?></div><textarea hidden name="banner_description" data-editor-source="banner_description"></textarea>
+   </label>
+   <label class="section-field">Upload / Replace Banner Photo<input type="file" name="banner_photo" accept="image/png,image/jpeg,image/webp,image/gif"><?php if(!empty($sectionsSettings['banner']['photo'])): ?><small>Current photo: <?=e(basename($sectionsSettings['banner']['photo']))?></small><?php endif; ?></label>
   </div>
  </section>
  <section class="section-subpanel" data-section-panel="slideshow" hidden>
@@ -966,8 +989,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <script>
  (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const activateSectionTab=(t)=>{const index=tabs.indexOf(t);tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
- root.querySelectorAll('[data-editor]').forEach(ed=>{const sync=()=>{const src=root.querySelector('[data-editor-source="'+ed.dataset.editor+'"]');if(src)src.value=ed.innerHTML;const preview=document.getElementById('banner-preview-description');if(preview&&ed.dataset.editor==='banner_description')preview.innerHTML=ed.innerHTML};ed.addEventListener('input',sync);sync();});
- root.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>{const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand(b.dataset.cmd,false,null);ed?.dispatchEvent(new Event('input'))}));
+ root.querySelectorAll('[data-editor]').forEach(ed=>{const sync=()=>{const src=root.querySelector('[data-editor-source="'+ed.dataset.editor+'"]');if(src)src.value=ed.innerHTML;const previewMap={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description'};const preview=document.getElementById(previewMap[ed.dataset.editor]||'');if(preview)preview.innerHTML=ed.innerHTML};ed.addEventListener('input',sync);sync();});
+ let activeSectionEditor=null;root.querySelectorAll('[data-editor]').forEach(ed=>ed.addEventListener('focus',()=>activeSectionEditor=ed));const applyInlineStyle=(ed,styleName,value)=>{if(!ed)return;ed.focus();const sel=window.getSelection();if(!sel||!sel.rangeCount)return;const range=sel.getRangeAt(0);if(!ed.contains(range.commonAncestorContainer))return;const span=document.createElement('span');span.style[styleName]=value;if(range.collapsed){span.appendChild(document.createTextNode('\\u200b'));range.insertNode(span);const next=document.createRange();next.setStart(span.firstChild,1);next.collapse(true);sel.removeAllRanges();sel.addRange(next);}else{try{span.appendChild(range.extractContents());range.insertNode(span);sel.removeAllRanges();const next=document.createRange();next.selectNodeContents(span);sel.addRange(next);}catch(_){}}ed.dispatchEvent(new Event('input'));};root.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>{const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand(b.dataset.cmd,false,null);ed?.dispatchEvent(new Event('input'))}));root.querySelectorAll('[data-editor-color]').forEach(c=>c.addEventListener('input',()=>applyInlineStyle(c.closest('.section-field')?.querySelector('[contenteditable=true]'),'color',c.value)));root.querySelectorAll('[data-editor-size]').forEach(c=>c.addEventListener('change',()=>applyInlineStyle(c.closest('.section-field')?.querySelector('[contenteditable=true]'),'fontSize',c.value+'px')));
  root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter link URL');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
  const add=(target,html)=>{document.getElementById(target).insertAdjacentHTML('beforeend',html)};
  document.getElementById('add-slide-photo')?.addEventListener('click',()=>add('slide-photo-list','<div class="section-repeat-card"><div class="section-repeat-head"><strong>New Photo</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Photo Title<input name="slide_title[]"></label><label class="section-field">Photo Heading<input name="slide_photo_heading[]"></label><label class="section-field" style="grid-column:1/-1">Description<div class="section-editor" contenteditable="true"></div><textarea hidden name="slide_description[]"></textarea></label><label class="section-field">Upload Photo<input type="file" name="slide_photo[]" accept="image/*"></label></div></div>'));
