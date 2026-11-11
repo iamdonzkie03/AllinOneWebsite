@@ -946,6 +946,25 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .section-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.section-field{display:grid;gap:7px;font:600 12px Ubuntu;color:#f2e6e9}.section-field input,.section-field textarea,.section-field select{width:100%;box-sizing:border-box;background:#171115;border:1px solid var(--line);border-radius:8px;padding:10px;color:#f7edf0;font:13px Ubuntu}.section-field textarea{min-height:78px}
  .section-editor{min-height:110px;border:1px solid var(--line);border-radius:8px;background:#120d10;padding:10px;color:#f5e9ed;font:13px Ubuntu}.section-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0}.section-toolbar button{background:#2b1a21;border:1px solid #5b3a46;color:#fff;border-radius:5px;padding:5px 9px;cursor:pointer}
  .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
+
+ .banner-preview-stage{padding:0;border-radius:13px;background:#101511;overflow:hidden}
+ .banner-preview-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:clamp(18px,4vw,58px);align-items:center;position:relative;padding:clamp(24px,5vw,58px);min-height:340px;box-sizing:border-box}
+ .banner-preview-copy{min-width:0}
+ .banner-preview-stage .preview-kicker{font:850 10px/1.5 Ubuntu,sans-serif;letter-spacing:2.5px;text-transform:uppercase;color:#d8b477}
+ .banner-preview-stage h3{font:500 clamp(30px,4.6vw,56px)/.99 Georgia,'Times New Roman',serif;letter-spacing:-1.8px;margin:19px 0 23px;max-width:720px;color:#f3eee7}
+ .banner-preview-stage .preview-desc{font:13px/1.7 Ubuntu,sans-serif;color:#b0bcb4;max-width:560px}
+ .banner-preview-stage .preview-desc p{margin:0 0 10px}
+ .banner-preview-actions{margin-top:22px}
+ .banner-preview-actions span{display:inline-flex;align-items:center;border:1px solid #d8b477;border-radius:999px;background:#d8b477;color:#101611;padding:12px 19px;font:750 12px Ubuntu,sans-serif}
+ .banner-preview-note{display:flex;align-items:center;gap:8px;margin-top:18px;color:#a8b2aa;font:10px/1.5 Ubuntu,sans-serif}
+ .banner-preview-note i{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#d8b477}
+ .banner-preview-art{min-height:300px;height:100%;align-self:stretch;position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:22px;box-sizing:border-box;border:1px solid rgba(184,50,63,.28);border-radius:22px;background:radial-gradient(ellipse at 50% 45%,rgba(130,27,48,.36),transparent 52%),linear-gradient(145deg,#2a090f,#0d0d0f 72%);box-shadow:0 14px 36px rgba(0,0,0,.3)}
+ .banner-preview-art:before{content:'';position:absolute;width:66%;height:76%;right:18%;top:9%;border-radius:48% 48% 13% 13%;transform:rotate(9deg);background:linear-gradient(145deg,#c72c3b,#6f101f 55%,#210b11);box-shadow:-100px 80px 0 -34px #4b101b,92px 115px 0 -28px #8b1728;opacity:.55;filter:saturate(.8)}
+ .banner-preview-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+ .banner-preview-art:after{content:'ART  /  IDEAS  /  EVERYDAY LIFE';position:relative;z-index:1;color:#f8e9eb;font:800 10px Ubuntu,sans-serif;letter-spacing:2.5px}
+ .banner-preview-stamp{position:absolute;z-index:1;right:18px;top:18px;padding:9px 11px;border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;text-align:center;font:800 10px/1.3 Ubuntu,sans-serif;letter-spacing:1.4px;background:rgba(12,8,10,.35)}
+ .banner-preview-stamp span{font-size:8px;letter-spacing:2px}
+ @media(max-width:760px){.banner-preview-grid{grid-template-columns:1fr;gap:22px;padding:24px}.banner-preview-art{min-height:240px}.banner-preview-stage h3{font-size:clamp(32px,9vw,48px)}}
  @media(max-width:760px){.section-form-grid{grid-template-columns:1fr}}
  </style>
  
@@ -955,7 +974,22 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </nav>
  <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings">
  <section class="section-subpanel" data-section-panel="banner">
-  <div class="section-preview" id="banner-preview"><div class="preview-kicker" id="banner-preview-title"><?=$sectionsSettings['banner']['main_title']?></div><h3 id="banner-preview-heading"><?=$sectionsSettings['banner']['heading']?></h3><div class="preview-desc" id="banner-preview-description"><?=$sectionsSettings['banner']['description']?></div><?php if(!empty($sectionsSettings['banner']['photo'])): ?><img src="<?=e(ltrim((string)$sectionsSettings['banner']['photo'],'/'))?>" alt="Current banner photo" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:10px"><?php endif; ?></div>
+  <div class="section-preview banner-preview-stage" id="banner-preview">
+   <div class="banner-preview-grid">
+    <div class="banner-preview-copy">
+     <div class="preview-kicker" id="banner-preview-title"><?=$sectionsSettings['banner']['main_title']?></div>
+     <h3 id="banner-preview-heading"><?=$sectionsSettings['banner']['heading']?></h3>
+     <div class="preview-desc" id="banner-preview-description"><?=$sectionsSettings['banner']['description']?></div>
+     <div class="banner-preview-actions"><span>Become a contributor ↗</span></div>
+     <div class="banner-preview-note"><i></i>Independent community contributions · Administrator-reviewed publishing</div>
+    </div>
+    <div class="banner-preview-art">
+     <img id="banner-preview-photo" src="<?=e(!empty($sectionsSettings['banner']['photo'])?ltrim((string)$sectionsSettings['banner']['photo'],'/'):'assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png')?>" alt="Banner photo preview">
+     <div class="banner-preview-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div>
+     <div class="banner-preview-caption">ART / IDEAS / EVERYDAY LIFE</div>
+    </div>
+   </div>
+  </div>
   <div class="section-form-grid">
    <?php foreach(['banner_main_title'=>'Main Title','banner_heading'=>'Heading','banner_description'=>'Description'] as $editorKey=>$editorLabel): $storageKey=$editorKey==='banner_main_title'?'main_title':($editorKey==='banner_heading'?'heading':'description'); $editorValue=(string)($sectionsSettings['banner'][$storageKey]??''); $editorPlain=trim(strip_tags($editorValue)); ?>
    <label class="section-field" style="grid-column:1/-1"><?=e($editorLabel)?>
