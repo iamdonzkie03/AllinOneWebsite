@@ -1070,13 +1070,20 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        if(child.nodeType===Node.ELEMENT_NODE){
          if(!allowed.has(child.tagName)){child.replaceWith(...child.childNodes);return;}
          [...child.attributes].forEach(attr=>{
-           if(child.tagName==='SPAN'&&attr.name.toLowerCase()==='style'){
+           if(attr.name.toLowerCase()==='style'){
              const declarations=[];
              attr.value.split(';').forEach(rule=>{
                const parts=rule.split(':');if(parts.length<2)return;
                const key=parts.shift().trim().toLowerCase(),value=parts.join(':').trim();
                if(key==='color'&&/^(#[0-9a-f]{3,8}|rgba?\([0-9.,% ]+\)|[a-z]{3,20})$/i.test(value))declarations.push('color:'+value);
-               if(key==='font-size'&&/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\.\d+)?px$/i.test(value))declarations.push('font-size:'+value);
+               else if(key==='font-size'&&/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\.\d+)?px$/i.test(value))declarations.push('font-size:'+value);
+               else if(key==='font-family'&&/^[a-z0-9 ,'-]{1,80}$/i.test(value))declarations.push('font-family:'+value);
+               else if(key==='font-weight'&&/^(normal|bold|400|500|600|700|800|900)$/i.test(value))declarations.push('font-weight:'+value);
+               else if(key==='font-style'&&/^(normal|italic|oblique)$/i.test(value))declarations.push('font-style:'+value);
+               else if(key==='text-align'&&/^(left|right|center|justify)$/i.test(value))declarations.push('text-align:'+value);
+               else if(key==='text-decoration'&&/^(none|underline|line-through|overline)(\s+(underline|line-through|overline))*$/i.test(value))declarations.push('text-decoration:'+value);
+               else if(key==='line-height'&&/^(?:[0-9]+(?:\.\d+)?|[0-9]+(?:\.\d+)?px|[0-9]+(?:\.\d+)?%)$/i.test(value))declarations.push('line-height:'+value);
+               else if(key==='letter-spacing'&&/^-?[0-9]+(?:\.\d+)?px$/i.test(value))declarations.push('letter-spacing:'+value);
              });
              if(declarations.length)child.setAttribute('style',declarations.join(';'));else child.removeAttribute('style');
            }else if(child.tagName==='A'&&attr.name.toLowerCase()==='href'&&/^(https?:\/\/|\/|#|\?|mailto:)/i.test(attr.value)){}
