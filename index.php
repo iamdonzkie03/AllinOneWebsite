@@ -230,10 +230,10 @@ $modules = [
 <main>
 <?php $publicSections=$sectionsSettings ?? []; $bannerSection=$publicSections['banner']??[]; ?>
 <section class="hero home-hero"><div class="wrap hero-grid"><div>
-<div class="eyebrow"><?=e($bannerSection['main_title']??'One city. Many stories.')?></div>
-<h1><?=e($bannerSection['heading']??'Zamboanga, through our eyes.')?></h1>
+<div class="eyebrow"><?=($bannerSection['main_title']??'One city. Many stories.')?></div>
+<h1><?=($bannerSection['heading']??'Zamboanga, through our eyes.')?></h1>
 <div class="hero-description"><?=($bannerSection['description']??'')?></div>
-<div class="hero-actions"><?php if(!empty($bannerSection['button_label'])): ?><a class="btn" href="<?=e($bannerSection['button_url']??'#zamboanga')?>" style="background:<?=e($bannerSection['button_color']??'#b8323f')?>;color:<?=e($bannerSection['button_text_color']??'#fff')?>;font-size:<?=max(10,min(24,(int)($bannerSection['button_size']??14)))?>px;height:<?=max(28,min(80,(int)($bannerSection['button_height']??42)))?>px;<?=($bannerSection['button_width']??'auto')!=='auto'?'width:'.(int)$bannerSection['button_width'].'px;':''?>"><?=e($bannerSection['button_label'])?></a><?php endif; ?><a class="btn light" href="#create-account-modal" data-open-create-account>Become a contributor ↗</a></div>
+<div class="hero-actions"><a class="btn light" href="#create-account-modal" data-open-create-account>Become a contributor ↗</a></div>
 <div class="hero-note"><span class="hero-note-dot"></span>Independent community contributions · Administrator-reviewed publishing</div>
 </div>
 <div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage image"><?php if(!empty($bannerSection['photo'])): ?><img class="hero-photo" src="<?=e($sectionImageSrc((string)$bannerSection['photo']))?>" alt="<?=e($bannerSection['heading']??'Zamboanga')?>"><?php else: ?><img class="hero-photo" src="public/assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png" alt="Sunset vinta sailing by the historic fort in Zamboanga"><?php endif; ?><div class="art-stamp">ZAMBOANGA<br><span>PHILIPPINES</span></div><div class="hero-photo-caption">ART / IDEAS / EVERYDAY LIFE</div></div>
