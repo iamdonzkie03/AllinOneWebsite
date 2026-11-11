@@ -58,7 +58,7 @@ $sectionInsert->execute([json_encode($defaultSections,JSON_UNESCAPED_SLASHES|JSO
 $sectionRow=$pdo->query("SELECT content_json FROM site_sections_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
 $sectionsSettings=json_decode((string)($sectionRow['content_json']??''),true);
 if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
-$sectionsSettings=array_replace_recursive($defaultSections,$sectionsSettings);
+foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
 $sectionImageSrc=static fn(string $path): string => preg_match('~^https?://~i',$path)?$path:'public/'.ltrim($path,'/');
 
 
