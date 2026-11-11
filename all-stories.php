@@ -191,6 +191,27 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
 @media(max-width:850px){.all-stories-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.page{padding:42px 20px 70px}}
 @media(max-width:700px){#public-site-header .nav .navlinks{flex-wrap:wrap;white-space:normal;gap:12px}#public-site-header .header-text-inner{padding:9px 14px}}
 @media(max-width:560px){.all-stories-grid{grid-template-columns:1fr}.page{padding:36px 14px 58px}.all-stories-heading{align-items:flex-start;flex-direction:column;gap:12px}.all-stories-grid .story-img{height:195px}}
+
+.stories-search{position:relative;display:flex;align-items:center;max-width:620px;margin:0 0 18px;background:rgba(31,17,24,.92);border:1px solid rgba(211,157,174,.23);border-radius:999px;min-height:52px;transition:border-color .2s,box-shadow .2s}
+.stories-search:focus-within{border-color:rgba(221,111,139,.8);box-shadow:0 0 0 4px rgba(165,31,61,.13),0 10px 28px rgba(0,0,0,.18)}
+.stories-search-icon{width:48px;flex:0 0 48px;text-align:center;color:#e5a2b5;font-size:28px;line-height:1;transform:rotate(-15deg)}
+.stories-search input{width:100%;min-width:0;border:0!important;outline:0!important;background:transparent!important;color:#fff!important;padding:14px 12px 14px 0!important;font:13px Ubuntu,sans-serif!important;box-shadow:none!important}
+.stories-search input::placeholder{color:#9e8992}
+.stories-search-clear{width:38px;flex:0 0 38px;color:#dba0b1;text-decoration:none;text-align:center;font-size:24px;line-height:1}
+.stories-results-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 22px;color:#9e8992;font-size:11px}
+.stories-results-line strong{color:#e8b0bf;font-weight:600}
+.stories-pagination{display:flex;align-items:center;justify-content:center;gap:14px;margin:38px 0 12px;padding:16px 18px;border:1px solid rgba(211,157,174,.16);border-radius:15px;background:linear-gradient(135deg,rgba(43,21,31,.78),rgba(20,13,17,.88));box-shadow:0 12px 32px rgba(0,0,0,.16)}
+.page-numbers{display:flex;align-items:center;justify-content:center;gap:7px}
+.page-numbers a,.page-numbers .current,.page-ellipsis{display:grid;place-items:center;min-width:36px;height:36px;padding:0 9px;border-radius:10px;font-size:12px;text-decoration:none}
+.page-numbers a{color:#d9c4cc;border:1px solid transparent;transition:background .18s,border-color .18s,color .18s}
+.page-numbers a:hover{background:rgba(165,31,61,.17);border-color:rgba(221,111,139,.32);color:#fff}
+.page-numbers .current{background:linear-gradient(145deg,#a51f3d,#641326);border:1px solid rgba(255,155,177,.34);color:#fff;font-weight:700;box-shadow:0 5px 14px rgba(120,18,43,.28)}
+.page-ellipsis{min-width:18px;color:#806b74}
+.page-control{display:flex;align-items:center;gap:7px;padding:0 10px;height:36px;border-radius:9px;color:#e5a2b5;text-decoration:none;font-size:11px;white-space:nowrap;transition:background .18s,color .18s}
+.page-control:not(.disabled):hover{background:rgba(165,31,61,.17);color:#fff}
+.page-control.disabled{color:#69545e;cursor:default}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:560px){.stories-search{min-height:48px}.stories-pagination{gap:4px;padding:10px 6px;margin-top:28px}.page-numbers{gap:3px}.page-numbers a,.page-numbers .current{min-width:31px;height:33px;padding:0 6px}.page-control{padding:0 5px;font-size:10px}.page-control span{display:none}.stories-results-line{font-size:10px}}
 </style>
 </head>
 <body>
@@ -213,11 +234,21 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
 <main class="page">
 <div class="all-stories-heading">
   <div><div class="eyebrow">The latest from our community</div><h1>All Stories</h1><p>Explore every published article on Z.C. commonplace, arranged from the newest publication to the oldest.</p></div>
-  <div class="all-stories-count"><?=count($articles)?> <?=count($articles) === 1 ? 'published story' : 'published stories'?></div>
+  <div class="all-stories-count"><?=number_format($totalArticles)?> <?= $totalArticles === 1 ? 'published story' : 'published stories'?></div>
+</div>
+<form class="stories-search" id="stories-search-form" method="get" action="all-stories.php" role="search">
+  <label class="sr-only" for="stories-search-input">Search stories</label>
+  <span class="stories-search-icon" aria-hidden="true">⌕</span>
+  <input id="stories-search-input" type="search" name="q" value="<?=e($search)?>" placeholder="Search stories, authors, or categories..." autocomplete="off">
+  <?php if ($search !== ''): ?><a class="stories-search-clear" href="all-stories.php" aria-label="Clear search">×</a><?php endif; ?>
+</form>
+<div class="stories-results-line">
+  <span><?= $totalArticles ? 'Showing ' . number_format($offset + 1) . '–' . number_format(min($offset + count($articles), $totalArticles)) . ' of ' . number_format($totalArticles) . ' stories' : 'No stories found' ?></span>
+  <?php if ($search !== ''): ?><span>Results for <strong><?=e($search)?></strong></span><?php endif; ?>
 </div>
 <div class="all-stories-grid">
 <?php if (!$articles): ?>
-  <div class="all-stories-empty"><div class="eyebrow">No stories yet</div><h2>Good stories start with a community.</h2><p>There are no published articles to display at the moment.</p><a class="btn" href="index.php#create-account-modal">Join the Community</a></div>
+  <div class="all-stories-empty"><div class="eyebrow"><?= $search !== '' ? 'Try another search' : 'No stories yet' ?></div><h2><?= $search !== '' ? 'No matching stories found.' : 'Good stories start with a community.' ?></h2><p><?= $search !== '' ? 'We could not find a published article matching “' . e($search) . '”. Try another keyword.' : 'There are no published articles to display at the moment.' ?></p><?php if ($search !== ''): ?><a class="btn" href="all-stories.php">Clear Search</a><?php else: ?><a class="btn" href="index.php#create-account-modal">Join the Community</a><?php endif; ?></div>
 <?php else: ?>
 <?php foreach ($articles as $i => $item): ?>
 <article class="story">
@@ -234,6 +265,20 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
 <?php endforeach; ?>
 <?php endif; ?>
 </div>
+
+<?php if ($totalPages > 1): ?>
+<nav class="stories-pagination" aria-label="Stories pagination">
+  <?php if ($currentPage > 1): ?><a class="page-control" href="<?=e($pageUrl($currentPage - 1))?>" aria-label="Previous page">‹ <span>Previous</span></a><?php else: ?><span class="page-control disabled" aria-disabled="true">‹ <span>Previous</span></span><?php endif; ?>
+  <div class="page-numbers">
+    <?php if ($paginationStart > 1): ?><a href="<?=e($pageUrl(1))?>">1</a><?php if ($paginationStart > 2): ?><span class="page-ellipsis">…</span><?php endif; ?><?php endif; ?>
+    <?php for ($p = $paginationStart; $p <= $paginationEnd; $p++): ?>
+      <?php if ($p === $currentPage): ?><span class="current" aria-current="page"><?=$p?></span><?php else: ?><a href="<?=e($pageUrl($p))?>"><?=$p?></a><?php endif; ?>
+    <?php endfor; ?>
+    <?php if ($paginationEnd < $totalPages): ?><?php if ($paginationEnd < $totalPages - 1): ?><span class="page-ellipsis">…</span><?php endif; ?><a href="<?=e($pageUrl($totalPages))?>"><?=$totalPages?></a><?php endif; ?>
+  </div>
+  <?php if ($currentPage < $totalPages): ?><a class="page-control" href="<?=e($pageUrl($currentPage + 1))?>" aria-label="Next page"><span>Next</span> ›</a><?php else: ?><span class="page-control disabled" aria-disabled="true"><span>Next</span> ›</span><?php endif; ?>
+</nav>
+<?php endif; ?>
 <a class="all-stories-back" href="index.php#latest">← Back to featured stories</a>
 </main>
 <footer><div class="wrap footer-grid">
@@ -243,5 +288,24 @@ body{background:radial-gradient(ellipse at 50% 0,rgba(112,22,48,.24),transparent
   <div><b><?=e($publicFooter['explore_title'])?></b><?php foreach(($publicFooter['explore_links'] ?? []) as $footerLink): $footerUrl=trim((string)($footerLink['url'] ?? '')); if(str_starts_with($footerUrl,'?')||str_starts_with($footerUrl,'#'))$footerUrl='index.php'.$footerUrl; ?><?php if($footerUrl !== ''): ?><a class="footer-item" style="<?=e($footerItemStyle)?>" href="<?=e($footerUrl)?>"><?=e($footerLink['label'])?></a><?php else: ?><span class="footer-text-item footer-item" style="<?=e($footerItemStyle)?>"><?=e($footerLink['label'])?></span><?php endif; ?><?php endforeach; ?></div>
   <div><b><?=e($publicFooter['discover_title'])?></b><?php foreach(($publicFooter['discover_links'] ?? []) as $footerLink): $footerUrl=trim((string)($footerLink['url'] ?? '')); if(str_starts_with($footerUrl,'?')||str_starts_with($footerUrl,'#'))$footerUrl='index.php'.$footerUrl; ?><?php if($footerUrl !== ''): ?><a class="footer-item" style="<?=e($footerItemStyle)?>" href="<?=e($footerUrl)?>"><?=e($footerLink['label'])?></a><?php else: ?><span class="footer-text-item footer-item" style="<?=e($footerItemStyle)?>"><?=e($footerLink['label'])?></span><?php endif; ?><?php endforeach; ?></div>
 </div></footer>
-</body>
+
+<script>
+(() => {
+  const form = document.getElementById('stories-search-form');
+  const input = document.getElementById('stories-search-input');
+  if (!form || !input) return;
+  let timer;
+  input.addEventListener('input', () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      const url = new URL(form.action, window.location.href);
+      const value = input.value.trim();
+      if (value) url.searchParams.set('q', value);
+      else url.searchParams.delete('q');
+      url.searchParams.delete('page');
+      window.location.assign(url.toString());
+    }, 350);
+  });
+})();
+</script></body>
 </html>
