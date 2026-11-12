@@ -2194,12 +2194,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const selected=[...(slideshowFiles.files||[])];
    if(selected.length>20){alert('Choose no more than 20 photos per upload.');slideshowFiles.value='';return;}
    selected.forEach((file,index)=>{
-     if(!/\\.(jpe?g|avif|webp)$/i.test(file.name)||!['image/jpeg','image/avif','image/webp'].includes(file.type)){alert('Only JPG, JPEG, AVIF and WEBP photos are allowed.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
+     if(!/\.(jpe?g|avif|webp)$/i.test(file.name)||!['image/jpeg','image/avif','image/webp'].includes(file.type)){alert('Only JPG, JPEG, AVIF and WEBP photos are allowed.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
      if(file.size>10*1024*1024){alert('Each slideshow photo must not exceed 10 MB.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
      const card=document.createElement('article');card.className='slideshow-upload-photo-card';
      const heading=document.createElement('h4');heading.textContent='Photo '+(index+1)+' · '+file.name;card.append(heading);
      const titleLabel=document.createElement('label');titleLabel.className='section-field';titleLabel.textContent='Photo Title';
-     const title=document.createElement('input');title.name='slideshow_photo_title[]';title.required=true;title.maxLength=180;title.value=file.name.replace(/\\.[^.]+$/,'');titleLabel.append(title);card.append(titleLabel);
+     const title=document.createElement('input');title.name='slideshow_photo_title[]';title.required=true;title.maxLength=180;title.value=file.name.replace(/\.[^.]+$/,'');titleLabel.append(title);card.append(titleLabel);
      const photoHeadingLabel=document.createElement('label');photoHeadingLabel.className='section-field';photoHeadingLabel.textContent='Photo Heading';
      const photoHeading=document.createElement('input');photoHeading.name='slideshow_photo_heading[]';photoHeading.maxLength=180;photoHeadingLabel.append(photoHeading);card.append(photoHeadingLabel);
      const descLabel=document.createElement('label');descLabel.className='section-field';descLabel.textContent='Description';
@@ -2219,7 +2219,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const editor=button.closest('.section-field')?.querySelector('.slideshow-description-editor');if(!editor)return;
    editor.focus();
    if(button.dataset.cmd){document.execCommand(button.dataset.cmd,false,null);editor.dispatchEvent(new Event('input'));return;}
-   if(button.dataset.slideLink){const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim())){document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input'));}}
+   if(button.dataset.slideLink){const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url&&/^(https?:\/\/|mailto:)/i.test(url.trim())){document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input'));}}
  });
  slideshowUploadForm?.addEventListener('submit',async event=>{
    event.preventDefault();
