@@ -448,6 +448,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+
+    if ($action === 'upload_slideshow_photos') {
+        $activePageTab = 'sections';
+        $savedFiles = [];
+        try {
+            if (!isset($_FILES['slideshow_photos']) || !is_array($_FILES['slideshow_photos']['name'] ?? null)) {
+                throw new RuntimeException('Choose at least one slideshow photo to upload.');
+            }
+            $files = $_FILES['slideshow_photos'];
+            $count = count($files['name']);
+            if ($count < 1 || $count > 20) throw new RuntimeException('Choose between 1 and 20 photos per upload.');
+            $titles = (array)($_POST['slideshow_photo_title'] ?? []);
+            $headings = (array)($_POST['slideshow_photo_heading'] ?? []);
+            $descriptions = (array)($_POST['slideshow_photo_description'] ?? []);
+            $uploadDir = __DIR__ . '/uploads/slideshow-photo';
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                throw new RuntimeException('Unable to create the slideshow-photo folder.');
+            }
+            $extensions = ['image/jpeg'=>'jpg','image/avif'=>'avif','image/webp'=>'webp'];
+            $cleanSlideshowHtml = static function(string $html): string {
+                $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
+                $html = preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i', '', $html);
+                $html = preg_replace_callback('/<a\\b([^>]*)>/i', static function($m) {
+                    $href = '';
+                    if (preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[1], $x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i', $x[1])) {
+                        $href = ' href="' . htmlspecialchars($x[1], ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer"';
+                    }
+                    return '<a' . $href . '>';
+                }, $html);
+                $html = preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i', static function($m) {
+                    $tag = strtolower($m[1]);
+                    if ($tag === 'br') return '<br>';
+                    $href = '';
+                    if ($tag === 'a' && preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[2], $link) && preg_match('~^(https?://|/|#|\\?|mailto:)~i', $link[1])) {
+                        $href = ' href="' . htmlspecialchars($link[1], ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer"';
+                    }
+                    $style = '';
+                    if (preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[2], $x)) {
+                        $rules = [];
+                        foreach (explode(';', $x[1]) as $declaration) {
+                            if (!str_contains($declaration, ':')) continue;
+                            [$property, $value] = array_map('trim', explode(':', $declaration, 2));
+                            $property = strtolower($property);
+                            $valid = ($property === 'color' && preg_match('/^(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})$/i', $value))
+                                || ($property === 'font-size' && preg_match('/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\\.[0-9]+)?px$/i', $value))
+                                || ($property === 'font-family' && preg_match('/^[a-z0-9 ,\\\'-]{1,80}$/i', $value))
+                                || ($property === 'font-weight' && in_array(strtolower($value), ['normal','bold','400','500','600','700','800','900'], true))
+                                || ($property === 'font-style' && in_array(strtolower($value), ['normal','italic','oblique'], true))
+                                || ($property === 'text-align' && in_array(strtolower($value), ['left','right','center','justify'], true))
+                                || ($property === 'text-decoration' && preg_match('/^(none|underline|line-through|overline)(\\s+(underline|line-through|overline))*$/i', $value));
+                            if ($valid) $rules[] = $property . ':' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+                        }
+                        if ($rules) $style = ' style="' . implode(';', $rules) . '"';
+                    }
+                    return '<' . $tag . $href . $style . '>';
+                }, $html);
+                return trim($html);
+            };
+            $newPhotos = [];
+            for ($i = 0; $i < $count; $i++) {
+                $error = (int)($files['error'][$i] ?? UPLOAD_ERR_NO_FILE);
+                if ($error !== UPLOAD_ERR_OK) {
+                    if ($error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE) throw new RuntimeException('Each slideshow photo must not exceed 10 MB.');
+                    throw new RuntimeException('One of the selected slideshow photos could not be uploaded. Please try again.');
+                }
+                if ((int)($files['size'][$i] ?? 0) > 10 * 1024 * 1024) throw new RuntimeException('Each slideshow photo must not exceed 10 MB.');
+                $tmp = (string)$files['tmp_name'][$i];
+                $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+                if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) throw new RuntimeException('Only valid JPG, JPEG, AVIF and WEBP photos are allowed.');
+                $title = trim((string)($titles[$i] ?? ''));
+                if ($title === '') throw new RuntimeException('Enter a Photo Title for every selected photo.');
+                $heading = trim((string)($headings[$i] ?? ''));
+                $filename = 'slideshow-' . date('Ymd-His') . '-' . bin2hex(random_bytes(8)) . '.' . $extensions[$mime];
+                $destination = $uploadDir . '/' . $filename;
+                if (!move_uploaded_file($tmp, $destination)) throw new RuntimeException('Unable to save one of the slideshow photos.');
+                $savedFiles[] = $destination;
+                $newPhotos[] = [
+                    'title' => mb_substr($title, 0, 180),
+                    'heading' => mb_substr($heading, 0, 180),
+                    'description' => $cleanSlideshowHtml((string)($descriptions[$i] ?? '')),
+                    'photo' => 'uploads/slideshow-photo/' . $filename
+                ];
+            }
+            $row = $pdo->query('SELECT content_json FROM site_sections_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC) ?: [];
+            $settings = json_decode((string)($row['content_json'] ?? ''), true);
+            if (!is_array($settings)) $settings = [];
+            if (!isset($settings['slideshow']) || !is_array($settings['slideshow'])) $settings['slideshow'] = [];
+            $existing = (array)($settings['slideshow']['photos'] ?? []);
+            $settings['slideshow']['photos'] = array_values(array_merge($existing, $newPhotos));
+            $update = $pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');
+            $update->execute([json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success'=>true,'count'=>count($newPhotos),'photos'=>$newPhotos]);
+            exit;
+        } catch (Throwable $e) {
+            foreach ($savedFiles as $savedFile) if (is_file($savedFile)) @unlink($savedFile);
+            http_response_code(422);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success'=>false,'message'=>$e->getMessage()]);
+            exit;
+        }
+    }
+
     if ($action === 'save_sections_settings') {
         $activePageTab='sections';
         $sectionEditorTab=(string)($_POST['section_editor_tab']??'banner');
@@ -496,21 +599,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $newBannerPhoto='uploads/banner-photos/'.$fileName;
                 $saved['banner']['photo']=$newBannerPhoto;
             }
-            $saved['slideshow']['main_title']=$safeText($_POST['slide_main_title']??'',120);
-            $saved['slideshow']['heading']=$safeText($_POST['slide_heading']??'',180);
-            $saved['slideshow']['subtitle']=$safeText($_POST['slide_subtitle']??'',300);
-            $photos=[];
-            $oldPhotos=(array)($sectionsSettings['slideshow']['photos']??[]);
-            foreach((array)($_POST['slide_title']??[]) as $k=>$title){
-                $old=$oldPhotos[$k]??[];
-                $photo=['title'=>$safeText($title,120),'heading'=>$safeText($_POST['slide_photo_heading'][$k]??'',180),'description'=>$cleanHtml((string)($_POST['slide_description'][$k]??'')),'photo'=>(string)($old['photo']??'')];
-                if(isset($_FILES['slide_photo']['error'][$k]) && $_FILES['slide_photo']['error'][$k]===UPLOAD_ERR_OK){
-                    $f=['name'=>$_FILES['slide_photo']['name'][$k],'type'=>$_FILES['slide_photo']['type'][$k],'tmp_name'=>$_FILES['slide_photo']['tmp_name'][$k],'error'=>$_FILES['slide_photo']['error'][$k],'size'=>$_FILES['slide_photo']['size'][$k]];
-                    $photo['photo']=$upload($f,'slide');
-                }
-                if($photo['title']!==''||$photo['heading']!==''||$photo['description']!==''||$photo['photo']!=='') $photos[]=$photo;
-            }
-            $saved['slideshow']['photos']=$photos;
+            $saved['slideshow']['main_title']=$cleanHtml((string)($_POST['slide_main_title']??''));
+            $saved['slideshow']['heading']=$cleanHtml((string)($_POST['slide_heading']??''));
+            $saved['slideshow']['subtitle']=$cleanHtml((string)($_POST['slide_subtitle']??''));
+            // Slideshow photo records are uploaded and saved independently through the multi-photo modal.
             $saved['mega_menu']['main_title']=$safeText($_POST['mega_main_title']??'',120);
             $saved['mega_menu']['heading']=$safeText($_POST['mega_heading']??'',180);
             $saved['mega_menu']['subtitle']=$safeText($_POST['mega_subtitle']??'',300);
@@ -1560,6 +1652,26 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .banner-photo-field small{color:#bdaab1;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
  @media(max-width:760px){.banner-editor-grid{grid-template-columns:1fr}.banner-editor-field,.banner-editor-field:nth-child(3),.banner-editor-field:nth-child(4){grid-column:1/-1!important}}
 
+
+ .slideshow-rich-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+ .slideshow-rich-field{grid-column:1/-1!important}
+ .slideshow-photo-list{display:grid;gap:12px}
+ .slideshow-saved-photo-content{display:grid;grid-template-columns:190px minmax(0,1fr);gap:15px;align-items:start}
+ .slideshow-saved-photo-content>img{width:100%;height:125px;object-fit:cover;border-radius:8px}
+ .slideshow-saved-photo-content h4{margin:6px 0}
+ .slideshow-photo-preview-card{min-width:180px;display:grid;gap:4px}
+ .slideshow-photo-preview-card img{width:180px;height:105px;object-fit:cover;border-radius:8px}
+ .slideshow-upload-modal{width:min(900px,calc(100vw - 32px));max-height:88vh;overflow:auto}
+ .slideshow-photo-details{display:grid;gap:14px;margin:14px 0}
+ .slideshow-upload-photo-card{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#130e12}
+ .slideshow-upload-photo-card h4{grid-column:1/-1;margin:0;color:#fff}
+ .slideshow-upload-photo-card .section-field:nth-of-type(3){grid-column:1/-1}
+ .slideshow-description-toolbar{display:flex;gap:6px;margin-bottom:6px}
+ .slideshow-description-toolbar button{border:1px solid var(--line);border-radius:5px;background:#24171e;color:#fff;padding:5px 10px;cursor:pointer}
+ .slideshow-description-editor{min-height:100px;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff}
+ .slideshow-description-editor:focus{outline:2px solid #a94a61}
+ @media(max-width:700px){.slideshow-rich-grid,.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-saved-photo-content{grid-template-columns:1fr}.slideshow-saved-photo-content>img{height:190px}}
+
  .section-editor{min-height:110px;border:1px solid var(--line);border-radius:8px;background:#120d10;padding:10px;color:#f5e9ed;font:13px Ubuntu}.section-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0}.section-toolbar button{background:#2b1a21;border:1px solid #5b3a46;color:#fff;border-radius:5px;padding:5px 9px;cursor:pointer}
  .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
 
@@ -1643,10 +1755,122 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </div>
  </section>
  <section class="section-subpanel" data-section-panel="slideshow" hidden>
-  <div class="section-preview"><div class="preview-kicker" id="slide-preview-title"><?=e($sectionsSettings['slideshow']['main_title'])?></div><h3 id="slide-preview-heading"><?=e($sectionsSettings['slideshow']['heading'])?></h3><p class="preview-desc" id="slide-preview-subtitle"><?=e($sectionsSettings['slideshow']['subtitle'])?></p><div class="section-preview-media" id="slide-preview-media"><?php foreach($sectionsSettings['slideshow']['photos'] as $ph): if(!empty($ph['photo'])): ?><img src="<?=e($ph['photo'])?>" alt=""><?php endif; endforeach; ?></div></div>
-  <div class="section-form-grid"><label class="section-field">Main Title<input name="slide_main_title" value="<?=e($sectionsSettings['slideshow']['main_title'])?>" data-preview="slide-preview-title"></label><label class="section-field">Heading<input name="slide_heading" value="<?=e($sectionsSettings['slideshow']['heading'])?>" data-preview="slide-preview-heading"></label><label class="section-field" style="grid-column:1/-1">Subtitle<input name="slide_subtitle" value="<?=e($sectionsSettings['slideshow']['subtitle'])?>" data-preview="slide-preview-subtitle"></label></div>
-  <div class="section-repeat-head"><h3>Slideshow Photos</h3><button type="button" class="btn light" id="add-slide-photo">+ Add Photo</button></div><div id="slide-photo-list">
-  <?php foreach($sectionsSettings['slideshow']['photos'] as $k=>$ph): ?><div class="section-repeat-card"><div class="section-repeat-head"><strong>Photo <?=($k+1)?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Photo Title<input name="slide_title[]" value="<?=e($ph['title']??'')?>"></label><label class="section-field">Photo Heading<input name="slide_photo_heading[]" value="<?=e($ph['heading']??'')?>"></label><label class="section-field" style="grid-column:1/-1">Description<div class="section-toolbar"><button type="button" data-cmd="bold">B</button><button type="button" data-cmd="italic">I</button><button type="button" data-cmd="underline">U</button><button type="button" data-link>Link</button></div><div class="section-editor" contenteditable="true"><?=$ph['description']??''?></div><textarea hidden name="slide_description[]"><?=e($ph['description']??'')?></textarea></label><label class="section-field">Upload Photo<input type="file" name="slide_photo[]" accept="image/*"><?php if(!empty($ph['photo'])): ?><small>Current photo: <?=e(basename($ph['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?>
+  <div class="section-preview" id="slideshow-settings-preview">
+   <div class="preview-kicker" id="slide-preview-title"><?=($sectionsSettings['slideshow']['main_title']??'')?></div>
+   <h3 id="slide-preview-heading"><?=($sectionsSettings['slideshow']['heading']??'')?></h3>
+   <div class="preview-desc" id="slide-preview-subtitle"><?=($sectionsSettings['slideshow']['subtitle']??'')?></div>
+   <div class="section-preview-media" id="slide-preview-media"><?php foreach((array)$sectionsSettings['slideshow']['photos'] as $ph): if(!empty($ph['photo'])): ?><div class="slideshow-photo-preview-card"><img src="<?=e($ph['photo'])?>" alt="<?=e($ph['title']??'')?>"><strong><?=e($ph['title']??'Untitled photo')?></strong><span><?=e($ph['heading']??'')?></span></div><?php endif; endforeach; ?></div>
+  </div>
+  <div class="section-form-grid slideshow-rich-grid">
+   <label class="section-field banner-editor-field slideshow-rich-field">Main Title
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Main Title formatting">
+     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
+     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
+     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
+     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
+     <button type="button" data-banner-action="link" title="Insert link">Link</button>
+     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
+     <button type="button" data-banner-action="quote" title="Quote">❝</button>
+     <button type="button" data-banner-action="table" title="Insert table">Table</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
+     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+    </div>
+<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_main_title" data-placeholder="Enter main title..."><?=e((string)($sectionsSettings['slideshow']['main_title']??''))?></div>
+<input type="hidden" name="slide_main_title" data-banner-html="slide_main_title" value="<?=e((string)($sectionsSettings['slideshow']['main_title']??''))?>">
+</label>
+   <label class="section-field banner-editor-field slideshow-rich-field">Heading
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Heading formatting">
+     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
+     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
+     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
+     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
+     <button type="button" data-banner-action="link" title="Insert link">Link</button>
+     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
+     <button type="button" data-banner-action="quote" title="Quote">❝</button>
+     <button type="button" data-banner-action="table" title="Insert table">Table</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
+     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+    </div>
+<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_heading" data-placeholder="Enter heading..."><?=e((string)($sectionsSettings['slideshow']['heading']??''))?></div>
+<input type="hidden" name="slide_heading" data-banner-html="slide_heading" value="<?=e((string)($sectionsSettings['slideshow']['heading']??''))?>">
+</label>
+   <label class="section-field banner-editor-field slideshow-rich-field">Subtitle
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Subtitle formatting">
+     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
+     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
+     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
+     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
+     <button type="button" data-banner-action="link" title="Insert link">Link</button>
+     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
+     <button type="button" data-banner-action="quote" title="Quote">❝</button>
+     <button type="button" data-banner-action="table" title="Insert table">Table</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
+     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+    </div>
+<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_subtitle" data-placeholder="Enter subtitle..."><?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?></div>
+<input type="hidden" name="slide_subtitle" data-banner-html="slide_subtitle" value="<?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?>">
+</label>
+  </div>
+  <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Upload and manage multiple photos for the public slideshow.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Multiple Photos</button></div>
+  <div class="slideshow-photo-list" id="slideshow-photo-list">
+   <?php foreach((array)$sectionsSettings['slideshow']['photos'] as $k=>$ph): ?>
+    <article class="section-repeat-card slideshow-saved-photo">
+     <div class="section-repeat-head"><strong>Photo <?=($k+1)?></strong><span class="muted"><?=e(basename((string)($ph['photo']??'')))?></span></div>
+     <div class="slideshow-saved-photo-content">
+      <?php if(!empty($ph['photo'])): ?><img src="<?=e($ph['photo'])?>" alt="<?=e($ph['title']??'Slideshow photo')?>"><?php endif; ?>
+      <div><strong><?=e($ph['title']??'')?></strong><h4><?=e($ph['heading']??'')?></h4><div class="muted"><?=($ph['description']??'')?></div></div>
+     </div>
+    </article>
+   <?php endforeach; ?>
+   <?php if(empty($sectionsSettings['slideshow']['photos'])): ?><p class="muted slideshow-empty">No slideshow photos have been uploaded yet.</p><?php endif; ?>
   </div>
  </section>
  <section class="section-subpanel" data-section-panel="mega_menu" hidden>
@@ -1656,10 +1880,25 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </section>
  <div class="header-settings-actions"><button type="submit" class="btn" id="save-section-settings-button">Save Banner Settings</button></div>
  </form>
+ <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
+  <section class="gallery-modal slideshow-upload-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-upload-modal-title">
+   <div class="gallery-modal-head"><div><h2 id="slideshow-upload-modal-title">Upload Multiple Photos</h2><p class="muted">Select up to 20 photos. Add a title, heading and description for each photo.</p></div></div>
+   <form method="post" enctype="multipart/form-data" id="slideshow-upload-form">
+    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+    <label class="gallery-form-field slideshow-multiple-file-field">Select photos
+     <input type="file" name="slideshow_photos[]" id="slideshow-photo-files" accept=".jpg,.jpeg,.avif,.webp,image/jpeg,image/avif,image/webp" multiple required>
+     <small>JPG, JPEG, AVIF or WEBP · maximum 10 MB per photo · up to 20 photos per upload</small>
+    </label>
+    <div id="slideshow-photo-details" class="slideshow-photo-details"></div>
+    <div class="gallery-modal-actions"><button class="btn light" type="button" id="slideshow-upload-cancel">Cancel</button><button class="btn" type="submit">Upload Photos</button></div>
+   </form>
+  </section>
+ </div>
+
  <script>
  (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const activateSectionTab=(t)=>{const index=tabs.indexOf(t);tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
- const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description'};
+ const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description',slide_main_title:'slide-preview-title',slide_heading:'slide-preview-heading',slide_subtitle:'slide-preview-subtitle'};
  const cleanBannerPreviewHtml=html=>{
    const parsed=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
    const rootNode=parsed.body.firstElementChild;
@@ -1934,9 +2173,70 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  });
  const bannerPhotoInput=root.querySelector('input[name="banner_photo"]');bannerPhotoInput?.addEventListener('change',()=>{const file=bannerPhotoInput.files?.[0],preview=document.getElementById('banner-preview-photo');if(!file||!preview)return;const reader=new FileReader();reader.onload=()=>{preview.src=String(reader.result);};reader.readAsDataURL(file);});
  
- root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter link URL');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
+ const slideshowModal=document.getElementById('slideshow-upload-modal');
+ const slideshowUploadForm=document.getElementById('slideshow-upload-form');
+ const slideshowFiles=document.getElementById('slideshow-photo-files');
+ const slideshowDetails=document.getElementById('slideshow-photo-details');
+ const openSlideshowModal=()=>{if(slideshowModal){slideshowModal.hidden=false;document.body.classList.add('modal-open');}};
+ const closeSlideshowModal=()=>{if(slideshowModal){slideshowModal.hidden=true;document.body.classList.remove('modal-open');}};
+ document.getElementById('slideshow-upload-photos')?.addEventListener('click',openSlideshowModal);
+ document.getElementById('slideshow-upload-cancel')?.addEventListener('click',closeSlideshowModal);
+ slideshowFiles?.addEventListener('change',()=>{
+   slideshowDetails.replaceChildren();
+   const selected=[...(slideshowFiles.files||[])];
+   if(selected.length>20){alert('Choose no more than 20 photos per upload.');slideshowFiles.value='';return;}
+   selected.forEach((file,index)=>{
+     const card=document.createElement('article');card.className='slideshow-upload-photo-card';
+     const heading=document.createElement('h4');heading.textContent='Photo '+(index+1)+' · '+file.name;card.append(heading);
+     const titleLabel=document.createElement('label');titleLabel.className='section-field';titleLabel.textContent='Photo Title';
+     const title=document.createElement('input');title.name='slideshow_photo_title[]';title.required=true;title.maxLength=180;title.value=file.name.replace(/\\.[^.]+$/,'');titleLabel.append(title);card.append(titleLabel);
+     const photoHeadingLabel=document.createElement('label');photoHeadingLabel.className='section-field';photoHeadingLabel.textContent='Photo Heading';
+     const photoHeading=document.createElement('input');photoHeading.name='slideshow_photo_heading[]';photoHeading.maxLength=180;photoHeadingLabel.append(photoHeading);card.append(photoHeadingLabel);
+     const descLabel=document.createElement('label');descLabel.className='section-field';descLabel.textContent='Description';
+     const toolbar=document.createElement('div');toolbar.className='section-toolbar slideshow-description-toolbar';
+     [['bold','B'],['italic','I'],['underline','U']].forEach(([cmd,label])=>{const button=document.createElement('button');button.type='button';button.dataset.cmd=cmd;button.textContent=label;toolbar.append(button);});
+     const linkButton=document.createElement('button');linkButton.type='button';linkButton.dataset.slideLink='1';linkButton.textContent='Link';toolbar.append(linkButton);
+     const editor=document.createElement('div');editor.className='section-editor slideshow-description-editor';editor.contentEditable='true';editor.setAttribute('role','textbox');editor.setAttribute('aria-multiline','true');
+     const hidden=document.createElement('textarea');hidden.hidden=true;hidden.name='slideshow_photo_description[]';
+     editor.addEventListener('input',()=>hidden.value=editor.innerHTML);
+     descLabel.append(toolbar,editor,hidden);card.append(descLabel);
+     const preview=document.createElement('small');preview.className='muted';preview.textContent='Maximum file size: 10 MB';card.append(preview);
+     slideshowDetails.append(card);
+   });
+ });
+ slideshowDetails?.addEventListener('click',event=>{
+   const button=event.target.closest('button');if(!button)return;
+   const editor=button.closest('.section-field')?.querySelector('.slideshow-description-editor');if(!editor)return;
+   editor.focus();
+   if(button.dataset.cmd){document.execCommand(button.dataset.cmd,false,null);editor.dispatchEvent(new Event('input'));return;}
+   if(button.dataset.slideLink){const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim())){document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input'));}}
+ });
+ slideshowUploadForm?.addEventListener('submit',async event=>{
+   event.preventDefault();
+   if(!slideshowFiles?.files?.length){alert('Choose at least one photo to upload.');return;}
+   const submit=slideshowUploadForm.querySelector('[type=submit]');submit.disabled=true;submit.textContent='Uploading…';
+   const data=new FormData(slideshowUploadForm);data.set('action','upload_slideshow_photos');
+   try{
+     const response=await fetch('admin.php',{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}});
+     const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'The slideshow photos could not be uploaded.');
+     closeSlideshowModal();
+     const list=document.getElementById('slideshow-photo-list');list.querySelector('.slideshow-empty')?.remove();
+     result.photos.forEach((photo,index)=>{
+       const card=document.createElement('article');card.className='section-repeat-card slideshow-saved-photo';
+       const top=document.createElement('div');top.className='section-repeat-head';const count=list.querySelectorAll('.slideshow-saved-photo').length+1;top.innerHTML='<strong>Photo '+count+'</strong>';card.append(top);
+       const content=document.createElement('div');content.className='slideshow-saved-photo-content';
+       const image=document.createElement('img');image.src=photo.photo;image.alt=photo.title||'Slideshow photo';content.append(image);
+       const copy=document.createElement('div');const title=document.createElement('strong');title.textContent=photo.title||'';const h=document.createElement('h4');h.textContent=photo.heading||'';const desc=document.createElement('div');desc.className='muted';desc.innerHTML=photo.description||'';copy.append(title,h,desc);content.append(copy);card.append(content);list.append(card);
+     });
+     slideshowUploadForm.reset();slideshowDetails.replaceChildren();
+     const preview=document.getElementById('slide-preview-media');result.photos.forEach(photo=>{const img=document.createElement('img');img.src=photo.photo;img.alt=photo.title||'';preview.append(img);});
+     const notice=document.createElement('div');notice.className='gallery-inline-success';notice.textContent=result.count+' slideshow '+(result.count===1?'photo was':'photos were')+' successfully uploaded.';list.prepend(notice);
+   }catch(error){alert(error.message||'Slideshow photo upload failed.');}
+   finally{submit.disabled=false;submit.textContent='Upload Photos';}
+ });
+ document.getElementById('slideshow-upload-modal')?.addEventListener('click',event=>{if(event.target===slideshowModal)return;});
+ root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
  const add=(target,html)=>{document.getElementById(target).insertAdjacentHTML('beforeend',html)};
- document.getElementById('add-slide-photo')?.addEventListener('click',()=>add('slide-photo-list','<div class="section-repeat-card"><div class="section-repeat-head"><strong>New Photo</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Photo Title<input name="slide_title[]"></label><label class="section-field">Photo Heading<input name="slide_photo_heading[]"></label><label class="section-field" style="grid-column:1/-1">Description<div class="section-editor" contenteditable="true"></div><textarea hidden name="slide_description[]"></textarea></label><label class="section-field">Upload Photo<input type="file" name="slide_photo[]" accept="image/*"></label></div></div>'));
  document.getElementById('add-mega-panel')?.addEventListener('click',()=>add('mega-panel-list','<div class="section-repeat-card"><div class="section-repeat-head"><strong>New Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]"></label><label class="section-field">Panel Description<textarea name="panel_description[]"></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"></label></div></div>'));
  root.addEventListener('click',e=>{if(e.target.classList.contains('section-remove'))e.target.closest('.section-repeat-card')?.remove()});
  root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
