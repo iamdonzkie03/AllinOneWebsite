@@ -1746,7 +1746,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  @media(max-width:760px){.section-form-grid{grid-template-columns:1fr}}
  </style>
  
- <nav class="section-builder-tabs" data-active="banner" aria-label="Homepage section editor" data-initial-tab="<?=e(in_array((string)($_GET['section_tab']??'banner'),['banner','slideshow','mega_menu'],true)?(string)$_GET['section_tab']:'banner')?>">
+ <nav class="section-builder-tabs" data-active="banner" aria-label="Homepage section editor" data-initial-tab="<?=e(in_array((string)($_GET['section_tab']??'banner'),['banner','slideshow','mega_menu'],true)?(string)($_GET['section_tab']??'banner'):'banner')?>">
   <span class="section-tab-indicator" aria-hidden="true"></span>
   <button type="button" data-section-tab="banner" aria-selected="true" role="tab">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab">Mega Menu</button>
  </nav>
