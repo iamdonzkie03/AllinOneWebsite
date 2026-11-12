@@ -2268,6 +2268,40 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
  })();
  </script>
+ <script>
+ (() => {
+   const button = document.getElementById('slideshow-delete-selected');
+   const list = document.getElementById('slideshow-photo-list');
+   const selectAll = document.getElementById('slideshow-select-all');
+   if (!button || !list) return;
+   const getChecks = () => [...list.querySelectorAll('input.slideshow-photo-checkbox')];
+   const sync = () => {
+     const checks = getChecks();
+     const count = checks.filter(check => check.checked).length;
+     const active = count > 0;
+     button.disabled = !active;
+     button.setAttribute('aria-disabled', String(!active));
+     button.classList.toggle('is-disabled', !active);
+     button.textContent = count ? 'Delete Selected (' + count + ')' : 'Delete Selected';
+     if (selectAll) {
+       selectAll.checked = checks.length > 0 && count === checks.length;
+       selectAll.indeterminate = count > 0 && count < checks.length;
+       selectAll.disabled = checks.length === 0;
+     }
+   };
+   document.addEventListener('change', event => {
+     if (event.target instanceof HTMLInputElement &&
+         (event.target.matches('#slideshow-photo-list .slideshow-photo-checkbox') ||
+          event.target.matches('#slideshow-select-all'))) {
+       if (event.target.matches('#slideshow-select-all')) {
+         getChecks().forEach(check => { check.checked = event.target.checked; });
+       }
+       sync();
+     }
+   });
+   sync();
+ })();
+ </script>
 </section>
     </section>
     <script>
