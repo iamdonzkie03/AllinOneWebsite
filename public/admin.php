@@ -2191,7 +2191,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      const descLabel=document.createElement('label');descLabel.className='section-field';descLabel.textContent='Description';
      const toolbar=document.createElement('div');toolbar.className='section-toolbar slideshow-description-toolbar';
      [['bold','B'],['italic','I'],['underline','U']].forEach(([cmd,label])=>{const button=document.createElement('button');button.type='button';button.dataset.cmd=cmd;button.textContent=label;toolbar.append(button);});
-     const linkButton=document.createElement('button');linkButton.type='button';linkButton.dataset.link='1';linkButton.textContent='Link';toolbar.append(linkButton);
+     const linkButton=document.createElement('button');linkButton.type='button';linkButton.dataset.slideLink='1';linkButton.textContent='Link';toolbar.append(linkButton);
      const editor=document.createElement('div');editor.className='section-editor slideshow-description-editor';editor.contentEditable='true';editor.setAttribute('role','textbox');editor.setAttribute('aria-multiline','true');
      const hidden=document.createElement('textarea');hidden.hidden=true;hidden.name='slideshow_photo_description[]';
      editor.addEventListener('input',()=>hidden.value=editor.innerHTML);
@@ -2205,7 +2205,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const editor=button.closest('.section-field')?.querySelector('.slideshow-description-editor');if(!editor)return;
    editor.focus();
    if(button.dataset.cmd){document.execCommand(button.dataset.cmd,false,null);editor.dispatchEvent(new Event('input'));return;}
-   if(button.dataset.link){const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim())){document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input'));}}
+   if(button.dataset.slideLink){const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim())){document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input'));}}
  });
  slideshowUploadForm?.addEventListener('submit',async event=>{
    event.preventDefault();
