@@ -1758,32 +1758,21 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    <?php foreach(['banner_main_title'=>'Main Title','banner_heading'=>'Heading','banner_description'=>'Description'] as $editorKey=>$editorLabel): $storageKey=$editorKey==='banner_main_title'?'main_title':($editorKey==='banner_heading'?'heading':'description'); $editorValue=(string)($sectionsSettings['banner'][$storageKey]??''); ?>
    <label class="section-field banner-editor-field"><?=e($editorLabel)?>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="<?=e($editorLabel)?> formatting">
-     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
      <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
      <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
-     <select data-banner-font-weight aria-label="Font weight"><option value="">Weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
      <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
      <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
-     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
      <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
      <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
-     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
-     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
-     <button type="button" data-banner-action="link" title="Insert link">Link</button>
-     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
-     <button type="button" data-banner-action="quote" title="Quote">❝</button>
-     <button type="button" data-banner-action="table" title="Insert table">Table</button>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
-     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
      <button type="button" data-banner-command="undo" title="Undo">↶</button>
      <button type="button" data-banner-command="redo" title="Redo">↷</button>
-     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     </div>
     <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="<?=e($editorKey)?>" data-placeholder="Enter <?=e(strtolower($editorLabel))?>..."><?=$editorValue?></div>
     <input type="hidden" name="<?=e($editorKey)?>" data-banner-html="<?=e($editorKey)?>" value="<?=e($editorValue)?>">
@@ -1805,96 +1794,63 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="section-form-grid slideshow-rich-grid">
    <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Main Title</span>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Main Title formatting">
-     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
      <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
      <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
-     <select data-banner-font-weight aria-label="Font weight"><option value="">Weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
      <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
      <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
-     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
      <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
      <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
-     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
-     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
-     <button type="button" data-banner-action="link" title="Insert link">Link</button>
-     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
-     <button type="button" data-banner-action="quote" title="Quote">❝</button>
-     <button type="button" data-banner-action="table" title="Insert table">Table</button>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
-     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
      <button type="button" data-banner-command="undo" title="Undo">↶</button>
      <button type="button" data-banner-command="redo" title="Redo">↷</button>
-     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     </div>
 <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_main_title" data-placeholder="Enter main title..."><?=e((string)($sectionsSettings['slideshow']['main_title']??''))?></div>
 <input type="hidden" name="slide_main_title" data-banner-html="slide_main_title" value="<?=e((string)($sectionsSettings['slideshow']['main_title']??''))?>">
 </div>
    <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Heading</span>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Heading formatting">
-     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
      <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
      <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
-     <select data-banner-font-weight aria-label="Font weight"><option value="">Weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
      <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
      <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
-     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
      <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
      <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
-     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
-     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
-     <button type="button" data-banner-action="link" title="Insert link">Link</button>
-     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
-     <button type="button" data-banner-action="quote" title="Quote">❝</button>
-     <button type="button" data-banner-action="table" title="Insert table">Table</button>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
-     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
      <button type="button" data-banner-command="undo" title="Undo">↶</button>
      <button type="button" data-banner-command="redo" title="Redo">↷</button>
-     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     </div>
 <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_heading" data-placeholder="Enter heading..."><?=e((string)($sectionsSettings['slideshow']['heading']??''))?></div>
 <input type="hidden" name="slide_heading" data-banner-html="slide_heading" value="<?=e((string)($sectionsSettings['slideshow']['heading']??''))?>">
 </div>
    <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Subtitle</span>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Subtitle formatting">
-     <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
      <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
      <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
-     <select data-banner-font-weight aria-label="Font weight"><option value="">Weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
      <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
      <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-command="strikeThrough" title="Strikethrough"><s>S</s></button>
-     <button type="button" data-banner-command="removeFormat" title="Clear formatting">Tx</button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
      <span class="content-manager-rich-divider"></span>
      <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
      <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
      <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
-     <button type="button" data-banner-command="insertUnorderedList" title="Bulleted list">• List</button>
-     <button type="button" data-banner-command="insertOrderedList" title="Numbered list">1. List</button>
-     <button type="button" data-banner-action="link" title="Insert link">Link</button>
-     <button type="button" data-banner-action="unlink" title="Remove link">Unlink</button>
-     <button type="button" data-banner-action="quote" title="Quote">❝</button>
-     <button type="button" data-banner-action="table" title="Insert table">Table</button>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-action="image" title="Upload photo">Photo</button>
-     <label title="Text color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Text color"></label>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
      <button type="button" data-banner-command="undo" title="Undo">↶</button>
      <button type="button" data-banner-command="redo" title="Redo">↷</button>
-     <input type="file" data-banner-image-input accept="image/jpeg,image/png,image/gif,image/webp" hidden>
     </div>
 <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_subtitle" data-placeholder="Enter subtitle..."><?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?></div>
 <input type="hidden" name="slide_subtitle" data-banner-html="slide_subtitle" value="<?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?>">
@@ -2191,8 +2147,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  root.querySelectorAll('[data-banner-action="unlink"]').forEach(button=>button.addEventListener('click',()=>{
    const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'unlink');
  }));
- root.querySelectorAll('[data-banner-action="quote"]').forEach(button=>button.addEventListener('click',()=>{
-   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(field)bannerRunCommand(field,'formatBlock','<BLOCKQUOTE>');
+ root.querySelectorAll('[data-banner-action="quotation"]').forEach(button=>button.addEventListener('click',()=>{
+   const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
+   const range=restoreBannerSelection(field);if(!range)return;
+   const opening=document.createTextNode('“'),closing=document.createTextNode('”');
+   if(range.collapsed){range.insertNode(closing);range.insertNode(opening);range.setStartAfter(opening);range.collapse(true);}
+   else{const selected=range.extractContents();range.insertNode(closing);range.insertNode(selected);range.insertNode(opening);range.setStartAfter(closing);range.collapse(true);}
+   const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);
+   field.dispatchEvent(new Event('input',{bubbles:true}));rememberBannerSelection(field);
  }));
  root.querySelectorAll('[data-banner-action="table"]').forEach(button=>button.addEventListener('click',()=>{
    const field=button.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(!field)return;
