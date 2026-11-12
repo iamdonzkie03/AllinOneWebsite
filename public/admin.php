@@ -449,6 +449,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
+    if ($action === 'delete_slideshow_photos' || $action === 'edit_slideshow_photo') {
+        $activePageTab='sections'; header('Content-Type: application/json; charset=utf-8');
+        try {
+            $row=$pdo->query('SELECT content_json FROM site_sections_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC)?:[];
+            $settings=json_decode((string)($row['content_json']??''),true);if(!is_array($settings))throw new RuntimeException('Slideshow settings could not be loaded.');
+            $photos=array_values((array)($settings['slideshow']['photos']??[]));
+            $safePath=static function(string $relative):?string{$relative=ltrim(str_replace('\\\\','/',$relative),'/');if($relative===''||str_contains($relative,'..'))return null;$root=realpath(__DIR__.'/uploads/slideshow-photo');$path=realpath(__DIR__.'/'.$relative);return $root&&$path&&is_file($path)&&strpos($path,$root.DIRECTORY_SEPARATOR)===0?$path:null;};
+            if($action==='delete_slideshow_photos'){
+                $indices=array_values(array_unique(array_filter(array_map('intval',(array)($_POST['photo_indices']??[])),static fn($v)=>$v>=0&&$v<count($photos))));
+                if(!$indices)throw new RuntimeException('Select at least one slideshow photo to delete.');
+                rsort($indices);$removed=[];foreach($indices as $index){$path=$safePath((string)($photos[$index]['photo']??''));if($path)$removed[]=$path;array_splice($photos,$index,1);}
+                $settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+                foreach($removed as $path)if(is_file($path))@unlink($path);echo json_encode(['success'=>true,'deleted'=>count($indices)]);exit;
+            }
+            $index=filter_var($_POST['photo_index']??null,FILTER_VALIDATE_INT);if($index===false||!isset($photos[$index]))throw new RuntimeException('The selected slideshow photo could not be found.');
+            $photo=$photos[$index];$title=trim(strip_tags((string)($_POST['photo_title']??'')));if($title==='')throw new RuntimeException('Enter a title for this photo.');
+            $photo['title']=mb_substr($title,0,180);$photo['heading']=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
+            $description=strip_tags((string)($_POST['photo_description']??''),'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
+            $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
+            if(isset($_FILES['replacement_photo'])&&(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
+                $file=$_FILES['replacement_photo'];if((int)$file['error']!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded.');
+                if((int)$file['size']>10*1024*1024)throw new RuntimeException('The replacement photo must not exceed 10 MB.');
+                $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);$extensions=['image/jpeg'=>'jpg','image/avif'=>'avif','image/webp'=>'webp'];
+                if(!isset($extensions[$mime])||@getimagesize((string)$file['tmp_name'])===false)throw new RuntimeException('Choose a valid JPG, JPEG, AVIF or WEBP photo.');
+                $dir=__DIR__.'/uploads/slideshow-photo';if(!is_dir($dir)&&!mkdir($dir,0755,true)&&!is_dir($dir))throw new RuntimeException('Unable to access the slideshow photo folder.');
+                $filename='slideshow-'.date('Ymd-His').'-'.bin2hex(random_bytes(8)).'.'.$extensions[$mime];if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$filename))throw new RuntimeException('Unable to save the replacement photo.');
+                $photo['photo']='uploads/slideshow-photo/'.$filename;
+            }
+            $photos[$index]=$photo;$settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            if($oldPath!==(string)$photo['photo']){$old=$safePath($oldPath);if($old)@unlink($old);}
+            echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo]);exit;
+        }catch(Throwable $e){http_response_code(422);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);exit;}
+    }
+
     if ($action === 'upload_slideshow_photos') {
         $activePageTab = 'sections';
         $savedFiles = [];
@@ -1660,8 +1694,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
 
  .slideshow-rich-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
- .slideshow-rich-field{grid-column:1/-1!important}
- .slideshow-photo-list{display:grid;gap:12px}
+ .slideshow-rich-field:nth-child(1),.slideshow-rich-field:nth-child(2){grid-column:auto!important}.slideshow-rich-field:nth-child(3){grid-column:1/-1!important}
+ .slideshow-photo-list{display:grid;gap:8px}.slideshow-photo-list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}.slideshow-saved-photo{display:grid;grid-template-columns:auto 84px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;margin:0}.slideshow-saved-photo>img{width:84px;height:62px;object-fit:cover;border-radius:7px}.slideshow-saved-photo .photo-title{font-weight:700;color:#f5e9ed}.slideshow-saved-photo .photo-index{font-size:11px;color:#a9959d}.slideshow-photo-select{accent-color:#b8323f;width:16px;height:16px}.slideshow-photo-actions{display:flex;gap:6px;justify-content:flex-end}.slideshow-photo-edit-modal{width:min(680px,calc(100vw - 32px));max-height:88vh;overflow:auto}.slideshow-photo-edit-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.slideshow-photo-edit-fields .wide{grid-column:1/-1}.slideshow-photo-edit-fields textarea{min-height:120px}
  .slideshow-saved-photo-content{display:grid;grid-template-columns:190px minmax(0,1fr);gap:15px;align-items:start}
  .slideshow-saved-photo-content>img{width:100%;height:125px;object-fit:cover;border-radius:8px}
  .slideshow-saved-photo-content h4{margin:6px 0}
@@ -1676,7 +1710,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .slideshow-description-toolbar button{border:1px solid var(--line);border-radius:5px;background:#24171e;color:#fff;padding:5px 10px;cursor:pointer}
  .slideshow-description-editor{min-height:100px;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff}
  .slideshow-description-editor:focus{outline:2px solid #a94a61}
- @media(max-width:700px){.slideshow-rich-grid,.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-saved-photo-content{grid-template-columns:1fr}.slideshow-saved-photo-content>img{height:190px}}
+ @media(max-width:700px){.slideshow-rich-grid,.slideshow-upload-photo-card,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-saved-photo{grid-template-columns:auto 68px minmax(0,1fr)}.slideshow-saved-photo>img{width:68px;height:54px}.slideshow-photo-actions{grid-column:2/-1}.slideshow-photo-edit-fields .wide{grid-column:auto}}
 
  .section-editor{min-height:110px;border:1px solid var(--line);border-radius:8px;background:#120d10;padding:10px;color:#f5e9ed;font:13px Ubuntu}.section-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0}.section-toolbar button{background:#2b1a21;border:1px solid #5b3a46;color:#fff;border-radius:5px;padding:5px 9px;cursor:pointer}
  .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
@@ -1865,15 +1899,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 <input type="hidden" name="slide_subtitle" data-banner-html="slide_subtitle" value="<?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?>">
 </label>
   </div>
-  <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Upload and manage multiple photos for the public slideshow.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Multiple Photos</button></div>
+  <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Each photo appears as a thumbnail and title. Edit photos individually or select several to delete.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Multiple Photos</button></div>
+  <div class="slideshow-photo-list-toolbar"><label class="muted"><input type="checkbox" id="slideshow-select-all" class="slideshow-photo-select"> Select all photos</label><button type="button" class="btn light" id="slideshow-delete-selected" disabled>Delete Selected</button></div>
   <div class="slideshow-photo-list" id="slideshow-photo-list">
    <?php foreach((array)$sectionsSettings['slideshow']['photos'] as $k=>$ph): ?>
-    <article class="section-repeat-card slideshow-saved-photo">
-     <div class="section-repeat-head"><strong>Photo <?=($k+1)?></strong><span class="muted"><?=e(basename((string)($ph['photo']??'')))?></span></div>
-     <div class="slideshow-saved-photo-content">
-      <?php if(!empty($ph['photo'])): ?><img src="<?=e($ph['photo'])?>" alt="<?=e($ph['title']??'Slideshow photo')?>"><?php endif; ?>
-      <div><strong><?=e($ph['title']??'')?></strong><h4><?=e($ph['heading']??'')?></h4><div class="muted"><?=($ph['description']??'')?></div></div>
-     </div>
+    <article class="section-repeat-card slideshow-saved-photo" data-photo-index="<?=($k)?>">
+     <input type="checkbox" class="slideshow-photo-select slideshow-photo-checkbox" aria-label="Select photo <?=($k+1)?>">
+     <?php if(!empty($ph['photo'])): ?><img src="<?=e($ph['photo'])?>" alt="<?=e($ph['title']??'Slideshow photo')?>"><?php else: ?><div class="muted">No image</div><?php endif; ?>
+     <div><div class="photo-index">Photo <?=($k+1)?></div><div class="photo-title"><?=e($ph['title']??'Untitled photo')?></div></div>
+     <div class="slideshow-photo-actions"><button type="button" class="btn light slideshow-edit-photo">Edit</button></div>
     </article>
    <?php endforeach; ?>
    <?php if(empty($sectionsSettings['slideshow']['photos'])): ?><p class="muted slideshow-empty">No slideshow photos have been uploaded yet.</p><?php endif; ?>
@@ -1901,6 +1935,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </section>
  </div>
 
+<div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.avif,.webp,image/jpeg,image/avif,image/webp"><small>JPG, JPEG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div></form></section></div>
  <script>
  (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const moveSectionIndicator=(t,animate=true)=>{if(!tabNav||!t||!t.getClientRects().length)return;const indicator=tabNav.querySelector('.section-tab-indicator');if(!indicator)return;const tabWidth=t.offsetWidth,tabLeft=t.offsetLeft-tabNav.clientLeft;if(!tabWidth)return;if(!animate){indicator.style.transition='none';}indicator.style.width=tabWidth+'px';indicator.style.setProperty('--slider-x',tabLeft+'px');if(!animate){indicator.offsetHeight;indicator.style.transition='';}};const scheduleSectionIndicator=(animate=false)=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{const active=tabs.find(x=>x.getAttribute('aria-selected')==='true')||tabs[0];if(active)moveSectionIndicator(active,animate);}));};root.addEventListener('sectionspanel:shown',()=>scheduleSectionIndicator(false));const activateSectionTab=(t)=>{if(!t)return;const index=tabs.indexOf(t);if(tabNav){tabNav.dataset.active=t.dataset.sectionTab;}moveSectionIndicator(t);if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':t.dataset.sectionTab==='slideshow'?'Save Slideshow Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});const initialSectionTab=tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0];activateSectionTab(initialSectionTab);scheduleSectionIndicator(false);window.addEventListener('resize',()=>scheduleSectionIndicator(false));
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
@@ -2181,6 +2216,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  });
  const bannerPhotoInput=root.querySelector('input[name="banner_photo"]');bannerPhotoInput?.addEventListener('change',()=>{const file=bannerPhotoInput.files?.[0],preview=document.getElementById('banner-preview-photo');if(!file||!preview)return;const reader=new FileReader();reader.onload=()=>{preview.src=String(reader.result);};reader.readAsDataURL(file);});
  
+ window.slideshowPhotoRecords=<?=json_encode(array_values((array)($sectionsSettings['slideshow']['photos']??[])),JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?>;
+ const slideshowPhotoList=document.getElementById('slideshow-photo-list'),slideshowEditModal=document.getElementById('slideshow-photo-edit-modal'),slideshowEditForm=document.getElementById('slideshow-photo-edit-form'),slideshowDeleteButton=document.getElementById('slideshow-delete-selected'),slideshowSelectAll=document.getElementById('slideshow-select-all');
+ const refreshSlideshowSelection=()=>{const checks=[...(slideshowPhotoList?.querySelectorAll('.slideshow-photo-checkbox')||[])],count=checks.filter(x=>x.checked).length;if(slideshowDeleteButton){slideshowDeleteButton.disabled=count===0;slideshowDeleteButton.textContent=count?'Delete Selected ('+count+')':'Delete Selected';}if(slideshowSelectAll){slideshowSelectAll.checked=checks.length>0&&count===checks.length;slideshowSelectAll.indeterminate=count>0&&count<checks.length;}};
+ slideshowSelectAll?.addEventListener('change',()=>{slideshowPhotoList?.querySelectorAll('.slideshow-photo-checkbox').forEach(x=>x.checked=slideshowSelectAll.checked);refreshSlideshowSelection();});
+ slideshowPhotoList?.addEventListener('change',event=>{if(event.target.matches('.slideshow-photo-checkbox'))refreshSlideshowSelection();});
+ const renumberSlideshowPhotos=()=>{[...(slideshowPhotoList?.querySelectorAll('.slideshow-saved-photo')||[])].forEach((card,index)=>{card.dataset.photoIndex=String(index);const label=card.querySelector('.photo-index');if(label)label.textContent='Photo '+(index+1);});};
+ slideshowPhotoList?.addEventListener('click',event=>{const edit=event.target.closest('.slideshow-edit-photo');if(!edit)return;const card=edit.closest('.slideshow-saved-photo'),index=Number(card.dataset.photoIndex),photo=window.slideshowPhotoRecords[index];if(!photo){alert('Reload the page and try again.');return;}document.getElementById('slideshow-edit-index').value=String(index);document.getElementById('slideshow-edit-title').value=photo.title||'';document.getElementById('slideshow-edit-heading').value=photo.heading||'';document.getElementById('slideshow-edit-description').value=photo.description||'';slideshowEditModal.hidden=false;document.body.classList.add('modal-open');});
+ document.getElementById('slideshow-edit-cancel')?.addEventListener('click',()=>{slideshowEditModal.hidden=true;document.body.classList.remove('modal-open');});
+ slideshowEditForm?.addEventListener('submit',async event=>{event.preventDefault();const submit=slideshowEditForm.querySelector('[type=submit]');submit.disabled=true;submit.textContent='Saving…';const data=new FormData(slideshowEditForm);data.set('action','edit_slideshow_photo');try{const response=await fetch('admin.php',{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}}),result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'The photo could not be updated.');const index=result.index,photo=result.photo;window.slideshowPhotoRecords[index]=photo;const card=slideshowPhotoList.querySelector('[data-photo-index="'+index+'"]');if(card){let img=card.querySelector('img');if(!img){img=document.createElement('img');card.insertBefore(img,card.children[1]);}img.src=photo.photo;img.alt=photo.title;card.querySelector('.photo-title').textContent=photo.title;}const preview=document.getElementById('slide-preview-media');if(preview){const item=preview.querySelectorAll('.slideshow-photo-preview-card')[index];if(item){item.querySelector('img').src=photo.photo;item.querySelector('img').alt=photo.title;item.querySelector('strong').textContent=photo.title;item.querySelector('span').textContent=photo.heading||'';}}slideshowEditModal.hidden=true;document.body.classList.remove('modal-open');slideshowEditForm.reset();alert('Slideshow photo updated successfully.');}catch(error){alert(error.message||'The photo could not be updated.');}finally{submit.disabled=false;submit.textContent='Save Changes';}});
+ slideshowDeleteButton?.addEventListener('click',async()=>{const selected=[...(slideshowPhotoList?.querySelectorAll('.slideshow-photo-checkbox:checked')||[])].map(check=>Number(check.closest('.slideshow-saved-photo').dataset.photoIndex));if(!selected.length)return;if(!confirm('Delete '+selected.length+' selected slideshow '+(selected.length===1?'photo':'photos')+'? This cannot be undone.'))return;const data=new FormData();data.append('csrf',slideshowUploadForm.querySelector('[name=csrf]').value);data.append('action','delete_slideshow_photos');selected.forEach(index=>data.append('photo_indices[]',String(index)));slideshowDeleteButton.disabled=true;try{const response=await fetch('admin.php',{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}}),result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'Selected photos could not be deleted.');const indices=new Set(selected);window.slideshowPhotoRecords=window.slideshowPhotoRecords.filter((photo,index)=>!indices.has(index));selected.sort((a,b)=>b-a).forEach(index=>slideshowPhotoList.querySelector('[data-photo-index="'+index+'"]')?.remove());if(!slideshowPhotoList.querySelector('.slideshow-saved-photo')){const empty=document.createElement('p');empty.className='muted slideshow-empty';empty.textContent='No slideshow photos have been uploaded yet.';slideshowPhotoList.append(empty);}const preview=document.getElementById('slide-preview-media');if(preview){[...preview.querySelectorAll('.slideshow-photo-preview-card')].forEach((card,index)=>{if(indices.has(index))card.remove();});}renumberSlideshowPhotos();refreshSlideshowSelection();alert(result.deleted+' slideshow '+(result.deleted===1?'photo was':'photos were')+' successfully deleted.');}catch(error){alert(error.message||'Selected photos could not be deleted.');refreshSlideshowSelection();}});
  const slideshowModal=document.getElementById('slideshow-upload-modal');
  const slideshowUploadForm=document.getElementById('slideshow-upload-form');
  const slideshowFiles=document.getElementById('slideshow-photo-files');
@@ -2231,15 +2276,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'The slideshow photos could not be uploaded.');
      closeSlideshowModal();
      const list=document.getElementById('slideshow-photo-list');list.querySelector('.slideshow-empty')?.remove();
-     result.photos.forEach((photo,index)=>{
-       const card=document.createElement('article');card.className='section-repeat-card slideshow-saved-photo';
-       const top=document.createElement('div');top.className='section-repeat-head';const count=list.querySelectorAll('.slideshow-saved-photo').length+1;top.innerHTML='<strong>Photo '+count+'</strong>';card.append(top);
-       const content=document.createElement('div');content.className='slideshow-saved-photo-content';
-       const image=document.createElement('img');image.src=photo.photo;image.alt=photo.title||'Slideshow photo';content.append(image);
-       const copy=document.createElement('div');const title=document.createElement('strong');title.textContent=photo.title||'';const h=document.createElement('h4');h.textContent=photo.heading||'';const desc=document.createElement('div');desc.className='muted';desc.innerHTML=photo.description||'';copy.append(title,h,desc);content.append(copy);card.append(content);list.append(card);
-     });
+     result.photos.forEach(photo=>{window.slideshowPhotoRecords.push(photo);const index=window.slideshowPhotoRecords.length-1;const card=document.createElement('article');card.className='section-repeat-card slideshow-saved-photo';card.dataset.photoIndex=String(index);const check=document.createElement('input');check.type='checkbox';check.className='slideshow-photo-select slideshow-photo-checkbox';check.setAttribute('aria-label','Select photo '+(index+1));const image=document.createElement('img');image.src=photo.photo;image.alt=photo.title||'Slideshow photo';const copy=document.createElement('div');const number=document.createElement('div');number.className='photo-index';number.textContent='Photo '+(index+1);const title=document.createElement('div');title.className='photo-title';title.textContent=photo.title||'Untitled photo';copy.append(number,title);const actions=document.createElement('div');actions.className='slideshow-photo-actions';const edit=document.createElement('button');edit.type='button';edit.className='btn light slideshow-edit-photo';edit.textContent='Edit';actions.append(edit);card.append(check,image,copy,actions);list.append(card);});refreshSlideshowSelection();
      slideshowUploadForm.reset();slideshowDetails.replaceChildren();
-     const preview=document.getElementById('slide-preview-media');result.photos.forEach(photo=>{const img=document.createElement('img');img.src=photo.photo;img.alt=photo.title||'';preview.append(img);});
+     const preview=document.getElementById('slide-preview-media');result.photos.forEach(photo=>{const card=document.createElement('div');card.className='slideshow-photo-preview-card';const img=document.createElement('img');img.src=photo.photo;img.alt=photo.title||'';const title=document.createElement('strong');title.textContent=photo.title||'Untitled photo';const heading=document.createElement('span');heading.textContent=photo.heading||'';card.append(img,title,heading);preview.append(card);});
      const notice=document.createElement('div');notice.className='gallery-inline-success';notice.textContent=result.count+' slideshow '+(result.count===1?'photo was':'photos were')+' successfully uploaded.';list.prepend(notice);
    }catch(error){alert(error.message||'Slideshow photo upload failed.');}
    finally{submit.disabled=false;submit.textContent='Upload Photos';}
