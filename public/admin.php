@@ -1755,9 +1755,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="section-preview banner-preview-stage" id="banner-preview">
    <div class="banner-preview-grid">
     <div class="banner-preview-copy">
-     <div class="preview-kicker" id="banner-preview-title"><?=$sectionsSettings['banner']['main_title']?></div>
-     <h3 id="banner-preview-heading"><?=$sectionsSettings['banner']['heading']?></h3>
-     <div class="preview-desc" id="banner-preview-description"><?=$sectionsSettings['banner']['description']?></div>
+     <div class="preview-kicker" id="banner-preview-title"><?= (string)($sectionsSettings['banner']['main_title'] ?? '') ?></div>
+     <h3 id="banner-preview-heading"><?= (string)($sectionsSettings['banner']['heading'] ?? '') ?></h3>
+     <div class="preview-desc" id="banner-preview-description"><?= (string)($sectionsSettings['banner']['description'] ?? '') ?></div>
     </div>
     <div class="banner-preview-art">
      <img id="banner-preview-photo" src="<?=e(!empty($sectionsSettings['banner']['photo'])?ltrim((string)$sectionsSettings['banner']['photo'],'/'):'assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png')?>" alt="Banner photo preview">
