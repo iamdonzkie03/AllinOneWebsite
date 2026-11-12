@@ -480,6 +480,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $html = preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i', static function($m) {
                     $tag = strtolower($m[1]);
                     if ($tag === 'br') return '<br>';
+                    $href = '';
+                    if ($tag === 'a' && preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[2], $link) && preg_match('~^(https?://|/|#|\\?|mailto:)~i', $link[1])) {
+                        $href = ' href="' . htmlspecialchars($link[1], ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer"';
+                    }
                     $style = '';
                     if (preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[2], $x)) {
                         $rules = [];
@@ -498,7 +502,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         if ($rules) $style = ' style="' . implode(';', $rules) . '"';
                     }
-                    return '<' . $tag . $style . '>';
+                    return '<' . $tag . $href . $style . '>';
                 }, $html);
                 return trim($html);
             };
