@@ -2194,9 +2194,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  
  window.slideshowPhotoRecords=<?=json_encode(array_values((array)($sectionsSettings['slideshow']['photos']??[])),JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?>;
  const slideshowPhotoList=document.getElementById('slideshow-photo-list'),slideshowEditModal=document.getElementById('slideshow-photo-edit-modal'),slideshowEditForm=document.getElementById('slideshow-photo-edit-form'),slideshowDeleteButton=document.getElementById('slideshow-delete-selected'),slideshowSelectAll=document.getElementById('slideshow-select-all');
- const refreshSlideshowSelection=()=>{const checks=[...(slideshowPhotoList?.querySelectorAll('.slideshow-photo-checkbox')||[])],selected=checks.some(x=>x.checked),count=checks.filter(x=>x.checked).length;if(slideshowDeleteButton){slideshowDeleteButton.disabled=!selected;slideshowDeleteButton.toggleAttribute('disabled',!selected);slideshowDeleteButton.setAttribute('aria-disabled',String(!selected));slideshowDeleteButton.textContent=count?'Delete Selected ('+count+')':'Delete Selected';}if(slideshowSelectAll){slideshowSelectAll.checked=checks.length>0&&count===checks.length;slideshowSelectAll.indeterminate=selected&&!slideshowSelectAll.checked;}};
- slideshowSelectAll?.addEventListener('change',()=>{slideshowPhotoList?.querySelectorAll('.slideshow-photo-checkbox').forEach(x=>{x.checked=slideshowSelectAll.checked;});refreshSlideshowSelection();});
- document.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('#slideshow-photo-list .slideshow-photo-checkbox'))refreshSlideshowSelection();});
+ const refreshSlideshowSelection=()=>{const checks=[...(slideshowPhotoList?.querySelectorAll('input.slideshow-photo-checkbox')||[])],count=checks.reduce((total,check)=>total+(check.checked?1:0),0),active=count>0;if(slideshowDeleteButton){slideshowDeleteButton.disabled=!active;slideshowDeleteButton.toggleAttribute('disabled',!active);slideshowDeleteButton.setAttribute('aria-disabled',active?'false':'true');slideshowDeleteButton.classList.toggle('is-disabled',!active);slideshowDeleteButton.classList.toggle('is-active',active);slideshowDeleteButton.textContent=count?'Delete Selected ('+count+')':'Delete Selected';}if(slideshowSelectAll){slideshowSelectAll.checked=checks.length>0&&count===checks.length;slideshowSelectAll.indeterminate=count>0&&count<checks.length;slideshowSelectAll.disabled=checks.length===0;}};
+ document.addEventListener('change',event=>{const target=event.target;if(target===slideshowSelectAll){const checked=slideshowSelectAll.checked;slideshowPhotoList?.querySelectorAll('input.slideshow-photo-checkbox').forEach(check=>{check.checked=checked;});refreshSlideshowSelection();return;}if(target instanceof Element&&target.matches('#slideshow-photo-list input.slideshow-photo-checkbox'))refreshSlideshowSelection();},true);
+ slideshowPhotoList?.addEventListener('click',event=>{if(event.target instanceof Element&&event.target.closest('.gallery-photo-select'))queueMicrotask(refreshSlideshowSelection);},true);
  refreshSlideshowSelection();
  const renumberSlideshowPhotos=()=>{[...(slideshowPhotoList?.querySelectorAll('.slideshow-saved-photo')||[])].forEach((card,index)=>{card.dataset.photoIndex=String(index);const label=card.querySelector('.photo-index');if(label)label.textContent='Photo '+(index+1);});};
  slideshowPhotoList?.addEventListener('click',event=>{const edit=event.target.closest('.slideshow-edit-photo');if(!edit)return;const card=edit.closest('.slideshow-saved-photo'),index=Number(card.dataset.photoIndex),photo=window.slideshowPhotoRecords[index];if(!photo){alert('Reload the page and try again.');return;}document.getElementById('slideshow-edit-index').value=String(index);document.getElementById('slideshow-edit-title').value=photo.title||'';document.getElementById('slideshow-edit-heading').value=photo.heading||'';document.getElementById('slideshow-edit-description').value=photo.description||'';slideshowEditModal.hidden=false;document.body.classList.add('modal-open');});
@@ -2268,40 +2268,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
  })();
  </script>
- <script>
- (() => {
-   const button = document.getElementById('slideshow-delete-selected');
-   const list = document.getElementById('slideshow-photo-list');
-   const selectAll = document.getElementById('slideshow-select-all');
-   if (!button || !list) return;
-   const getChecks = () => [...list.querySelectorAll('input.slideshow-photo-checkbox')];
-   const sync = () => {
-     const checks = getChecks();
-     const count = checks.filter(check => check.checked).length;
-     const active = count > 0;
-     button.disabled = !active;
-     button.setAttribute('aria-disabled', String(!active));
-     button.classList.toggle('is-disabled', !active);
-     button.textContent = count ? 'Delete Selected (' + count + ')' : 'Delete Selected';
-     if (selectAll) {
-       selectAll.checked = checks.length > 0 && count === checks.length;
-       selectAll.indeterminate = count > 0 && count < checks.length;
-       selectAll.disabled = checks.length === 0;
-     }
-   };
-   document.addEventListener('change', event => {
-     if (event.target instanceof HTMLInputElement &&
-         (event.target.matches('#slideshow-photo-list .slideshow-photo-checkbox') ||
-          event.target.matches('#slideshow-select-all'))) {
-       if (event.target.matches('#slideshow-select-all')) {
-         getChecks().forEach(check => { check.checked = event.target.checked; });
-       }
-       sync();
-     }
-   });
-   sync();
- })();
- </script>
+
 </section>
     </section>
     <script>
