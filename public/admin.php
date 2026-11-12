@@ -1878,13 +1878,30 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </section>
  <div class="header-settings-actions"><button type="submit" class="btn" id="save-section-settings-button">Save Banner Settings</button></div>
  </form>
- <div class="gallery-modal-backdrop" id="slideshow-settings-success-modal" <?=((string)($_GET['slideshow_saved']??'')==='1' && $section==='page-management' && $activePageTab==='sections')?'':'hidden'?> style="z-index:1200">
-  <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-settings-success-title" style="width:min(420px,calc(100vw - 32px));text-align:center">
+ <div class="gallery-modal-backdrop" id="slideshow-settings-success-modal" <?=((string)($_GET['slideshow_saved']??'')==='1')?'':'hidden'?> style="position:fixed!important;inset:0!important;z-index:2147483000!important;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.78);backdrop-filter:blur(7px)">
+  <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-settings-success-title" style="width:min(420px,calc(100vw - 32px));text-align:center;margin:auto">
    <div style="font-size:34px;color:#54c98b;margin-bottom:8px">✓</div>
    <h2 id="slideshow-settings-success-title">Slideshow settings successfully saved.</h2>
    <div class="gallery-modal-actions" style="justify-content:center"><a class="btn" id="slideshow-settings-success-ok" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=slideshow#pm-panel-sections">OK</a></div>
   </section>
  </div>
+ <script>
+ (() => {
+   const modal = document.getElementById('slideshow-settings-success-modal');
+   if (!modal || new URLSearchParams(window.location.search).get('slideshow_saved') !== '1') return;
+   // Move the dialog directly under body so transformed admin layout wrappers cannot
+   // turn its fixed positioning into an in-flow element inside the page.
+   document.body.appendChild(modal);
+   modal.hidden = false;
+   modal.style.setProperty('position', 'fixed', 'important');
+   modal.style.setProperty('inset', '0', 'important');
+   modal.style.setProperty('z-index', '2147483000', 'important');
+   modal.style.setProperty('display', 'flex', 'important');
+   modal.style.setProperty('align-items', 'center', 'important');
+   modal.style.setProperty('justify-content', 'center', 'important');
+   document.body.classList.add('modal-open');
+ })();
+ </script>
  <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
   <section class="gallery-modal slideshow-upload-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-upload-modal-title">
    <div class="gallery-modal-head"><div><h2 id="slideshow-upload-modal-title">Upload Multiple Photos</h2><p class="muted">Select up to 20 photos. Add a title, heading and description for each photo.</p></div></div>
