@@ -449,6 +449,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
+    if ($action === 'delete_slideshow_photos' || $action === 'edit_slideshow_photo') {
+        $activePageTab='sections'; header('Content-Type: application/json; charset=utf-8');
+        try {
+            $row=$pdo->query('SELECT content_json FROM site_sections_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC)?:[];
+            $settings=json_decode((string)($row['content_json']??''),true);if(!is_array($settings))throw new RuntimeException('Slideshow settings could not be loaded.');
+            $photos=array_values((array)($settings['slideshow']['photos']??[]));
+            $safePath=static function(string $relative):?string{$relative=ltrim(str_replace('\\\\','/',$relative),'/');if($relative===''||str_contains($relative,'..'))return null;$root=realpath(__DIR__.'/uploads/slideshow-photo');$path=realpath(__DIR__.'/'.$relative);return $root&&$path&&is_file($path)&&strpos($path,$root.DIRECTORY_SEPARATOR)===0?$path:null;};
+            if($action==='delete_slideshow_photos'){
+                $indices=array_values(array_unique(array_filter(array_map('intval',(array)($_POST['photo_indices']??[])),static fn($v)=>$v>=0&&$v<count($photos))));
+                if(!$indices)throw new RuntimeException('Select at least one slideshow photo to delete.');
+                rsort($indices);$removed=[];foreach($indices as $index){$path=$safePath((string)($photos[$index]['photo']??''));if($path)$removed[]=$path;array_splice($photos,$index,1);}
+                $settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+                foreach($removed as $path)if(is_file($path))@unlink($path);echo json_encode(['success'=>true,'deleted'=>count($indices)]);exit;
+            }
+            $index=filter_var($_POST['photo_index']??null,FILTER_VALIDATE_INT);if($index===false||!isset($photos[$index]))throw new RuntimeException('The selected slideshow photo could not be found.');
+            $photo=$photos[$index];$title=trim(strip_tags((string)($_POST['photo_title']??'')));if($title==='')throw new RuntimeException('Enter a title for this photo.');
+            $photo['title']=mb_substr($title,0,180);$photo['heading']=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
+            $description=strip_tags((string)($_POST['photo_description']??''),'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
+            $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
+            if(isset($_FILES['replacement_photo'])&&(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
+                $file=$_FILES['replacement_photo'];if((int)$file['error']!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded.');
+                if((int)$file['size']>10*1024*1024)throw new RuntimeException('The replacement photo must not exceed 10 MB.');
+                $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);$extensions=['image/jpeg'=>'jpg','image/avif'=>'avif','image/webp'=>'webp'];
+                if(!isset($extensions[$mime])||@getimagesize((string)$file['tmp_name'])===false)throw new RuntimeException('Choose a valid JPG, JPEG, AVIF or WEBP photo.');
+                $dir=__DIR__.'/uploads/slideshow-photo';if(!is_dir($dir)&&!mkdir($dir,0755,true)&&!is_dir($dir))throw new RuntimeException('Unable to access the slideshow photo folder.');
+                $filename='slideshow-'.date('Ymd-His').'-'.bin2hex(random_bytes(8)).'.'.$extensions[$mime];if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$filename))throw new RuntimeException('Unable to save the replacement photo.');
+                $photo['photo']='uploads/slideshow-photo/'.$filename;
+            }
+            $photos[$index]=$photo;$settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            if($oldPath!==(string)$photo['photo']){$old=$safePath($oldPath);if($old)@unlink($old);}
+            echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo]);exit;
+        }catch(Throwable $e){http_response_code(422);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);exit;}
+    }
+
     if ($action === 'upload_slideshow_photos') {
         $activePageTab = 'sections';
         $savedFiles = [];
