@@ -1896,7 +1896,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </div>
 
  <script>
- (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const activateSectionTab=(t)=>{const index=tabs.indexOf(t);tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
+ (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const activateSectionTab=(t)=>{if(!t)return;const index=tabs.indexOf(t);if(tabNav){tabNav.dataset.active=t.dataset.sectionTab;tabNav.style.setProperty('--tab-index',String(index));}if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':t.dataset.sectionTab==='slideshow'?'Save Slideshow Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});activateSectionTab(tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0]);
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
  const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description',slide_main_title:'slide-preview-title',slide_heading:'slide-preview-heading',slide_subtitle:'slide-preview-subtitle'};
  const cleanBannerPreviewHtml=html=>{
@@ -2169,7 +2169,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  root.querySelectorAll('[data-banner-image-input]').forEach(input=>input.addEventListener('change',async()=>{const field=input.closest('.banner-editor-field')?.querySelector('[data-banner-text]');if(input.files?.[0]&&field)await uploadBannerEditorImage(field,input.files[0]);input.value='';}));
  const sectionsForm=document.getElementById('sections-settings-form');
  sectionsForm?.addEventListener('submit',()=>{
+   // Commit every rich editor to its hidden form field before native form serialization.
    root.querySelectorAll('[data-banner-text]').forEach(field=>refreshBannerPreview(field.dataset.bannerText));
+   if(saveTabField){const selected=tabs.find(tab=>tab.getAttribute('aria-selected')==='true');if(selected)saveTabField.value=selected.dataset.sectionTab;}
  });
  const bannerPhotoInput=root.querySelector('input[name="banner_photo"]');bannerPhotoInput?.addEventListener('change',()=>{const file=bannerPhotoInput.files?.[0],preview=document.getElementById('banner-preview-photo');if(!file||!preview)return;const reader=new FileReader();reader.onload=()=>{preview.src=String(reader.result);};reader.readAsDataURL(file);});
  
@@ -2186,6 +2188,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const selected=[...(slideshowFiles.files||[])];
    if(selected.length>20){alert('Choose no more than 20 photos per upload.');slideshowFiles.value='';return;}
    selected.forEach((file,index)=>{
+     if(!/\\.(jpe?g|avif|webp)$/i.test(file.name)||!['image/jpeg','image/avif','image/webp'].includes(file.type)){alert('Only JPG, JPEG, AVIF and WEBP photos are allowed.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
+     if(file.size>10*1024*1024){alert('Each slideshow photo must not exceed 10 MB.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
      const card=document.createElement('article');card.className='slideshow-upload-photo-card';
      const heading=document.createElement('h4');heading.textContent='Photo '+(index+1)+' · '+file.name;card.append(heading);
      const titleLabel=document.createElement('label');titleLabel.className='section-field';titleLabel.textContent='Photo Title';
