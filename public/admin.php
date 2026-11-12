@@ -1694,8 +1694,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
 
  .slideshow-rich-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
- .slideshow-rich-field{grid-column:1/-1!important}
- .slideshow-photo-list{display:grid;gap:12px}
+ .slideshow-rich-field:nth-child(1),.slideshow-rich-field:nth-child(2){grid-column:auto!important}.slideshow-rich-field:nth-child(3){grid-column:1/-1!important}
+ .slideshow-photo-list{display:grid;gap:8px}.slideshow-photo-list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}.slideshow-saved-photo{display:grid;grid-template-columns:auto 84px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 12px;margin:0}.slideshow-saved-photo>img{width:84px;height:62px;object-fit:cover;border-radius:7px}.slideshow-saved-photo .photo-title{font-weight:700;color:#f5e9ed}.slideshow-saved-photo .photo-index{font-size:11px;color:#a9959d}.slideshow-photo-select{accent-color:#b8323f;width:16px;height:16px}.slideshow-photo-actions{display:flex;gap:6px;justify-content:flex-end}.slideshow-photo-edit-modal{width:min(680px,calc(100vw - 32px));max-height:88vh;overflow:auto}.slideshow-photo-edit-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.slideshow-photo-edit-fields .wide{grid-column:1/-1}.slideshow-photo-edit-fields textarea{min-height:120px}
  .slideshow-saved-photo-content{display:grid;grid-template-columns:190px minmax(0,1fr);gap:15px;align-items:start}
  .slideshow-saved-photo-content>img{width:100%;height:125px;object-fit:cover;border-radius:8px}
  .slideshow-saved-photo-content h4{margin:6px 0}
@@ -1710,7 +1710,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .slideshow-description-toolbar button{border:1px solid var(--line);border-radius:5px;background:#24171e;color:#fff;padding:5px 10px;cursor:pointer}
  .slideshow-description-editor{min-height:100px;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff}
  .slideshow-description-editor:focus{outline:2px solid #a94a61}
- @media(max-width:700px){.slideshow-rich-grid,.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-saved-photo-content{grid-template-columns:1fr}.slideshow-saved-photo-content>img{height:190px}}
+ @media(max-width:700px){.slideshow-rich-grid,.slideshow-upload-photo-card,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-saved-photo{grid-template-columns:auto 68px minmax(0,1fr)}.slideshow-saved-photo>img{width:68px;height:54px}.slideshow-photo-actions{grid-column:2/-1}.slideshow-photo-edit-fields .wide{grid-column:auto}}
 
  .section-editor{min-height:110px;border:1px solid var(--line);border-radius:8px;background:#120d10;padding:10px;color:#f5e9ed;font:13px Ubuntu}.section-toolbar{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0}.section-toolbar button{background:#2b1a21;border:1px solid #5b3a46;color:#fff;border-radius:5px;padding:5px 9px;cursor:pointer}
  .section-repeat-card{border:1px solid #46323a;background:#100c0f;border-radius:12px;padding:14px;margin:14px 0}.section-repeat-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.section-remove{border:1px solid #9e3144;color:#ff9aaa;background:#281017;border-radius:7px;padding:6px 10px;cursor:pointer}
@@ -1899,15 +1899,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 <input type="hidden" name="slide_subtitle" data-banner-html="slide_subtitle" value="<?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?>">
 </label>
   </div>
-  <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Upload and manage multiple photos for the public slideshow.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Multiple Photos</button></div>
+  <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Each photo appears as a thumbnail and title. Edit photos individually or select several to delete.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Multiple Photos</button></div>
+  <div class="slideshow-photo-list-toolbar"><label class="muted"><input type="checkbox" id="slideshow-select-all" class="slideshow-photo-select"> Select all photos</label><button type="button" class="btn light" id="slideshow-delete-selected" disabled>Delete Selected</button></div>
   <div class="slideshow-photo-list" id="slideshow-photo-list">
    <?php foreach((array)$sectionsSettings['slideshow']['photos'] as $k=>$ph): ?>
-    <article class="section-repeat-card slideshow-saved-photo">
-     <div class="section-repeat-head"><strong>Photo <?=($k+1)?></strong><span class="muted"><?=e(basename((string)($ph['photo']??'')))?></span></div>
-     <div class="slideshow-saved-photo-content">
-      <?php if(!empty($ph['photo'])): ?><img src="<?=e($ph['photo'])?>" alt="<?=e($ph['title']??'Slideshow photo')?>"><?php endif; ?>
-      <div><strong><?=e($ph['title']??'')?></strong><h4><?=e($ph['heading']??'')?></h4><div class="muted"><?=($ph['description']??'')?></div></div>
-     </div>
+    <article class="section-repeat-card slideshow-saved-photo" data-photo-index="<?=($k)?>">
+     <input type="checkbox" class="slideshow-photo-select slideshow-photo-checkbox" aria-label="Select photo <?=($k+1)?>">
+     <?php if(!empty($ph['photo'])): ?><img src="<?=e($ph['photo'])?>" alt="<?=e($ph['title']??'Slideshow photo')?>"><?php else: ?><div class="muted">No image</div><?php endif; ?>
+     <div><div class="photo-index">Photo <?=($k+1)?></div><div class="photo-title"><?=e($ph['title']??'Untitled photo')?></div></div>
+     <div class="slideshow-photo-actions"><button type="button" class="btn light slideshow-edit-photo">Edit</button></div>
     </article>
    <?php endforeach; ?>
    <?php if(empty($sectionsSettings['slideshow']['photos'])): ?><p class="muted slideshow-empty">No slideshow photos have been uploaded yet.</p><?php endif; ?>
