@@ -1694,6 +1694,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
 
  .slideshow-rich-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+ .section-field-label{display:block;font:600 12px Ubuntu;color:#f2e6e9}
  .slideshow-rich-field:nth-child(1),.slideshow-rich-field:nth-child(2){grid-column:auto!important}.slideshow-rich-field:nth-child(3){grid-column:1/-1!important}
  .slideshow-photo-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:15px;margin-top:12px}.slideshow-photo-list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}.slideshow-saved-photo{position:relative;display:flex;flex-direction:column;gap:0;min-width:0;padding:0 0 8px;border:1px solid rgba(184,50,63,.22);border-radius:10px;background:rgba(255,255,255,.018);overflow:visible}.slideshow-saved-photo .gallery-photo-select{position:absolute;z-index:6;top:8px;left:8px}.slideshow-saved-photo .gallery-photo-image{position:relative;aspect-ratio:4/3;border:0;border-radius:9px 9px 0 0;overflow:hidden;background:#100c0f}.slideshow-saved-photo .gallery-photo-image>img{display:block;width:100%;height:100%;object-fit:cover;border-radius:9px 9px 0 0}.slideshow-saved-photo .gallery-photo-title{margin:8px 9px 3px;color:#f4e8eb;font:600 12px/1.4 Ubuntu,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.slideshow-saved-photo .gallery-photo-edit{align-self:flex-start;margin:7px 9px 2px;padding:6px 12px;font-size:10px}.slideshow-photo-select{accent-color:#b8323f;width:14px;height:14px}.slideshow-photo-edit-modal{width:min(680px,calc(100vw - 32px));max-height:88vh;overflow:auto}.slideshow-photo-edit-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.slideshow-photo-edit-fields .wide{grid-column:1/-1}.slideshow-photo-edit-fields textarea{min-height:120px}
  .slideshow-saved-photo-content{display:grid;grid-template-columns:190px minmax(0,1fr);gap:15px;align-items:start}
@@ -1802,7 +1803,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    <div class="section-preview-media" id="slide-preview-media"><?php foreach((array)$sectionsSettings['slideshow']['photos'] as $ph): if(!empty($ph['photo'])): ?><div class="slideshow-photo-preview-card"><img src="<?=e($ph['photo'])?>" alt="<?=e($ph['title']??'')?>"><strong><?=e($ph['title']??'Untitled photo')?></strong><span><?=e($ph['heading']??'')?></span></div><?php endif; endforeach; ?></div>
   </div>
   <div class="section-form-grid slideshow-rich-grid">
-   <label class="section-field banner-editor-field slideshow-rich-field">Main Title
+   <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Main Title</span>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Main Title formatting">
      <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
      <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
@@ -1833,8 +1834,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </div>
 <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_main_title" data-placeholder="Enter main title..."><?=e((string)($sectionsSettings['slideshow']['main_title']??''))?></div>
 <input type="hidden" name="slide_main_title" data-banner-html="slide_main_title" value="<?=e((string)($sectionsSettings['slideshow']['main_title']??''))?>">
-</label>
-   <label class="section-field banner-editor-field slideshow-rich-field">Heading
+</div>
+   <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Heading</span>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Heading formatting">
      <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
      <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
@@ -1865,8 +1866,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </div>
 <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_heading" data-placeholder="Enter heading..."><?=e((string)($sectionsSettings['slideshow']['heading']??''))?></div>
 <input type="hidden" name="slide_heading" data-banner-html="slide_heading" value="<?=e((string)($sectionsSettings['slideshow']['heading']??''))?>">
-</label>
-   <label class="section-field banner-editor-field slideshow-rich-field">Subtitle
+</div>
+   <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Subtitle</span>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Subtitle formatting">
      <select data-banner-block aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="H4">Heading 4</option><option value="BLOCKQUOTE">Quote</option></select>
      <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
@@ -1897,7 +1898,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </div>
 <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="slide_subtitle" data-placeholder="Enter subtitle..."><?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?></div>
 <input type="hidden" name="slide_subtitle" data-banner-html="slide_subtitle" value="<?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?>">
-</label>
+</div>
   </div>
   <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Each photo appears as a thumbnail and title. Edit photos individually or select several to delete.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Multiple Photos</button></div>
   <div class="slideshow-photo-list-toolbar"><label class="muted"><input type="checkbox" id="slideshow-select-all" class="slideshow-photo-select"> Select all photos</label><button type="button" class="btn light" id="slideshow-delete-selected" disabled>Delete Selected</button></div>
