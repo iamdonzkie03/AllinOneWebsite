@@ -2826,26 +2826,57 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
 </script>
 <script>
-// Dismiss the dynamically-created slideshow upload confirmation before
-// navigating to Media Management. The overlay lives under document.body,
-// outside the page panels, so changing sections alone does not remove it.
-document.addEventListener('click', event => {
-  const target = event.target instanceof Element ? event.target : null;
-  const link = target?.closest('a[href]');
-  if (!link) return;
+// Clear stale upload confirmations whenever Media Management is entered.
+// The slideshow confirmation is appended directly to document.body, so it
+// can survive panel changes and browser history restoration.
+(() => {
+  const isMediaManagement = () => {
+    try {
+      return new URL(window.location.href).searchParams.get('section') === 'media-management';
+    } catch (error) {
+      return false;
+    }
+  };
 
-  let destination;
-  try {
-    destination = new URL(link.getAttribute('href'), window.location.href);
-  } catch (error) {
-    return;
-  }
+  const clearUploadConfirmations = () => {
+    if (!isMediaManagement()) return;
+    document.getElementById('slideshow-upload-success-modal')?.remove();
+    document.getElementById('gallery-upload-success-modal')?.remove();
 
-  if (destination.searchParams.get('section') !== 'media-management') return;
+    // Also catch the dynamically-created slideshow confirmation if its
+    // identifier was changed by another upload script.
+    document.querySelectorAll('.account-status-modal').forEach(overlay => {
+      const message = overlay.textContent || '';
+      if (/slideshow\s+photos?\s+(?:was|were)\s+successfully\s+uploaded/i.test(message)) {
+        overlay.remove();
+      }
+    });
+    document.body.classList.remove('modal-open');
+  };
 
-  document.getElementById('slideshow-upload-success-modal')?.remove();
-  document.getElementById('gallery-upload-success-modal')?.remove();
-  document.body.classList.remove('modal-open');
-}, true);
+  // Handle direct loads and browser back/forward restoration.
+  clearUploadConfirmations();
+  window.addEventListener('pageshow', clearUploadConfirmations);
+
+  // Remove the overlay before the browser follows the Media Management link.
+  document.addEventListener('click', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const link = target?.closest('a[href]');
+    if (!link) return;
+
+    let destination;
+    try {
+      destination = new URL(link.getAttribute('href'), window.location.href);
+    } catch (error) {
+      return;
+    }
+
+    if (destination.searchParams.get('section') === 'media-management') {
+      document.getElementById('slideshow-upload-success-modal')?.remove();
+      document.getElementById('gallery-upload-success-modal')?.remove();
+      document.body.classList.remove('modal-open');
+    }
+  }, true);
+})();
 </script>
 </body></html>
