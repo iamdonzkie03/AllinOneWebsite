@@ -338,9 +338,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $successUrl='admin.php?section=media-management&media_tab=gallery&gallery_folder='.rawurlencode($successFolder).'&gallery_photo_edit_success=1&gallery_photo_edit_message='.rawurlencode($successText);
             if($changedCount===1&&$titleChanged)$successUrl.='&gallery_old_photo_title='.rawurlencode($oldTitle).'&gallery_new_photo_title='.rawurlencode($title);
             if($changedCount===1&&$photoChanged)$successUrl.='&gallery_replaced_photo_title='.rawurlencode($title);
+            if (strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest') {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success'=>true,'redirect'=>$successUrl], JSON_UNESCAPED_SLASHES);
+                exit;
+            }
             header('Location: '.$successUrl,true,303);
             exit;
-        }catch(Throwable $e){if($newFile!==''&&is_file($newFile))@unlink($newFile);$message=$e->getMessage();}
+        }catch(Throwable $e){
+            if($newFile!==''&&is_file($newFile))@unlink($newFile);
+            if (strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest') {
+                http_response_code(400);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success'=>false,'message'=>$e->getMessage()], JSON_UNESCAPED_SLASHES);
+                exit;
+            }
+            $message=$e->getMessage();
+        }
     }
 
     if ($action === 'edit_gallery_folder') {
@@ -1894,6 +1908,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       const data = new FormData(form);
       const xhr = new XMLHttpRequest();
       xhr.open('POST', form.action || window.location.href, true);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      xhr.setRequestHeader('Accept', 'application/json');
       xhr.upload.addEventListener('progress', uploadEvent => {
         if (uploadEvent.lengthComputable) setProgress((uploadEvent.loaded / uploadEvent.total) * 100);
       });
@@ -1902,17 +1918,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         progressLabel.textContent = 'Saving replacement photo…';
       });
       xhr.addEventListener('load', () => {
-        const finalUrl = xhr.responseURL || '';
-        if (xhr.status >= 200 && xhr.status < 400 && new URL(finalUrl, window.location.href).searchParams.get('gallery_photo_edit_success') === '1') {
-          window.location.assign(finalUrl);
+        let response = null;
+        try { response = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300 && response && response.success === true && response.redirect) {
+          setProgress(100);
+          progressLabel.textContent = 'Replacement photo saved.';
+          window.location.assign(response.redirect);
           return;
         }
-        let detail = 'The replacement photo could not be saved. Please try again.';
-        try {
-          const parsed = new DOMParser().parseFromString(xhr.responseText, 'text/html');
-          const serverError = parsed.querySelector('.gallery-upload-error:not([hidden]), .alert, [role="alert"]');
-          if (serverError && serverError.textContent.trim()) detail = serverError.textContent.trim();
-        } catch (_) {}
+        const detail = response && response.message
+          ? response.message
+          : 'The server returned an unexpected response (HTTP ' + xhr.status + '). Please check the PHP error log if the problem continues.';
         errorBox.textContent = detail;
         errorBox.hidden = false;
         progress.hidden = true;
