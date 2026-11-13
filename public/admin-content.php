@@ -297,8 +297,13 @@ try {
         }
         $coverPhoto = $previousCoverPhoto;
         if (filter_var($_POST['remove_cover_photo'] ?? false, FILTER_VALIDATE_BOOLEAN)) $coverPhoto = null;
-        if (isset($_FILES['cover_photo']) && is_array($_FILES['cover_photo']) && (int)($_FILES['cover_photo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-            $coverPhoto = $storeArticleCoverPhoto($_FILES['cover_photo']);
+        $coverUpload = $_FILES['cover_photo'] ?? null;
+        // Browsers may submit an empty multipart file part (filename="") when
+        // the optional file input has no selection. Treat that as no replacement.
+        $coverUploadName = is_array($coverUpload) ? trim((string)($coverUpload['name'] ?? '')) : '';
+        $coverUploadError = is_array($coverUpload) ? (int)($coverUpload['error'] ?? UPLOAD_ERR_NO_FILE) : UPLOAD_ERR_NO_FILE;
+        if (is_array($coverUpload) && $coverUploadName !== '' && $coverUploadError !== UPLOAD_ERR_NO_FILE) {
+            $coverPhoto = $storeArticleCoverPhoto($coverUpload);
         }
         if ($id > 0) {
             $save = $pdo->prepare("UPDATE content SET category_id=?,subcategory_id=?,title=?,slug=?,excerpt=?,cover_photo=?,body=?,status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
