@@ -2844,6 +2844,7 @@ document.addEventListener('click', event => {
   if (destination.searchParams.get('section') !== 'media-management') return;
 
   document.getElementById('slideshow-upload-success-modal')?.remove();
+  document.getElementById('gallery-upload-success-modal')?.remove();
   document.body.classList.remove('modal-open');
 }, true);
 </script>
