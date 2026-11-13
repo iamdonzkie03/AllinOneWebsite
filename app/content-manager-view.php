@@ -133,6 +133,13 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-success-list ul{margin:3px 0 5px;padding-left:20px;color:#cdb8c0}
 .content-manager-success-list>li{margin:4px 0}
 .content-manager-success-modal .content-manager-modal-actions{justify-content:center;margin-top:22px}
+.content-manager-update-progress-modal{width:min(100%,440px);text-align:center;padding:26px}
+.content-manager-update-progress-modal h3{margin:0 0 9px;color:#f7e9ed;font:700 16px Ubuntu,sans-serif}
+.content-manager-update-progress-modal p{margin:0 0 18px;color:#cdb8c0;font:12px/1.6 Ubuntu,sans-serif}
+.content-manager-progress-track{height:13px;overflow:hidden;border:1px solid rgba(212,90,112,.38);border-radius:999px;background:#09070a;box-shadow:inset 0 2px 5px rgba(0,0,0,.45)}
+.content-manager-progress-fill{width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#8f243b,#d94b63,#f18a9a);box-shadow:0 0 14px rgba(217,75,99,.35);transition:width .12s linear}
+.content-manager-progress-meta{display:flex;justify-content:space-between;gap:12px;margin-top:10px;color:#d9cbd0;font:11px Ubuntu,sans-serif}
+.content-manager-progress-percent{color:#fff;font-weight:700;font-variant-numeric:tabular-nums}
 .content-manager-modal-actions{justify-content:flex-end;margin-top:8px}
 .content-manager-row-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.content-manager-action{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}.content-manager-action:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);transform:translateY(-1px)}.content-manager-action--delete{border-color:rgba(210,83,99,.32);background:rgba(139,31,48,.12);color:#eaa0aa}.content-manager-action--delete:hover{background:rgba(159,35,54,.25);border-color:rgba(226,105,119,.65)}.content-manager-action--protected{font-size:10px;color:#aa969d}.content-manager-bulk-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}.content-manager-bulk-toolbar .muted{font-size:11px}.content-manager-select-cell{width:38px;text-align:center!important}.content-manager-select-cell input{accent-color:#a83d59;width:14px;height:14px;cursor:pointer}.content-manager-delete-selected{border:1px solid rgba(210,83,99,.42);border-radius:999px;background:rgba(139,31,48,.18);color:#f0b2bb;padding:8px 15px;font:600 11px Ubuntu,sans-serif;cursor:pointer}.content-manager-delete-selected:disabled{opacity:.4;cursor:not-allowed}.content-manager-table-tools{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 12px}
 .content-manager-filter,.content-manager-page-size{display:flex;align-items:center;gap:8px;color:#d9cbd0;font-size:11px}
@@ -420,6 +427,18 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       </form>
     </section>
     </div>
+    <?php if ($cmEditArticle): ?>
+    <div class="content-manager-modal-backdrop" id="managed-article-update-progress" hidden role="presentation">
+      <section class="content-manager-modal content-manager-update-progress-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-update-progress-title">
+        <h3 id="managed-article-update-progress-title">Updating Article</h3>
+        <p id="managed-article-update-progress-message">Please wait while your article is being updated.</p>
+        <div class="content-manager-progress-track" role="progressbar" aria-label="Article update progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="managed-article-update-progress-track">
+          <div class="content-manager-progress-fill" id="managed-article-update-progress-fill"></div>
+        </div>
+        <div class="content-manager-progress-meta"><span id="managed-article-update-progress-status">Preparing update...</span><span class="content-manager-progress-percent" id="managed-article-update-progress-percent">0%</span></div>
+      </section>
+    </div>
+    <?php endif; ?>
     <?php endif; ?>
 
   </div>
@@ -568,6 +587,96 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     richEditor.addEventListener('input', updateWordCount);
     richForm.addEventListener('submit', () => { if (bodyField) bodyField.value = richEditor.innerHTML; });
     updateWordCount();
+  }
+
+  const editArticleForm = document.getElementById('managed-article-form');
+  const articleUpdateProgress = document.getElementById('managed-article-update-progress');
+  if (editArticleForm && articleUpdateProgress && Number(editArticleForm.querySelector('input[name="article_id"]')?.value || 0) > 0) {
+    const progressFill = document.getElementById('managed-article-update-progress-fill');
+    const progressTrack = document.getElementById('managed-article-update-progress-track');
+    const progressPercent = document.getElementById('managed-article-update-progress-percent');
+    const progressStatus = document.getElementById('managed-article-update-progress-status');
+    const progressMessage = document.getElementById('managed-article-update-progress-message');
+    let displayedProgress = 0;
+    let targetProgress = 0;
+    let animationFrame = 0;
+    let redirectAfterComplete = '';
+    const paintProgress = () => {
+      animationFrame = 0;
+      displayedProgress += (targetProgress - displayedProgress) * 0.16;
+      if (Math.abs(targetProgress - displayedProgress) < 0.25) displayedProgress = targetProgress;
+      const value = Math.min(100, Math.floor(displayedProgress));
+      if (progressFill) progressFill.style.width = value + '%';
+      if (progressPercent) progressPercent.textContent = value + '%';
+      if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(value));
+      if (displayedProgress < targetProgress) animationFrame = window.requestAnimationFrame(paintProgress);
+      else if (targetProgress === 100 && redirectAfterComplete) {
+        const destination = redirectAfterComplete;
+        redirectAfterComplete = '';
+        window.location.assign(destination);
+      }
+    };
+    const setProgressTarget = value => {
+      targetProgress = Math.max(targetProgress, Math.min(100, value));
+      if (!animationFrame) animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        paintProgress();
+      });
+    };
+    editArticleForm.addEventListener('submit', event => {
+      event.preventDefault();
+      if (!editArticleForm.reportValidity()) return;
+      const bodyField = document.getElementById('managed-article-body');
+      const richEditorField = document.getElementById('managed-article-editor');
+      if (bodyField && richEditorField) bodyField.value = richEditorField.innerHTML;
+      const submitButton = editArticleForm.querySelector('button[type="submit"]');
+      if (submitButton) submitButton.disabled = true;
+      displayedProgress = 0;
+      targetProgress = 0;
+      if (progressFill) progressFill.style.width = '0%';
+      if (progressPercent) progressPercent.textContent = '0%';
+      if (progressTrack) progressTrack.setAttribute('aria-valuenow', '0');
+      if (progressStatus) progressStatus.textContent = 'Uploading changes...';
+      if (progressMessage) progressMessage.textContent = 'Please wait while your article is being updated.';
+      articleUpdateProgress.hidden = false;
+      const request = new XMLHttpRequest();
+      request.open('POST', editArticleForm.action, true);
+      request.upload.addEventListener('progress', uploadEvent => {
+        if (!uploadEvent.lengthComputable) return;
+        const uploadPercent = Math.round((uploadEvent.loaded / uploadEvent.total) * 90);
+        setProgressTarget(uploadPercent);
+      });
+      request.upload.addEventListener('load', () => {
+        setProgressTarget(90);
+        if (progressStatus) progressStatus.textContent = 'Saving article...';
+      });
+      request.addEventListener('load', () => {
+        let finalUrl = request.responseURL || '';
+        try {
+          const parsedUrl = new URL(finalUrl, window.location.href);
+          if (request.status >= 200 && request.status < 300 && parsedUrl.searchParams.get('notice') === 'article_updated') {
+            if (progressStatus) progressStatus.textContent = 'Finalizing update...';
+            if (progressMessage) progressMessage.textContent = 'Your article has been updated successfully.';
+            redirectAfterComplete = parsedUrl.href;
+            setProgressTarget(100);
+            return;
+          }
+        } catch (error) {}
+        articleUpdateProgress.hidden = true;
+        if (submitButton) submitButton.disabled = false;
+        window.alert('The article could not be updated. Please check your connection and try again.');
+      });
+      request.addEventListener('error', () => {
+        articleUpdateProgress.hidden = true;
+        if (submitButton) submitButton.disabled = false;
+        window.alert('The article update failed because of a network error. Please try again.');
+      });
+      request.addEventListener('abort', () => {
+        articleUpdateProgress.hidden = true;
+        if (submitButton) submitButton.disabled = false;
+      });
+      request.send(new FormData(editArticleForm));
+    });
   }
 
   const articlePreviewModal = document.getElementById('managed-article-preview-modal');
