@@ -47,12 +47,12 @@ $newCoverFilePath = null;
 
 $storeArticleCoverPhoto = static function(array $upload) use (&$newCoverFilePath): string {
     if ((int)($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) throw new RuntimeException('cover_photo_upload_failed');
-    if ((int)($upload['size'] ?? 0) < 1 || (int)$upload['size'] > 8 * 1024 * 1024) throw new RuntimeException('cover_photo_too_large');
+    if ((int)($upload['size'] ?? 0) < 1 || (int)$upload['size'] >= 10 * 1024 * 1024) throw new RuntimeException('cover_photo_too_large');
     if (!is_uploaded_file((string)($upload['tmp_name'] ?? ''))) throw new RuntimeException('cover_photo_invalid');
     $imageInfo = @getimagesize((string)$upload['tmp_name']);
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file((string)$upload['tmp_name']);
-    $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'];
+    $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/avif'=>'avif'];
     if (!$imageInfo || !isset($extensions[$mime]) || (int)$imageInfo[0] > 8000 || (int)$imageInfo[1] > 8000) throw new RuntimeException('cover_photo_invalid');
     $directory = __DIR__ . '/uploads/articles/cover_photos';
     if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) throw new RuntimeException('cover_photo_folder_failed');
