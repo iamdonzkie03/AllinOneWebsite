@@ -1455,10 +1455,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(progress)progress.hidden=false;
       if(uploadError){uploadError.hidden=true;uploadError.textContent='';}
       setProgress(0);
-      const uploadStartedAt=Date.now();let simulatedProgress=0;const progressTimer=window.setInterval(()=>{simulatedProgress=Math.min(90,simulatedProgress+2.2);setProgress(simulatedProgress);},80);
+      const uploadStartedAt=Date.now();let simulatedProgress=0;const progressTimer=window.setInterval(()=>{simulatedProgress=Math.min(99,simulatedProgress+2.4);setProgress(simulatedProgress);},80);
       xhr.open('POST',window.location.href,true);
       xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
-      xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable){const actual=event.total?event.loaded/event.total*100:0;setProgress(Math.min(90,Math.max(simulatedProgress,actual*.9)));}});
+      xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable){const actual=event.total?event.loaded/event.total*100:0;setProgress(Math.min(99,Math.max(simulatedProgress,actual*.99)));}});
       xhr.addEventListener('load',()=>{
         let result=null;try{result=JSON.parse(xhr.responseText);}catch(error){}
         if(!result){
