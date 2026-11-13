@@ -3277,10 +3277,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
   const closeGalleryOverlays = () => {
     document.querySelectorAll('.gallery-modal-backdrop').forEach(modal => {
-      // A server-rendered folder deletion success modal belongs to the current
-      // POST response, so keep it visible instead of treating it as stale UI.
+      // Keep server-rendered success dialogs visible after their redirect.
+      // The entry cleanup must close stale interactive forms, not fresh success
+      // confirmations for actions completed by the current request.
       const preserveAddPhotoPrompt = new URLSearchParams(window.location.search).get('gallery_upload_prompt') === '1';
-      if (modal.id === 'gallery-delete-success-modal' || modal.id === 'gallery-add-folder-success-modal') return;
+      if (
+        modal.id === 'gallery-delete-success-modal' ||
+        modal.id === 'gallery-photo-delete-success-modal' ||
+        modal.id === 'gallery-add-folder-success-modal'
+      ) return;
       if (modal.id === 'gallery-add-modal' && preserveAddPhotoPrompt) return;
       modal.hidden = true;
       modal.style.setProperty('display', 'none', 'important');
