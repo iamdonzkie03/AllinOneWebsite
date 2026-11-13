@@ -1602,7 +1602,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     // A newly created folder opens directly into its folder-specific photo uploader.
     const uploadPromptUrl=new URLSearchParams(window.location.search);
     if(uploadPromptUrl.get('gallery_upload_prompt')==='1'&&requestedFolder!==null){
-      showUploadModal(requestedFolder);
+      // Wait until the Media Management entry cleanup and tab initialization
+      // have completed, then open the uploader in its locked folder context.
+      window.requestAnimationFrame(()=>showUploadModal(requestedFolder));
     }
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;});
@@ -1774,51 +1776,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     });
   })();
 
-  // Keep the Add Photo overlay independently operable even if another Gallery
-  // interaction handler fails to initialize. This listener is intentionally
-  // separate from the upload workflow above.
-  (() => {
-    const showAddPhoto = () => {
-      const modal = document.getElementById('gallery-add-modal');
-      if (!modal) return;
-      modal.hidden = false;
-      modal.style.removeProperty('display');
-      document.body.classList.add('modal-open');
-      const mode = document.getElementById('gallery-folder-mode');
-      const existing = document.getElementById('gallery-existing-folder-field');
-      const fresh = document.getElementById('gallery-new-folder-field');
-      if (mode && existing && fresh) {
-        const isExisting = mode.value === 'existing';
-        const isNew = mode.value === 'new';
-        existing.hidden = !isExisting;
-        fresh.hidden = !isNew;
-      }
-      mode?.focus();
-    };
-
-    document.addEventListener('click', event => {
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest('#gallery-add-photo')) {
-        event.preventDefault();
-        showAddPhoto();
-      }
-      const close = target?.closest('[data-gallery-modal-close="gallery-add-modal"], #gallery-modal-cancel');
-      if (close) {
-        const modal = document.getElementById('gallery-add-modal');
-        if (modal) modal.hidden = true;
-        document.body.classList.remove('modal-open');
-      }
-    });
-
-    document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape') return;
-      const modal = document.getElementById('gallery-add-modal');
-      if (modal && !modal.hidden) {
-        modal.hidden = true;
-        document.body.classList.remove('modal-open');
-      }
-    });
-  })();
+  // The primary Gallery uploader handler owns opening, folder locking, and closing.
+  // Avoid a second delegated handler that can reopen the same modal in an unlocked state.
   </script>
   <section class="page-management-tabpanel" id="media-panel-video" role="tabpanel" aria-labelledby="media-tab-video" hidden>
     <h2>Video</h2><p class="muted">Manage videos displayed on the public website.</p>
