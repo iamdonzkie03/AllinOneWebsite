@@ -2843,6 +2843,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.getElementById('slideshow-upload-success-modal')?.remove();
     document.getElementById('gallery-upload-success-modal')?.remove();
 
+    // Ensure the Gallery Add Photo form never remains open after a page
+    // transition or browser history restoration.
+    const addPhotoModal = document.getElementById('gallery-add-modal');
+    if (addPhotoModal) {
+      addPhotoModal.hidden = true;
+      addPhotoModal.style.setProperty('display', 'none', 'important');
+    }
+
     // Also catch the dynamically-created slideshow confirmation if its
     // identifier was changed by another upload script.
     document.querySelectorAll('.account-status-modal').forEach(overlay => {
