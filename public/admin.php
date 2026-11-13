@@ -41,6 +41,16 @@ foreach (['logo_width'=>'SMALLINT UNSIGNED NOT NULL DEFAULT 200','logo_height'=>
     $exists->execute([$column]);
     if (!(int)$exists->fetchColumn()) $pdo->exec("ALTER TABLE site_header_settings ADD COLUMN {$column} {$definition}");
 }
+function isValidGalleryFolderName(string $name): bool {
+    if ($name === '' || mb_strlen($name) > 80 || $name === '.' || $name === '..') return false;
+    // Allow letters, numbers, spaces and symbols, while blocking path separators,
+    // control characters and characters that Windows cannot use in folder names.
+    if (preg_match('~[\\x00-\\x1F\\x7F/\\\\:*?"<>|]~u', $name)) return false;
+    if (preg_match('~[ .]$~u', $name)) return false;
+    $reserved = ['CON','PRN','AUX','NUL','COM1','COM2','COM3','COM4','COM5','COM6','COM7','COM8','COM9','LPT1','LPT2','LPT3','LPT4','LPT5','LPT6','LPT7','LPT8','LPT9'];
+    $deviceName = strtoupper(explode('.', $name, 2)[0]);
+    return !in_array($deviceName, $reserved, true);
+}
 function cleanHeaderRichHtml(string $html): string {
     $html = strip_tags($html, '<span><b><strong><i><em><u>');
     $html = preg_replace_callback('/<span\\b([^>]*)>/i', static function($m) {
@@ -396,7 +406,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activeMediaTab = 'gallery';
         try {
             $folder = trim((string)($_POST['gallery_new_folder_name'] ?? ''));
-            if ($folder === '' || mb_strlen($folder) > 80 || !preg_match('/^[\\p{L}\\p{N} _-]+$/u', $folder)) {
+            if (!isValidGalleryFolderName($folder)) {
                 throw new RuntimeException('Enter a folder name using letters, numbers, spaces, hyphens or underscores (maximum 80 characters).');
             }
             $galleryRoot = __DIR__ . '/uploads/gallery';
@@ -1214,7 +1224,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     if (is_dir($galleryRoot)) {
       foreach (scandir($galleryRoot) ?: [] as $folderEntry) {
         if ($folderEntry === '.' || $folderEntry === '..') continue;
-        if (is_dir($galleryRoot . '/' . $folderEntry) && preg_match('/^[\\p{L}\\p{N} _-]{1,80}$/u', $folderEntry)) $galleryFolders[] = $folderEntry;
+        if (is_dir($galleryRoot . '/' . $folderEntry) && isValidGalleryFolderName($folderEntry)) $galleryFolders[] = $folderEntry;
       }
     }
     sort($galleryFolders, SORT_NATURAL | SORT_FLAG_CASE);
@@ -1337,7 +1347,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <input type="hidden" name="action" value="create_gallery_folder">
         <label class="gallery-form-field">Folder Name
           <input type="text" name="gallery_new_folder_name" id="gallery-add-folder-name" maxlength="80" placeholder="Enter folder name" required>
-          <small>Use letters, numbers, spaces, hyphens or underscores · maximum 80 characters</small>
+          <small>Letters, numbers, spaces and symbols are allowed · maximum 80 characters</small>
         </label>
         <div class="gallery-modal-actions">
           <button class="btn light" type="button" id="gallery-add-folder-cancel">Cancel</button>
