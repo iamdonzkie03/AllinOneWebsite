@@ -13,7 +13,10 @@ $galleryPhotoDeleteSuccessCount = max(0, (int)($_SESSION['gallery_photo_delete_s
 $galleryPhotoDeleteSuccess = $galleryPhotoDeleteSuccessCount > 0 || (($_GET['gallery_photo_deleted'] ?? '') === '1');
 $galleryReturnFolder = trim((string)($_SESSION['gallery_photo_delete_success_folder'] ?? ($_POST['gallery_return_folder'] ?? $_GET['gallery_folder'] ?? '')));
 unset($_SESSION['gallery_photo_delete_success_count'], $_SESSION['gallery_photo_delete_success_folder']);
-$galleryPhotoEditSuccess = false;
+$galleryPhotoEditSuccessMessage = trim((string)($_SESSION['gallery_photo_edit_success_message'] ?? ''));
+$galleryPhotoEditSuccessFolder = trim((string)($_SESSION['gallery_photo_edit_success_folder'] ?? ($_GET['gallery_folder'] ?? '')));
+$galleryPhotoEditSuccess = $galleryPhotoEditSuccessMessage !== '' || (($_GET['gallery_photo_edit_success'] ?? '') === '1');
+unset($_SESSION['gallery_photo_edit_success_message'], $_SESSION['gallery_photo_edit_success_folder']);
 $galleryEditSuccess = false;
 $galleryEditSuccessName = '';
 $galleryEditSuccessMessage = '';
@@ -297,10 +300,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try{
             $id=(int)($_POST['photo_id']??0);$title=mb_substr(trim((string)($_POST['photo_title']??'')),0,180);$desc=mb_substr(trim((string)($_POST['photo_description']??'')),0,2000);
             if($id<1||$title==='')throw new RuntimeException('Enter a valid photo title.');
-            $q=$pdo->prepare('SELECT id,file_path,folder_name FROM site_gallery_photos WHERE id=? LIMIT 1');$q->execute([$id]);$photo=$q->fetch(PDO::FETCH_ASSOC);
+            $q=$pdo->prepare('SELECT id,title,description,file_path,folder_name FROM site_gallery_photos WHERE id=? LIMIT 1');$q->execute([$id]);$photo=$q->fetch(PDO::FETCH_ASSOC);
             if(!$photo)throw new RuntimeException('The selected photo could not be found. Reload the Gallery and try again.');
-            $relative=(string)$photo['file_path'];$err=(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE);
-            if($err!==UPLOAD_ERR_NO_FILE){
+            $oldTitle=(string)$photo['title'];$oldDescription=(string)($photo['description']??'');
+            $titleChanged=$title!==$oldTitle;$descriptionChanged=$desc!==$oldDescription;
+            $relative=(string)$photo['file_path'];$err=(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE);$photoChanged=$err!==UPLOAD_ERR_NO_FILE;
+            if($photoChanged){
                 if($err!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded (error '.$err.').');
                 $tmp=(string)($_FILES['replacement_photo']['tmp_name']??'');if(!$tmp||!is_uploaded_file($tmp))throw new RuntimeException('The replacement photo upload is invalid.');
                 if((int)($_FILES['replacement_photo']['size']??0)>10*1024*1024)throw new RuntimeException('The replacement photo must be 10 MB or smaller.');
@@ -312,8 +317,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if(!move_uploaded_file($tmp,$newFile))throw new RuntimeException('Unable to save the replacement photo.');
                 $relative='uploads/gallery'.($folder!==''?'/'.$folder:'').'/'.$filename;$oldFile=__DIR__.'/'.ltrim((string)$photo['file_path'],'/\\');
             }
-            $update=$pdo->prepare('UPDATE site_gallery_photos SET title=?,description=?,file_path=? WHERE id=?');$update->execute([$title,$desc,$relative,$id]);
-            if($oldFile!==''&&is_file($oldFile))@unlink($oldFile);$galleryPhotoEditSuccess=true;
+            $update=$pdo->prepare('UPDATE site_gallery_photos SET title=?,description=?,file_path=?,created_at=CURRENT_TIMESTAMP WHERE id=?');$update->execute([$title,$desc,$relative,$id]);
+            if($oldFile!==''&&is_file($oldFile))@unlink($oldFile);
+            $changedCount=(int)$titleChanged+(int)$descriptionChanged+(int)$photoChanged;
+            if($changedCount===1&&$titleChanged)$successText='The Photo Title ('.$oldTitle.') has been renamed to ('.$title.').';
+            elseif($changedCount===1&&$descriptionChanged)$successText='The description of the photo has been successfully updated.';
+            elseif($changedCount===1&&$photoChanged)$successText='The photo with the photo title ('.$title.') has been successfully replaced.';
+            else $successText='The photo and its details has been successfully updated.';
+            $successFolder=(string)($photo['folder_name']??'');
+            $_SESSION['gallery_photo_edit_success_message']=$successText;
+            $_SESSION['gallery_photo_edit_success_folder']=$successFolder;
+            session_write_close();
+            $successUrl='admin.php?section=media-management&media_tab=gallery&gallery_folder='.rawurlencode($successFolder).'&gallery_photo_edit_success=1';
+            header('Location: '.$successUrl,true,303);
+            exit;
         }catch(Throwable $e){if($newFile!==''&&is_file($newFile))@unlink($newFile);$message=$e->getMessage();}
     }
 
@@ -1346,7 +1363,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </section>
    <div class="gallery-modal-backdrop" id="gallery-photo-delete-confirm-modal" hidden><section class="gallery-modal gallery-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-photo-delete-title"><div class="gallery-modal-head"><div><div class="gallery-upload-success-mark gallery-delete-mark">!</div><h2 id="gallery-photo-delete-title">Delete Photo!</h2><p id="gallery-photo-delete-message">Are you sure you want to delete the selected photo in this folder?</p></div></div><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-photo-delete-cancel">Cancel</button><button class="btn bulk-delete" type="button" id="gallery-photo-delete-confirm">Delete</button></div></section></div>
    <?php if($galleryPhotoDeleteSuccess): ?><div class="gallery-modal-backdrop" id="gallery-photo-delete-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true"><div class="gallery-upload-success-mark">✓</div><h2>Photo deleted successfully.</h2><div class="gallery-modal-actions"><a class="btn" id="gallery-photo-delete-success-close" href="admin.php?section=media-management&amp;media_tab=gallery&amp;gallery_folder=<?=rawurlencode($galleryReturnFolder)?>">OK</a></div></section></div><?php endif; ?>
-  <?php if($galleryPhotoEditSuccess): ?><div class="gallery-modal-backdrop" id="gallery-photo-edit-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true"><div class="gallery-upload-success-mark">✓</div><h2>Photo successfully updated.</h2><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-photo-edit-success-close">OK</button></div></section></div><?php endif; ?>
+  <?php if($galleryPhotoEditSuccess): ?><div class="gallery-modal-backdrop" id="gallery-photo-edit-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true"><div class="gallery-upload-success-mark">✓</div><h2><?=e($galleryPhotoEditSuccessMessage!==''?$galleryPhotoEditSuccessMessage:'Photo successfully updated.')?></h2><div class="gallery-modal-actions"><a class="btn" id="gallery-photo-edit-success-close" href="admin.php?section=media-management&amp;media_tab=gallery&amp;gallery_folder=<?=rawurlencode($galleryPhotoEditSuccessFolder)?>">OK</a></div></section></div><?php endif; ?>
   <div class="gallery-modal-backdrop" id="gallery-photo-edit-modal" hidden><section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="gallery-photo-edit-title">Edit Photo</h2><p class="muted">Update the photo title, description, or image.</p></div><button type="button" class="gallery-modal-close" data-gallery-modal-close="gallery-photo-edit-modal" aria-label="Close Edit Photo">×</button></div><form method="post" enctype="multipart/form-data" id="gallery-photo-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="edit_gallery_photo"><input type="hidden" name="photo_id" id="gallery-photo-edit-id"><div class="gallery-photo-edit-preview"><img id="gallery-photo-edit-preview" src="" alt=""></div><label class="gallery-form-field">Photo title<input type="text" name="photo_title" id="gallery-photo-edit-name" maxlength="180" required></label><label class="gallery-form-field">Description<textarea name="photo_description" id="gallery-photo-edit-description" maxlength="2000"></textarea></label><label class="gallery-form-field">Replace photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"><small>JPG, PNG, WebP or AVIF · maximum 10 MB</small></label><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-photo-edit-cancel">Cancel</button><button class="btn" type="submit">Save Changes</button></div></form></section></div>
   <div class="gallery-modal-backdrop" id="gallery-delete-confirm-modal" hidden><section class="gallery-modal gallery-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-delete-confirm-title"><div class="gallery-upload-success-mark gallery-delete-mark">!</div><h2 id="gallery-delete-confirm-title">Delete Selected Folder/s?</h2><p>Are you sure you want to delete the selected folder/s? Deleting a folder containing photos will also delete them.</p><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-delete-cancel">Cancel</button><button class="btn bulk-delete" type="button" id="gallery-delete-confirm">Delete</button></div></section></div>
   <?php if($galleryDeleteSuccessNames): ?><div class="gallery-modal-backdrop" id="gallery-delete-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-delete-success-title"><div class="gallery-upload-success-mark">✓</div><?php if(count($galleryDeleteSuccessNames)===1): ?><h2 id="gallery-delete-success-title">The Folder <strong class="gallery-deleted-folder-name"><?=e($galleryDeleteSuccessNames[0])?></strong> has been successfully deleted.</h2><?php else: ?><h2 id="gallery-delete-success-title">The following folders have been successfully deleted:</h2><ul class="gallery-delete-success-list"><?php foreach($galleryDeleteSuccessNames as $deletedFolder): ?><li><strong class="gallery-deleted-folder-name"><?=e($deletedFolder)?></strong></li><?php endforeach; ?></ul><?php endif; ?><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-delete-success-close">OK</button></div></section></div><?php endif; ?>
@@ -1480,7 +1497,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     photoSelectAll?.addEventListener('change',()=>{currentPhotoChecks().forEach(box=>{box.checked=photoSelectAll.checked;});syncPhotoDelete();});
     document.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('input[name="selected_gallery_photos[]"]'))syncPhotoDelete();});syncPhotoDelete();
     document.getElementById('gallery-move-success-close')?.addEventListener('click',()=>{const moveModal=document.getElementById('gallery-move-success-modal');if(moveModal)moveModal.hidden=true;window.location.href='admin.php?section=media-management&media_tab=gallery';});
-    document.getElementById('gallery-photo-edit-success-close')?.addEventListener('click',()=>window.location.replace('admin.php?section=media-management&media_tab=gallery'));
     const photoEditModal=document.getElementById('gallery-photo-edit-modal');
     document.querySelectorAll('[data-gallery-edit-photo]').forEach(button=>button.addEventListener('click',()=>{
       document.getElementById('gallery-photo-edit-id').value=button.dataset.galleryEditPhoto||'';
