@@ -139,6 +139,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-filter{flex:1;max-width:360px}.content-manager-filter .field{min-width:180px}
 .content-manager-page-size .field{width:76px;padding:7px}
 .content-manager-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px}
+.content-manager-gallery-pagination{flex-wrap:wrap;margin:10px 0 18px;padding-top:0}.content-manager-gallery-pagination .gallery-page-controls{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.content-manager-gallery-pagination .gallery-page-controls .btn{padding:7px 11px;font-size:11px}.content-manager-gallery-pagination .gallery-page-controls .btn:disabled{opacity:.4;cursor:not-allowed}.content-manager-gallery-pagination .gallery-page-numbers{display:flex;align-items:center;gap:5px}.content-manager-gallery-pagination .gallery-page-number{min-width:30px;padding:7px 9px!important;text-align:center}.content-manager-gallery-pagination .gallery-page-number.is-active{background:linear-gradient(135deg,#8f243b,#bd344b);border-color:#d45a70;color:#fff;box-shadow:0 0 0 1px rgba(212,90,112,.18)}.content-manager-gallery-pagination .gallery-page-number:focus-visible,.content-manager-gallery-pagination .gallery-page-controls .btn:focus-visible{outline:2px solid #e17a8d;outline-offset:2px}@media(max-width:680px){.content-manager-gallery-pagination{align-items:flex-start}.content-manager-gallery-pagination .gallery-page-controls{justify-content:flex-start;gap:5px}.content-manager-gallery-pagination .gallery-page-number{min-width:28px}}
 .content-manager-status-form{display:inline-flex;margin:0}
 .content-manager-status-toggle{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:112px;height:29px;padding:4px 24px;border:1px solid;border-radius:999px;font:600 10px Ubuntu,sans-serif;cursor:pointer;transition:all .18s ease}
 .content-manager-status-toggle:before{content:"";position:absolute;left:5px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:left .18s ease}
@@ -311,6 +312,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     <section class="content-manager-card content-manager-editor">
       <div class="content-manager-section-head"><h3>Articles</h3><span class="muted"><?=count($cmArticles)?> articles</span><div class="content-manager-actions"><a class="btn" href="<?=e($cmCategoryModeUrl)?>">View Categories</a><button type="button" class="btn" id="managed-add-article-toggle" aria-controls="managed-article-form-panel" aria-expanded="<?= $cmEditArticle ? "true" : "false" ?>">+ Add Article</button></div></div>
       <div class="content-manager-table-tools"><label class="content-manager-filter">Filter articles<input type="search" class="field" id="managed-article-filter" placeholder="Search title, category, author or status"></label><label class="content-manager-page-size">Show<select class="field" id="managed-article-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
+       <div class="content-manager-pagination content-manager-gallery-pagination"><span class="muted" id="managed-article-count-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="managed-article-first" aria-label="First page">First</button><button type="button" class="btn light" id="managed-article-prev">Previous</button><span id="managed-article-page-numbers-top" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="managed-article-next">Next</button><button type="button" class="btn light" id="managed-article-last" aria-label="Last page">Last</button></div></div>
       <form id="managed-article-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_articles"><input type="hidden" name="select_all_articles" id="managed-article-select-all-flag" value="0"></form>
       <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-article-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="button" id="managed-article-delete-selected" disabled>Delete Selected</button></div>
       <div class="content-manager-modal-backdrop content-manager-article-bulk-modal" id="managed-article-delete-modal" hidden role="presentation">
@@ -325,7 +327,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       <?php foreach($cmArticles as $article): ?><tr class="managed-article-row" data-search="<?=e(mb_strtolower($article['title'].' '.$article['category_name'].' '.(string)$article['subcategory_name'].' '.(string)$article['full_name'].' '.($article['status']==='published'?'published':'unpublished')))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-article-select" name="selected_articles[]" value="<?=(int)$article['id']?>" form="managed-article-bulk-delete" aria-label="Select article <?=e($article['title'])?>" data-title="<?=e($article['title'])?>"></td><td><strong><?=e($article['title'])?></strong></td><td><?=e($article['category_name'])?><?php if($article['subcategory_name']): ?><div class="muted">↳ <?=e($article['subcategory_name'])?></div><?php endif; ?></td><td><form class="content-manager-status-form" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="toggle_article_status"><input type="hidden" name="item_id" value="<?=(int)$article['id']?>"><button type="submit" class="content-manager-status-toggle <?=$article['status']==='published'?'is-published':'is-unpublished'?>" aria-label="Change status for <?=e($article['title'])?>"><?=e($article['status']==='published'?'Published':'Unpublished')?></button></form></td><td><?=e((string)$article['full_name'])?></td><td><?=e((string)$article['updated_at'])?></td><td><div class="content-manager-row-actions"><button type="button" class="content-manager-action content-manager-action--view" data-view-article="<?=(int)$article['id']?>">View</button><a class="content-manager-action" href="admin.php?session_context=admin&section=page-management&tab=contents&edit_article=<?=(int)$article['id']?>#pm-panel-contents">Edit</a></div></td></tr><?php endforeach; ?>
       <?php if(!$cmArticles): ?><tr><td colspan="7" class="muted">No articles yet. Create the first article above.</td></tr><?php endif; ?>
       </tbody></table></div>
-      <div class="content-manager-pagination"><span class="muted" id="managed-article-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-article-prev">Previous</button><span class="muted" id="managed-article-page"></span><button type="button" class="btn light" id="managed-article-next">Next</button></div></div>
+      <div class="content-manager-pagination content-manager-gallery-pagination"><span class="muted" id="managed-article-count" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="managed-article-first-bottom" aria-label="First page">First</button><button type="button" class="btn light" id="managed-article-prev-bottom">Previous</button><span id="managed-article-page-numbers-bottom" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="managed-article-next-bottom">Next</button><button type="button" class="btn light" id="managed-article-last-bottom" aria-label="Last page">Last</button></div></div>
       <div class="content-manager-modal-backdrop content-manager-article-preview-backdrop" id="managed-article-preview-modal" hidden role="presentation">
         <section class="content-manager-modal content-manager-article-preview-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-preview-heading">
           <div class="content-manager-section-head"><div><h3 id="managed-article-preview-heading">Article Preview</h3><span class="muted">Public website appearance</span></div><button type="button" class="content-manager-preview-close" id="managed-article-preview-close" aria-label="Close article preview">×</button></div>
@@ -597,9 +599,13 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     const filter = document.getElementById('managed-article-filter');
     const pageSize = document.getElementById('managed-article-page-size');
     const count = document.getElementById('managed-article-count');
-    const pageLabel = document.getElementById('managed-article-page');
-    const previous = document.getElementById('managed-article-prev');
-    const next = document.getElementById('managed-article-next');
+    const countTop = document.getElementById('managed-article-count-top');
+    const pageNumbersTop = document.getElementById('managed-article-page-numbers-top');
+    const pageNumbersBottom = document.getElementById('managed-article-page-numbers-bottom');
+    const firstButtons = [document.getElementById('managed-article-first'), document.getElementById('managed-article-first-bottom')].filter(Boolean);
+    const previousButtons = [document.getElementById('managed-article-prev'), document.getElementById('managed-article-prev-bottom')].filter(Boolean);
+    const nextButtons = [document.getElementById('managed-article-next'), document.getElementById('managed-article-next-bottom')].filter(Boolean);
+    const lastButtons = [document.getElementById('managed-article-last'), document.getElementById('managed-article-last-bottom')].filter(Boolean);
     const tableSelectAll = document.getElementById('managed-article-table-select-all');
     const deleteButton = document.getElementById('managed-article-delete-selected');
     const selectionLabel = document.getElementById('managed-article-selection');
@@ -645,15 +651,53 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       matching.slice((page - 1) * size, page * size).forEach(row => { row.hidden = false; });
       const start = matching.length ? (page - 1) * size + 1 : 0;
       const end = Math.min(page * size, matching.length);
-      if (count) count.textContent = 'Showing ' + start + '–' + end + ' of ' + matching.length + ' entries';
-      if (pageLabel) pageLabel.textContent = 'Page ' + page + ' of ' + pages;
-      if (previous) previous.disabled = page <= 1;
-      if (next) next.disabled = page >= pages;
+      const summary = 'Showing ' + start + '–' + end + ' of ' + matching.length + ' entries';
+      if (count) count.textContent = summary;
+      if (countTop) countTop.textContent = summary;
+      const renderPageNumbers = container => {
+        if (!container) return;
+        container.replaceChildren();
+        const maxVisible = 7;
+        let first = Math.max(1, page - Math.floor(maxVisible / 2));
+        let last = Math.min(pages, first + maxVisible - 1);
+        first = Math.max(1, last - maxVisible + 1);
+        const addNumber = number => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn light gallery-page-number' + (number === page ? ' is-active' : '');
+          button.textContent = String(number);
+          button.setAttribute('aria-label', 'Page ' + number);
+          if (number === page) button.setAttribute('aria-current', 'page');
+          button.addEventListener('click', () => { page = number; renderRows(); });
+          container.appendChild(button);
+        };
+        if (first > 1) {
+          addNumber(1);
+          if (first > 2) { const dots = document.createElement('span'); dots.className = 'muted'; dots.textContent = '…'; container.appendChild(dots); }
+        }
+        for (let number = first; number <= last; number++) addNumber(number);
+        if (last < pages) {
+          if (last < pages - 1) { const dots = document.createElement('span'); dots.className = 'muted'; dots.textContent = '…'; container.appendChild(dots); }
+          addNumber(pages);
+        }
+      };
+      renderPageNumbers(pageNumbersTop);
+      renderPageNumbers(pageNumbersBottom);
+      [...firstButtons].forEach(button => { button.disabled = page <= 1; });
+      [...previousButtons].forEach(button => { button.disabled = page <= 1; });
+      [...nextButtons].forEach(button => { button.disabled = page >= pages; });
+      [...lastButtons].forEach(button => { button.disabled = page >= pages; });
     };
     filter?.addEventListener('input', () => { page = 1; renderRows(); });
     pageSize?.addEventListener('change', () => { page = 1; renderRows(); });
-    previous?.addEventListener('click', () => { page = Math.max(1, page - 1); renderRows(); });
-    next?.addEventListener('click', () => { page += 1; renderRows(); });
+    firstButtons.forEach(button => button.addEventListener('click', () => { page = 1; renderRows(); }));
+    previousButtons.forEach(button => button.addEventListener('click', () => { page = Math.max(1, page - 1); renderRows(); }));
+    nextButtons.forEach(button => button.addEventListener('click', () => { page += 1; renderRows(); }));
+    lastButtons.forEach(button => button.addEventListener('click', () => {
+      const matchingCount = rows.filter(row => (row.dataset.search || row.textContent).toLocaleLowerCase().includes((filter?.value || '').trim().toLocaleLowerCase())).length;
+      page = Math.max(1, Math.ceil(matchingCount / Math.max(1, Number(pageSize?.value || 10))));
+      renderRows();
+    }));
     renderRows();
     updateSelection();
   }
