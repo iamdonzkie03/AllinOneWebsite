@@ -1181,6 +1181,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if (!array_key_exists($groupKey, $galleryGroupedPhotos)) $galleryGroupedPhotos[$groupKey] = [];
       $galleryGroupedPhotos[$groupKey][] = $galleryPhoto;
     }
+    // After a successful upload, place the destination folder at the front of the folder grid.
+    $galleryFocusFolder = (string)($_GET['gallery_focus_folder'] ?? '');
+    if ($galleryFocusFolder !== '' && array_key_exists($galleryFocusFolder, $galleryGroupedPhotos)) {
+      $galleryGroupedPhotos = [$galleryFocusFolder => $galleryGroupedPhotos[$galleryFocusFolder]] + $galleryGroupedPhotos;
+    }
     $gallerySavedCount = max(0, (int)($_GET['gallery_saved'] ?? 0));
     $galleryMoved = (string)($_GET['gallery_moved'] ?? '') === '1';
     $galleryMovedFolder = (string)($_GET['gallery_moved_folder'] ?? '');
@@ -1312,6 +1317,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </section>
   </div>
   <style>
+.gallery-folder-tile.gallery-folder-recently-updated{outline:2px solid rgba(220,100,120,.9);outline-offset:4px;box-shadow:0 0 0 5px rgba(184,50,63,.13),0 12px 28px rgba(0,0,0,.24)}
     .gallery-panel-top{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:0 0 15px}.gallery-panel-top h3{margin:0 0 4px;font:600 15px Ubuntu,sans-serif;color:#f5e9ed}.gallery-panel-top p{margin:0;font-size:11px}
     .gallery-controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 10px;color:var(--muted);font:12px Ubuntu,sans-serif}.gallery-controls label{display:flex;align-items:center;gap:8px}.gallery-controls select,.gallery-controls input,.gallery-form-field input,.gallery-form-field select{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.gallery-filter-wrap input{width:min(340px,65vw)}
     .gallery-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0 18px}.gallery-pagination>div{display:flex;align-items:center;gap:9px}.gallery-pagination .btn{padding:7px 11px;font-size:11px}.gallery-pagination .btn:disabled{opacity:.4;cursor:not-allowed}
@@ -1346,7 +1352,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const folderMatches=()=>{const q=(folderFilter?.value||'').trim().toLocaleLowerCase();return folderCards.filter(card=>(card.dataset.galleryFolderSearch||'').includes(q));};
     const renderFolders=()=>{if(!folderInfo||!folderSize)return;const found=folderMatches(),perPage=Number(folderSize.value)||9,pages=Math.max(1,Math.ceil(found.length/perPage));folderPage=Math.min(folderPage,pages);const start=found.length?(folderPage-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));folderCards.forEach(card=>card.hidden=!visible.has(card));const label=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' folders':'Showing 0 folders';[folderInfo,folderInfoBottom].forEach(el=>{if(el)el.textContent=label;});[folderNumber,folderNumberBottom].forEach(el=>{if(el)el.textContent='Page '+folderPage+' of '+pages;});[folderPrev,folderPrevBottom].forEach(el=>{if(el)el.disabled=folderPage<=1;});[folderNext,folderNextBottom].forEach(el=>{if(el)el.disabled=folderPage>=pages;});};
     const moveFolderPage=delta=>{const pages=Math.max(1,Math.ceil(folderMatches().length/(Number(folderSize?.value)||9)));folderPage=Math.max(1,Math.min(pages,folderPage+delta));renderFolders();};
-    folderFilter?.addEventListener('input',()=>{folderPage=1;renderFolders();});folderSize?.addEventListener('change',()=>{folderPage=1;renderFolders();});folderPrev?.addEventListener('click',()=>moveFolderPage(-1));folderPrevBottom?.addEventListener('click',()=>moveFolderPage(-1));folderNext?.addEventListener('click',()=>moveFolderPage(1));folderNextBottom?.addEventListener('click',()=>moveFolderPage(1));renderFolders();
+    const focusFolder=new URLSearchParams(window.location.search).get('gallery_focus_folder');
+    if(focusFolder){const recentCard=folderCards.find(card=>card.dataset.galleryFolderName===focusFolder);if(recentCard){recentCard.classList.add('gallery-folder-recently-updated');folderPage=1;}}
+    folderFilter?.addEventListener('input',()=>{folderPage=1;renderFolders();});folderSize?.addEventListener('change',()=>{folderPage=1;renderFolders();});folderPrev?.addEventListener('click',()=>moveFolderPage(-1));folderPrevBottom?.addEventListener('click',()=>moveFolderPage(-1));folderNext?.addEventListener('click',()=>moveFolderPage(1));folderNextBottom?.addEventListener('click',()=>moveFolderPage(1));renderFolders();if(focusFolder){const recentCard=folderCards.find(card=>card.dataset.galleryFolderName===focusFolder);if(recentCard&&!recentCard.hidden)recentCard.scrollIntoView({behavior:'smooth',block:'center'});}
     const bulkForm=document.getElementById('gallery-folder-bulk-form'),selectAllFolders=document.getElementById('gallery-folder-select-all'),deleteModal=document.getElementById('gallery-delete-confirm-modal'),deleteSelectedButton=document.getElementById('gallery-delete-selected');
     const folderCheckboxes=()=>[...(bulkForm?.querySelectorAll('input[name="selected_gallery_folders[]"]')||[])];
     const syncDeleteSelectedState=()=>{const boxes=folderCheckboxes(),selected=boxes.filter(box=>box.checked).length;if(deleteSelectedButton){deleteSelectedButton.disabled=selected===0;deleteSelectedButton.toggleAttribute('disabled',selected===0);deleteSelectedButton.setAttribute('aria-disabled',String(selected===0));}if(selectAllFolders){selectAllFolders.checked=boxes.length>0&&selected===boxes.length;selectAllFolders.indeterminate=selected>0&&selected<boxes.length;selectAllFolders.disabled=boxes.length===0;}};
@@ -1463,7 +1471,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           window.setTimeout(()=>{setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';window.setTimeout(()=>{
             uploadInProgress=false;modal.hidden=true;resetUploadForm();
             const count=Number(result.count)||0;
-            if(successMessage)successMessage.textContent='Photo'+(count===1?'':'s')+' '+(count===1?'is':'are')+' successfully uploaded in the folder '+uploadedFolder+'.';
+            if(successMessage)successMessage.textContent=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+uploadedFolder+'.';
             if(successModal)successModal.hidden=false;
           },350);},wait);
           return;
@@ -1481,7 +1489,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       });
       xhr.send(data);
     });
-    document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{if(successModal)successModal.hidden=true;window.location.href='admin.php?section=media-management&media_tab=gallery'+(uploadedFolder?'&gallery_folder='+encodeURIComponent(uploadedFolder):'');});
+    document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{if(successModal)successModal.hidden=true;window.location.href='admin.php?section=media-management&media_tab=gallery'+(uploadedFolder?'&gallery_focus_folder='+encodeURIComponent(uploadedFolder):'');});
     successModal?.addEventListener('click',event=>{if(event.target===successModal)event.preventDefault();});
     modal?.addEventListener('click',event=>{if(event.target===modal)event.preventDefault();});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
