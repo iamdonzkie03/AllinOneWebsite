@@ -501,45 +501,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Unable to create the slideshow-photo folder.');
             }
             $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/avif'=>'avif','image/webp'=>'webp'];
-            $cleanSlideshowHtml = static function(string $html): string {
-                $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
-                $html = preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i', '', $html);
-                $html = preg_replace_callback('/<a\\b([^>]*)>/i', static function($m) {
-                    $href = '';
-                    if (preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[1], $x) && preg_match('~^(https?://|/|#|\\?|mailto:)~i', $x[1])) {
-                        $href = ' href="' . htmlspecialchars($x[1], ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer"';
-                    }
-                    return '<a' . $href . '>';
-                }, $html);
-                $html = preg_replace_callback('/<([a-z0-9]+)\\b([^>]*)>/i', static function($m) {
-                    $tag = strtolower($m[1]);
-                    if ($tag === 'br') return '<br>';
-                    $href = '';
-                    if ($tag === 'a' && preg_match('/href\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[2], $link) && preg_match('~^(https?://|/|#|\\?|mailto:)~i', $link[1])) {
-                        $href = ' href="' . htmlspecialchars($link[1], ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener noreferrer"';
-                    }
-                    $style = '';
-                    if (preg_match('/style\\s*=\\s*["\\\']([^"\\\']*)["\\\']/i', $m[2], $x)) {
-                        $rules = [];
-                        foreach (explode(';', $x[1]) as $declaration) {
-                            if (!str_contains($declaration, ':')) continue;
-                            [$property, $value] = array_map('trim', explode(':', $declaration, 2));
-                            $property = strtolower($property);
-                            $valid = ($property === 'color' && preg_match('/^(#[0-9a-f]{3,8}|rgba?\\([0-9.,% ]+\\)|[a-z]{3,20})$/i', $value))
-                                || ($property === 'font-size' && preg_match('/^(?:[8-9]|[1-6][0-9]|7[0-2])(?:\\.[0-9]+)?px$/i', $value))
-                                || ($property === 'font-family' && preg_match('/^[a-z0-9 ,\\\'-]{1,80}$/i', $value))
-                                || ($property === 'font-weight' && in_array(strtolower($value), ['normal','bold','400','500','600','700','800','900'], true))
-                                || ($property === 'font-style' && in_array(strtolower($value), ['normal','italic','oblique'], true))
-                                || ($property === 'text-align' && in_array(strtolower($value), ['left','right','center','justify'], true))
-                                || ($property === 'text-decoration' && preg_match('/^(none|underline|line-through|overline)(\\s+(underline|line-through|overline))*$/i', $value));
-                            if ($valid) $rules[] = $property . ':' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-                        }
-                        if ($rules) $style = ' style="' . implode(';', $rules) . '"';
-                    }
-                    return '<' . $tag . $href . $style . '>';
-                }, $html);
-                return trim($html);
-            };
             $newPhotos = [];
             for ($i = 0; $i < $count; $i++) {
                 $error = (int)($files['error'][$i] ?? UPLOAD_ERR_NO_FILE);
@@ -561,7 +522,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $newPhotos[] = [
                     'title' => mb_substr($title, 0, 180),
                     'heading' => mb_substr($heading, 0, 180),
-                    'description' => $cleanSlideshowHtml((string)($descriptions[$i] ?? '')),
+                    'description' => nl2br(htmlspecialchars(trim((string)($descriptions[$i] ?? '')), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
                     'photo' => 'uploads/slideshow-photo/' . $filename
                 ];
             }
@@ -1718,15 +1679,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .slideshow-photo-details{display:grid;gap:14px;margin:14px 0}
  .slideshow-upload-photo-card{display:grid;grid-template-columns:150px minmax(190px,1fr) minmax(190px,1fr) minmax(300px,1.6fr);grid-template-rows:auto auto;gap:12px;align-items:start;padding:14px;border:1px solid var(--line);border-radius:10px;background:#130e12}
  .slideshow-upload-photo-card>img{grid-column:1;grid-row:1;width:150px!important;height:112px;max-height:112px!important;object-fit:cover;border-radius:8px;margin:0!important}
- .slideshow-upload-photo-card h4{grid-column:1/-1;grid-row:2;margin:0;color:#fff;overflow-wrap:anywhere}
+ .slideshow-upload-photo-card h4{grid-column:1/4;grid-row:2;margin:0;color:#fff;overflow-wrap:anywhere}
+ .slideshow-upload-photo-card>.slideshow-upload-delete-row{grid-column:4;grid-row:2;justify-self:end;align-self:start;padding:7px 12px;font-size:11px}
  .slideshow-upload-photo-card>.section-field:nth-of-type(1){grid-column:2;grid-row:1}
  .slideshow-upload-photo-card>.section-field:nth-of-type(2){grid-column:3;grid-row:1}
  .slideshow-upload-photo-card>.section-field:nth-of-type(3){grid-column:4;grid-row:1}
  .slideshow-upload-photo-card>.muted{grid-column:1/-1;grid-row:3}
- .slideshow-upload-photo-card .slideshow-description-editor{min-height:64px;max-height:100px;overflow:auto}
- .slideshow-upload-photo-card .slideshow-description-toolbar{flex-wrap:wrap}
- @media(max-width:1100px){.slideshow-upload-modal{width:min(980px,calc(100vw - 24px))}.slideshow-upload-photo-card{grid-template-columns:120px minmax(0,1fr) minmax(0,1fr)}.slideshow-upload-photo-card>img{width:120px!important;height:100px}.slideshow-upload-photo-card>.section-field:nth-of-type(3){grid-column:2/-1;grid-row:2}.slideshow-upload-photo-card h4{grid-row:3}.slideshow-upload-photo-card>.muted{grid-row:4}}
- @media(max-width:700px){.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-upload-photo-card>img,.slideshow-upload-photo-card>.section-field:nth-of-type(1),.slideshow-upload-photo-card>.section-field:nth-of-type(2),.slideshow-upload-photo-card>.section-field:nth-of-type(3),.slideshow-upload-photo-card h4,.slideshow-upload-photo-card>.muted{grid-column:1;grid-row:auto}.slideshow-upload-photo-card>img{width:100%!important;height:180px}.slideshow-rich-grid,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-photo-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.slideshow-saved-photo .gallery-photo-title{font-size:11px}.slideshow-photo-edit-fields .wide{grid-column:auto}}
+ .slideshow-upload-photo-card .slideshow-description-editor{display:block;width:100%;min-height:78px;max-height:110px;resize:vertical;overflow:auto;box-sizing:border-box;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff;font:12px/1.5 Ubuntu,sans-serif}
+ .slideshow-upload-photo-card .slideshow-description-editor:focus{outline:2px solid #a94a61}
+ @media(max-width:1100px){.slideshow-upload-modal{width:min(980px,calc(100vw - 24px))}.slideshow-upload-photo-card{grid-template-columns:120px minmax(0,1fr) minmax(0,1fr)}.slideshow-upload-photo-card>img{width:120px!important;height:100px}.slideshow-upload-photo-card>.section-field:nth-of-type(3){grid-column:2/-1;grid-row:2}.slideshow-upload-photo-card h4{grid-column:1/3;grid-row:3}.slideshow-upload-photo-card>.slideshow-upload-delete-row{grid-column:3;grid-row:3}.slideshow-upload-photo-card>.muted{grid-row:4}}
+ @media(max-width:700px){.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-upload-photo-card>img,.slideshow-upload-photo-card>.section-field:nth-of-type(1),.slideshow-upload-photo-card>.section-field:nth-of-type(2),.slideshow-upload-photo-card>.section-field:nth-of-type(3),.slideshow-upload-photo-card h4,.slideshow-upload-photo-card>.slideshow-upload-delete-row,.slideshow-upload-photo-card>.muted{grid-column:1;grid-row:auto}.slideshow-upload-photo-card>img{width:100%!important;height:180px}.slideshow-rich-grid,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-photo-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.slideshow-saved-photo .gallery-photo-title{font-size:11px}.slideshow-photo-edit-fields .wide{grid-column:auto}}
  .slideshow-description-toolbar{display:flex;gap:6px;margin-bottom:6px}
  .slideshow-description-toolbar button{border:1px solid var(--line);border-radius:5px;background:#24171e;color:#fff;padding:5px 10px;cursor:pointer}
  .slideshow-description-editor{min-height:100px;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff}
@@ -2307,28 +2269,36 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      thumbnail.style.cssText='display:block;width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-bottom:10px;';
      card.append(thumbnail);
      const heading=document.createElement('h4');heading.textContent='Photo '+(index+1)+' · '+file.name;card.append(heading);
+     const remove=document.createElement('button');remove.type='button';remove.className='btn light slideshow-upload-delete-row';remove.textContent='Delete Row';remove.setAttribute('aria-label','Remove '+file.name+' from this upload');remove.dataset.fileIndex=String(index);card.append(remove);
      const titleLabel=document.createElement('label');titleLabel.className='section-field';titleLabel.textContent='Photo Title';
      const title=document.createElement('input');title.name='slideshow_photo_title[]';title.required=true;title.maxLength=180;title.value=file.name.replace(/\.[^.]+$/,'');titleLabel.append(title);card.append(titleLabel);
      const photoHeadingLabel=document.createElement('label');photoHeadingLabel.className='section-field';photoHeadingLabel.textContent='Photo Heading';
      const photoHeading=document.createElement('input');photoHeading.name='slideshow_photo_heading[]';photoHeading.maxLength=180;photoHeadingLabel.append(photoHeading);card.append(photoHeadingLabel);
      const descLabel=document.createElement('label');descLabel.className='section-field';descLabel.textContent='Description';
-     const toolbar=document.createElement('div');toolbar.className='section-toolbar slideshow-description-toolbar';
-     [['bold','B'],['italic','I'],['underline','U']].forEach(([cmd,label])=>{const button=document.createElement('button');button.type='button';button.dataset.cmd=cmd;button.textContent=label;toolbar.append(button);});
-     const linkButton=document.createElement('button');linkButton.type='button';linkButton.dataset.slideLink='1';linkButton.textContent='Link';toolbar.append(linkButton);
-     const editor=document.createElement('div');editor.className='section-editor slideshow-description-editor';editor.contentEditable='true';editor.setAttribute('role','textbox');editor.setAttribute('aria-multiline','true');
-     const hidden=document.createElement('textarea');hidden.hidden=true;hidden.name='slideshow_photo_description[]';
-     editor.addEventListener('input',()=>hidden.value=editor.innerHTML);
-     descLabel.append(toolbar,editor,hidden);card.append(descLabel);
+     const editor=document.createElement('textarea');editor.className='slideshow-description-editor';editor.name='slideshow_photo_description[]';editor.rows=3;editor.maxLength=5000;editor.placeholder='Enter a plain-text description…';
+     descLabel.append(editor);card.append(descLabel);
      const preview=document.createElement('small');preview.className='muted';preview.textContent='Maximum file size: 10 MB';card.append(preview);
      slideshowDetails.append(card);
    });
  });
  slideshowDetails?.addEventListener('click',event=>{
-   const button=event.target.closest('button');if(!button)return;
-   const editor=button.closest('.section-field')?.querySelector('.slideshow-description-editor');if(!editor)return;
-   editor.focus();
-   if(button.dataset.cmd){document.execCommand(button.dataset.cmd,false,null);editor.dispatchEvent(new Event('input'));return;}
-   if(button.dataset.slideLink){const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url&&/^(https?:\/\/|mailto:)/i.test(url.trim())){document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input'));}}
+   const button=event.target.closest('.slideshow-upload-delete-row');if(!button)return;
+   const removeIndex=Number(button.dataset.fileIndex);
+   const currentFiles=[...(slideshowFiles.files||[])];
+   if(!Number.isInteger(removeIndex)||removeIndex<0||removeIndex>=currentFiles.length)return;
+   const transfer=new DataTransfer();
+   currentFiles.forEach((file,index)=>{if(index!==removeIndex)transfer.items.add(file);});
+   slideshowFiles.files=transfer.files;
+   const previewUrl=slideshowPreviewUrls[removeIndex];
+   if(previewUrl){URL.revokeObjectURL(previewUrl);slideshowPreviewUrls.splice(removeIndex,1);}
+   button.closest('.slideshow-upload-photo-card')?.remove();
+   [...slideshowDetails.querySelectorAll('.slideshow-upload-photo-card')].forEach((card,index)=>{
+     const file=currentFiles.filter((_,fileIndex)=>fileIndex!==removeIndex)[index];
+     const heading=card.querySelector('h4');
+     if(heading&&file)heading.textContent='Photo '+(index+1)+' · '+file.name;
+     const removeButton=card.querySelector('.slideshow-upload-delete-row');
+     if(removeButton){removeButton.dataset.fileIndex=String(index);removeButton.setAttribute('aria-label','Remove '+file.name+' from this upload');}
+   });
  });
  slideshowUploadForm?.addEventListener('submit',async event=>{
    event.preventDefault();
