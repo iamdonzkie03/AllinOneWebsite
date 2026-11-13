@@ -1268,7 +1268,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <?php if($groupName!==''): ?><button type="button" class="gallery-folder-edit" data-gallery-edit-folder="<?=e($groupName)?>">Edit</button><?php endif; ?>
             </article>
           <?php endforeach; ?>
-          <?php if(!$galleryPhotos): ?><div class="gallery-empty">No folders or photos yet. Select Add Folder to create your first Gallery folder.</div><?php endif; ?>
+          <?php if(!$galleryFolders && !$galleryPhotos): ?><div class="gallery-empty">No folders or photos yet. Select Add Folder to create your first Gallery folder.</div><?php endif; ?>
         </div>
         <div class="gallery-pagination"><span class="muted" id="gallery-folder-page-info-bottom"></span><div><button type="button" class="btn light" id="gallery-folder-prev-bottom">Previous</button><span id="gallery-folder-page-number-bottom" class="muted"></span><button type="button" class="btn light" id="gallery-folder-next-bottom">Next</button></div></div>
       </form>
@@ -3230,7 +3230,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.querySelectorAll('.gallery-modal-backdrop').forEach(modal => {
       // A server-rendered folder deletion success modal belongs to the current
       // POST response, so keep it visible instead of treating it as stale UI.
-      if (modal.id === 'gallery-delete-success-modal') return;
+      if (modal.id === 'gallery-delete-success-modal' || modal.id === 'gallery-add-folder-success-modal') return;
       modal.hidden = true;
       modal.style.setProperty('display', 'none', 'important');
     });
