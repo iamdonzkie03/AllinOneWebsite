@@ -602,6 +602,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     let animationFrame = 0;
     let redirectAfterComplete = '';
     const paintProgress = () => {
+      animationFrame = 0;
       displayedProgress += (targetProgress - displayedProgress) * 0.16;
       if (Math.abs(targetProgress - displayedProgress) < 0.25) displayedProgress = targetProgress;
       const value = Math.min(100, Math.floor(displayedProgress));
