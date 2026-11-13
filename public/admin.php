@@ -1283,7 +1283,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             <select name="gallery_folder_mode" id="gallery-folder-mode" required><option value="" selected disabled>Choose an option</option><option value="existing" <?=!$galleryFolders?'disabled':''?>>Upload to existing folder</option><option value="new">Create new folder</option></select>
           </label>
           <label class="gallery-form-field" id="gallery-existing-folder-field" hidden>Choose existing folder
-            <select name="gallery_existing_folder" id="gallery-existing-folder" required><option value="" selected disabled>Choose a folder</option><?php foreach ($galleryFolders as $folder): ?><option value="<?=e($folder)?>"><?=e($folder)?></option><?php endforeach; ?></select>
+            <select name="gallery_existing_folder" id="gallery-existing-folder"><option value="" selected disabled>Choose a folder</option><?php foreach ($galleryFolders as $folder): ?><option value="<?=e($folder)?>"><?=e($folder)?></option><?php endforeach; ?></select>
           </label>
           <label class="gallery-form-field" id="gallery-new-folder-field" hidden>Folder Name
             <input type="text" name="gallery_folder_name" id="gallery-folder-name" maxlength="80" placeholder="Enter folder name">
@@ -1420,7 +1420,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(!form)return;
       form.reset();
       if(details)details.replaceChildren();
-      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;}
+      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;}
       const submit=document.getElementById('gallery-upload-submit');
       if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
       resetProgress();uploadInProgress=false;
@@ -1428,7 +1428,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const close=()=>{if(uploadInProgress)return;if(modal)modal.hidden=true;resetUploadForm();};
     open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
-    mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;});
+    mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;});
     files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}const allowed=/\.(jpe?g|png|avif|webp)$/i;const invalid=selected.find(file=>!allowed.test(file.name));const oversized=selected.find(file=>file.size>10*1024*1024);if(invalid||oversized){files.value='';details.innerHTML='<p class="muted">'+(oversized?'Each photo must be 10 MB or smaller.':'Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.')+'</p>';return;}selected.forEach(file=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
     form?.addEventListener('submit',event=>{
       event.preventDefault();
@@ -1463,7 +1463,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           window.setTimeout(()=>{setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';window.setTimeout(()=>{
             uploadInProgress=false;modal.hidden=true;resetUploadForm();
             const count=Number(result.count)||0;
-            if(successMessage)successMessage.textContent='Photo'+(count===1?'':'s')+' are successfully uploaded in the folder '+uploadedFolder+'.';
+            if(successMessage)successMessage.textContent='Photo'+(count===1?'':'s')+' '+(count===1?'is':'are')+' successfully uploaded in the folder '+uploadedFolder+'.';
             if(successModal)successModal.hidden=false;
           },350);},wait);
           return;
