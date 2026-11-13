@@ -7,8 +7,8 @@ $nicknameStmt->execute([(int)$admin['id']]);
 $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
 $galleryDeleteSuccessNames = [];
-$galleryPhotoDeleteSuccessCount = 0;
-$galleryReturnFolder = trim((string)($_POST['gallery_return_folder'] ?? ''));
+$galleryPhotoDeleteSuccessCount = max(0, (int)($_GET['gallery_photo_deleted'] ?? 0));
+$galleryReturnFolder = trim((string)($_POST['gallery_return_folder'] ?? $_GET['gallery_folder'] ?? ''));
 $galleryPhotoEditSuccess = false;
 $galleryEditSuccess = false;
 $galleryEditSuccessName = '';
@@ -275,7 +275,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();$del=$pdo->prepare("DELETE FROM site_gallery_photos WHERE id IN ($marks) AND folder_name <=> ?");
             $del->execute(array_merge($ids,[$folderForDelete]));$pdo->commit();
             foreach(array_unique($paths) as $path)if(is_file($path)&&!@unlink($path))throw new RuntimeException('The photo records were deleted, but a local photo file could not be removed. Check folder permissions.');
-            $galleryPhotoDeleteSuccessCount=count($photos);
+            // Use Post/Redirect/Get so the success modal is rendered from a clean
+            // Gallery page and the active folder is preserved even when now empty.
+            $deletedCount=count($photos);
+            $successUrl='admin.php?section=media-management&media_tab=gallery&gallery_folder='.rawurlencode($galleryReturnFolder).'&gallery_photo_deleted='.$deletedCount;
+            header('Location: '.$successUrl, true, 303);
+            exit;
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();$message=$e->getMessage();}
     }
 
