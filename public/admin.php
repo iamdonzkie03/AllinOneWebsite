@@ -1401,11 +1401,45 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const editModal=document.getElementById('gallery-edit-modal'),editDetails=document.getElementById('gallery-edit-photo-details'),editForm=document.getElementById('gallery-edit-form');
     const editFolder=name=>{const group=groups.find(item=>item.dataset.galleryFolderName===name);if(!group||!editDetails)return;editForm.reset();editDetails.replaceChildren();document.getElementById('gallery-edit-original-folder').value=name;document.getElementById('gallery-edit-folder-name').value=name;
       [...group.querySelectorAll('.gallery-photo-card')].forEach(card=>{const id=card.dataset.photoId||'',img=card.querySelector('.gallery-photo-image img'),titleText=card.querySelector('.gallery-photo-title')?.textContent||'',description=card.dataset.photoDescription||'';const row=document.createElement('div');row.className='gallery-edit-photo-row';const preview=document.createElement('img');preview.src=img?.getAttribute('src')||'';preview.alt='';const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const idInput=document.createElement('input');idInput.type='hidden';idInput.name='photo_id[]';idInput.value=id;const title=document.createElement('input');title.name='photo_title['+id+']';title.required=true;title.maxLength=180;title.value=titleText;title.placeholder='Photo title';const desc=document.createElement('textarea');desc.name='photo_description['+id+']';desc.maxLength=2000;desc.value=description;desc.placeholder='Photo description';const hint=document.createElement('small');hint.textContent='Replace photo (optional; JPG, PNG, WebP or AVIF, max 10 MB)';const replacement=document.createElement('input');replacement.type='file';replacement.name='replacement_photo['+id+']';replacement.accept='.jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif';fields.append(idInput,title,desc,hint,replacement);row.append(preview,fields);editDetails.append(row);});
-      editModal.hidden=false;document.getElementById('gallery-edit-folder-name')?.focus();};
-    document.querySelectorAll('[data-gallery-edit-folder]').forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();editFolder(button.dataset.galleryEditFolder||'');}));
-    document.getElementById('gallery-edit-cancel')?.addEventListener('click',()=>{if(editModal)editModal.hidden=true;});
+      // The Media Management entry cleanup marks every Gallery backdrop
+      // display:none!important. Reparent this dialog to <body> and explicitly
+      // override that stale inline rule whenever the user opens Edit Folder.
+      if(editModal){
+        if(editModal.parentElement!==document.body)document.body.appendChild(editModal);
+        editModal.hidden=false;
+        editModal.removeAttribute('hidden');
+        editModal.removeAttribute('aria-hidden');
+        editModal.style.setProperty('position','fixed','important');
+        editModal.style.setProperty('inset','0','important');
+        editModal.style.setProperty('display','flex','important');
+        editModal.style.setProperty('align-items','center','important');
+        editModal.style.setProperty('justify-content','center','important');
+        editModal.style.setProperty('visibility','visible','important');
+        editModal.style.setProperty('opacity','1','important');
+        editModal.style.setProperty('z-index','2147482000','important');
+        editModal.setAttribute('aria-hidden','false');
+        document.body.classList.add('modal-open');
+        editModal.getBoundingClientRect();
+        document.getElementById('gallery-edit-folder-name')?.focus();
+      }};
+    // Delegated handling ensures the Edit action remains reliable if folder
+    // cards are refreshed or re-rendered while Gallery is open.
+    document.addEventListener('click',event=>{
+      const trigger=event.target instanceof Element?event.target.closest('[data-gallery-edit-folder]'):null;
+      if(!trigger)return;
+      event.preventDefault();event.stopPropagation();
+      editFolder(trigger.dataset.galleryEditFolder||'');
+    });
+    const closeEditFolderModal=()=>{
+      if(!editModal)return;
+      editModal.hidden=true;
+      editModal.setAttribute('aria-hidden','true');
+      editModal.style.setProperty('display','none','important');
+      document.body.classList.remove('modal-open');
+    };
+    document.getElementById('gallery-edit-cancel')?.addEventListener('click',closeEditFolderModal);
     [deleteModal,editModal,photoDeleteModal,photoEditModal].forEach(modal=>modal?.addEventListener('click',event=>{if(event.target===modal)event.preventDefault();}));
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(deleteModal&&!deleteModal.hidden)deleteModal.hidden=true;if(editModal&&!editModal.hidden)editModal.hidden=true;if(photoDeleteModal&&!photoDeleteModal.hidden)photoDeleteModal.hidden=true;if(photoEditModal&&!photoEditModal.hidden)photoEditModal.hidden=true;}});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'){if(deleteModal&&!deleteModal.hidden)deleteModal.hidden=true;if(editModal&&!editModal.hidden)closeEditFolderModal();if(photoDeleteModal&&!photoDeleteModal.hidden)photoDeleteModal.hidden=true;if(photoEditModal&&!photoEditModal.hidden)photoEditModal.hidden=true;}});
     const cards=[...document.querySelectorAll('.gallery-photo-card')],groups=[...document.querySelectorAll('[data-gallery-folder-group]')],folderTiles=[...document.querySelectorAll('[data-gallery-open-folder]')],folderView=document.getElementById('gallery-folder-view'),photoView=document.getElementById('gallery-photo-view'),folderTitle=document.getElementById('gallery-current-folder-title'),backFolders=document.getElementById('gallery-back-folders'),filter=document.getElementById('gallery-filter'),size=document.getElementById('gallery-page-size'),info=document.getElementById('gallery-page-info'),number=document.getElementById('gallery-page-number'),prev=document.getElementById('gallery-prev'),next=document.getElementById('gallery-next'),infoBottom=document.getElementById('gallery-page-info-bottom'),numberBottom=document.getElementById('gallery-page-number-bottom'),prevBottom=document.getElementById('gallery-prev-bottom'),nextBottom=document.getElementById('gallery-next-bottom'),empty=document.getElementById('gallery-no-results');
     let page=1,activeFolder=null,activeCards=[];
     const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return activeCards.filter(card=>(card.dataset.gallerySearch||'').includes(q));};
