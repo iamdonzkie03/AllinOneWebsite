@@ -330,7 +330,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       <div class="content-manager-pagination content-manager-gallery-pagination"><span class="muted" id="managed-article-count" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="managed-article-first-bottom" aria-label="First page">First</button><button type="button" class="btn light" id="managed-article-prev-bottom">Previous</button><span id="managed-article-page-numbers-bottom" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="managed-article-next-bottom">Next</button><button type="button" class="btn light" id="managed-article-last-bottom" aria-label="Last page">Last</button></div></div>
       <div class="content-manager-modal-backdrop content-manager-article-preview-backdrop" id="managed-article-preview-modal" hidden role="presentation">
         <section class="content-manager-modal content-manager-article-preview-modal" role="dialog" aria-modal="true" aria-labelledby="managed-article-preview-heading">
-          <div class="content-manager-section-head"><div><h3 id="managed-article-preview-heading">Article Preview</h3><span class="muted">Public website appearance</span></div><button type="button" class="content-manager-preview-close" id="managed-article-preview-close" aria-label="Close article preview">×</button></div>
+          <div class="content-manager-section-head"><div><h3 id="managed-article-preview-heading">Article Preview</h3><span class="muted">Public website appearance</span></div></div>
           <div class="content-manager-article-preview-stage" id="managed-article-preview-stage"></div>
           <div class="content-manager-actions content-manager-modal-actions"><button type="button" class="btn light" id="managed-article-preview-done">Close Preview</button></div>
         </section>
@@ -583,7 +583,6 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       if (!template || !articlePreviewModal || !articlePreviewStage) return;
       articlePreviewStage.replaceChildren(template.content.cloneNode(true));
       articlePreviewModal.hidden = false;
-      document.getElementById('managed-article-preview-close')?.focus();
     });
   });
   document.getElementById('managed-article-preview-close')?.addEventListener('click', closeArticlePreview);
