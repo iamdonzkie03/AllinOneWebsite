@@ -1480,10 +1480,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       editSaving=true;if(editSave){editSave.disabled=true;editSave.textContent='Saving…';}
       if(editError){editError.hidden=true;editError.textContent='';}
       if(editProgress)editProgress.hidden=false;setEditProgress(0);if(editProgressLabel)editProgressLabel.textContent='Saving changes…';
-      const started=performance.now();let serverDone=false,serverPayload=null,failed=false;
-      const animate=now=>{const elapsed=now-started;setEditProgress(Math.min(95,(elapsed/4500)*95));if(!serverDone){editProgressFrame=requestAnimationFrame(animate);return;}
+      const started=performance.now();let serverDone=false,serverPayload=null,failed=false,completionStarted=0;
+      const finishEditProgress=()=>{if(editProgressLabel)editProgressLabel.textContent='Update complete';requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{closeEditFolderModal();showEditSuccess(serverPayload.message,serverPayload.folder);},500)));};
+      const animate=now=>{
+        const elapsed=now-started;
         if(failed){editSaving=false;if(editSave){editSave.disabled=false;editSave.textContent='Save Changes';}if(editProgress)editProgress.hidden=true;return;}
-        const wait=Math.max(0,4500-elapsed);setTimeout(()=>{setEditProgress(100);if(editProgressLabel)editProgressLabel.textContent='Update complete';requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{closeEditFolderModal();showEditSuccess(serverPayload.message,serverPayload.folder);},500)));},wait);
+        if(!serverDone){setEditProgress(Math.min(95,(elapsed/4500)*95));editProgressFrame=requestAnimationFrame(animate);return;}
+        if(elapsed<4500){setEditProgress(Math.min(95,(elapsed/4500)*95));editProgressFrame=requestAnimationFrame(animate);return;}
+        if(!completionStarted)completionStarted=now;
+        const completion=Math.min(1,(now-completionStarted)/650);
+        // Animate the final 5% rather than jumping directly from 95% to 100%.
+        setEditProgress(95+(5*(1-Math.pow(1-completion,3))));
+        if(completion<1){editProgressFrame=requestAnimationFrame(animate);return;}
+        finishEditProgress();
       };
       editProgressFrame=requestAnimationFrame(animate);
       const xhr=new XMLHttpRequest();xhr.open('POST',window.location.href,true);xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
