@@ -1356,7 +1356,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-add-folder-title">
       <div class="gallery-modal-head">
         <div><h2 id="gallery-add-folder-title">Add Folder Form</h2><p class="muted">Create a new folder in the Photo Gallery.</p></div>
-        <button type="button" class="gallery-modal-close" id="gallery-add-folder-close" aria-label="Close Add Folder form">×</button>
+        
       </div>
       <form method="post" id="gallery-add-folder-form">
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
