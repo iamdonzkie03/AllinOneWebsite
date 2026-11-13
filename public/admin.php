@@ -1519,19 +1519,39 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
     const progress=document.getElementById('gallery-upload-progress'),progressFill=document.getElementById('gallery-upload-progress-fill'),progressValue=document.getElementById('gallery-upload-progress-value'),progressLabel=document.getElementById('gallery-upload-progress-label'),uploadError=document.getElementById('gallery-upload-error'),successModal=document.getElementById('gallery-upload-success-modal'),successMessage=document.getElementById('gallery-upload-success-message');
     let uploadInProgress=false,uploadedFolder='',uploadReturnFolder='';
+    let lockedFolderInputs=[];
+    const modeLabel=mode?.closest('.gallery-form-field'),existingLabel=document.getElementById('gallery-existing-folder')?.closest('.gallery-form-field');
+    const resetFolderLock=()=>{
+      lockedFolderInputs.forEach(input=>input.remove());lockedFolderInputs=[];
+      if(mode){mode.disabled=false;modeLabel.hidden=false;modeLabel.firstChild.nodeValue='Save photos to';}
+      const existingSelect=document.getElementById('gallery-existing-folder');
+      if(existingSelect){existingSelect.disabled=false;existingLabel.firstChild.nodeValue='Choose existing folder';}
+    };
+    const lockUploadToFolder=folder=>{
+      resetFolderLock();
+      mode.value='existing';mode.disabled=true;modeLabel.hidden=true;
+      const existingSelect=document.getElementById('gallery-existing-folder');
+      existingSelect.value=folder;existingSelect.disabled=true;existing.hidden=false;fresh.hidden=true;
+      existingSelect.required=false;document.getElementById('gallery-folder-name').required=false;
+      existingLabel.firstChild.nodeValue='Photos will be saved in this folder';
+      [['gallery_folder_mode','existing'],['gallery_existing_folder',folder]].forEach(([name,value])=>{
+        const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);lockedFolderInputs.push(input);
+      });
+    };
     const resetProgress=()=>{if(progress)progress.hidden=true;if(progressFill)progressFill.style.width='0%';if(progressValue)progressValue.textContent='0%';if(progressLabel)progressLabel.textContent='Uploading photos…';if(uploadError){uploadError.hidden=true;uploadError.textContent='';}};
     const setProgress=value=>{const percent=Math.max(0,Math.min(100,Math.round(value)));if(progressFill)progressFill.style.width=percent+'%';if(progressValue)progressValue.textContent=percent+'%';};
     const resetUploadForm=()=>{
       if(!form)return;
+      resetFolderLock();
       form.reset();
       if(details)details.replaceChildren();
-      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;if(uploadReturnFolder){mode.value='existing';document.getElementById('gallery-existing-folder').value=uploadReturnFolder;existing.hidden=false;fresh.hidden=true;document.getElementById('gallery-existing-folder').required=true;document.getElementById('gallery-folder-name').required=false;}}
+      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;if(uploadReturnFolder)lockUploadToFolder(uploadReturnFolder);}
       const submit=document.getElementById('gallery-upload-submit');
       if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
       resetProgress();uploadInProgress=false;
     };
     const close=()=>{if(uploadInProgress)return;if(modal)modal.hidden=true;resetUploadForm();};
-    const showUploadModal=folder=>{uploadReturnFolder=typeof folder==='string'?folder:'';resetUploadForm();if(modal){modal.hidden=false;modal.removeAttribute('aria-hidden');modal.style.removeProperty('display');}document.body.classList.add('modal-open');if(uploadReturnFolder){mode.value='existing';document.getElementById('gallery-existing-folder').value=uploadReturnFolder;}else{mode?.focus();}};
+    const showUploadModal=folder=>{uploadReturnFolder=typeof folder==='string'?folder:'';resetUploadForm();if(modal){modal.hidden=false;modal.removeAttribute('aria-hidden');modal.style.removeProperty('display');}document.body.classList.add('modal-open');if(uploadReturnFolder){lockUploadToFolder(uploadReturnFolder);}else{mode?.focus();}};
     open?.addEventListener('click',()=>showUploadModal(''));
     document.getElementById('gallery-add-photo-in-folder')?.addEventListener('click',()=>showUploadModal(document.getElementById('gallery-photo-view')?.dataset.activeFolder||''));
     closeButtons.forEach(button=>button?.addEventListener('click',close));
