@@ -1470,7 +1470,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.getElementById('gallery-delete-confirm')?.addEventListener('click',()=>{if(folderCheckboxes().some(box=>box.checked)){closeFolderDeleteModal();if(bulkForm){if(typeof bulkForm.requestSubmit==='function')bulkForm.requestSubmit();else bulkForm.submit();}}});
     document.getElementById('gallery-delete-success-close')?.addEventListener('click',()=>window.location.replace('admin.php?section=media-management&media_tab=gallery'));
     document.getElementById('gallery-edit-success-close')?.addEventListener('click',()=>window.location.replace('admin.php?section=media-management&media_tab=gallery'));
-    const photoSelectAll=document.getElementById('gallery-photo-select-all'),photoDeleteButton=document.getElementById('gallery-photo-delete-selected'),photoFolderInput=document.getElementById('gallery-return-folder');
+    const photoSelectAll=document.getElementById('gallery-photo-select-all'),photoDeleteButton=document.getElementById('gallery-photo-delete-selected'),photoDeleteModal=document.getElementById('gallery-photo-delete-confirm-modal'),photoFolderInput=document.getElementById('gallery-return-folder');
     const photoChecks=()=>[...document.querySelectorAll('input[name="selected_gallery_photos[]"]')];
     // Always derive the selectable photos from the currently opened folder.
     // The former currentPhotoIds Set was never populated, so it filtered out
