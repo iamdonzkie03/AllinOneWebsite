@@ -641,6 +641,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       articleUpdateProgress.hidden = false;
       const request = new XMLHttpRequest();
       request.open('POST', editArticleForm.action, true);
+      request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      request.setRequestHeader('Accept', 'application/json');
       request.upload.addEventListener('progress', uploadEvent => {
         if (!uploadEvent.lengthComputable) return;
         const uploadPercent = Math.round((uploadEvent.loaded / uploadEvent.total) * 90);
@@ -651,20 +653,21 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         if (progressStatus) progressStatus.textContent = 'Saving article...';
       });
       request.addEventListener('load', () => {
-        let finalUrl = request.responseURL || '';
-        try {
-          const parsedUrl = new URL(finalUrl, window.location.href);
-          if (request.status >= 200 && request.status < 300 && parsedUrl.searchParams.get('notice') === 'article_updated') {
-            if (progressStatus) progressStatus.textContent = 'Finalizing update...';
-            if (progressMessage) progressMessage.textContent = 'Your article has been updated successfully.';
-            redirectAfterComplete = parsedUrl.href;
-            setProgressTarget(100);
-            return;
-          }
-        } catch (error) {}
+        let result = null;
+        try { result = JSON.parse(request.responseText); } catch (error) {}
+        if (request.status >= 200 && request.status < 300 && result?.success === true && result.redirect) {
+          if (progressStatus) progressStatus.textContent = 'Finalizing update...';
+          if (progressMessage) progressMessage.textContent = 'Your article has been updated successfully.';
+          redirectAfterComplete = new URL(result.redirect, window.location.href).href;
+          setProgressTarget(100);
+          return;
+        }
         articleUpdateProgress.hidden = true;
         if (submitButton) submitButton.disabled = false;
-        window.alert('The article could not be updated. Please check your connection and try again.');
+        const message = result?.message || (request.status
+          ? 'The server could not update this article (HTTP ' + request.status + '). Please try again.'
+          : 'The article could not be updated. Please check your connection and try again.');
+        window.alert(message);
       });
       request.addEventListener('error', () => {
         articleUpdateProgress.hidden = true;
