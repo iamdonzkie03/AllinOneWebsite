@@ -1469,10 +1469,22 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           window.clearInterval(progressTimer);uploadedFolder=typeof result.folder==='string'?result.folder:'';
           const wait=Math.max(0,3500-(Date.now()-uploadStartedAt));
           window.setTimeout(()=>{setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';window.setTimeout(()=>{
-            uploadInProgress=false;modal.hidden=true;resetUploadForm();
-            const count=Number(result.count)||0;
-            if(successMessage)successMessage.textContent=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+uploadedFolder+'.';
-            if(successModal)successModal.hidden=false;
+            uploadInProgress=false;
+            if(modal){modal.hidden=true;modal.setAttribute('aria-hidden','true');}
+            resetUploadForm();
+            const count=Math.max(0,Number(result.count)||0);
+            const destination=uploadedFolder||'the selected folder';
+            const message=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+destination+'.';
+            if(successMessage)successMessage.textContent=message;
+            if(successModal){
+              successModal.hidden=false;
+              successModal.removeAttribute('aria-hidden');
+              successModal.style.display='flex';
+              successModal.setAttribute('aria-live','assertive');
+              document.body.classList.add('modal-open');
+              const successButton=document.getElementById('gallery-upload-success-close');
+              successButton?.focus();
+            }
           },350);},wait);
           return;
         }
@@ -1489,7 +1501,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       });
       xhr.send(data);
     });
-    document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{if(successModal)successModal.hidden=true;window.location.href='admin.php?section=media-management&media_tab=gallery'+(uploadedFolder?'&gallery_focus_folder='+encodeURIComponent(uploadedFolder):'');});
+    document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{
+      if(successModal){successModal.hidden=true;successModal.style.display='none';successModal.setAttribute('aria-hidden','true');}
+      document.body.classList.remove('modal-open');
+      const destinationUrl=new URL('admin.php',window.location.href);
+      destinationUrl.searchParams.set('section','media-management');
+      destinationUrl.searchParams.set('media_tab','gallery');
+      if(uploadedFolder)destinationUrl.searchParams.set('gallery_focus_folder',uploadedFolder);
+      window.location.assign(destinationUrl.toString());
+    });
     successModal?.addEventListener('click',event=>{if(event.target===successModal)event.preventDefault();});
     modal?.addEventListener('click',event=>{if(event.target===modal)event.preventDefault();});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
