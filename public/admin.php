@@ -2843,13 +2843,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.getElementById('slideshow-upload-success-modal')?.remove();
     document.getElementById('gallery-upload-success-modal')?.remove();
 
-    // Ensure the Gallery Add Photo form never remains open after a page
-    // transition or browser history restoration.
-    const addPhotoModal = document.getElementById('gallery-add-modal');
-    if (addPhotoModal) {
-      addPhotoModal.hidden = true;
-      addPhotoModal.style.setProperty('display', 'none', 'important');
-    }
+    // Close Gallery forms and editing overlays whenever Media Management is
+    // entered, including when the browser restores the page from its cache.
+    ['gallery-add-modal', 'gallery-edit-modal'].forEach(id => {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.hidden = true;
+        modal.style.setProperty('display', 'none', 'important');
+      }
+    });
 
     // Also catch the dynamically-created slideshow confirmation if its
     // identifier was changed by another upload script.
@@ -2882,6 +2884,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     if (destination.searchParams.get('section') === 'media-management') {
       document.getElementById('slideshow-upload-success-modal')?.remove();
       document.getElementById('gallery-upload-success-modal')?.remove();
+      ['gallery-add-modal', 'gallery-edit-modal'].forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal) {
+          modal.hidden = true;
+          modal.style.setProperty('display', 'none', 'important');
+        }
+      });
       document.body.classList.remove('modal-open');
     }
   }, true);
