@@ -1599,13 +1599,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const showUploadModal=folder=>{uploadReturnFolder=typeof folder==='string'?folder:'';resetUploadForm();if(modal){modal.hidden=false;modal.removeAttribute('aria-hidden');modal.style.removeProperty('display');}document.body.classList.add('modal-open');if(uploadReturnFolder){lockUploadToFolder(uploadReturnFolder);}else{mode?.focus();}};
     open?.addEventListener('click',()=>showUploadModal(''));
     document.getElementById('gallery-add-photo-in-folder')?.addEventListener('click',()=>showUploadModal(document.getElementById('gallery-photo-view')?.dataset.activeFolder||''));
-    // A newly created folder opens directly into its folder-specific photo uploader.
-    const uploadPromptUrl=new URLSearchParams(window.location.search);
-    if(uploadPromptUrl.get('gallery_upload_prompt')==='1'&&requestedFolder!==null){
-      // Wait until the Media Management entry cleanup and tab initialization
-      // have completed, then open the uploader in its locked folder context.
-      window.requestAnimationFrame(()=>showUploadModal(requestedFolder));
-    }
+    // The final Media Management cleanup dispatches this event only after
+    // stale overlays are cleared and the Gallery tab has been activated.
+    document.addEventListener('gallery:open-upload-for-folder',event=>{
+      const folder=typeof event.detail?.folder==='string'?event.detail.folder:'';
+      if(folder)showUploadModal(folder);
+    });
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;});
     files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}const allowed=/\.(jpe?g|png|avif|webp)$/i;const invalid=selected.find(file=>!allowed.test(file.name));const oversized=selected.find(file=>file.size>10*1024*1024);if(invalid||oversized){files.value='';details.innerHTML='<p class="muted">'+(oversized?'Each photo must be 10 MB or smaller.':'Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.')+'</p>';return;}selected.forEach(file=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
@@ -3198,7 +3197,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   };
 
   const clearOverlaysOnEntry = () => {
-    if (isMediaManagement()) closeGalleryOverlays();
+    if (!isMediaManagement()) return;
+    closeGalleryOverlays();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gallery_upload_prompt') !== '1') return;
+    const folder = params.get('gallery_folder') || '';
+    if (!folder) return;
+    // Dispatch after cleanup and tab activation have both completed.
+    const galleryTab = document.querySelector('[data-media-tab="gallery"]');
+    galleryTab?.click();
+    document.dispatchEvent(new CustomEvent('gallery:open-upload-for-folder', {detail:{folder}}));
   };
 
   // Direct entry and browser back/forward (including BFCache restoration).
