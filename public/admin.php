@@ -1949,7 +1949,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      if(!(target instanceof Element))return;
      if(target.closest('#slideshow-upload-photos')){event.preventDefault();open();return;}
      if(target.closest('#slideshow-upload-cancel')){event.preventDefault();close();return;}
-     if(target===modal)close();
    },true);
    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.hidden)close();});
  })();
@@ -2276,18 +2275,29 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  document.addEventListener('click',event=>{
    const trigger=event.target instanceof Element?event.target.closest('#slideshow-upload-photos'):null;
    if(trigger){event.preventDefault();openSlideshowModal();}
-   if(event.target===slideshowModal)closeSlideshowModal();
  });
  document.getElementById('slideshow-upload-cancel')?.addEventListener('click',closeSlideshowModal);
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&slideshowModal&&!slideshowModal.hidden)closeSlideshowModal();});
+ let slideshowPreviewUrls=[];
  slideshowFiles?.addEventListener('change',()=>{
+   slideshowPreviewUrls.forEach(url=>URL.revokeObjectURL(url));
+   slideshowPreviewUrls=[];
    slideshowDetails.replaceChildren();
    const selected=[...(slideshowFiles.files||[])];
-   if(selected.length>20){alert('Choose no more than 20 photos per upload.');slideshowFiles.value='';return;}
+   const invalid=selected.length>20
+     ? 'Choose no more than 20 photos per upload.'
+     : selected.find(file=>!/\.(jpe?g|png|avif|webp)$/i.test(file.name)||!['image/jpeg','image/png','image/avif','image/webp'].includes(file.type))
+       ? 'Only JPG, JPEG, PNG, AVIF and WEBP photos are allowed.'
+       : selected.find(file=>file.size>10*1024*1024)
+         ? 'Each slideshow photo must not exceed 10 MB.' : '';
+   if(invalid){alert(invalid);slideshowFiles.value='';return;}
    selected.forEach((file,index)=>{
-     if(!/\.(jpe?g|png|avif|webp)$/i.test(file.name)||!['image/jpeg','image/png','image/avif','image/webp'].includes(file.type)){alert('Only JPG, JPEG, PNG, AVIF and WEBP photos are allowed.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
-     if(file.size>10*1024*1024){alert('Each slideshow photo must not exceed 10 MB.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
      const card=document.createElement('article');card.className='slideshow-upload-photo-card';
+     const thumbnail=document.createElement('img');
+     const previewUrl=URL.createObjectURL(file);slideshowPreviewUrls.push(previewUrl);
+     thumbnail.src=previewUrl;thumbnail.alt='Preview of '+file.name;
+     thumbnail.style.cssText='display:block;width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-bottom:10px;';
+     card.append(thumbnail);
      const heading=document.createElement('h4');heading.textContent='Photo '+(index+1)+' · '+file.name;card.append(heading);
      const titleLabel=document.createElement('label');titleLabel.className='section-field';titleLabel.textContent='Photo Title';
      const title=document.createElement('input');title.name='slideshow_photo_title[]';title.required=true;title.maxLength=180;title.value=file.name.replace(/\.[^.]+$/,'');titleLabel.append(title);card.append(titleLabel);
@@ -2323,7 +2333,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      closeSlideshowModal();
      const list=document.getElementById('slideshow-photo-list');list.querySelector('.slideshow-empty')?.remove();
      result.photos.forEach(photo=>{window.slideshowPhotoRecords.push(photo);const index=window.slideshowPhotoRecords.length-1;const card=document.createElement('article');card.className='slideshow-saved-photo';card.dataset.photoIndex=String(index);const label=document.createElement('label');label.className='gallery-photo-select';const check=document.createElement('input');check.type='checkbox';check.className='slideshow-photo-checkbox';check.setAttribute('aria-label','Select photo '+(index+1));label.append(check,document.createTextNode(' Select'));const media=document.createElement('div');media.className='gallery-photo-image';const image=document.createElement('img');image.src=photo.photo;image.alt=photo.title||'Slideshow photo';image.loading='lazy';media.append(image);const title=document.createElement('div');title.className='gallery-photo-title';title.textContent=photo.title||'Untitled photo';title.title=title.textContent;const edit=document.createElement('button');edit.type='button';edit.className='btn light gallery-photo-edit slideshow-edit-photo';edit.textContent='Edit';card.append(label,media,title,edit);list.append(card);});window.syncSlideshowPhotoSelection?.();
-     slideshowUploadForm.reset();slideshowDetails.replaceChildren();
+     slideshowUploadForm.reset();slideshowDetails.replaceChildren();slideshowPreviewUrls.forEach(url=>URL.revokeObjectURL(url));slideshowPreviewUrls=[];
      const preview=document.getElementById('slide-preview-media');result.photos.forEach(photo=>{const card=document.createElement('div');card.className='slideshow-photo-preview-card';const img=document.createElement('img');img.src=photo.photo;img.alt=photo.title||'';const title=document.createElement('strong');title.textContent=photo.title||'Untitled photo';const heading=document.createElement('span');heading.textContent=photo.heading||'';card.append(img,title,heading);preview.append(card);});
      const notice=document.createElement('div');notice.className='gallery-inline-success';notice.textContent=result.count+' slideshow '+(result.count===1?'photo was':'photos were')+' successfully uploaded.';list.prepend(notice);
    }catch(error){alert(error.message||'Slideshow photo upload failed.');}
