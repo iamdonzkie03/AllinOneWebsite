@@ -1464,10 +1464,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.getElementById('gallery-delete-confirm')?.addEventListener('click',()=>{if(folderCheckboxes().some(box=>box.checked)){closeFolderDeleteModal();if(bulkForm){if(typeof bulkForm.requestSubmit==='function')bulkForm.requestSubmit();else bulkForm.submit();}}});
     document.getElementById('gallery-delete-success-close')?.addEventListener('click',()=>window.location.replace('admin.php?section=media-management&media_tab=gallery'));
     document.getElementById('gallery-edit-success-close')?.addEventListener('click',()=>window.location.replace('admin.php?section=media-management&media_tab=gallery'));
-    const photoBulkForm=document.getElementById('gallery-photo-bulk-form'),photoSelectAll=document.getElementById('gallery-photo-select-all'),photoDeleteButton=document.getElementById('gallery-photo-delete-selected'),photoDeleteModal=document.getElementById('gallery-photo-delete-confirm-modal');
-    let currentPhotoIds=new Set();
+    const photoBulkForm=document.getElementById('gallery-photo-bulk-form'),photoSelectAll=document.getElementById('gallery-photo-select-all'),photoDeleteButton=document.getElementById('gallery-photo-delete-selected'),photoDeleteModal=document.getElementById('gallery-photo-delete-confirm-modal'),photoFolderInput=document.getElementById('gallery-return-folder');
     const photoChecks=()=>[...document.querySelectorAll('input[name="selected_gallery_photos[]"]')];
-    const currentPhotoChecks=()=>photoChecks().filter(box=>currentPhotoIds.has(box.value));
+    // Always derive the selectable photos from the currently opened folder.
+    // The former currentPhotoIds Set was never populated, so it filtered out
+    // every checkbox and prevented the deletion flow from reaching PHP.
+    const currentPhotoChecks=()=>{const folder=photoFolderInput?.value??'';return photoChecks().filter(box=>(box.closest('[data-gallery-folder-group]')?.dataset.galleryFolderName??'')===folder);};
     const syncPhotoDelete=()=>{const boxes=currentPhotoChecks(),selected=boxes.some(box=>box.checked);if(photoDeleteButton){photoDeleteButton.disabled=!selected;photoDeleteButton.toggleAttribute('disabled',!selected);photoDeleteButton.setAttribute('aria-disabled',String(!selected));}if(photoSelectAll){photoSelectAll.checked=boxes.length>0&&boxes.every(box=>box.checked);photoSelectAll.indeterminate=boxes.some(box=>box.checked)&&!photoSelectAll.checked;photoSelectAll.disabled=boxes.length===0;}};
     photoSelectAll?.addEventListener('change',()=>{currentPhotoChecks().forEach(box=>{box.checked=photoSelectAll.checked;});syncPhotoDelete();});
     document.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('input[name="selected_gallery_photos[]"]'))syncPhotoDelete();});syncPhotoDelete();
