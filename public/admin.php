@@ -1250,7 +1250,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </form>
     </div>
     <div id="gallery-photo-view" hidden>
-      <div class="gallery-photo-view-toolbar"><button type="button" class="btn light" id="gallery-back-folders">← All Folders</button><h4 id="gallery-current-folder-title">Folder</h4></div>
+      <div class="gallery-photo-view-toolbar"><button type="button" class="btn light" id="gallery-back-folders">← All Folders</button><h4 id="gallery-current-folder-title">Folder</h4><button type="button" class="btn" id="gallery-add-photo-in-folder">+ Add Photo</button></div>
       <form method="post" id="gallery-photo-bulk-form" class="gallery-photo-bulk-form">
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_gallery_photos"><input type="hidden" name="gallery_return_folder" id="gallery-return-folder" value="<?=e($galleryReturnFolder)?>">
         <div class="gallery-controls gallery-photo-selection-controls"><span class="muted">Select photos to delete</span><button class="btn bulk-delete" type="button" id="gallery-photo-delete-selected" disabled aria-disabled="true">Delete Selected</button></div>
@@ -1507,7 +1507,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     let page=1,activeFolder=null,activeCards=[];
     const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return activeCards.filter(card=>(card.dataset.gallerySearch||'').includes(q));};
     const render=()=>{if(!size||!info)return;const found=matches(),perPage=Number(size.value),pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0,end=Math.min(start+perPage,found.length),visible=new Set(found.slice(start,end));activeCards.forEach(card=>card.hidden=!visible.has(card));groups.forEach(group=>{const belongs=group.dataset.galleryFolderName===activeFolder;group.hidden=!belongs||!group.querySelector('.gallery-photo-card:not([hidden])');});const label=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' photos':'Showing 0 photos';info.textContent=label;number.textContent='Page '+page+' of '+pages;if(infoBottom)infoBottom.textContent=label;if(numberBottom)numberBottom.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(prevBottom)prevBottom.disabled=page<=1;if(nextBottom)nextBottom.disabled=page>=pages;if(empty)empty.hidden=found.length!==0;};
-    const openFolder=name=>{activeFolder=name;const returnFolder=document.getElementById('gallery-return-folder');if(returnFolder)returnFolder.value=name;const group=groups.find(item=>item.dataset.galleryFolderName===name);activeCards=group?[...group.querySelectorAll('.gallery-photo-card')]:[];currentPhotoIds=new Set(activeCards.map(card=>card.dataset.photoId||''));photoChecks().forEach(box=>{box.checked=false;});if(photoSelectAll)photoSelectAll.checked=false;syncPhotoDelete();if(folderTitle)folderTitle.textContent=name||'Unfiled Photos';if(folderView)folderView.hidden=true;if(photoView)photoView.hidden=false;if(filter)filter.value='';page=1;render();};
+    const openFolder=name=>{activeFolder=name;if(photoView)photoView.dataset.activeFolder=name;const returnFolder=document.getElementById('gallery-return-folder');if(returnFolder)returnFolder.value=name;const group=groups.find(item=>item.dataset.galleryFolderName===name);activeCards=group?[...group.querySelectorAll('.gallery-photo-card')]:[];currentPhotoIds=new Set(activeCards.map(card=>card.dataset.photoId||''));photoChecks().forEach(box=>{box.checked=false;});if(photoSelectAll)photoSelectAll.checked=false;syncPhotoDelete();if(folderTitle)folderTitle.textContent=name||'Unfiled Photos';if(folderView)folderView.hidden=true;if(photoView)photoView.hidden=false;if(filter)filter.value='';page=1;render();};
     folderTiles.forEach(tile=>tile.addEventListener('click',()=>openFolder(tile.dataset.galleryOpenFolder||'')));
     const requestedFolder=new URLSearchParams(window.location.search).get('gallery_folder');if(requestedFolder!==null&&groups.some(group=>group.dataset.galleryFolderName===requestedFolder))openFolder(requestedFolder);
     backFolders?.addEventListener('click',()=>{if(photoView)photoView.hidden=true;if(folderView)folderView.hidden=false;activeFolder=null;activeCards=[];currentPhotoIds=new Set();photoChecks().forEach(box=>{box.checked=false;});if(photoSelectAll)photoSelectAll.checked=false;syncPhotoDelete();});
@@ -1518,20 +1518,22 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;const active=requestedGalleryModalIds.map(id=>document.getElementById(id)).find(modal=>modal&&!modal.hidden);if(active)closeRequestedGalleryModal(active.id);});
     const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
     const progress=document.getElementById('gallery-upload-progress'),progressFill=document.getElementById('gallery-upload-progress-fill'),progressValue=document.getElementById('gallery-upload-progress-value'),progressLabel=document.getElementById('gallery-upload-progress-label'),uploadError=document.getElementById('gallery-upload-error'),successModal=document.getElementById('gallery-upload-success-modal'),successMessage=document.getElementById('gallery-upload-success-message');
-    let uploadInProgress=false,uploadedFolder='';
+    let uploadInProgress=false,uploadedFolder='',uploadReturnFolder='';
     const resetProgress=()=>{if(progress)progress.hidden=true;if(progressFill)progressFill.style.width='0%';if(progressValue)progressValue.textContent='0%';if(progressLabel)progressLabel.textContent='Uploading photos…';if(uploadError){uploadError.hidden=true;uploadError.textContent='';}};
     const setProgress=value=>{const percent=Math.max(0,Math.min(100,Math.round(value)));if(progressFill)progressFill.style.width=percent+'%';if(progressValue)progressValue.textContent=percent+'%';};
     const resetUploadForm=()=>{
       if(!form)return;
       form.reset();
       if(details)details.replaceChildren();
-      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;}
+      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!!uploadReturnFolder||!isExisting;fresh.hidden=!!uploadReturnFolder||!isNew;document.getElementById('gallery-existing-folder').required=isExisting&&!uploadReturnFolder;document.getElementById('gallery-folder-name').required=isNew&&!uploadReturnFolder;if(uploadReturnFolder){mode.value='existing';document.getElementById('gallery-existing-folder').value=uploadReturnFolder;existing.hidden=true;fresh.hidden=true;document.getElementById('gallery-existing-folder').required=false;document.getElementById('gallery-folder-name').required=false;}}
       const submit=document.getElementById('gallery-upload-submit');
       if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
       resetProgress();uploadInProgress=false;
     };
     const close=()=>{if(uploadInProgress)return;if(modal)modal.hidden=true;resetUploadForm();};
-    open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
+    const showUploadModal=folder=>{uploadReturnFolder=typeof folder==='string'?folder:'';resetUploadForm();if(modal){modal.hidden=false;modal.removeAttribute('aria-hidden');modal.style.removeProperty('display');}document.body.classList.add('modal-open');if(uploadReturnFolder){mode.value='existing';document.getElementById('gallery-existing-folder').value=uploadReturnFolder;}else{mode?.focus();}};
+    open?.addEventListener('click',()=>showUploadModal(''));
+    document.getElementById('gallery-add-photo-in-folder')?.addEventListener('click',()=>showUploadModal(document.getElementById('gallery-photo-view')?.dataset.activeFolder||''));
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;});
     files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}const allowed=/\.(jpe?g|png|avif|webp)$/i;const invalid=selected.find(file=>!allowed.test(file.name));const oversized=selected.find(file=>file.size>10*1024*1024);if(invalid||oversized){files.value='';details.innerHTML='<p class="muted">'+(oversized?'Each photo must be 10 MB or smaller.':'Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.')+'</p>';return;}selected.forEach(file=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
@@ -1611,7 +1613,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             const heading=document.createElement('h2');heading.textContent='Upload successful';
             const body=document.createElement('p');body.textContent=message;
             const ok=document.createElement('button');ok.type='button';ok.textContent='OK';ok.className='btn';
-            ok.addEventListener('click',()=>{fallback.remove();document.body.classList.remove('modal-open');window.location.replace('admin.php?section=media-management&media_tab=gallery&gallery_focus_folder='+encodeURIComponent(destination));});
+            ok.addEventListener('click',()=>{fallback.remove();document.body.classList.remove('modal-open');const target=new URL('admin.php',window.location.href);target.searchParams.set('section','media-management');target.searchParams.set('media_tab','gallery');if(uploadReturnFolder){target.searchParams.set('gallery_folder',destination);target.searchParams.delete('gallery_focus_folder');}else{target.searchParams.set('gallery_focus_folder',destination);target.searchParams.delete('gallery_folder');}window.location.replace(target.toString());});
             card.append(heading,body,ok);fallback.append(card);document.body.append(fallback);ok.focus();
           }
         };
@@ -1619,11 +1621,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         // frames plus this hold ensure 100% is painted before success is shown.
         window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>window.setTimeout(revealSuccess,650)));
       };
-      document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{
-      if(successModal){successModal.hidden=true;successModal.style.setProperty('display','none','important');}
-      document.body.classList.remove('modal-open');
-      window.location.replace('admin.php?section=media-management&media_tab=gallery&gallery_focus_folder='+encodeURIComponent(uploadedFolder||''));
-    });
     const progressTimer=window.setInterval(()=>{
         const elapsed=Date.now()-uploadStartedAt;
         // Animate steadily from 0 to 95%; reserve 100% for server-confirmed success.
@@ -1664,12 +1661,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       const destinationUrl=new URL('admin.php',window.location.href);
       destinationUrl.searchParams.set('section','media-management');
       destinationUrl.searchParams.set('media_tab','gallery');
-      destinationUrl.searchParams.delete('gallery_folder');
       destinationUrl.searchParams.delete('gallery_saved');
       destinationUrl.searchParams.delete('gallery_moved');
       destinationUrl.searchParams.delete('gallery_moved_folder');
-      if(uploadedFolder)destinationUrl.searchParams.set('gallery_focus_folder',uploadedFolder);
-      // Force a fresh Gallery folder-grid page after the user acknowledges success.
+      if(uploadReturnFolder){destinationUrl.searchParams.set('gallery_folder',uploadedFolder||uploadReturnFolder);destinationUrl.searchParams.delete('gallery_focus_folder');}
+      else{destinationUrl.searchParams.delete('gallery_folder');if(uploadedFolder)destinationUrl.searchParams.set('gallery_focus_folder',uploadedFolder);}
+      // A folder-context upload returns directly to that folder's photo grid.
       window.location.replace(destinationUrl.toString());
     });
     successModal?.addEventListener('click',event=>{if(event.target===successModal)event.preventDefault();});
