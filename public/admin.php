@@ -1378,7 +1378,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     #gallery-photo-edit-success-modal .gallery-photo-title-new{color:#16a34a;}
   </style>
   <?php if($galleryPhotoEditSuccess): ?><div class="gallery-modal-backdrop" id="gallery-photo-edit-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true"><div class="gallery-upload-success-mark">✓</div><h2><?php if($galleryPhotoEditIsTitleRename): ?>The Photo Title <span class="gallery-photo-title-old"><?=e($galleryPhotoEditOldTitle)?></span> has been renamed to <span class="gallery-photo-title-new"><?=e($galleryPhotoEditNewTitle)?></span>.<?php else: ?><?php if($galleryPhotoReplacedTitle!==''): ?>The photo with the photo title <span class="gallery-photo-title-old"><?=e($galleryPhotoReplacedTitle)?></span> has been successfully replaced.<?php else: ?><?=e($galleryPhotoEditSuccessMessage!==''?$galleryPhotoEditSuccessMessage:'Photo successfully updated.')?><?php endif; ?><?php endif; ?></h2><div class="gallery-modal-actions"><a class="btn" id="gallery-photo-edit-success-close" href="admin.php?section=media-management&amp;media_tab=gallery&amp;gallery_folder=<?=rawurlencode($galleryPhotoEditSuccessFolder)?>">OK</a></div></section></div><?php endif; ?>
-  <div class="gallery-modal-backdrop" id="gallery-photo-edit-modal" hidden><section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="gallery-photo-edit-title">Edit Photo</h2><p class="muted">Update the photo title, description, or image.</p></div></div><form method="post" enctype="multipart/form-data" id="gallery-photo-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="edit_gallery_photo"><input type="hidden" name="photo_id" id="gallery-photo-edit-id"><div class="gallery-photo-edit-preview"><img id="gallery-photo-edit-preview" src="" alt=""></div><label class="gallery-form-field">Photo title<input type="text" name="photo_title" id="gallery-photo-edit-name" maxlength="180" required></label><label class="gallery-form-field">Description<textarea name="photo_description" id="gallery-photo-edit-description" maxlength="2000"></textarea></label><label class="gallery-form-field">Replace photo (optional)<input type="file" name="replacement_photo" id="gallery-photo-edit-replacement" accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"><small>JPG, PNG, WebP or AVIF · maximum 10 MB</small><div id="gallery-photo-edit-replacement-preview-wrap" class="gallery-photo-edit-replacement-preview" hidden><img id="gallery-photo-edit-replacement-preview" src="" alt="Selected replacement photo preview"><button type="button" class="btn light" id="gallery-photo-edit-replacement-remove">Remove photo</button></div></label><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-photo-edit-cancel">Cancel</button><button class="btn" type="submit">Save Changes</button></div></form></section></div>
+  <div class="gallery-modal-backdrop" id="gallery-photo-edit-modal" hidden><section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="gallery-photo-edit-title">Edit Photo</h2><p class="muted">Update the photo title, description, or image.</p></div></div><form method="post" enctype="multipart/form-data" id="gallery-photo-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="edit_gallery_photo"><input type="hidden" name="photo_id" id="gallery-photo-edit-id"><div class="gallery-photo-edit-preview"><img id="gallery-photo-edit-preview" src="" alt=""></div><label class="gallery-form-field">Photo title<input type="text" name="photo_title" id="gallery-photo-edit-name" maxlength="180" required></label><label class="gallery-form-field">Description<textarea name="photo_description" id="gallery-photo-edit-description" maxlength="2000"></textarea></label><label class="gallery-form-field">Replace photo (optional)<input type="file" name="replacement_photo" id="gallery-photo-edit-replacement" accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"><small>JPG, PNG, WebP or AVIF · maximum 10 MB</small><div id="gallery-photo-edit-replacement-preview-wrap" class="gallery-photo-edit-replacement-preview" hidden><img id="gallery-photo-edit-replacement-preview" src="" alt="Selected replacement photo preview"><button type="button" class="btn light" id="gallery-photo-edit-replacement-remove">Remove photo</button></div></label><div class="gallery-edit-progress" id="gallery-photo-edit-progress" hidden role="status" aria-live="polite"><div class="gallery-upload-progress-head"><span id="gallery-photo-edit-progress-label">Uploading replacement photo…</span><strong id="gallery-photo-edit-progress-value">0%</strong></div><div class="gallery-upload-progress-track"><div class="gallery-upload-progress-fill" id="gallery-photo-edit-progress-fill" style="width:0%"></div></div></div><div class="gallery-upload-error" id="gallery-photo-edit-error" role="alert" hidden></div><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-photo-edit-cancel">Cancel</button><button class="btn" type="submit" id="gallery-photo-edit-save">Save Changes</button></div></form></section></div>
   <div class="gallery-modal-backdrop" id="gallery-delete-confirm-modal" hidden><section class="gallery-modal gallery-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-delete-confirm-title"><div class="gallery-upload-success-mark gallery-delete-mark">!</div><h2 id="gallery-delete-confirm-title">Delete Selected Folder/s?</h2><p>Are you sure you want to delete the selected folder/s? Deleting a folder containing photos will also delete them.</p><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-delete-cancel">Cancel</button><button class="btn bulk-delete" type="button" id="gallery-delete-confirm">Delete</button></div></section></div>
   <?php if($galleryDeleteSuccessNames): ?><div class="gallery-modal-backdrop" id="gallery-delete-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-delete-success-title"><div class="gallery-upload-success-mark">✓</div><?php if(count($galleryDeleteSuccessNames)===1): ?><h2 id="gallery-delete-success-title">The Folder <strong class="gallery-deleted-folder-name"><?=e($galleryDeleteSuccessNames[0])?></strong> has been successfully deleted.</h2><?php else: ?><h2 id="gallery-delete-success-title">The following folders have been successfully deleted:</h2><ul class="gallery-delete-success-list"><?php foreach($galleryDeleteSuccessNames as $deletedFolder): ?><li><strong class="gallery-deleted-folder-name"><?=e($deletedFolder)?></strong></li><?php endforeach; ?></ul><?php endif; ?><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-delete-success-close">OK</button></div></section></div><?php endif; ?>
   <?php if($galleryEditSuccess): ?><div class="gallery-modal-backdrop" id="gallery-edit-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true"><div class="gallery-upload-success-mark">✓</div><h2><?=e($galleryEditSuccessMessage)?></h2><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-edit-success-close">Continue</button></div></section></div><?php endif; ?>
@@ -1863,6 +1863,80 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   })();
   </script>
   <script>
+  // Upload replacement photos with live progress, then load the existing server success modal.
+  (() => {
+    const form = document.getElementById('gallery-photo-edit-form');
+    const input = document.getElementById('gallery-photo-edit-replacement');
+    const progress = document.getElementById('gallery-photo-edit-progress');
+    const progressLabel = document.getElementById('gallery-photo-edit-progress-label');
+    const progressValue = document.getElementById('gallery-photo-edit-progress-value');
+    const progressFill = document.getElementById('gallery-photo-edit-progress-fill');
+    const errorBox = document.getElementById('gallery-photo-edit-error');
+    const saveButton = document.getElementById('gallery-photo-edit-save');
+    if (!form || !input || !progress) return;
+    const setProgress = value => {
+      const percent = Math.max(0, Math.min(100, Math.round(value)));
+      progressValue.textContent = percent + '%';
+      progressFill.style.width = percent + '%';
+    };
+    form.addEventListener('submit', event => {
+      const file = input.files && input.files[0];
+      if (!file) return; // Keep the existing normal Save Changes workflow.
+      event.preventDefault();
+      if (form.dataset.uploading === '1') return;
+      form.dataset.uploading = '1';
+      errorBox.hidden = true;
+      errorBox.textContent = '';
+      progress.hidden = false;
+      progressLabel.textContent = 'Uploading replacement photo…';
+      setProgress(0);
+      saveButton.disabled = true;
+      const data = new FormData(form);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', form.action || window.location.href, true);
+      xhr.upload.addEventListener('progress', uploadEvent => {
+        if (uploadEvent.lengthComputable) setProgress((uploadEvent.loaded / uploadEvent.total) * 100);
+      });
+      xhr.upload.addEventListener('load', () => {
+        setProgress(100);
+        progressLabel.textContent = 'Saving replacement photo…';
+      });
+      xhr.addEventListener('load', () => {
+        const finalUrl = xhr.responseURL || '';
+        if (xhr.status >= 200 && xhr.status < 400 && new URL(finalUrl, window.location.href).searchParams.get('gallery_photo_edit_success') === '1') {
+          window.location.assign(finalUrl);
+          return;
+        }
+        let detail = 'The replacement photo could not be saved. Please try again.';
+        try {
+          const parsed = new DOMParser().parseFromString(xhr.responseText, 'text/html');
+          const serverError = parsed.querySelector('.gallery-upload-error:not([hidden]), .alert, [role="alert"]');
+          if (serverError && serverError.textContent.trim()) detail = serverError.textContent.trim();
+        } catch (_) {}
+        errorBox.textContent = detail;
+        errorBox.hidden = false;
+        progress.hidden = true;
+        form.dataset.uploading = '0';
+        saveButton.disabled = false;
+      });
+      xhr.addEventListener('error', () => {
+        errorBox.textContent = 'A network error interrupted the replacement photo upload. Please try again.';
+        errorBox.hidden = false;
+        progress.hidden = true;
+        form.dataset.uploading = '0';
+        saveButton.disabled = false;
+      });
+      xhr.addEventListener('abort', () => {
+        errorBox.textContent = 'The replacement photo upload was cancelled. Please try again.';
+        errorBox.hidden = false;
+        progress.hidden = true;
+        form.dataset.uploading = '0';
+        saveButton.disabled = false;
+      });
+      xhr.send(data);
+    });
+  })();
+
   // Reliable Gallery photo deletion flow, delegated independently of the Gallery UI script.
   (() => {
     const folderInput = document.getElementById('gallery-return-folder');
