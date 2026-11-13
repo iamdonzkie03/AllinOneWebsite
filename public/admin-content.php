@@ -407,5 +407,37 @@ $redirect = $returnToCategoryList
     : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
 $successNames = array_values(array_unique(array_filter(array_map('trim', $successNames))));
 $successNameQuery = $successNames ? '&names=' . rawurlencode(implode(', ', $successNames)) : '';
-header('Location: ' . $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery . $bulkDetailsQuery : (in_array($action, ['save_article','bulk_delete_articles'], true) ? $successNameQuery : '')) . '#pm-panel-contents', true, 303);
+$redirectUrl = $redirect . rawurlencode($notice) . ($returnToCategoryList ? $successNameQuery . $bulkDetailsQuery : (in_array($action, ['save_article','bulk_delete_articles'], true) ? $successNameQuery : '')) . '#pm-panel-contents';
+
+// Article edits use a JSON response so the progress dialog does not have to
+// infer success from a browser-managed redirect URL.
+$isArticleUpdateAjax = $action === 'save_article'
+    && (int)($_POST['article_id'] ?? 0) > 0
+    && strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+if ($isArticleUpdateAjax) {
+    $messages = [
+        'article_updated' => 'Article updated successfully.',
+        'article_invalid' => 'Enter a valid article title and choose a category.',
+        'article_missing' => 'This article could not be found. Refresh the Articles list and try again.',
+        'category_invalid' => 'Choose a valid active category.',
+        'subcategory_invalid' => 'The selected subcategory does not belong to the selected category.',
+        'subcategory_missing' => 'The selected subcategory could not be found.',
+        'cover_photo_upload_failed' => 'The cover photo could not be uploaded. Check the PHP upload limits and try again.',
+        'cover_photo_too_large' => 'Each cover photo must be under 10 MB.',
+        'cover_photo_invalid' => 'Use a valid JPG, JPEG, PNG, WEBP or AVIF cover photo no larger than 8000 × 8000 pixels.',
+        'cover_photo_folder_failed' => 'The cover photo folder could not be created on the server.',
+        'duplicate_or_database_error' => 'The article could not be saved because of a database error. Check the PHP error log for details.'
+    ];
+    $success = $notice === 'article_updated';
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code($success ? 200 : (in_array($notice, ['duplicate_or_database_error'], true) ? 500 : 422));
+    echo json_encode([
+        'success' => $success,
+        'message' => $messages[$notice] ?? 'The article could not be updated. Please review the article details and try again.',
+        'redirect' => $success ? $redirectUrl : null
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+header('Location: ' . $redirectUrl, true, 303);
 exit;
