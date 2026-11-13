@@ -3323,6 +3323,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if (
         modal.id === 'gallery-delete-success-modal' ||
         modal.id === 'gallery-photo-delete-success-modal' ||
+        modal.id === 'gallery-photo-edit-success-modal' ||
         modal.id === 'gallery-add-folder-success-modal'
       ) return;
       if (modal.id === 'gallery-add-modal' && preserveAddPhotoPrompt) return;
