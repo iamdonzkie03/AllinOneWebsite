@@ -408,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!mkdir($folderPath, 0755, false) && !is_dir($folderPath)) {
                 throw new RuntimeException('Unable to create the Gallery folder. Check the folder permissions and try again.');
             }
-            header('Location: admin.php?section=media-management&media_tab=gallery&gallery_folder_created=' . rawurlencode($folder), true, 303);
+            header('Location: admin.php?section=media-management&media_tab=gallery&gallery_folder=' . rawurlencode($folder) . '&gallery_upload_prompt=1', true, 303);
             exit;
         } catch (Throwable $e) {
             $message = $e->getMessage();
@@ -1326,16 +1326,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php if($galleryDeleteSuccessNames): ?><div class="gallery-modal-backdrop" id="gallery-delete-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-delete-success-title"><div class="gallery-upload-success-mark">✓</div><?php if(count($galleryDeleteSuccessNames)===1): ?><h2 id="gallery-delete-success-title">The Folder <strong class="gallery-deleted-folder-name"><?=e($galleryDeleteSuccessNames[0])?></strong> has been successfully deleted.</h2><?php else: ?><h2 id="gallery-delete-success-title">The following folders have been successfully deleted:</h2><ul class="gallery-delete-success-list"><?php foreach($galleryDeleteSuccessNames as $deletedFolder): ?><li><strong class="gallery-deleted-folder-name"><?=e($deletedFolder)?></strong></li><?php endforeach; ?></ul><?php endif; ?><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-delete-success-close">OK</button></div></section></div><?php endif; ?>
   <?php if($galleryEditSuccess): ?><div class="gallery-modal-backdrop" id="gallery-edit-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true"><div class="gallery-upload-success-mark">✓</div><h2><?=e($galleryEditSuccessMessage)?></h2><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-edit-success-close">Continue</button></div></section></div><?php endif; ?>
   <div class="gallery-modal-backdrop" id="gallery-edit-modal" hidden><section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-edit-modal-title"><div class="gallery-modal-head"><div><h2 id="gallery-edit-modal-title">Edit Folder</h2><p class="muted">Rename this folder, update photo details, or replace its photos.</p></div></div><form method="post" enctype="multipart/form-data" id="gallery-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="edit_gallery_folder"><input type="hidden" name="original_folder_name" id="gallery-edit-original-folder"><label class="gallery-form-field">Folder name<input type="text" name="edited_folder_name" id="gallery-edit-folder-name" maxlength="80" required></label><div class="gallery-photo-details" id="gallery-edit-photo-details"></div><div class="gallery-edit-progress" id="gallery-edit-progress" hidden role="status" aria-live="polite"><div class="gallery-upload-progress-head"><span id="gallery-edit-progress-label">Saving changes…</span><strong id="gallery-edit-progress-value">0%</strong></div><div class="gallery-upload-progress-track"><div class="gallery-upload-progress-fill" id="gallery-edit-progress-fill" style="width:0%"></div></div></div><div class="gallery-upload-error" id="gallery-edit-error" role="alert" hidden></div><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-edit-cancel">Cancel</button><button class="btn" type="submit" id="gallery-edit-save">Save Changes</button></div></form></section></div>
-  <?php $galleryCreatedFolder = trim((string)($_GET['gallery_folder_created'] ?? '')); ?>
-  <?php if ($galleryCreatedFolder !== ''): ?>
-    <div class="gallery-modal-backdrop" id="gallery-add-folder-success-modal">
-      <section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-add-folder-success-title">
-        <div class="gallery-upload-success-mark" aria-hidden="true">✓</div>
-        <h2 id="gallery-add-folder-success-title">Folder <strong><?=e($galleryCreatedFolder)?></strong> has been successfully created.</h2>
-        <div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-add-folder-success-close">OK</button></div>
-      </section>
-    </div>
-  <?php endif; ?>
   <div class="gallery-modal-backdrop" id="gallery-add-folder-modal" hidden>
     <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-add-folder-title">
       <div class="gallery-modal-head">
@@ -1608,6 +1598,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const showUploadModal=folder=>{uploadReturnFolder=typeof folder==='string'?folder:'';resetUploadForm();if(modal){modal.hidden=false;modal.removeAttribute('aria-hidden');modal.style.removeProperty('display');}document.body.classList.add('modal-open');if(uploadReturnFolder){lockUploadToFolder(uploadReturnFolder);}else{mode?.focus();}};
     open?.addEventListener('click',()=>showUploadModal(''));
     document.getElementById('gallery-add-photo-in-folder')?.addEventListener('click',()=>showUploadModal(document.getElementById('gallery-photo-view')?.dataset.activeFolder||''));
+    // A newly created folder opens directly into its folder-specific photo uploader.
+    const uploadPromptUrl=new URLSearchParams(window.location.search);
+    if(uploadPromptUrl.get('gallery_upload_prompt')==='1'&&requestedFolder!==null){
+      uploadPromptUrl.delete('gallery_upload_prompt');
+      const cleanUrl=new URL(window.location.href);
+      cleanUrl.searchParams.delete('gallery_upload_prompt');
+      window.history.replaceState({},'',cleanUrl.toString());
+      showUploadModal(requestedFolder);
+    }
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;});
     files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}const allowed=/\.(jpe?g|png|avif|webp)$/i;const invalid=selected.find(file=>!allowed.test(file.name));const oversized=selected.find(file=>file.size>10*1024*1024);if(invalid||oversized){files.value='';details.innerHTML='<p class="muted">'+(oversized?'Each photo must be 10 MB or smaller.':'Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.')+'</p>';return;}selected.forEach(file=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
@@ -1775,18 +1774,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && modal && !modal.hidden) close();
     });
-    const success = document.getElementById('gallery-add-folder-success-modal');
-    document.getElementById('gallery-add-folder-success-close')?.addEventListener('click', () => {
-      if (success) success.hidden = true;
-      document.body.classList.remove('modal-open');
-      const url = new URL(window.location.href);
-      url.searchParams.delete('gallery_folder_created');
-      window.history.replaceState({}, '', url.toString());
-    });
-    if (success) {
-      document.body.classList.add('modal-open');
-      document.getElementById('gallery-add-folder-success-close')?.focus();
-    }
   })();
 
   // Keep the Add Photo overlay independently operable even if another Gallery
