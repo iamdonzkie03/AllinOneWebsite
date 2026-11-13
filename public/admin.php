@@ -471,8 +471,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if(isset($_FILES['replacement_photo'])&&(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
                 $file=$_FILES['replacement_photo'];if((int)$file['error']!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded.');
                 if((int)$file['size']>10*1024*1024)throw new RuntimeException('The replacement photo must not exceed 10 MB.');
-                $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);$extensions=['image/jpeg'=>'jpg','image/avif'=>'avif','image/webp'=>'webp'];
-                if(!isset($extensions[$mime])||@getimagesize((string)$file['tmp_name'])===false)throw new RuntimeException('Choose a valid JPG, JPEG, AVIF or WEBP photo.');
+                $mime=(new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);$extensions=['image/jpeg'=>'jpg','image/png'=>'png','image/avif'=>'avif','image/webp'=>'webp'];
+                if(!isset($extensions[$mime])||@getimagesize((string)$file['tmp_name'])===false)throw new RuntimeException('Choose a valid JPG, JPEG, PNG, AVIF or WEBP photo.');
                 $dir=__DIR__.'/uploads/slideshow-photo';if(!is_dir($dir)&&!mkdir($dir,0755,true)&&!is_dir($dir))throw new RuntimeException('Unable to access the slideshow photo folder.');
                 $filename='slideshow-'.date('Ymd-His').'-'.bin2hex(random_bytes(8)).'.'.$extensions[$mime];if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$filename))throw new RuntimeException('Unable to save the replacement photo.');
                 $photo['photo']='uploads/slideshow-photo/'.$filename;
@@ -500,7 +500,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
                 throw new RuntimeException('Unable to create the slideshow-photo folder.');
             }
-            $extensions = ['image/jpeg'=>'jpg','image/avif'=>'avif','image/webp'=>'webp'];
+            $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/avif'=>'avif','image/webp'=>'webp'];
             $cleanSlideshowHtml = static function(string $html): string {
                 $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
                 $html = preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i', '', $html);
@@ -550,7 +550,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ((int)($files['size'][$i] ?? 0) > 10 * 1024 * 1024) throw new RuntimeException('Each slideshow photo must not exceed 10 MB.');
                 $tmp = (string)$files['tmp_name'][$i];
                 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
-                if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) throw new RuntimeException('Only valid JPG, JPEG, AVIF and WEBP photos are allowed.');
+                if (!isset($extensions[$mime]) || @getimagesize($tmp) === false) throw new RuntimeException('Only valid JPG, JPEG, PNG, AVIF and WEBP photos are allowed.');
                 $title = trim((string)($titles[$i] ?? ''));
                 if ($title === '') throw new RuntimeException('Enter a Photo Title for every selected photo.');
                 $heading = trim((string)($headings[$i] ?? ''));
@@ -1868,7 +1868,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 <input type="hidden" name="slide_subtitle" data-banner-html="slide_subtitle" value="<?=e((string)($sectionsSettings['slideshow']['subtitle']??''))?>">
 </div>
   </div>
-  <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Each photo appears as a thumbnail and title. Edit photos individually or select several to delete.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Multiple Photos</button></div>
+  <div class="section-repeat-head"><div><h3>Slideshow Photos</h3><p class="muted">Each photo appears as a thumbnail and title. Edit photos individually or select several to delete.</p></div><button type="button" class="btn light" id="slideshow-upload-photos">+ Upload Photos</button></div>
   <div class="slideshow-photo-list-toolbar gallery-photo-bulk-form"><label class="muted"><input type="checkbox" id="slideshow-select-all" class="slideshow-photo-select"> Select all photos</label><button type="button" class="btn bulk-delete" id="slideshow-delete-selected" disabled aria-disabled="true">Delete Selected</button></div>
   <div class="slideshow-photo-list" id="slideshow-photo-list">
    <?php foreach((array)$sectionsSettings['slideshow']['photos'] as $k=>$ph): ?>
@@ -1893,12 +1893,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </form>
  <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
   <section class="gallery-modal slideshow-upload-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-upload-modal-title">
-   <div class="gallery-modal-head"><div><h2 id="slideshow-upload-modal-title">Upload Multiple Photos</h2><p class="muted">Select up to 20 photos. Add a title, heading and description for each photo.</p></div></div>
+   <div class="gallery-modal-head"><div><h2 id="slideshow-upload-modal-title">Upload Photos</h2><p class="muted">Select up to 20 photos. Add a Photo Title, Photo Heading and Description for each photo.</p></div></div>
    <form method="post" enctype="multipart/form-data" id="slideshow-upload-form">
     <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
     <label class="gallery-form-field slideshow-multiple-file-field">Select photos
-     <input type="file" name="slideshow_photos[]" id="slideshow-photo-files" accept=".jpg,.jpeg,.avif,.webp,image/jpeg,image/avif,image/webp" multiple required>
-     <small>JPG, JPEG, AVIF or WEBP · maximum 10 MB per photo · up to 20 photos per upload</small>
+     <input type="file" name="slideshow_photos[]" id="slideshow-photo-files" accept=".jpg,.jpeg,.png,.avif,.webp,image/jpeg,image/png,image/avif,image/webp" multiple required>
+     <small>JPG, JPEG, PNG, AVIF or WEBP · maximum 10 MB per photo · up to 20 photos per upload</small>
     </label>
     <div id="slideshow-photo-details" class="slideshow-photo-details"></div>
     <div class="gallery-modal-actions"><button class="btn light" type="button" id="slideshow-upload-cancel">Cancel</button><button class="btn" type="submit">Upload Photos</button></div>
@@ -1906,7 +1906,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </section>
  </div>
 
-<div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.avif,.webp,image/jpeg,image/avif,image/webp"><small>JPG, JPEG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div></form></section></div>
+<div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.avif,.webp,image/jpeg,image/png,image/avif,image/webp"><small>JPG, JPEG, PNG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div></form></section></div>
  <script>
  
  (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const moveSectionIndicator=(t,animate=true)=>{if(!tabNav||!t||!t.getClientRects().length)return;const indicator=tabNav.querySelector('.section-tab-indicator');if(!indicator)return;const tabWidth=t.offsetWidth,tabLeft=t.offsetLeft-tabNav.clientLeft;if(!tabWidth)return;if(!animate){indicator.style.transition='none';}indicator.style.width=tabWidth+'px';indicator.style.setProperty('--slider-x',tabLeft+'px');if(!animate){indicator.offsetHeight;indicator.style.transition='';}};const scheduleSectionIndicator=(animate=false)=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{const active=tabs.find(x=>x.getAttribute('aria-selected')==='true')||tabs[0];if(active)moveSectionIndicator(active,animate);}));};root.addEventListener('sectionspanel:shown',()=>scheduleSectionIndicator(false));const activateSectionTab=(t)=>{if(!t)return;const index=tabs.indexOf(t);if(tabNav){tabNav.dataset.active=t.dataset.sectionTab;}moveSectionIndicator(t);if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':t.dataset.sectionTab==='slideshow'?'Save Slideshow Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});const requestedSectionTab=tabNav?.dataset.initialTab;const initialSectionTab=tabs.find(t=>t.dataset.sectionTab===requestedSectionTab)||tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0];activateSectionTab(initialSectionTab);scheduleSectionIndicator(false);window.addEventListener('resize',()=>scheduleSectionIndicator(false));
@@ -2215,7 +2215,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const selected=[...(slideshowFiles.files||[])];
    if(selected.length>20){alert('Choose no more than 20 photos per upload.');slideshowFiles.value='';return;}
    selected.forEach((file,index)=>{
-     if(!/\.(jpe?g|avif|webp)$/i.test(file.name)||!['image/jpeg','image/avif','image/webp'].includes(file.type)){alert('Only JPG, JPEG, AVIF and WEBP photos are allowed.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
+     if(!/\.(jpe?g|png|avif|webp)$/i.test(file.name)||!['image/jpeg','image/png','image/avif','image/webp'].includes(file.type)){alert('Only JPG, JPEG, PNG, AVIF and WEBP photos are allowed.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
      if(file.size>10*1024*1024){alert('Each slideshow photo must not exceed 10 MB.');slideshowFiles.value='';slideshowDetails.replaceChildren();return;}
      const card=document.createElement('article');card.className='slideshow-upload-photo-card';
      const heading=document.createElement('h4');heading.textContent='Photo '+(index+1)+' · '+file.name;card.append(heading);
