@@ -1487,6 +1487,53 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
   })();
   </script>
+  <script>
+  // Keep the Add Photo overlay independently operable even if another Gallery
+  // interaction handler fails to initialize. This listener is intentionally
+  // separate from the upload workflow above.
+  (() => {
+    const showAddPhoto = () => {
+      const modal = document.getElementById('gallery-add-modal');
+      if (!modal) return;
+      modal.hidden = false;
+      modal.style.removeProperty('display');
+      document.body.classList.add('modal-open');
+      const mode = document.getElementById('gallery-folder-mode');
+      const existing = document.getElementById('gallery-existing-folder-field');
+      const fresh = document.getElementById('gallery-new-folder-field');
+      if (mode && existing && fresh) {
+        const isExisting = mode.value === 'existing';
+        const isNew = mode.value === 'new';
+        existing.hidden = !isExisting;
+        fresh.hidden = !isNew;
+      }
+      mode?.focus();
+    };
+
+    document.addEventListener('click', event => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest('#gallery-add-photo')) {
+        event.preventDefault();
+        showAddPhoto();
+      }
+      const close = target?.closest('[data-gallery-modal-close="gallery-add-modal"], #gallery-modal-cancel');
+      if (close) {
+        const modal = document.getElementById('gallery-add-modal');
+        if (modal) modal.hidden = true;
+        document.body.classList.remove('modal-open');
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      const modal = document.getElementById('gallery-add-modal');
+      if (modal && !modal.hidden) {
+        modal.hidden = true;
+        document.body.classList.remove('modal-open');
+      }
+    });
+  })();
+  </script>
   <section class="page-management-tabpanel" id="media-panel-video" role="tabpanel" aria-labelledby="media-tab-video" hidden>
     <h2>Video</h2><p class="muted">Manage videos displayed on the public website.</p>
     <div class="admin-note">Video management controls can be added here. No existing website content has been changed.</div>
