@@ -1557,7 +1557,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     backFolders?.addEventListener('click',()=>{if(photoView)photoView.hidden=true;if(folderView)folderView.hidden=false;activeFolder=null;activeCards=[];currentPhotoIds=new Set();photoChecks().forEach(box=>{box.checked=false;});if(photoSelectAll)photoSelectAll.checked=false;syncPhotoDelete();});
     filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});[prev,prevBottom].forEach(button=>button?.addEventListener('click',()=>{if(page>1){page--;render();}}));[next,nextBottom].forEach(button=>button?.addEventListener('click',()=>{page++;render();}));
     const requestedGalleryModalIds=['gallery-add-modal','gallery-photo-delete-confirm-modal','gallery-photo-edit-modal'];
-    const closeRequestedGalleryModal=id=>{const target=document.getElementById(id);if(!target)return; if(id==='gallery-add-modal'&&uploadInProgress)return; target.hidden=true;target.style.removeProperty('display');document.body.classList.remove('modal-open');};
+    const clearUploadPromptFlag=()=>{const cleanUrl=new URL(window.location.href);cleanUrl.searchParams.delete('gallery_upload_prompt');window.history.replaceState({},'',cleanUrl.toString());};
+    const closeRequestedGalleryModal=id=>{const target=document.getElementById(id);if(!target)return; if(id==='gallery-add-modal'&&uploadInProgress)return; target.hidden=true;target.style.removeProperty('display');document.body.classList.remove('modal-open');if(id==='gallery-add-modal')clearUploadPromptFlag();};
     document.querySelectorAll('[data-gallery-modal-close]').forEach(button=>button.addEventListener('click',()=>closeRequestedGalleryModal(button.dataset.galleryModalClose)));
     document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;const active=requestedGalleryModalIds.map(id=>document.getElementById(id)).find(modal=>modal&&!modal.hidden);if(active)closeRequestedGalleryModal(active.id);});
     const modal=document.getElementById('gallery-add-modal'),open=document.getElementById('gallery-add-photo'),closeButtons=[document.getElementById('gallery-modal-cancel')],mode=document.getElementById('gallery-folder-mode'),existing=document.getElementById('gallery-existing-folder-field'),fresh=document.getElementById('gallery-new-folder-field'),files=document.getElementById('gallery-files'),details=document.getElementById('gallery-photo-details'),form=document.getElementById('gallery-upload-form');
@@ -1594,17 +1595,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
       resetProgress();uploadInProgress=false;
     };
-    const close=()=>{if(uploadInProgress)return;if(modal)modal.hidden=true;resetUploadForm();};
+    const close=()=>{if(uploadInProgress)return;if(modal)modal.hidden=true;resetUploadForm();clearUploadPromptFlag();};
     const showUploadModal=folder=>{uploadReturnFolder=typeof folder==='string'?folder:'';resetUploadForm();if(modal){modal.hidden=false;modal.removeAttribute('aria-hidden');modal.style.removeProperty('display');}document.body.classList.add('modal-open');if(uploadReturnFolder){lockUploadToFolder(uploadReturnFolder);}else{mode?.focus();}};
     open?.addEventListener('click',()=>showUploadModal(''));
     document.getElementById('gallery-add-photo-in-folder')?.addEventListener('click',()=>showUploadModal(document.getElementById('gallery-photo-view')?.dataset.activeFolder||''));
     // A newly created folder opens directly into its folder-specific photo uploader.
     const uploadPromptUrl=new URLSearchParams(window.location.search);
     if(uploadPromptUrl.get('gallery_upload_prompt')==='1'&&requestedFolder!==null){
-      uploadPromptUrl.delete('gallery_upload_prompt');
-      const cleanUrl=new URL(window.location.href);
-      cleanUrl.searchParams.delete('gallery_upload_prompt');
-      window.history.replaceState({},'',cleanUrl.toString());
       showUploadModal(requestedFolder);
     }
     closeButtons.forEach(button=>button?.addEventListener('click',close));
@@ -1737,6 +1734,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       destinationUrl.searchParams.delete('gallery_saved');
       destinationUrl.searchParams.delete('gallery_moved');
       destinationUrl.searchParams.delete('gallery_moved_folder');
+      destinationUrl.searchParams.delete('gallery_upload_prompt');
       if(uploadReturnFolder){destinationUrl.searchParams.set('gallery_folder',uploadedFolder||uploadReturnFolder);destinationUrl.searchParams.delete('gallery_focus_folder');}
       else{destinationUrl.searchParams.delete('gallery_folder');if(uploadedFolder)destinationUrl.searchParams.set('gallery_focus_folder',uploadedFolder);}
       // A folder-context upload returns directly to that folder's photo grid.
@@ -3217,7 +3215,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     document.querySelectorAll('.gallery-modal-backdrop').forEach(modal => {
       // A server-rendered folder deletion success modal belongs to the current
       // POST response, so keep it visible instead of treating it as stale UI.
+      const preserveAddPhotoPrompt = new URLSearchParams(window.location.search).get('gallery_upload_prompt') === '1';
       if (modal.id === 'gallery-delete-success-modal' || modal.id === 'gallery-add-folder-success-modal') return;
+      if (modal.id === 'gallery-add-modal' && preserveAddPhotoPrompt) return;
       modal.hidden = true;
       modal.style.setProperty('display', 'none', 'important');
     });
@@ -3231,7 +3231,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         overlay.remove();
       }
     });
-    document.body.classList.remove('modal-open');
+    if (new URLSearchParams(window.location.search).get('gallery_upload_prompt') === '1') {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
   };
 
   const clearOverlaysOnEntry = () => {
