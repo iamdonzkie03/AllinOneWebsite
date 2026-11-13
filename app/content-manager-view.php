@@ -296,6 +296,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       <div class="content-manager-table-tools"><label class="content-manager-filter">Filter categories<input type="search" class="field" id="managed-category-filter" placeholder="Search category or description"></label><label class="content-manager-page-size">Show<select class="field" id="managed-category-page-size"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
       <form id="managed-category-bulk-delete" method="post" action="admin-content.php?session_context=admin"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="bulk_delete_categories"><input type="hidden" name="select_all_categories" id="managed-category-select-all-flag" value="0"></form>
       <div class="content-manager-bulk-toolbar"><span class="muted" id="managed-category-selection" aria-live="polite">No items selected</span><button class="content-manager-delete-selected" type="button" id="managed-category-delete-selected" disabled>Delete Selected</button></div>
+      <div class="content-manager-pagination content-manager-gallery-pagination"><span class="muted" id="managed-category-count-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="managed-category-first" aria-label="First page">First</button><button type="button" class="btn light" id="managed-category-prev">Previous</button><span id="managed-category-page-numbers-top" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="managed-category-next">Next</button><button type="button" class="btn light" id="managed-category-last" aria-label="Last page">Last</button></div></div>
       <div class="content-manager-modal-backdrop" id="managed-category-delete-modal" hidden role="presentation">
         <section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="managed-category-delete-title" aria-describedby="managed-category-delete-description">
           <div class="content-manager-section-head"><h3 id="managed-category-delete-title">Delete Selected Items?</h3></div>
@@ -314,7 +315,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
         <tr class="managed-category-row" data-search="<?=e(mb_strtolower($cat['name'].' '.(string)$cat['description']))?>"><td class="content-manager-select-cell"><?php if($cat['slug']!=='uncategorized'): ?><input type="checkbox" class="managed-category-select" name="selected_items[]" value="category:<?=(int)$cat['id']?>" form="managed-category-bulk-delete" aria-label="Select category <?=e($cat['name'])?>" data-item-name="<?=e($cat['name'])?>" data-category-id="<?=(int)$cat['id']?>"><?php endif; ?></td><td><strong><?=e($cat['name'])?></strong><?php if($cat['slug']==='uncategorized'): ?><div class="muted">Default category</div><?php endif; ?></td><td><?=e((string)$cat['description'])?></td><td><?php if($cat['slug']!=='uncategorized'): ?><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_category='.(int)$cat['id'])?>">Edit</a></div><?php else: ?><span class="content-manager-action--protected">Protected</span><?php endif; ?></td></tr>
         <?php foreach($cmSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr class="managed-category-row managed-subcategory-row" data-search="<?=e(mb_strtolower($sub['name'].' '.$sub['parent_name'].' '.(string)$sub['description']))?>"><td class="content-manager-select-cell"><input type="checkbox" class="managed-category-select" name="selected_items[]" value="subcategory:<?=(int)$sub['id']?>" form="managed-category-bulk-delete" aria-label="Select subcategory <?=e($sub['name'])?>" data-item-name="<?=e($sub['name'])?>" data-parent-id="<?=(int)$sub['parent_id']?>"></td><td class="content-manager-subcat"><span class="subcategory-arrow" aria-hidden="true">›</span><span class="subcategory-name"><?=e($sub['name'])?></span></td><td><?=e((string)$sub['description'])?></td><td><div class="content-manager-row-actions"><a class="content-manager-action" href="<?=e($cmCategoryModeUrl.'&edit_subcategory='.(int)$sub['id'])?>">Edit</a></div></td></tr><?php endforeach; ?>
       <?php endforeach; ?></tbody></table></div>
-      <div class="content-manager-pagination"><span class="muted" id="managed-category-count" aria-live="polite"></span><div class="content-manager-page-buttons"><button type="button" class="btn light" id="managed-category-prev">Previous</button><span class="muted" id="managed-category-page"></span><button type="button" class="btn light" id="managed-category-next">Next</button></div></div>
+      <div class="content-manager-pagination content-manager-gallery-pagination"><span class="muted" id="managed-category-count" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="managed-category-first-bottom" aria-label="First page">First</button><button type="button" class="btn light" id="managed-category-prev-bottom">Previous</button><span id="managed-category-page-numbers-bottom" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="managed-category-next-bottom">Next</button><button type="button" class="btn light" id="managed-category-last-bottom" aria-label="Last page">Last</button></div></div>
     </section>
     <?php else: ?>
     <section class="content-manager-card content-manager-editor">
@@ -820,9 +821,13 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
     const filter = document.getElementById('managed-category-filter');
     const pageSize = document.getElementById('managed-category-page-size');
     const count = document.getElementById('managed-category-count');
-    const pageLabel = document.getElementById('managed-category-page');
-    const previous = document.getElementById('managed-category-prev');
-    const next = document.getElementById('managed-category-next');
+    const countTop = document.getElementById('managed-category-count-top');
+    const pageNumbersTop = document.getElementById('managed-category-page-numbers-top');
+    const pageNumbersBottom = document.getElementById('managed-category-page-numbers-bottom');
+    const firstButtons = [document.getElementById('managed-category-first'), document.getElementById('managed-category-first-bottom')].filter(Boolean);
+    const previousButtons = [document.getElementById('managed-category-prev'), document.getElementById('managed-category-prev-bottom')].filter(Boolean);
+    const nextButtons = [document.getElementById('managed-category-next'), document.getElementById('managed-category-next-bottom')].filter(Boolean);
+    const lastButtons = [document.getElementById('managed-category-last'), document.getElementById('managed-category-last-bottom')].filter(Boolean);
     const selectAll = document.getElementById('managed-category-select-all');
     const deleteSelected = document.getElementById('managed-category-delete-selected');
     const selectionLabel = document.getElementById('managed-category-selection');
@@ -926,16 +931,55 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       matching.slice((page - 1) * size, page * size).forEach(row => { row.hidden = false; });
       const start = matching.length ? (page - 1) * size + 1 : 0;
       const end = Math.min(page * size, matching.length);
-      if (count) count.textContent = 'Showing ' + start + '–' + end + ' of ' + matching.length + ' entries';
-      if (pageLabel) pageLabel.textContent = 'Page ' + page + ' of ' + pages;
-      if (previous) previous.disabled = page <= 1;
-      if (next) next.disabled = page >= pages;
+      const summary = 'Showing ' + start + '–' + end + ' of ' + matching.length + ' entries';
+      if (count) count.textContent = summary;
+      if (countTop) countTop.textContent = summary;
+      const renderPageNumbers = container => {
+        if (!container) return;
+        container.replaceChildren();
+        const maxVisible = 7;
+        let first = Math.max(1, page - Math.floor(maxVisible / 2));
+        let last = Math.min(pages, first + maxVisible - 1);
+        first = Math.max(1, last - maxVisible + 1);
+        const addNumber = number => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn light gallery-page-number' + (number === page ? ' is-active' : '');
+          button.textContent = String(number);
+          button.setAttribute('aria-label', 'Page ' + number);
+          if (number === page) button.setAttribute('aria-current', 'page');
+          button.addEventListener('click', () => { page = number; renderCategoryRows(); });
+          container.appendChild(button);
+        };
+        if (first > 1) {
+          addNumber(1);
+          if (first > 2) { const dots = document.createElement('span'); dots.className = 'muted'; dots.textContent = '…'; container.appendChild(dots); }
+        }
+        for (let number = first; number <= last; number++) addNumber(number);
+        if (last < pages) {
+          if (last < pages - 1) { const dots = document.createElement('span'); dots.className = 'muted'; dots.textContent = '…'; container.appendChild(dots); }
+          addNumber(pages);
+        }
+      };
+      renderPageNumbers(pageNumbersTop);
+      renderPageNumbers(pageNumbersBottom);
+      firstButtons.forEach(button => { button.disabled = page <= 1; });
+      previousButtons.forEach(button => { button.disabled = page <= 1; });
+      nextButtons.forEach(button => { button.disabled = page >= pages; });
+      lastButtons.forEach(button => { button.disabled = page >= pages; });
       updateSelection();
+    };
+    const pagesForCurrentFilter = () => {
+      const query = (filter?.value || '').trim().toLocaleLowerCase();
+      const matchingCount = rows.filter(row => (row.dataset.search || row.textContent).toLocaleLowerCase().includes(query)).length;
+      return Math.max(1, Math.ceil(matchingCount / Math.max(1, Number(pageSize?.value || 10))));
     };
     filter?.addEventListener('input', () => { page = 1; renderCategoryRows(); });
     pageSize?.addEventListener('change', () => { page = 1; renderCategoryRows(); });
-    previous?.addEventListener('click', () => { page = Math.max(1, page - 1); renderCategoryRows(); });
-    next?.addEventListener('click', () => { page += 1; renderCategoryRows(); });
+    firstButtons.forEach(button => button.addEventListener('click', () => { page = 1; renderCategoryRows(); }));
+    previousButtons.forEach(button => button.addEventListener('click', () => { page = Math.max(1, page - 1); renderCategoryRows(); }));
+    nextButtons.forEach(button => button.addEventListener('click', () => { page = Math.min(pagesForCurrentFilter(), page + 1); renderCategoryRows(); }));
+    lastButtons.forEach(button => button.addEventListener('click', () => { page = pagesForCurrentFilter(); renderCategoryRows(); }));
     renderCategoryRows();
   }
 })();
