@@ -13,8 +13,11 @@ $galleryPhotoDeleteSuccessCount = max(0, (int)($_SESSION['gallery_photo_delete_s
 $galleryPhotoDeleteSuccess = $galleryPhotoDeleteSuccessCount > 0 || (($_GET['gallery_photo_deleted'] ?? '') === '1');
 $galleryReturnFolder = trim((string)($_SESSION['gallery_photo_delete_success_folder'] ?? ($_POST['gallery_return_folder'] ?? $_GET['gallery_folder'] ?? '')));
 unset($_SESSION['gallery_photo_delete_success_count'], $_SESSION['gallery_photo_delete_success_folder']);
-$galleryPhotoEditSuccessMessage = trim((string)($_SESSION['gallery_photo_edit_success_message'] ?? ''));
-$galleryPhotoEditSuccessFolder = trim((string)($_SESSION['gallery_photo_edit_success_folder'] ?? ($_GET['gallery_folder'] ?? '')));
+// Carry the exact edit result in the redirect URL as well as the session flash.
+ // The URL value keeps the success message reliable even when the PHP session
+ // handler does not persist a flash value between the POST and redirect requests.
+$galleryPhotoEditSuccessMessage = trim((string)($_GET['gallery_photo_edit_message'] ?? $_SESSION['gallery_photo_edit_success_message'] ?? ''));
+$galleryPhotoEditSuccessFolder = trim((string)($_GET['gallery_folder'] ?? $_SESSION['gallery_photo_edit_success_folder'] ?? ''));
 $galleryPhotoEditSuccess = $galleryPhotoEditSuccessMessage !== '' || (($_GET['gallery_photo_edit_success'] ?? '') === '1');
 unset($_SESSION['gallery_photo_edit_success_message'], $_SESSION['gallery_photo_edit_success_folder']);
 $galleryEditSuccess = false;
@@ -328,7 +331,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['gallery_photo_edit_success_message']=$successText;
             $_SESSION['gallery_photo_edit_success_folder']=$successFolder;
             session_write_close();
-            $successUrl='admin.php?section=media-management&media_tab=gallery&gallery_folder='.rawurlencode($successFolder).'&gallery_photo_edit_success=1';
+            $successUrl='admin.php?section=media-management&media_tab=gallery&gallery_folder='.rawurlencode($successFolder).'&gallery_photo_edit_success=1&gallery_photo_edit_message='.rawurlencode($successText);
             header('Location: '.$successUrl,true,303);
             exit;
         }catch(Throwable $e){if($newFile!==''&&is_file($newFile))@unlink($newFile);$message=$e->getMessage();}
