@@ -323,7 +323,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update=$pdo->prepare('UPDATE site_gallery_photos SET title=?,description=?,file_path=?,created_at=CURRENT_TIMESTAMP WHERE id=?');$update->execute([$title,$desc,$relative,$id]);
             if($oldFile!==''&&is_file($oldFile))@unlink($oldFile);
             $changedCount=(int)$titleChanged+(int)$descriptionChanged+(int)$photoChanged;
-            if($changedCount===1&&$titleChanged)$successText='The Photo Title ('.$oldTitle.') has been renamed to ('.$title.').';
+            if($changedCount===1&&$titleChanged)$successText='The Photo Title '.$oldTitle.' has been renamed to '.$title.'.';
             elseif($changedCount===1&&$descriptionChanged)$successText='The description of the photo has been successfully updated.';
             elseif($changedCount===1&&$photoChanged)$successText='The photo with the photo title ('.$title.') has been successfully replaced.';
             else $successText='The photo and its details has been successfully updated.';
