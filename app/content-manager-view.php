@@ -50,7 +50,7 @@ $cmNotices = [
     'category_locked'=>'This category cannot be changed or deleted.','category_invalid'=>'Choose a valid parent category.','subcategory_invalid'=>'The selected subcategory does not belong to the selected category.',
     'subcategory_missing'=>'The subcategory could not be found.','article_invalid'=>'Enter an article title and choose a category.','article_missing'=>'The article could not be found.',
     'duplicate_or_database_error'=>'The change could not be saved. Check that the category or subcategory name is not already in use.',
-    'cover_photo_upload_failed'=>'The cover photo could not be uploaded. Please try again.','cover_photo_too_large'=>'Cover photos must be 8 MB or smaller.','cover_photo_invalid'=>'Use a valid JPG, PNG, GIF or WebP cover photo with dimensions no larger than 8000 × 8000 pixels.','cover_photo_folder_failed'=>'The cover photo folder could not be created.',
+    'cover_photo_upload_failed'=>'The cover photo could not be uploaded. Please try again.','cover_photo_too_large'=>'Each cover photo must be under 10 MB.','cover_photo_invalid'=>'Use a valid JPG, JPEG, PNG, WebP or AVIF cover photo with dimensions no larger than 8000 × 8000 pixels.','cover_photo_folder_failed'=>'The cover photo folder could not be created.',
     'categories_bulk_deleted'=>'Selected categories, subcategories, and their articles were deleted successfully.','nothing_selected'=>'Select at least one category or subcategory to delete.','unknown_action'=>'The requested action is not available.'
 ];
 $cmNotice = $cmNotices[(string)($_GET['notice'] ?? '')] ?? '';
@@ -383,8 +383,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
           <label>Short description<input class="field" name="excerpt" maxlength="500" value="<?=e((string)($cmEditArticle['excerpt'] ?? ''))?>" placeholder="A short summary"></label>
           <div class="full content-manager-cover-field">
             <label for="managed-cover-photo">Cover Photo (optional)</label>
-            <input class="field" type="file" id="managed-cover-photo" name="cover_photo" accept="image/jpeg,image/png,image/gif,image/webp">
-            <div class="content-manager-cover-hint">Upload a JPG, PNG, GIF or WebP image up to 8 MB. The cover photo is saved separately from photos inside the article body.</div>
+            <input class="field" type="file" id="managed-cover-photo" name="cover_photo" accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif">
+            <div class="content-manager-cover-hint">Allowed file types: JPG, JPEG, PNG, WEBP and AVIF. Maximum file size: under 10 MB. The cover photo is saved separately from photos inside the article body.</div>
             <div class="content-manager-cover-preview" id="managed-cover-photo-preview" <?=!empty($cmEditArticle['cover_photo'])?'':'hidden'?>><img id="managed-cover-photo-preview-image" src="<?=!empty($cmEditArticle['cover_photo'])?'uploads/articles/cover_photos/'.rawurlencode((string)$cmEditArticle['cover_photo']):''?>" alt="Article cover photo preview"><?php if(!empty($cmEditArticle['cover_photo'])): ?><label><input type="checkbox" name="remove_cover_photo" id="managed-remove-cover-photo" value="1"> Remove existing cover photo</label><?php endif; ?></div>
           </div>
           <div class="full content-manager-rich-field">
@@ -458,8 +458,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
   coverPhotoInput?.addEventListener('change', () => {
     const file = coverPhotoInput.files?.[0];
     if (!file) return;
-    if (!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)) { window.alert('Choose a JPG, PNG, GIF or WebP cover photo.'); coverPhotoInput.value=''; return; }
-    if (file.size > 8 * 1024 * 1024) { window.alert('Cover photos must be 8 MB or smaller.'); coverPhotoInput.value=''; return; }
+    if (!['image/jpeg','image/png','image/webp','image/avif'].includes(file.type)) { window.alert('Choose a JPG, JPEG, PNG, WEBP or AVIF cover photo.'); coverPhotoInput.value=''; return; }
+    if (file.size >= 10 * 1024 * 1024) { window.alert('Each cover photo must be under 10 MB.'); coverPhotoInput.value=''; return; }
     if (coverPhotoObjectUrl) URL.revokeObjectURL(coverPhotoObjectUrl);
     coverPhotoObjectUrl = URL.createObjectURL(file);
     if (coverPhotoPreviewImage) coverPhotoPreviewImage.src = coverPhotoObjectUrl;
