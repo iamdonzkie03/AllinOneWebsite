@@ -2874,6 +2874,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
   const closeGalleryOverlays = () => {
     document.querySelectorAll('.gallery-modal-backdrop').forEach(modal => {
+      // A server-rendered folder deletion success modal belongs to the current
+      // POST response, so keep it visible instead of treating it as stale UI.
+      if (modal.id === 'gallery-delete-success-modal') return;
       modal.hidden = true;
       modal.style.setProperty('display', 'none', 'important');
     });
