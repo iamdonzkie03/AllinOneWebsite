@@ -1908,16 +1908,49 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
 <div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.avif,.webp,image/jpeg,image/png,image/avif,image/webp"><small>JPG, JPEG, PNG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div></form></section></div>
  <script>
- // Initialize the Slideshow Upload dialog independently of the larger Sections editor.
+ // Keep the upload dialog at the document root and apply its full overlay
+ // presentation inline so it remains centered even if admin theme CSS is overridden.
  (()=>{
    const modal=document.getElementById('slideshow-upload-modal');
    const fileInput=document.getElementById('slideshow-photo-files');
    if(!modal)return;
    if(modal.parentElement!==document.body)document.body.appendChild(modal);
-   const close=()=>{modal.hidden=true;modal.style.setProperty('display','none','important');document.body.classList.remove('modal-open');};
-   const open=()=>{modal.hidden=false;Object.assign(modal.style,{position:'fixed',inset:'0',zIndex:'10000',alignItems:'center',justifyContent:'center'});modal.style.setProperty('display','flex','important');document.body.classList.add('modal-open');window.requestAnimationFrame(()=>fileInput?.focus());};
+   const close=()=>{
+     modal.hidden=true;
+     modal.style.setProperty('display','none','important');
+     document.body.classList.remove('modal-open');
+   };
+   const open=()=>{
+     modal.hidden=false;
+     Object.assign(modal.style,{
+       position:'fixed',top:'0',right:'0',bottom:'0',left:'0',
+       width:'100vw',height:'100vh',boxSizing:'border-box',
+       zIndex:'2147483000',display:'flex',alignItems:'center',
+       justifyContent:'center',padding:'20px',
+       background:'rgba(0,0,0,.78)',backdropFilter:'blur(7px)',
+       overflowY:'auto'
+     });
+     modal.style.setProperty('display','flex','important');
+     const card=modal.querySelector('.slideshow-upload-modal');
+     if(card)Object.assign(card.style,{
+       display:'block',position:'relative',width:'min(720px,96vw)',
+       maxWidth:'720px',maxHeight:'90vh',overflowY:'auto',
+       boxSizing:'border-box',padding:'22px',
+       border:'1px solid rgba(184,50,63,.55)',borderRadius:'15px',
+       background:'#130e12',color:'#f5e9ed',
+       boxShadow:'0 24px 70px rgba(0,0,0,.65)'
+     });
+     document.body.classList.add('modal-open');
+     window.requestAnimationFrame(()=>fileInput?.focus());
+   };
    close();
-   document.addEventListener('click',event=>{const target=event.target;if(!(target instanceof Element))return;if(target.closest('#slideshow-upload-photos')){event.preventDefault();open();return;}if(target.closest('#slideshow-upload-cancel')){event.preventDefault();close();return;}if(target===modal)close();},true);
+   document.addEventListener('click',event=>{
+     const target=event.target;
+     if(!(target instanceof Element))return;
+     if(target.closest('#slideshow-upload-photos')){event.preventDefault();open();return;}
+     if(target.closest('#slideshow-upload-cancel')){event.preventDefault();close();return;}
+     if(target===modal)close();
+   },true);
    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal.hidden)close();});
  })();
  </script>
