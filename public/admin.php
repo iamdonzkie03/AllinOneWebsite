@@ -391,6 +391,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($action === 'create_gallery_folder') {
+        $section = 'media-management';
+        $activeMediaTab = 'gallery';
+        try {
+            $folder = trim((string)($_POST['gallery_new_folder_name'] ?? ''));
+            if ($folder === '' || mb_strlen($folder) > 80 || !preg_match('/^[\\p{L}\\p{N} _-]+$/u', $folder)) {
+                throw new RuntimeException('Enter a folder name using letters, numbers, spaces, hyphens or underscores (maximum 80 characters).');
+            }
+            $galleryRoot = __DIR__ . '/uploads/gallery';
+            if (!is_dir($galleryRoot) && !mkdir($galleryRoot, 0755, true) && !is_dir($galleryRoot)) {
+                throw new RuntimeException('Unable to access the Gallery upload directory.');
+            }
+            $folderPath = $galleryRoot . DIRECTORY_SEPARATOR . $folder;
+            if (file_exists($folderPath)) throw new RuntimeException('A folder with this name already exists. Choose another name.');
+            if (!mkdir($folderPath, 0755, false) && !is_dir($folderPath)) {
+                throw new RuntimeException('Unable to create the Gallery folder. Check the folder permissions and try again.');
+            }
+            header('Location: admin.php?section=media-management&media_tab=gallery&gallery_folder_created=' . rawurlencode($folder), true, 303);
+            exit;
+        } catch (Throwable $e) {
+            $message = $e->getMessage();
+        }
+    }
+
     if ($action === 'add_gallery_photos') {
         $section = 'media-management';
         $activeMediaTab = 'gallery';
@@ -1218,7 +1242,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <?php if ($gallerySavedCount > 0): ?><div class="gallery-inline-success" role="status"><?= $gallerySavedCount ?> <?= $gallerySavedCount === 1 ? 'photo was' : 'photos were' ?> successfully added to the Gallery.</div><?php endif; ?>
     <div class="gallery-panel-top">
       <div><h3>Photo Gallery</h3><p class="muted">Browse uploaded photos, newest first.</p></div>
-      <button class="btn" type="button" id="gallery-add-photo">+ Add Photo</button>
+      <button class="btn" type="button" id="gallery-add-folder">+ Add Folder</button>
     </div>
     <?php if ($galleryMoved): ?><div class="gallery-modal-backdrop" id="gallery-move-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-move-success-title"><div class="gallery-upload-success-mark">✓</div><h2 id="gallery-move-success-title"><?php if ($galleryMovedFolder !== ''): ?>Photo moved successfully to <strong class="gallery-moved-folder-name"><?=e($galleryMovedFolder)?></strong>.<?php else: ?>Photo moved successfully outside the folder.<?php endif; ?></h2><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-move-success-close">OK</button></div></section></div><?php endif; ?>
     <div id="gallery-folder-view">
@@ -1244,7 +1268,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <?php if($groupName!==''): ?><button type="button" class="gallery-folder-edit" data-gallery-edit-folder="<?=e($groupName)?>">Edit</button><?php endif; ?>
             </article>
           <?php endforeach; ?>
-          <?php if(!$galleryPhotos): ?><div class="gallery-empty">No folders or photos yet. Select Add Photo to create your first gallery collection.</div><?php endif; ?>
+          <?php if(!$galleryPhotos): ?><div class="gallery-empty">No folders or photos yet. Select Add Folder to create your first Gallery folder.</div><?php endif; ?>
         </div>
         <div class="gallery-pagination"><span class="muted" id="gallery-folder-page-info-bottom"></span><div><button type="button" class="btn light" id="gallery-folder-prev-bottom">Previous</button><span id="gallery-folder-page-number-bottom" class="muted"></span><button type="button" class="btn light" id="gallery-folder-next-bottom">Next</button></div></div>
       </form>
@@ -1302,6 +1326,36 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php if($galleryDeleteSuccessNames): ?><div class="gallery-modal-backdrop" id="gallery-delete-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-delete-success-title"><div class="gallery-upload-success-mark">✓</div><?php if(count($galleryDeleteSuccessNames)===1): ?><h2 id="gallery-delete-success-title">The Folder <strong class="gallery-deleted-folder-name"><?=e($galleryDeleteSuccessNames[0])?></strong> has been successfully deleted.</h2><?php else: ?><h2 id="gallery-delete-success-title">The following folders have been successfully deleted:</h2><ul class="gallery-delete-success-list"><?php foreach($galleryDeleteSuccessNames as $deletedFolder): ?><li><strong class="gallery-deleted-folder-name"><?=e($deletedFolder)?></strong></li><?php endforeach; ?></ul><?php endif; ?><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-delete-success-close">OK</button></div></section></div><?php endif; ?>
   <?php if($galleryEditSuccess): ?><div class="gallery-modal-backdrop" id="gallery-edit-success-modal"><section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true"><div class="gallery-upload-success-mark">✓</div><h2><?=e($galleryEditSuccessMessage)?></h2><div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-edit-success-close">Continue</button></div></section></div><?php endif; ?>
   <div class="gallery-modal-backdrop" id="gallery-edit-modal" hidden><section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-edit-modal-title"><div class="gallery-modal-head"><div><h2 id="gallery-edit-modal-title">Edit Folder</h2><p class="muted">Rename this folder, update photo details, or replace its photos.</p></div></div><form method="post" enctype="multipart/form-data" id="gallery-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="edit_gallery_folder"><input type="hidden" name="original_folder_name" id="gallery-edit-original-folder"><label class="gallery-form-field">Folder name<input type="text" name="edited_folder_name" id="gallery-edit-folder-name" maxlength="80" required></label><div class="gallery-photo-details" id="gallery-edit-photo-details"></div><div class="gallery-edit-progress" id="gallery-edit-progress" hidden role="status" aria-live="polite"><div class="gallery-upload-progress-head"><span id="gallery-edit-progress-label">Saving changes…</span><strong id="gallery-edit-progress-value">0%</strong></div><div class="gallery-upload-progress-track"><div class="gallery-upload-progress-fill" id="gallery-edit-progress-fill" style="width:0%"></div></div></div><div class="gallery-upload-error" id="gallery-edit-error" role="alert" hidden></div><div class="gallery-modal-actions"><button class="btn light" type="button" id="gallery-edit-cancel">Cancel</button><button class="btn" type="submit" id="gallery-edit-save">Save Changes</button></div></form></section></div>
+  <?php $galleryCreatedFolder = trim((string)($_GET['gallery_folder_created'] ?? '')); ?>
+  <?php if ($galleryCreatedFolder !== ''): ?>
+    <div class="gallery-modal-backdrop" id="gallery-add-folder-success-modal">
+      <section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-add-folder-success-title">
+        <div class="gallery-upload-success-mark" aria-hidden="true">✓</div>
+        <h2 id="gallery-add-folder-success-title">Folder <strong><?=e($galleryCreatedFolder)?></strong> has been successfully created.</h2>
+        <div class="gallery-modal-actions"><button class="btn" type="button" id="gallery-add-folder-success-close">OK</button></div>
+      </section>
+    </div>
+  <?php endif; ?>
+  <div class="gallery-modal-backdrop" id="gallery-add-folder-modal" hidden>
+    <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-add-folder-title">
+      <div class="gallery-modal-head">
+        <div><h2 id="gallery-add-folder-title">Add Folder Form</h2><p class="muted">Create a new folder in the Photo Gallery.</p></div>
+        <button type="button" class="gallery-modal-close" id="gallery-add-folder-close" aria-label="Close Add Folder form">×</button>
+      </div>
+      <form method="post" id="gallery-add-folder-form">
+        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+        <input type="hidden" name="action" value="create_gallery_folder">
+        <label class="gallery-form-field">Folder Name
+          <input type="text" name="gallery_new_folder_name" id="gallery-add-folder-name" maxlength="80" placeholder="Enter folder name" required>
+          <small>Use letters, numbers, spaces, hyphens or underscores · maximum 80 characters</small>
+        </label>
+        <div class="gallery-modal-actions">
+          <button class="btn light" type="button" id="gallery-add-folder-cancel">Cancel</button>
+          <button class="btn" type="submit" id="gallery-add-folder-submit">Create Folder</button>
+        </div>
+      </form>
+    </section>
+  </div>
   <div class="gallery-modal-backdrop" id="gallery-add-modal" hidden>
     <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-modal-title">
       <div class="gallery-modal-head"><div><h2 id="gallery-modal-title">Add Photo Form</h2><p class="muted">Upload up to 20 photos in one batch.</p></div><button type="button" class="gallery-modal-close" data-gallery-modal-close="gallery-add-modal" aria-label="Close Add Photo form">×</button></div>
@@ -1695,6 +1749,46 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   })();
   </script>
   <script>
+  // Create a Gallery folder independently of the photo-upload workflow.
+  (() => {
+    const modal = document.getElementById('gallery-add-folder-modal');
+    const form = document.getElementById('gallery-add-folder-form');
+    const name = document.getElementById('gallery-add-folder-name');
+    const open = () => {
+      if (!modal) return;
+      form?.reset();
+      modal.hidden = false;
+      modal.style.removeProperty('display');
+      document.body.classList.add('modal-open');
+      name?.focus();
+    };
+    const close = () => {
+      if (modal) modal.hidden = true;
+      document.body.classList.remove('modal-open');
+    };
+    document.getElementById('gallery-add-folder')?.addEventListener('click', open);
+    document.getElementById('gallery-add-folder-close')?.addEventListener('click', close);
+    document.getElementById('gallery-add-folder-cancel')?.addEventListener('click', close);
+    modal?.addEventListener('click', event => {
+      if (event.target === modal) event.preventDefault();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && modal && !modal.hidden) close();
+    });
+    const success = document.getElementById('gallery-add-folder-success-modal');
+    document.getElementById('gallery-add-folder-success-close')?.addEventListener('click', () => {
+      if (success) success.hidden = true;
+      document.body.classList.remove('modal-open');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('gallery_folder_created');
+      window.history.replaceState({}, '', url.toString());
+    });
+    if (success) {
+      document.body.classList.add('modal-open');
+      document.getElementById('gallery-add-folder-success-close')?.focus();
+    }
+  })();
+
   // Keep the Add Photo overlay independently operable even if another Gallery
   // interaction handler fails to initialize. This listener is intentionally
   // separate from the upload workflow above.
