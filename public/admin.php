@@ -1787,6 +1787,45 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   })();
   </script>
   <script>
+  // Keep per-photo editing independent from the Gallery folder-view handlers.
+  (() => {
+    const modal = document.getElementById('gallery-photo-edit-modal');
+    const photoId = document.getElementById('gallery-photo-edit-id');
+    const title = document.getElementById('gallery-photo-edit-name');
+    const description = document.getElementById('gallery-photo-edit-description');
+    const preview = document.getElementById('gallery-photo-edit-preview');
+    const close = () => {
+      if (!modal) return;
+      modal.hidden = true;
+      modal.style.removeProperty('display');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+    };
+    document.addEventListener('click', event => {
+      const button = event.target instanceof Element ? event.target.closest('[data-gallery-edit-photo]') : null;
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!modal || !photoId || !title || !description || !preview) return;
+      photoId.value = button.dataset.galleryEditPhoto || '';
+      title.value = button.dataset.photoTitle || '';
+      description.value = button.dataset.photoDescription || '';
+      preview.src = button.dataset.photoSrc || '';
+      modal.hidden = false;
+      modal.removeAttribute('hidden');
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      title.focus();
+    }, true);
+    document.getElementById('gallery-photo-edit-cancel')?.addEventListener('click', close);
+    modal?.querySelector('[data-gallery-modal-close="gallery-photo-edit-modal"]')?.addEventListener('click', close);
+    modal?.addEventListener('click', event => {
+      if (event.target === modal) event.preventDefault();
+    });
+  })();
+  </script>
+  <script>
   // Reliable Gallery photo deletion flow, delegated independently of the Gallery UI script.
   (() => {
     const folderInput = document.getElementById('gallery-return-folder');
