@@ -1374,7 +1374,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </div>
   <div class="gallery-modal-backdrop" id="gallery-add-modal" hidden>
     <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-modal-title">
-      <div class="gallery-modal-head"><div><h2 id="gallery-modal-title">Add Photo Form</h2><p class="muted">Upload up to 20 photos in one batch.</p></div><button type="button" class="gallery-modal-close" data-gallery-modal-close="gallery-add-modal" aria-label="Close Add Photo form">×</button></div>
+      <div class="gallery-modal-head"><div><h2 id="gallery-modal-title">Add Photo Form</h2><p class="muted">Upload up to 20 photos in one batch.</p></div></div>
       <form method="post" enctype="multipart/form-data" id="gallery-upload-form">
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="add_gallery_photos">
         <div class="gallery-form-grid">
