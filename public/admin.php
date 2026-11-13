@@ -1494,13 +1494,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       },50);
       xhr.open('POST',window.location.href,true);
       xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
-      xhr.upload.addEventListener('progress',event=>{
-        if(event.lengthComputable){
-          const actual=event.total?event.loaded/event.total*95:0;
-          const elapsedProgress=Math.min(95,((Date.now()-uploadStartedAt)/minimumProgressDuration)*95);
-          setProgress(Math.max(elapsedProgress,Math.min(95,actual)));
-        }
-      });
       xhr.addEventListener('load',()=>{
         let result=null;try{result=JSON.parse(xhr.responseText);}catch(error){}
         if(!result){
