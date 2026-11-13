@@ -2826,9 +2826,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 
 </script>
 <script>
-// Clear stale upload confirmations whenever Media Management is entered.
-// The slideshow confirmation is appended directly to document.body, so it
-// can survive panel changes and browser history restoration.
+// Reset every Gallery overlay when Media Management is entered.
+// Several Gallery actions render their own success backdrops (for example,
+// Edit Folder), so closing only the upload modals leaves stale overlays behind.
 (() => {
   const isMediaManagement = () => {
     try {
@@ -2838,37 +2838,33 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     }
   };
 
-  const clearUploadConfirmations = () => {
-    if (!isMediaManagement()) return;
+  const closeGalleryOverlays = () => {
+    document.querySelectorAll('.gallery-modal-backdrop').forEach(modal => {
+      modal.hidden = true;
+      modal.style.setProperty('display', 'none', 'important');
+    });
     document.getElementById('slideshow-upload-success-modal')?.remove();
     document.getElementById('gallery-upload-success-modal')?.remove();
 
-    // Close Gallery forms and editing overlays whenever Media Management is
-    // entered, including when the browser restores the page from its cache.
-    ['gallery-add-modal', 'gallery-edit-modal'].forEach(id => {
-      const modal = document.getElementById(id);
-      if (modal) {
-        modal.hidden = true;
-        modal.style.setProperty('display', 'none', 'important');
-      }
-    });
-
-    // Also catch the dynamically-created slideshow confirmation if its
-    // identifier was changed by another upload script.
+    // Remove any dynamically-created slideshow upload confirmation as well.
     document.querySelectorAll('.account-status-modal').forEach(overlay => {
       const message = overlay.textContent || '';
-      if (/slideshow\s+photos?\s+(?:was|were)\s+successfully\s+uploaded/i.test(message)) {
+      if (/slideshow\\s+photos?\\s+(?:was|were)\\s+successfully\\s+uploaded/i.test(message)) {
         overlay.remove();
       }
     });
     document.body.classList.remove('modal-open');
   };
 
-  // Handle direct loads and browser back/forward restoration.
-  clearUploadConfirmations();
-  window.addEventListener('pageshow', clearUploadConfirmations);
+  const clearOverlaysOnEntry = () => {
+    if (isMediaManagement()) closeGalleryOverlays();
+  };
 
-  // Remove the overlay before the browser follows the Media Management link.
+  // Direct entry and browser back/forward (including BFCache restoration).
+  clearOverlaysOnEntry();
+  window.addEventListener('pageshow', clearOverlaysOnEntry);
+
+  // Close stale overlays before navigating to Media Management from another tab.
   document.addEventListener('click', event => {
     const target = event.target instanceof Element ? event.target : null;
     const link = target?.closest('a[href]');
@@ -2882,18 +2878,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     }
 
     if (destination.searchParams.get('section') === 'media-management') {
-      document.getElementById('slideshow-upload-success-modal')?.remove();
-      document.getElementById('gallery-upload-success-modal')?.remove();
-      ['gallery-add-modal', 'gallery-edit-modal'].forEach(id => {
-        const modal = document.getElementById(id);
-        if (modal) {
-          modal.hidden = true;
-          modal.style.setProperty('display', 'none', 'important');
-        }
-      });
-      document.body.classList.remove('modal-open');
+      closeGalleryOverlays();
     }
   }, true);
-})();
-</script>
+})();</script>
 </body></html>
