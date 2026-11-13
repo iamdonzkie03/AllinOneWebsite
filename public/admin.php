@@ -375,11 +375,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mode = (string)($_POST['gallery_folder_mode'] ?? 'none');
             $folderInput = trim((string)($_POST['gallery_folder_name'] ?? ''));
             $folder = '';
-            if ($mode === 'none') {
-                $folder = '';
-            } elseif ($mode === 'new') {
+            if ($mode === 'new') {
                 $folder = $folderInput;
                 if ($folder === '' || mb_strlen($folder) > 80 || !preg_match('/^[\p{L}\p{N} _-]+$/u', $folder)) throw new RuntimeException('Enter a folder name using letters, numbers, spaces, hyphens or underscores (maximum 80 characters).');
+                if (is_dir(__DIR__ . '/uploads/gallery/' . $folder)) throw new RuntimeException('A folder with this name already exists. Choose another name or upload to the existing folder.');
             } elseif ($mode === 'existing') {
                 $folder = basename(trim((string)($_POST['gallery_existing_folder'] ?? '')));
                 if ($folder === '' || $folder === '.' || $folder === '..' || !preg_match('/^[\p{L}\p{N} _-]{1,80}$/u', $folder)) throw new RuntimeException('Choose a valid existing photo folder.');
@@ -1284,7 +1283,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             <select name="gallery_folder_mode" id="gallery-folder-mode" required><option value="" selected disabled>Choose an option</option><option value="existing" <?=!$galleryFolders?'disabled':''?>>Upload to existing folder</option><option value="new">Create new folder</option></select>
           </label>
           <label class="gallery-form-field" id="gallery-existing-folder-field" hidden>Choose existing folder
-            <select name="gallery_existing_folder" id="gallery-existing-folder"><?php foreach ($galleryFolders as $folder): ?><option value="<?=e($folder)?>"><?=e($folder)?></option><?php endforeach; ?></select>
+            <select name="gallery_existing_folder" id="gallery-existing-folder" required><option value="" selected disabled>Choose a folder</option><?php foreach ($galleryFolders as $folder): ?><option value="<?=e($folder)?>"><?=e($folder)?></option><?php endforeach; ?></select>
           </label>
           <label class="gallery-form-field" id="gallery-new-folder-field" hidden>Folder Name
             <input type="text" name="gallery_folder_name" id="gallery-folder-name" maxlength="80" placeholder="Enter folder name">
@@ -1430,7 +1429,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;});
-    files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}const allowed=/\\.(jpe?g|png|avif|webp)$/i;const invalid=selected.find(file=>!allowed.test(file.name));const oversized=selected.find(file=>file.size>10*1024*1024);if(invalid||oversized){files.value='';details.innerHTML='<p class="muted">'+(oversized?'Each photo must be 10 MB or smaller.':'Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.')+'</p>';return;}selected.forEach(file=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value=file.name.replace(/\\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
+    files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}const allowed=/\.(jpe?g|png|avif|webp)$/i;const invalid=selected.find(file=>!allowed.test(file.name));const oversized=selected.find(file=>file.size>10*1024*1024);if(invalid||oversized){files.value='';details.innerHTML='<p class="muted">'+(oversized?'Each photo must be 10 MB or smaller.':'Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.')+'</p>';return;}selected.forEach(file=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value=file.name.replace(/\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
     form?.addEventListener('submit',event=>{
       event.preventDefault();
       if(uploadInProgress)return;
@@ -1438,7 +1437,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(!['existing','new'].includes(mode.value)){if(uploadError){uploadError.textContent='Choose whether to upload to an existing folder or create a new folder.';uploadError.hidden=false;}return;}
       if(mode.value==='new'&&!document.getElementById('gallery-folder-name').value.trim()){if(uploadError){uploadError.textContent='Enter a Folder Name.';uploadError.hidden=false;}return;}
       if(mode.value==='existing'&&!document.getElementById('gallery-existing-folder').value){if(uploadError){uploadError.textContent='Choose an existing folder.';uploadError.hidden=false;}return;}
-      const allowed=/\\.(jpe?g|png|avif|webp)$/i;const selectedFiles=[...files.files];
+      const allowed=/\.(jpe?g|png|avif|webp)$/i;const selectedFiles=[...files.files];
       if(selectedFiles.some(file=>!allowed.test(file.name))){if(uploadError){uploadError.textContent='Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.';uploadError.hidden=false;}return;}
       if(selectedFiles.some(file=>file.size>10*1024*1024)){if(uploadError){uploadError.textContent='Each photo must be 10 MB or smaller.';uploadError.hidden=false;}return;}
       const submit=document.getElementById('gallery-upload-submit');
