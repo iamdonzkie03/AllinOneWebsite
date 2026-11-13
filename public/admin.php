@@ -2267,6 +2267,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    ok.addEventListener('click',close);
    ok.focus();
  };
+ // Do not let the upload confirmation overlay remain above another admin section.
+ // The Media Management sidebar link performs a normal section navigation, so
+ // dismiss the transient confirmation before that navigation begins.
+ document.addEventListener('click',event=>{
+   const mediaLink=event.target instanceof Element?event.target.closest('a[href*="section=media-management"]'):null;
+   if(!mediaLink)return;
+   document.getElementById('slideshow-upload-success-modal')?.remove();
+   document.body.classList.remove('modal-open');
+ });
  if(slideshowModal){
    slideshowModal.hidden=true;
    slideshowModal.style.setProperty('display','none','important');
