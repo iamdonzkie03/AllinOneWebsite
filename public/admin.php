@@ -1281,18 +1281,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="add_gallery_photos">
         <div class="gallery-form-grid">
           <label class="gallery-form-field">Save photos to
-            <select name="gallery_folder_mode" id="gallery-folder-mode"><option value="none" selected>Outside folders (no folder)</option><option value="existing" <?=!$galleryFolders?'disabled':''?>>Existing folder</option><option value="new">Create new folder</option></select>
+            <select name="gallery_folder_mode" id="gallery-folder-mode" required><option value="" selected disabled>Choose an option</option><option value="existing" <?=!$galleryFolders?'disabled':''?>>Upload to existing folder</option><option value="new">Create new folder</option></select>
           </label>
-          <label class="gallery-form-field" id="gallery-existing-folder-field">Choose folder
+          <label class="gallery-form-field" id="gallery-existing-folder-field" hidden>Choose existing folder
             <select name="gallery_existing_folder" id="gallery-existing-folder"><?php foreach ($galleryFolders as $folder): ?><option value="<?=e($folder)?>"><?=e($folder)?></option><?php endforeach; ?></select>
           </label>
-          <label class="gallery-form-field" id="gallery-new-folder-field" hidden>New folder name
-            <input type="text" name="gallery_folder_name" id="gallery-folder-name" maxlength="80" placeholder="e.g. city-events-2026">
+          <label class="gallery-form-field" id="gallery-new-folder-field" hidden>Folder Name
+            <input type="text" name="gallery_folder_name" id="gallery-folder-name" maxlength="80" placeholder="Enter folder name">
           </label>
         </div>
         <label class="gallery-form-field gallery-file-field">Select photos (maximum 20)
           <input type="file" name="gallery_photos[]" id="gallery-files" accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif" multiple required>
-          <small>JPG, JPEG, PNG, WebP or AVIF · maximum 10 MB per photo</small>
+          <small>JPEG, JPG, PNG, AVIF or WEBP · maximum 10 MB per photo · up to 20 photos</small>
         </label>
         <div class="gallery-photo-details" id="gallery-photo-details"><p class="muted">Choose photo files to enter a title and description for each image.</p></div>
         <div class="gallery-upload-progress" id="gallery-upload-progress" hidden role="status" aria-live="polite">
@@ -1307,9 +1307,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="gallery-modal-backdrop" id="gallery-upload-success-modal" hidden>
     <section class="gallery-modal gallery-upload-success-modal" role="dialog" aria-modal="true" aria-labelledby="gallery-upload-success-title">
       <div class="gallery-upload-success-mark" aria-hidden="true">✓</div>
-      <h2 id="gallery-upload-success-title">Photos uploaded successfully.</h2>
+      <h2 id="gallery-upload-success-title">Upload successful</h2>
       <p id="gallery-upload-success-message"></p>
-      <div class="gallery-modal-actions gallery-upload-success-actions"><button class="btn" type="button" id="gallery-upload-success-close">Okay</button></div>
+      <div class="gallery-modal-actions gallery-upload-success-actions"><button class="btn" type="button" id="gallery-upload-success-close">OK</button></div>
     </section>
   </div>
   <style>
@@ -1430,12 +1430,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     open?.addEventListener('click',()=>{resetUploadForm();modal.hidden=false;document.getElementById('gallery-folder-mode')?.focus();});
     closeButtons.forEach(button=>button?.addEventListener('click',close));
     mode?.addEventListener('change',()=>{const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;});
-    files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}selected.forEach((file,index)=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value='';const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
+    files?.addEventListener('change',()=>{details.replaceChildren();const selected=[...(files.files||[])];if(selected.length>20){files.value='';details.innerHTML='<p class="muted">Please select no more than 20 photos.</p>';return;}const allowed=/\\.(jpe?g|png|avif|webp)$/i;const invalid=selected.find(file=>!allowed.test(file.name));const oversized=selected.find(file=>file.size>10*1024*1024);if(invalid||oversized){files.value='';details.innerHTML='<p class="muted">'+(oversized?'Each photo must be 10 MB or smaller.':'Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.')+'</p>';return;}selected.forEach(file=>{const row=document.createElement('div');row.className='gallery-photo-detail-row';const preview=document.createElement('img');preview.alt='';preview.src=URL.createObjectURL(file);const fields=document.createElement('div');fields.className='gallery-photo-detail-fields';const title=document.createElement('input');title.name='photo_title[]';title.required=true;title.maxLength=180;title.placeholder='Enter photo title';title.value=file.name.replace(/\\.[^.]+$/,'');const description=document.createElement('textarea');description.name='photo_description[]';description.maxLength=2000;description.placeholder='Photo description (shown when hovering)';fields.append(title,description);row.append(preview,fields);details.append(row);});});
     form?.addEventListener('submit',event=>{
       event.preventDefault();
       if(uploadInProgress)return;
-      if(!files.files.length||files.files.length>20){alert('Choose between 1 and 20 photos.');return;}
-      if(mode.value==='new'&&!document.getElementById('gallery-folder-name').value.trim()){alert('Enter a name for the new folder.');return;}
+      if(!files.files.length||files.files.length>20){if(uploadError){uploadError.textContent='Choose between 1 and 20 photos.';uploadError.hidden=false;}return;}
+      if(!['existing','new'].includes(mode.value)){if(uploadError){uploadError.textContent='Choose whether to upload to an existing folder or create a new folder.';uploadError.hidden=false;}return;}
+      if(mode.value==='new'&&!document.getElementById('gallery-folder-name').value.trim()){if(uploadError){uploadError.textContent='Enter a Folder Name.';uploadError.hidden=false;}return;}
+      if(mode.value==='existing'&&!document.getElementById('gallery-existing-folder').value){if(uploadError){uploadError.textContent='Choose an existing folder.';uploadError.hidden=false;}return;}
+      const allowed=/\\.(jpe?g|png|avif|webp)$/i;const selectedFiles=[...files.files];
+      if(selectedFiles.some(file=>!allowed.test(file.name))){if(uploadError){uploadError.textContent='Only JPEG, JPG, PNG, AVIF and WEBP files are allowed.';uploadError.hidden=false;}return;}
+      if(selectedFiles.some(file=>file.size>10*1024*1024)){if(uploadError){uploadError.textContent='Each photo must be 10 MB or smaller.';uploadError.hidden=false;}return;}
       const submit=document.getElementById('gallery-upload-submit');
       const xhr=new XMLHttpRequest();
       const data=new FormData(form);
@@ -1443,9 +1448,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(progress)progress.hidden=false;
       if(uploadError){uploadError.hidden=true;uploadError.textContent='';}
       setProgress(0);
+      const uploadStartedAt=Date.now();let simulatedProgress=0;const progressTimer=window.setInterval(()=>{simulatedProgress=Math.min(90,simulatedProgress+2.2);setProgress(simulatedProgress);},80);
       xhr.open('POST',window.location.href,true);
       xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
-      xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable)setProgress(event.total?event.loaded/event.total*100:0);});
+      xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable){const actual=event.total?event.loaded/event.total*100:0;setProgress(Math.min(90,Math.max(simulatedProgress,actual*.9)));}});
       xhr.addEventListener('load',()=>{
         let result=null;try{result=JSON.parse(xhr.responseText);}catch(error){}
         if(!result){
@@ -1453,24 +1459,25 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           result={success:false,message:bodyLimitMatch?'The selected photos exceed the PHP request-size limit. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.':'The server did not return an upload response. This usually means the total upload exceeds PHP post_max_size or the web server rejected the request. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.'};
         }
         if(xhr.status>=200&&xhr.status<300&&result?.success){
-          uploadedFolder=typeof result.folder==='string'?result.folder:'';
-          setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';
-          window.setTimeout(()=>{
+          window.clearInterval(progressTimer);uploadedFolder=typeof result.folder==='string'?result.folder:'';
+          const wait=Math.max(0,3500-(Date.now()-uploadStartedAt));
+          window.setTimeout(()=>{setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';window.setTimeout(()=>{
             uploadInProgress=false;modal.hidden=true;resetUploadForm();
-            if(successMessage)successMessage.textContent=result.count+' '+(result.count===1?'Photo':'Photos')+' uploaded successfully.';
+            const count=Number(result.count)||0;
+            if(successMessage)successMessage.textContent='Photo'+(count===1?'':'s')+' are successfully uploaded in the folder '+uploadedFolder+'.';
             if(successModal)successModal.hidden=false;
-          },450);
+          },350);},wait);
           return;
         }
-        uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
+        window.clearInterval(progressTimer);uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
         if(uploadError){uploadError.textContent=result?.message||'The photos could not be uploaded. Please check the PHP upload limits and try again.';uploadError.hidden=false;}
       });
       xhr.addEventListener('error',()=>{
-        uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
+        window.clearInterval(progressTimer);uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
         if(uploadError){uploadError.textContent='A network error interrupted the upload. Please try again.';uploadError.hidden=false;}
       });
       xhr.addEventListener('abort',()=>{
-        uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
+        window.clearInterval(progressTimer);uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
         if(uploadError){uploadError.textContent='The upload was cancelled. Please try again.';uploadError.hidden=false;}
       });
       xhr.send(data);
