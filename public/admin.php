@@ -1775,6 +1775,69 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   })();
   </script>
   <script>
+  // Reliable Gallery photo deletion flow, delegated independently of the Gallery UI script.
+  (() => {
+    const folderInput = document.getElementById('gallery-return-folder');
+    const bulkForm = document.getElementById('gallery-photo-bulk-form');
+    const confirmModal = document.getElementById('gallery-photo-delete-confirm-modal');
+    const successClose = document.getElementById('gallery-photo-delete-success-close');
+    const selectedInFolder = () => {
+      const folder = folderInput?.value ?? '';
+      return [...document.querySelectorAll('input[name="selected_gallery_photos[]"]:checked')]
+        .filter(box => (box.closest('[data-gallery-folder-group]')?.dataset.galleryFolderName ?? '') === folder);
+    };
+    document.addEventListener('click', event => {
+      const trigger = event.target instanceof Element ? event.target.closest('#gallery-photo-delete-selected') : null;
+      if (trigger) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const selected = selectedInFolder();
+        if (!selected.length || !confirmModal) return;
+        const titles = selected.map(box => box.closest('.gallery-photo-card')?.querySelector('.gallery-photo-title')?.dataset.photoTitle || 'Untitled photo');
+        const message = document.getElementById('gallery-photo-delete-message');
+        if (message) message.textContent = titles.length === 1
+          ? 'Are you sure you want to delete the photo with the title (' + titles[0] + ') in this folder?'
+          : 'Are you sure you want to delete the ' + titles.length + ' selected photos in this folder?';
+        confirmModal.hidden = false;
+        confirmModal.style.display = 'flex';
+        confirmModal.setAttribute('aria-hidden', 'false');
+        return;
+      }
+      const confirm = event.target instanceof Element ? event.target.closest('#gallery-photo-delete-confirm') : null;
+      if (confirm) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!bulkForm || !selectedInFolder().length) return;
+        confirm.disabled = true;
+        confirm.textContent = 'Deleting…';
+        // Native submit sends the checked photo IDs and active folder to PHP.
+        bulkForm.submit();
+        return;
+      }
+      const cancel = event.target instanceof Element ? event.target.closest('#gallery-photo-delete-cancel') : null;
+      if (cancel && confirmModal) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        confirmModal.hidden = true;
+        confirmModal.style.removeProperty('display');
+        confirmModal.setAttribute('aria-hidden', 'true');
+        return;
+      }
+      const ok = event.target instanceof Element ? event.target.closest('#gallery-photo-delete-success-close') : null;
+      if (ok) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const folder = folderInput?.value ?? '';
+        const url = new URL('admin.php', window.location.href);
+        url.searchParams.set('section', 'media-management');
+        url.searchParams.set('media_tab', 'gallery');
+        url.searchParams.set('gallery_folder', folder);
+        window.location.replace(url.toString());
+      }
+    }, true);
+  })();
+  </script>
+  <script>
   // Create a Gallery folder independently of the photo-upload workflow.
   (() => {
     const modal = document.getElementById('gallery-add-folder-modal');
