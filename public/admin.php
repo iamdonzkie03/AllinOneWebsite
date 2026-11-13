@@ -1675,21 +1675,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  .slideshow-saved-photo-content h4{margin:6px 0}
  .slideshow-photo-preview-card{min-width:180px;display:grid;gap:4px}
  .slideshow-photo-preview-card img{width:180px;height:105px;object-fit:cover;border-radius:8px}
- .slideshow-upload-modal{width:min(1500px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:90vh;overflow:auto}
+ .slideshow-upload-modal{width:min(1680px,98vw);max-width:98vw;max-height:92vh;overflow:auto}
  .slideshow-photo-details{display:grid;gap:14px;margin:14px 0}
- .slideshow-upload-photo-card{display:grid;grid-template-columns:150px minmax(190px,1fr) minmax(190px,1fr) minmax(300px,1.6fr);grid-template-rows:auto auto;gap:12px;align-items:start;padding:14px;border:1px solid var(--line);border-radius:10px;background:#130e12}
- .slideshow-upload-photo-card>img{grid-column:1;grid-row:1;width:150px!important;height:112px;max-height:112px!important;object-fit:cover;border-radius:8px;margin:0!important}
- .slideshow-upload-photo-card h4{grid-column:1/4;grid-row:2;margin:0;color:#fff;overflow-wrap:anywhere}
- .slideshow-upload-photo-card>.slideshow-upload-delete-row{grid-column:4;grid-row:2;justify-self:end;align-self:start;padding:7px 12px;font-size:11px}
+ .slideshow-upload-photo-card{display:grid;grid-template-columns:130px minmax(190px,.9fr) minmax(190px,.9fr) minmax(280px,1.35fr) auto;grid-template-rows:auto auto;gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:10px;background:#130e12}
+ .slideshow-upload-photo-card>img{grid-column:1;grid-row:1;width:130px!important;height:100px;max-height:100px!important;object-fit:cover;border-radius:8px;margin:0!important}
+ .slideshow-upload-photo-card h4{grid-column:1;grid-row:2;margin:0;color:#fff;overflow-wrap:anywhere;font-size:11px}
+ .slideshow-upload-photo-card>.slideshow-upload-delete-row{grid-column:5;grid-row:1;justify-self:end;align-self:center;white-space:nowrap;padding:9px 12px;font-size:11px}
  .slideshow-upload-photo-card>.section-field:nth-of-type(1){grid-column:2;grid-row:1}
  .slideshow-upload-photo-card>.section-field:nth-of-type(2){grid-column:3;grid-row:1}
  .slideshow-upload-photo-card>.section-field:nth-of-type(3){grid-column:4;grid-row:1}
- .slideshow-upload-photo-card>.muted{grid-column:1/-1;grid-row:3}
- .slideshow-upload-photo-card .slideshow-description-editor{display:block;width:100%;min-height:78px;max-height:110px;resize:vertical;overflow:auto;box-sizing:border-box;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff;font:12px/1.5 Ubuntu,sans-serif}
- .slideshow-upload-photo-card .slideshow-description-editor:focus{outline:2px solid #a94a61}
- @media(max-width:1100px){.slideshow-upload-modal{width:min(980px,calc(100vw - 24px))}.slideshow-upload-photo-card{grid-template-columns:120px minmax(0,1fr) minmax(0,1fr)}.slideshow-upload-photo-card>img{width:120px!important;height:100px}.slideshow-upload-photo-card>.section-field:nth-of-type(3){grid-column:2/-1;grid-row:2}.slideshow-upload-photo-card h4{grid-column:1/3;grid-row:3}.slideshow-upload-photo-card>.slideshow-upload-delete-row{grid-column:3;grid-row:3}.slideshow-upload-photo-card>.muted{grid-row:4}}
- @media(max-width:700px){.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-upload-photo-card>img,.slideshow-upload-photo-card>.section-field:nth-of-type(1),.slideshow-upload-photo-card>.section-field:nth-of-type(2),.slideshow-upload-photo-card>.section-field:nth-of-type(3),.slideshow-upload-photo-card h4,.slideshow-upload-photo-card>.slideshow-upload-delete-row,.slideshow-upload-photo-card>.muted{grid-column:1;grid-row:auto}.slideshow-upload-photo-card>img{width:100%!important;height:180px}.slideshow-rich-grid,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-photo-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.slideshow-saved-photo .gallery-photo-title{font-size:11px}.slideshow-photo-edit-fields .wide{grid-column:auto}}
- .slideshow-description-toolbar{display:flex;gap:6px;margin-bottom:6px}
+ .slideshow-upload-photo-card>.section-field input{width:100%;min-width:0;box-sizing:border-box}
+ .slideshow-upload-photo-card>.muted{grid-column:2/6;grid-row:2}
+ @media(max-width:1100px){.slideshow-upload-modal{width:96vw;max-width:96vw}.slideshow-upload-photo-card{grid-template-columns:110px minmax(0,1fr) minmax(0,1fr);align-items:start}.slideshow-upload-photo-card>img{grid-column:1;grid-row:1;width:110px!important;height:90px}.slideshow-upload-photo-card h4{grid-column:1;grid-row:2}.slideshow-upload-photo-card>.section-field:nth-of-type(1){grid-column:2;grid-row:1}.slideshow-upload-photo-card>.section-field:nth-of-type(2){grid-column:3;grid-row:1}.slideshow-upload-photo-card>.section-field:nth-of-type(3){grid-column:2/4;grid-row:2}.slideshow-upload-photo-card>.slideshow-upload-delete-row{grid-column:2/4;grid-row:3;justify-self:end}.slideshow-upload-photo-card>.muted{grid-column:1/-1;grid-row:4}}
+ @media(max-width:700px){.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-upload-photo-card>img,.slideshow-upload-photo-card>.section-field:nth-of-type(1),.slideshow-upload-photo-card>.section-field:nth-of-type(2),.slideshow-upload-photo-card>.section-field:nth-of-type(3),.slideshow-upload-photo-card h4,.slideshow-upload-photo-card>.slideshow-upload-delete-row,.slideshow-upload-photo-card>.muted{grid-column:1;grid-row:auto}.slideshow-upload-photo-card>img{width:100%!important;height:180px}.slideshow-rich-grid,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-photo-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.slideshow-saved-photo .gallery-photo-title{font-size:11px}.slideshow-photo-edit-fields .wide{grid-column:auto}} .slideshow-description-toolbar{display:flex;gap:6px;margin-bottom:6px}
  .slideshow-description-toolbar button{border:1px solid var(--line);border-radius:5px;background:#24171e;color:#fff;padding:5px 10px;cursor:pointer}
  .slideshow-description-editor{min-height:100px;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff}
  .slideshow-description-editor:focus{outline:2px solid #a94a61}
@@ -1903,8 +1901,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      modal.style.setProperty('display','flex','important');
      const card=modal.querySelector('.slideshow-upload-modal');
      if(card)Object.assign(card.style,{
-       display:'block',position:'relative',width:'min(720px,96vw)',
-       maxWidth:'720px',maxHeight:'90vh',overflowY:'auto',
+       display:'block',position:'relative',width:'min(1680px,98vw)',
+       maxWidth:'98vw',maxHeight:'92vh',overflowY:'auto',
        boxSizing:'border-box',padding:'22px',
        border:'1px solid rgba(184,50,63,.55)',borderRadius:'15px',
        background:'#130e12',color:'#f5e9ed',
@@ -2275,7 +2273,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      const photoHeadingLabel=document.createElement('label');photoHeadingLabel.className='section-field';photoHeadingLabel.textContent='Photo Heading';
      const photoHeading=document.createElement('input');photoHeading.name='slideshow_photo_heading[]';photoHeading.maxLength=180;photoHeadingLabel.append(photoHeading);card.append(photoHeadingLabel);
      const descLabel=document.createElement('label');descLabel.className='section-field';descLabel.textContent='Description';
-     const editor=document.createElement('textarea');editor.className='slideshow-description-editor';editor.name='slideshow_photo_description[]';editor.rows=3;editor.maxLength=5000;editor.placeholder='Enter a plain-text description…';
+     const editor=document.createElement('input');editor.type='text';editor.className='slideshow-description-editor';editor.name='slideshow_photo_description[]';editor.maxLength=5000;editor.placeholder='Enter description…';
      descLabel.append(editor);card.append(descLabel);
      const preview=document.createElement('small');preview.className='muted';preview.textContent='Maximum file size: 10 MB';card.append(preview);
      slideshowDetails.append(card);
