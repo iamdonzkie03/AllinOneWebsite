@@ -344,8 +344,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
               <div class="tag"><?=e($previewArticle['category_name'])?><?php if(!empty($previewArticle['subcategory_name'])): ?> · <?=e($previewArticle['subcategory_name'])?><?php endif; ?></div>
               <h3><?=e($previewArticle['title'])?></h3>
               <p><?=e((string)($previewArticle['excerpt'] ?? ''))?></p>
-              <div class="story-foot"><span>By <?=e((string)$previewArticle['full_name'])?></span><span><?= $previewArticle['price']!==null ? '₱'.number_format((float)$previewArticle['price'],2) : '<span class="article-preview-read-story">Read Story</span>' ?></span></div>
-              <?php if(!empty($previewArticle['body'])): ?><details class="story-details"><summary>Read story</summary><div class="story-rich-content"><?=sanitize_rich_content((string)$previewArticle['body'])?></div></details><?php endif; ?>
+              <div class="story-foot"><span>By <?=e((string)$previewArticle['full_name'])?></span><span><?= $previewArticle['price']!==null ? '₱'.number_format((float)$previewArticle['price'],2) : '<span class="article-preview-read-story">Read Story ↗</span>' ?></span></div>
             </div>
           </article>
         </template>
