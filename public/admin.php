@@ -1465,12 +1465,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         completionStarted=true;
         window.clearInterval(progressTimer);
         uploadedFolder=typeof uploadResult.folder==='string'?uploadResult.folder:'';
+        // First render the completed bar. Keep the upload dialog and its 100%
+        // indicator visible long enough for the user to see completion before
+        // revealing the success message.
         setProgress(100);
         if(progressLabel)progressLabel.textContent='Upload complete';
-        window.setTimeout(()=>{
+        const revealSuccess=()=>{
           uploadInProgress=false;
           if(modal){modal.hidden=true;modal.setAttribute('aria-hidden','true');}
-          resetUploadForm();
+          // Do not call resetUploadForm() here: it would immediately return the
+          // progress indicator to 0%, hiding the completed state.
           const count=Math.max(0,Number(uploadResult.count)||0);
           const destination=uploadedFolder||'the selected folder';
           const message=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+destination+'.';
@@ -1483,7 +1487,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             document.body.classList.add('modal-open');
             document.getElementById('gallery-upload-success-close')?.focus();
           }
-        },350);
+        };
+        // The progress fill has a 120ms CSS width transition. Two animation
+        // frames plus this hold ensure 100% is painted before success is shown.
+        window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>window.setTimeout(revealSuccess,650)));
       };
       const progressTimer=window.setInterval(()=>{
         const elapsed=Date.now()-uploadStartedAt;
