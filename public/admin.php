@@ -1903,7 +1903,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       });
       xhr.addEventListener('load', () => {
         const finalUrl = xhr.responseURL || '';
-        if (xhr.status >= 200 && xhr.status < 400 && /(?:\\?|&)gallery_photo_edit_success=1(?:&|$)/.test(finalUrl)) {
+        if (xhr.status >= 200 && xhr.status < 400 && new URL(finalUrl, window.location.href).searchParams.get('gallery_photo_edit_success') === '1') {
           window.location.assign(finalUrl);
           return;
         }
