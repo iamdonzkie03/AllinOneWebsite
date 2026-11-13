@@ -1353,11 +1353,20 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const syncDeleteSelectedState=()=>{const boxes=folderCheckboxes(),selected=boxes.filter(box=>box.checked).length;if(deleteSelectedButton){deleteSelectedButton.disabled=selected===0;deleteSelectedButton.toggleAttribute('disabled',selected===0);deleteSelectedButton.setAttribute('aria-disabled',String(selected===0));}if(selectAllFolders){selectAllFolders.checked=boxes.length>0&&selected===boxes.length;selectAllFolders.indeterminate=selected>0&&selected<boxes.length;selectAllFolders.disabled=boxes.length===0;}};
     // Delegated handling keeps selection state synchronized across filtering and pagination.
     selectAllFolders?.addEventListener('change',()=>{folderCheckboxes().forEach(box=>{box.checked=selectAllFolders.checked;});syncDeleteSelectedState();});
-    bulkForm?.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('input[name="selected_gallery_folders[]"]'))syncDeleteSelectedState();});
+    document.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('#gallery-folder-select-all, input[name="selected_gallery_folders[]"]'))syncDeleteSelectedState();});
     syncDeleteSelectedState();
-    deleteSelectedButton?.addEventListener('click',()=>{if(!folderCheckboxes().some(box=>box.checked))return;if(deleteModal)deleteModal.hidden=false;});
-    document.getElementById('gallery-delete-cancel')?.addEventListener('click',()=>{if(deleteModal)deleteModal.hidden=true;});
-    document.getElementById('gallery-delete-confirm')?.addEventListener('click',()=>{if(folderCheckboxes().some(box=>box.checked))bulkForm?.requestSubmit();});
+    // Use delegated handling so the confirmation still works if Gallery controls are refreshed.
+    document.addEventListener('click',event=>{
+      const trigger=event.target instanceof Element?event.target.closest('#gallery-delete-selected'):null;
+      if(!trigger)return;
+      event.preventDefault();
+      event.stopPropagation();
+      if(!folderCheckboxes().some(box=>box.checked))return;
+      if(deleteModal){deleteModal.hidden=false;deleteModal.removeAttribute('hidden');deleteModal.style.display='flex';deleteModal.setAttribute('aria-hidden','false');}
+    });
+    const closeFolderDeleteModal=()=>{if(!deleteModal)return;deleteModal.hidden=true;deleteModal.style.removeProperty('display');deleteModal.setAttribute('aria-hidden','true');};
+    document.getElementById('gallery-delete-cancel')?.addEventListener('click',closeFolderDeleteModal);
+    document.getElementById('gallery-delete-confirm')?.addEventListener('click',()=>{if(folderCheckboxes().some(box=>box.checked)){closeFolderDeleteModal();if(bulkForm){if(typeof bulkForm.requestSubmit==='function')bulkForm.requestSubmit();else bulkForm.submit();}}});
     document.getElementById('gallery-delete-success-close')?.addEventListener('click',()=>window.location.replace('admin.php?section=media-management&media_tab=gallery'));
     document.getElementById('gallery-edit-success-close')?.addEventListener('click',()=>window.location.replace('admin.php?section=media-management&media_tab=gallery'));
     const photoBulkForm=document.getElementById('gallery-photo-bulk-form'),photoSelectAll=document.getElementById('gallery-photo-select-all'),photoDeleteButton=document.getElementById('gallery-photo-delete-selected'),photoDeleteModal=document.getElementById('gallery-photo-delete-confirm-modal');
