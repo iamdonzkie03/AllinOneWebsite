@@ -164,6 +164,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
 .content-manager-public-story h3{font:500 24px/1.15 Georgia,"Times New Roman",serif;letter-spacing:-.35px;margin:9px 0;color:#f2f0e8}
 .content-manager-public-story p{font-size:13px;color:#aaa0a3;line-height:1.75;margin:1em 0}
 .content-manager-public-story .story-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11px;color:#c2ccc4;margin-top:18px;padding-top:13px;border-top:1px solid rgba(222,229,218,.12)}
+.content-manager-public-story .article-preview-read-story{color:#e05260;font-weight:800}
 .content-manager-public-story .story-details{border-top:1px solid rgba(222,229,218,.12);margin-top:14px;padding-top:10px;font-size:12px;color:#cfc5c8}
 .content-manager-public-story .story-details summary{cursor:pointer;color:#e05260;font-weight:700}
 .content-manager-public-story .story-rich-content{margin-top:12px;color:#d9d0d3;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
@@ -343,7 +344,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
               <div class="tag"><?=e($previewArticle['category_name'])?><?php if(!empty($previewArticle['subcategory_name'])): ?> · <?=e($previewArticle['subcategory_name'])?><?php endif; ?></div>
               <h3><?=e($previewArticle['title'])?></h3>
               <p><?=e((string)($previewArticle['excerpt'] ?? ''))?></p>
-              <div class="story-foot"><span>By <?=e((string)$previewArticle['full_name'])?></span><span><?= $previewArticle['price']!==null ? '₱'.number_format((float)$previewArticle['price'],2) : 'Read more ↗' ?></span></div>
+              <div class="story-foot"><span>By <?=e((string)$previewArticle['full_name'])?></span><span><?= $previewArticle['price']!==null ? '₱'.number_format((float)$previewArticle['price'],2) : '<span class="article-preview-read-story">Read Story</span>' ?></span></div>
               <?php if(!empty($previewArticle['body'])): ?><details class="story-details"><summary>Read story</summary><div class="story-rich-content"><?=sanitize_rich_content((string)$previewArticle['body'])?></div></details><?php endif; ?>
             </div>
           </article>
