@@ -418,7 +418,7 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
                 <input type="file" id="managed-rich-image-input" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
               </div>
               <div id="managed-article-editor" class="content-manager-rich-canvas" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Article body editor" data-placeholder="Start writing your article. Format text, add headings, lists, links, tables and photos..."><?=sanitize_rich_content((string)($cmEditArticle['body'] ?? ''))?></div>
-              <div class="content-manager-rich-footer"><span id="managed-rich-word-count">0 words</span><span>Photos: JPG, PNG, GIF or WebP · Up to 8 MB each</span></div>
+
             </div>
             <textarea class="field" name="body" id="managed-article-body" hidden><?=e((string)($cmEditArticle['body'] ?? ''))?></textarea>
           </div>
