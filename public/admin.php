@@ -1689,7 +1689,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  @media(max-width:1100px){.slideshow-upload-modal{width:60vw;max-width:60vw}.slideshow-upload-photo-card{grid-template-columns:68px minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr) auto;gap:7px;padding:9px}.slideshow-upload-photo-card>img{width:68px!important;height:68px}.slideshow-upload-photo-card>.slideshow-upload-delete-row{padding:6px 7px;font-size:9px}}
  @media(max-width:700px){.slideshow-upload-photo-card{grid-template-columns:1fr}.slideshow-upload-photo-card>img,.slideshow-upload-photo-card>.section-field:nth-of-type(1),.slideshow-upload-photo-card>.section-field:nth-of-type(2),.slideshow-upload-photo-card>.section-field:nth-of-type(3),.slideshow-upload-photo-card h4,.slideshow-upload-photo-card>.slideshow-upload-delete-row,.slideshow-upload-photo-card>.muted{grid-column:1;grid-row:auto}.slideshow-upload-photo-card>img{width:100%!important;height:180px}.slideshow-rich-grid,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-photo-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.slideshow-saved-photo .gallery-photo-title{font-size:11px}.slideshow-photo-edit-fields .wide{grid-column:auto}} .slideshow-description-toolbar{display:flex;gap:6px;margin-bottom:6px}
  .slideshow-description-toolbar button{border:1px solid var(--line);border-radius:5px;background:#24171e;color:#fff;padding:5px 10px;cursor:pointer}
- .slideshow-description-editor{min-height:100px;border:1px solid var(--line);border-radius:7px;background:#171115;padding:10px;color:#fff}
+ .slideshow-description-editor{height:38px;min-height:38px;max-height:38px;padding:8px 10px;line-height:20px;border:1px solid var(--line);border-radius:7px;background:#171115;color:#fff;font:inherit;resize:none;box-sizing:border-box}
  .slideshow-description-editor:focus{outline:2px solid #a94a61}
  @media(max-width:700px){.slideshow-rich-grid,.slideshow-upload-photo-card,.slideshow-photo-edit-fields{grid-template-columns:1fr}.slideshow-rich-field:nth-child(3){grid-column:auto!important}.slideshow-photo-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.slideshow-saved-photo .gallery-photo-title{font-size:11px}.slideshow-photo-edit-fields .wide{grid-column:auto}}
 
@@ -2275,7 +2275,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      const descLabel=document.createElement('label');descLabel.className='section-field';descLabel.textContent='Description';
      const editor=document.createElement('input');editor.type='text';editor.className='slideshow-description-editor';editor.name='slideshow_photo_description[]';editor.maxLength=5000;editor.placeholder='Enter description…';
      descLabel.append(editor);card.append(descLabel);
-     const preview=document.createElement('small');preview.className='muted';preview.textContent='Maximum file size: 10 MB';card.append(preview);
+     const preview=document.createElement('small');preview.className='muted';preview.textContent='File size: '+(file.size/(1024*1024)).toFixed(2)+' MB';card.append(preview);
      slideshowDetails.append(card);
    });
  });
