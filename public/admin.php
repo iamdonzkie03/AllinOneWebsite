@@ -2206,10 +2206,33 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  const slideshowUploadForm=document.getElementById('slideshow-upload-form');
  const slideshowFiles=document.getElementById('slideshow-photo-files');
  const slideshowDetails=document.getElementById('slideshow-photo-details');
- const openSlideshowModal=()=>{if(slideshowModal){slideshowModal.hidden=false;document.body.classList.add('modal-open');}};
- const closeSlideshowModal=()=>{if(slideshowModal){slideshowModal.hidden=true;document.body.classList.remove('modal-open');}};
- document.getElementById('slideshow-upload-photos')?.addEventListener('click',openSlideshowModal);
+ // Keep the upload dialog outside the hidden Page Management tab panel and
+ // any ancestor stacking/overflow contexts, just like the delete dialogs.
+ if(slideshowModal&&slideshowModal.parentElement!==document.body)document.body.appendChild(slideshowModal);
+ const openSlideshowModal=()=>{
+   if(!slideshowModal)return;
+   slideshowModal.hidden=false;
+   slideshowModal.style.setProperty('display','flex','important');
+   document.body.classList.add('modal-open');
+   requestAnimationFrame(()=>slideshowFiles?.focus());
+ };
+ const closeSlideshowModal=()=>{
+   if(!slideshowModal)return;
+   slideshowModal.hidden=true;
+   slideshowModal.style.setProperty('display','none','important');
+   document.body.classList.remove('modal-open');
+ };
+ if(slideshowModal){
+   slideshowModal.hidden=true;
+   slideshowModal.style.setProperty('display','none','important');
+ }
+ document.addEventListener('click',event=>{
+   const trigger=event.target instanceof Element?event.target.closest('#slideshow-upload-photos'):null;
+   if(trigger){event.preventDefault();openSlideshowModal();}
+   if(event.target===slideshowModal)closeSlideshowModal();
+ });
  document.getElementById('slideshow-upload-cancel')?.addEventListener('click',closeSlideshowModal);
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&slideshowModal&&!slideshowModal.hidden)closeSlideshowModal();});
  slideshowFiles?.addEventListener('change',()=>{
    slideshowDetails.replaceChildren();
    const selected=[...(slideshowFiles.files||[])];
