@@ -2236,6 +2236,31 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    slideshowModal.style.setProperty('display','none','important');
    document.body.classList.remove('modal-open');
  };
+ const showSlideshowUploadSuccess=(count)=>{
+   document.getElementById('slideshow-upload-success-modal')?.remove();
+   const overlay=document.createElement('div');
+   overlay.id='slideshow-upload-success-modal';
+   overlay.className='account-status-modal';
+   overlay.setAttribute('role','dialog');
+   overlay.setAttribute('aria-modal','true');
+   const card=document.createElement('section');
+   card.className='account-status-modal-card';
+   const icon=document.createElement('div');
+   icon.className='account-status-modal-icon';
+   icon.textContent='✓';
+   const message=document.createElement('h2');
+   message.textContent=count+' slideshow '+(count===1?'photo was':'photos were')+' successfully uploaded.';
+   const actions=document.createElement('div');
+   actions.className='gallery-modal-actions';
+   const ok=document.createElement('button');
+   ok.type='button';ok.className='btn';ok.textContent='OK';
+   actions.append(ok);card.append(icon,message,actions);overlay.append(card);
+   document.body.appendChild(overlay);
+   document.body.classList.add('modal-open');
+   const close=()=>{overlay.remove();document.body.classList.remove('modal-open');};
+   ok.addEventListener('click',close);
+   ok.focus();
+ };
  if(slideshowModal){
    slideshowModal.hidden=true;
    slideshowModal.style.setProperty('display','none','important');
@@ -2311,7 +2336,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      result.photos.forEach(photo=>{window.slideshowPhotoRecords.push(photo);const index=window.slideshowPhotoRecords.length-1;const card=document.createElement('article');card.className='slideshow-saved-photo';card.dataset.photoIndex=String(index);const label=document.createElement('label');label.className='gallery-photo-select';const check=document.createElement('input');check.type='checkbox';check.className='slideshow-photo-checkbox';check.setAttribute('aria-label','Select photo '+(index+1));label.append(check,document.createTextNode(' Select'));const media=document.createElement('div');media.className='gallery-photo-image';const image=document.createElement('img');image.src=photo.photo;image.alt=photo.title||'Slideshow photo';image.loading='lazy';media.append(image);const title=document.createElement('div');title.className='gallery-photo-title';title.textContent=photo.title||'Untitled photo';title.title=title.textContent;const edit=document.createElement('button');edit.type='button';edit.className='btn light gallery-photo-edit slideshow-edit-photo';edit.textContent='Edit';card.append(label,media,title,edit);list.append(card);});window.syncSlideshowPhotoSelection?.();
      slideshowUploadForm.reset();slideshowDetails.replaceChildren();slideshowPreviewUrls.forEach(url=>URL.revokeObjectURL(url));slideshowPreviewUrls=[];
      const preview=document.getElementById('slide-preview-media');result.photos.forEach(photo=>{const card=document.createElement('div');card.className='slideshow-photo-preview-card';const img=document.createElement('img');img.src=photo.photo;img.alt=photo.title||'';const title=document.createElement('strong');title.textContent=photo.title||'Untitled photo';const heading=document.createElement('span');heading.textContent=photo.heading||'';card.append(img,title,heading);preview.append(card);});
-     const notice=document.createElement('div');notice.className='gallery-inline-success';notice.textContent=result.count+' slideshow '+(result.count===1?'photo was':'photos were')+' successfully uploaded.';list.prepend(notice);
+     showSlideshowUploadSuccess(Number(result.count)||result.photos.length);
    }catch(error){alert(error.message||'Slideshow photo upload failed.');}
    finally{submit.disabled=false;submit.textContent='Upload Photos';}
  });
