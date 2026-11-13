@@ -1525,7 +1525,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(!form)return;
       form.reset();
       if(details)details.replaceChildren();
-      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!!uploadReturnFolder||!isExisting;fresh.hidden=!!uploadReturnFolder||!isNew;document.getElementById('gallery-existing-folder').required=isExisting&&!uploadReturnFolder;document.getElementById('gallery-folder-name').required=isNew&&!uploadReturnFolder;if(uploadReturnFolder){mode.value='existing';document.getElementById('gallery-existing-folder').value=uploadReturnFolder;existing.hidden=true;fresh.hidden=true;document.getElementById('gallery-existing-folder').required=false;document.getElementById('gallery-folder-name').required=false;}}
+      if(existing&&fresh&&mode){const isNew=mode.value==='new',isExisting=mode.value==='existing';existing.hidden=!isExisting;fresh.hidden=!isNew;document.getElementById('gallery-existing-folder').required=isExisting;document.getElementById('gallery-folder-name').required=isNew;if(uploadReturnFolder){mode.value='existing';document.getElementById('gallery-existing-folder').value=uploadReturnFolder;existing.hidden=false;fresh.hidden=true;document.getElementById('gallery-existing-folder').required=true;document.getElementById('gallery-folder-name').required=false;}}
       const submit=document.getElementById('gallery-upload-submit');
       if(submit){submit.disabled=false;submit.textContent='Upload Photos';}
       resetProgress();uploadInProgress=false;
