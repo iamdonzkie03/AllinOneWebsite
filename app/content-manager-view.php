@@ -640,7 +640,8 @@ $cmArticleModeUrl = 'admin.php?section=page-management&tab=contents';
       if (progressMessage) progressMessage.textContent = 'Please wait while your article is being updated.';
       articleUpdateProgress.hidden = false;
       const request = new XMLHttpRequest();
-      request.open('POST', editArticleForm.action, true);
+      const updateEndpoint = editArticleForm.getAttribute('action') || window.location.href;
+      request.open('POST', new URL(updateEndpoint, document.baseURI).href, true);
       request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
       request.setRequestHeader('Accept', 'application/json');
       request.upload.addEventListener('progress', uploadEvent => {
