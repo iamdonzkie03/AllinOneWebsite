@@ -1877,7 +1877,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   })();
   </script>
   <script>
-  // Upload replacement photos with live progress, then load the existing server success modal.
+  // Animate replacement-photo progress smoothly; reserve the final 5% for server confirmation.
   (() => {
     const form = document.getElementById('gallery-photo-edit-form');
     const input = document.getElementById('gallery-photo-edit-replacement');
@@ -1888,68 +1888,100 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const errorBox = document.getElementById('gallery-photo-edit-error');
     const saveButton = document.getElementById('gallery-photo-edit-save');
     if (!form || !input || !progress) return;
-    const setProgress = value => {
-      const percent = Math.max(0, Math.min(100, Math.round(value)));
-      progressValue.textContent = percent + '%';
+
+    let targetProgress = 0;
+    let displayedProgress = 0;
+    let animationFrame = 0;
+    let redirectUrl = '';
+
+    const renderProgress = value => {
+      const percent = Math.max(0, Math.min(100, value));
+      progressValue.textContent = Math.floor(percent) + '%';
       progressFill.style.width = percent + '%';
     };
+    const animateProgress = () => {
+      const difference = targetProgress - displayedProgress;
+      if (Math.abs(difference) < 0.12) displayedProgress = targetProgress;
+      else displayedProgress += difference * 0.12;
+      renderProgress(displayedProgress);
+
+      if (redirectUrl && displayedProgress >= 99.9) {
+        displayedProgress = 100;
+        renderProgress(100);
+        progressLabel.textContent = 'Replacement photo saved.';
+        window.location.assign(redirectUrl);
+        return;
+      }
+      animationFrame = requestAnimationFrame(animateProgress);
+    };
+    const startAnimation = () => {
+      if (!animationFrame) animationFrame = requestAnimationFrame(animateProgress);
+    };
+    const stopAnimation = () => {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    };
+    const showFailure = message => {
+      stopAnimation();
+      errorBox.textContent = message;
+      errorBox.hidden = false;
+      progress.hidden = true;
+      form.dataset.uploading = '0';
+      saveButton.disabled = false;
+    };
+
     form.addEventListener('submit', event => {
       const file = input.files && input.files[0];
       if (!file) return; // Keep the existing normal Save Changes workflow.
       event.preventDefault();
       if (form.dataset.uploading === '1') return;
+
       form.dataset.uploading = '1';
       errorBox.hidden = true;
       errorBox.textContent = '';
       progress.hidden = false;
       progressLabel.textContent = 'Uploading replacement photo…';
-      setProgress(0);
+      targetProgress = 0;
+      displayedProgress = 0;
+      renderProgress(0);
+      startAnimation();
       saveButton.disabled = true;
-      const data = new FormData(form);
+
       const xhr = new XMLHttpRequest();
       xhr.open('POST', window.location.href, true);
       xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
       xhr.setRequestHeader('Accept', 'application/json');
       xhr.upload.addEventListener('progress', uploadEvent => {
-        if (uploadEvent.lengthComputable) setProgress((uploadEvent.loaded / uploadEvent.total) * 100);
+        if (uploadEvent.lengthComputable) {
+          // Keep the bar below 100% until PHP confirms that the file was saved.
+          targetProgress = Math.min(95, (uploadEvent.loaded / uploadEvent.total) * 95);
+        }
       });
       xhr.upload.addEventListener('load', () => {
-        setProgress(100);
+        targetProgress = Math.max(targetProgress, 95);
         progressLabel.textContent = 'Saving replacement photo…';
       });
       xhr.addEventListener('load', () => {
         let response = null;
         try { response = JSON.parse(xhr.responseText); } catch (_) {}
         if (xhr.status >= 200 && xhr.status < 300 && response && response.success === true && response.redirect) {
-          setProgress(100);
-          progressLabel.textContent = 'Replacement photo saved.';
-          window.location.assign(response.redirect);
+          redirectUrl = response.redirect;
+          targetProgress = 100;
+          progressLabel.textContent = 'Finalizing replacement photo…';
+          startAnimation();
           return;
         }
-        const detail = response && response.message
+        showFailure(response && response.message
           ? response.message
-          : 'The server returned an unexpected response (HTTP ' + xhr.status + '). Please check the PHP error log if the problem continues.';
-        errorBox.textContent = detail;
-        errorBox.hidden = false;
-        progress.hidden = true;
-        form.dataset.uploading = '0';
-        saveButton.disabled = false;
+          : 'The server returned an unexpected response (HTTP ' + xhr.status + '). Please check the PHP error log if the problem continues.');
       });
       xhr.addEventListener('error', () => {
-        errorBox.textContent = 'A network error interrupted the replacement photo upload. Please try again.';
-        errorBox.hidden = false;
-        progress.hidden = true;
-        form.dataset.uploading = '0';
-        saveButton.disabled = false;
+        showFailure('A network error interrupted the replacement photo upload. Please try again.');
       });
       xhr.addEventListener('abort', () => {
-        errorBox.textContent = 'The replacement photo upload was cancelled. Please try again.';
-        errorBox.hidden = false;
-        progress.hidden = true;
-        form.dataset.uploading = '0';
-        saveButton.disabled = false;
+        showFailure('The replacement photo upload was cancelled. Please try again.');
       });
-      xhr.send(data);
+      xhr.send(new FormData(form));
     });
   })();
 
