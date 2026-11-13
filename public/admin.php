@@ -2825,4 +2825,26 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 </main></div><script>
 
 </script>
+<script>
+// Dismiss the dynamically-created slideshow upload confirmation before
+// navigating to Media Management. The overlay lives under document.body,
+// outside the page panels, so changing sections alone does not remove it.
+document.addEventListener('click', event => {
+  const target = event.target instanceof Element ? event.target : null;
+  const link = target?.closest('a[href]');
+  if (!link) return;
+
+  let destination;
+  try {
+    destination = new URL(link.getAttribute('href'), window.location.href);
+  } catch (error) {
+    return;
+  }
+
+  if (destination.searchParams.get('section') !== 'media-management') return;
+
+  document.getElementById('slideshow-upload-success-modal')?.remove();
+  document.body.classList.remove('modal-open');
+}, true);
+</script>
 </body></html>
