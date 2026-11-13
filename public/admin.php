@@ -1480,26 +1480,54 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           const message=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+destination+'.';
           if(successMessage)successMessage.textContent=message;
           if(successModal){
-            // The Media Management entry cleanup applies display:none!important
-            // to Gallery backdrops. Override that important declaration when
-            // deliberately presenting this upload confirmation.
+            // Move the confirmation directly under <body> so it can never be
+            // clipped or hidden by the upload dialog or a tab-panel container.
+            if(successModal.parentElement!==document.body)document.body.appendChild(successModal);
             successModal.hidden=false;
             successModal.removeAttribute('hidden');
             successModal.removeAttribute('aria-hidden');
+            successModal.style.setProperty('position','fixed','important');
+            successModal.style.setProperty('inset','0','important');
             successModal.style.setProperty('display','flex','important');
+            successModal.style.setProperty('align-items','center','important');
+            successModal.style.setProperty('justify-content','center','important');
             successModal.style.setProperty('visibility','visible','important');
             successModal.style.setProperty('opacity','1','important');
-            successModal.style.setProperty('z-index','10050','important');
+            successModal.style.setProperty('z-index','2147483000','important');
             successModal.setAttribute('aria-live','assertive');
+            successModal.setAttribute('aria-hidden','false');
             document.body.classList.add('modal-open');
+            // Force layout after removing the hidden state so the centered
+            // success overlay is painted even after the upload dialog closes.
+            successModal.getBoundingClientRect();
             requestAnimationFrame(()=>document.getElementById('gallery-upload-success-close')?.focus());
+          }else{
+            // Defensive fallback if the server-rendered confirmation element
+            // is ever absent from the page markup.
+            const fallback=document.createElement('div');
+            fallback.id='gallery-upload-success-modal-fallback';
+            fallback.setAttribute('role','alertdialog');
+            fallback.setAttribute('aria-modal','true');
+            fallback.style.cssText='position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.82);';
+            const card=document.createElement('section');
+            card.style.cssText='width:min(420px,calc(100vw - 40px));padding:28px;border:1px solid rgba(210,83,105,.6);border-radius:16px;background:#130e12;color:#f5e9ed;text-align:center;font-family:Ubuntu,sans-serif;box-shadow:0 28px 90px rgba(0,0,0,.72);';
+            const heading=document.createElement('h2');heading.textContent='Upload successful';
+            const body=document.createElement('p');body.textContent=message;
+            const ok=document.createElement('button');ok.type='button';ok.textContent='OK';ok.className='btn';
+            ok.addEventListener('click',()=>{fallback.remove();document.body.classList.remove('modal-open');window.location.replace('admin.php?section=media-management&media_tab=gallery&gallery_focus_folder='+encodeURIComponent(destination));});
+            card.append(heading,body,ok);fallback.append(card);document.body.append(fallback);ok.focus();
           }
         };
         // The progress fill has a 120ms CSS width transition. Two animation
         // frames plus this hold ensure 100% is painted before success is shown.
         window.requestAnimationFrame(()=>window.requestAnimationFrame(()=>window.setTimeout(revealSuccess,650)));
       };
-      const progressTimer=window.setInterval(()=>{
+      document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{
+      if(successModal){successModal.hidden=true;successModal.style.setProperty('display','none','important');}
+      document.body.classList.remove('modal-open');
+      window.location.replace('admin.php?section=media-management&media_tab=gallery&gallery_focus_folder='+encodeURIComponent(uploadedFolder||''));
+    });
+    const progressTimer=window.setInterval(()=>{
         const elapsed=Date.now()-uploadStartedAt;
         // Animate steadily from 0 to 95%; reserve 100% for server-confirmed success.
         const animatedProgress=Math.min(95,(elapsed/minimumProgressDuration)*95);
