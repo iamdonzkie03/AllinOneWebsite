@@ -1480,12 +1480,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           const message=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+destination+'.';
           if(successMessage)successMessage.textContent=message;
           if(successModal){
+            // The Media Management entry cleanup applies display:none!important
+            // to Gallery backdrops. Override that important declaration when
+            // deliberately presenting this upload confirmation.
             successModal.hidden=false;
+            successModal.removeAttribute('hidden');
             successModal.removeAttribute('aria-hidden');
-            successModal.style.display='flex';
+            successModal.style.setProperty('display','flex','important');
+            successModal.style.setProperty('visibility','visible','important');
+            successModal.style.setProperty('opacity','1','important');
+            successModal.style.setProperty('z-index','10050','important');
             successModal.setAttribute('aria-live','assertive');
             document.body.classList.add('modal-open');
-            document.getElementById('gallery-upload-success-close')?.focus();
+            requestAnimationFrame(()=>document.getElementById('gallery-upload-success-close')?.focus());
           }
         };
         // The progress fill has a 120ms CSS width transition. Two animation
@@ -1527,13 +1534,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       xhr.send(data);
     });
     document.getElementById('gallery-upload-success-close')?.addEventListener('click',()=>{
-      if(successModal){successModal.hidden=true;successModal.style.display='none';successModal.setAttribute('aria-hidden','true');}
+      if(successModal){successModal.hidden=true;successModal.style.setProperty('display','none','important');successModal.setAttribute('aria-hidden','true');}
       document.body.classList.remove('modal-open');
       const destinationUrl=new URL('admin.php',window.location.href);
       destinationUrl.searchParams.set('section','media-management');
       destinationUrl.searchParams.set('media_tab','gallery');
+      destinationUrl.searchParams.delete('gallery_folder');
+      destinationUrl.searchParams.delete('gallery_saved');
+      destinationUrl.searchParams.delete('gallery_moved');
+      destinationUrl.searchParams.delete('gallery_moved_folder');
       if(uploadedFolder)destinationUrl.searchParams.set('gallery_focus_folder',uploadedFolder);
-      window.location.assign(destinationUrl.toString());
+      // Force a fresh Gallery folder-grid page after the user acknowledges success.
+      window.location.replace(destinationUrl.toString());
     });
     successModal?.addEventListener('click',event=>{if(event.target===successModal)event.preventDefault();});
     modal?.addEventListener('click',event=>{if(event.target===modal)event.preventDefault();});
