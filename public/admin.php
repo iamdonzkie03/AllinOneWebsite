@@ -1455,10 +1455,52 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(progress)progress.hidden=false;
       if(uploadError){uploadError.hidden=true;uploadError.textContent='';}
       setProgress(0);
-      const uploadStartedAt=Date.now();let simulatedProgress=0;const progressTimer=window.setInterval(()=>{simulatedProgress=Math.min(99,simulatedProgress+2.4);setProgress(simulatedProgress);},80);
+      const uploadStartedAt=Date.now();
+      const minimumProgressDuration=4500;
+      let uploadResult=null;
+      let uploadSucceeded=false;
+      let completionStarted=false;
+      const showUploadSuccess=()=>{
+        if(completionStarted||!uploadSucceeded||Date.now()-uploadStartedAt<minimumProgressDuration)return;
+        completionStarted=true;
+        window.clearInterval(progressTimer);
+        uploadedFolder=typeof uploadResult.folder==='string'?uploadResult.folder:'';
+        setProgress(100);
+        if(progressLabel)progressLabel.textContent='Upload complete';
+        window.setTimeout(()=>{
+          uploadInProgress=false;
+          if(modal){modal.hidden=true;modal.setAttribute('aria-hidden','true');}
+          resetUploadForm();
+          const count=Math.max(0,Number(uploadResult.count)||0);
+          const destination=uploadedFolder||'the selected folder';
+          const message=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+destination+'.';
+          if(successMessage)successMessage.textContent=message;
+          if(successModal){
+            successModal.hidden=false;
+            successModal.removeAttribute('aria-hidden');
+            successModal.style.display='flex';
+            successModal.setAttribute('aria-live','assertive');
+            document.body.classList.add('modal-open');
+            document.getElementById('gallery-upload-success-close')?.focus();
+          }
+        },350);
+      };
+      const progressTimer=window.setInterval(()=>{
+        const elapsed=Date.now()-uploadStartedAt;
+        // Animate steadily from 0 to 95%; reserve 100% for server-confirmed success.
+        const animatedProgress=Math.min(95,(elapsed/minimumProgressDuration)*95);
+        setProgress(animatedProgress);
+        if(uploadSucceeded)showUploadSuccess();
+      },50);
       xhr.open('POST',window.location.href,true);
       xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
-      xhr.upload.addEventListener('progress',event=>{if(event.lengthComputable){const actual=event.total?event.loaded/event.total*100:0;setProgress(Math.min(99,Math.max(simulatedProgress,actual*.99)));}});
+      xhr.upload.addEventListener('progress',event=>{
+        if(event.lengthComputable){
+          const actual=event.total?event.loaded/event.total*95:0;
+          const elapsedProgress=Math.min(95,((Date.now()-uploadStartedAt)/minimumProgressDuration)*95);
+          setProgress(Math.max(elapsedProgress,Math.min(95,actual)));
+        }
+      });
       xhr.addEventListener('load',()=>{
         let result=null;try{result=JSON.parse(xhr.responseText);}catch(error){}
         if(!result){
@@ -1466,26 +1508,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           result={success:false,message:bodyLimitMatch?'The selected photos exceed the PHP request-size limit. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.':'The server did not return an upload response. This usually means the total upload exceeds PHP post_max_size or the web server rejected the request. In Laragon php.ini, set upload_max_filesize = 10M and post_max_size = 220M, then restart Apache.'};
         }
         if(xhr.status>=200&&xhr.status<300&&result?.success){
-          window.clearInterval(progressTimer);uploadedFolder=typeof result.folder==='string'?result.folder:'';
-          const wait=Math.max(0,3500-(Date.now()-uploadStartedAt));
-          window.setTimeout(()=>{setProgress(100);if(progressLabel)progressLabel.textContent='Upload complete';window.setTimeout(()=>{
-            uploadInProgress=false;
-            if(modal){modal.hidden=true;modal.setAttribute('aria-hidden','true');}
-            resetUploadForm();
-            const count=Math.max(0,Number(result.count)||0);
-            const destination=uploadedFolder||'the selected folder';
-            const message=count+' '+(count===1?'photo has':'photos have')+' been successfully uploaded in folder '+destination+'.';
-            if(successMessage)successMessage.textContent=message;
-            if(successModal){
-              successModal.hidden=false;
-              successModal.removeAttribute('aria-hidden');
-              successModal.style.display='flex';
-              successModal.setAttribute('aria-live','assertive');
-              document.body.classList.add('modal-open');
-              const successButton=document.getElementById('gallery-upload-success-close');
-              successButton?.focus();
-            }
-          },350);},wait);
+          uploadResult=result;
+          uploadSucceeded=true;
+          showUploadSuccess();
           return;
         }
         window.clearInterval(progressTimer);uploadInProgress=false;submit.disabled=false;submit.textContent='Upload Photos';
