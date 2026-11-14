@@ -1,6 +1,24 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
+function sortSlideshowPhotosByUpdatedAt(array $photos): array {
+    $indexed = [];
+    foreach (array_values($photos) as $position => $photo) {
+        if (!is_array($photo)) continue;
+        $updatedAt = trim((string)($photo['updated_at'] ?? ''));
+        if ($updatedAt === '' && preg_match('/slideshow-(\d{8}-\d{6})-/', (string)($photo['photo'] ?? ''), $match)) {
+            $date = DateTimeImmutable::createFromFormat('!Ymd-His', $match[1]);
+            if ($date) $updatedAt = $date->format('Y-m-d H:i:s');
+        }
+        $indexed[] = ['photo' => $photo, 'updated_at' => $updatedAt, 'position' => $position];
+    }
+    usort($indexed, static function (array $a, array $b): int {
+        $byDate = strcmp($b['updated_at'], $a['updated_at']);
+        return $byDate !== 0 ? $byDate : ($a['position'] <=> $b['position']);
+    });
+    return array_values(array_map(static fn(array $item): array => $item['photo'], $indexed));
+}
+
 $admin = require_admin();
 $nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1');
 $nicknameStmt->execute([(int)$admin['id']]);
@@ -132,6 +150,7 @@ $sectionsRow=$pdo->query("SELECT content_json FROM site_sections_settings WHERE 
 $sectionsSettings=json_decode((string)($sectionsRow['content_json']??''),true);
 if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
 foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
+$sectionsSettings['slideshow']['photos'] = sortSlideshowPhotosByUpdatedAt((array)($sectionsSettings['slideshow']['photos'] ?? []));
 
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_gallery_photos (
@@ -570,7 +589,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $row=$pdo->query('SELECT content_json FROM site_sections_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC)?:[];
             $settings=json_decode((string)($row['content_json']??''),true);if(!is_array($settings))throw new RuntimeException('Slideshow settings could not be loaded.');
-            $photos=array_values((array)($settings['slideshow']['photos']??[]));
+            $photos=sortSlideshowPhotosByUpdatedAt((array)($settings['slideshow']['photos']??[]));
             $safePath=static function(string $relative):?string{$relative=ltrim(str_replace('\\\\','/',$relative),'/');if($relative===''||str_contains($relative,'..'))return null;$root=realpath(__DIR__.'/uploads/slideshow-photo');$path=realpath(__DIR__.'/'.$relative);return $root&&$path&&is_file($path)&&strpos($path,$root.DIRECTORY_SEPARATOR)===0?$path:null;};
             if($action==='delete_slideshow_photos'){
                 $indices=array_values(array_unique(array_filter(array_map('intval',(array)($_POST['photo_indices']??[])),static fn($v)=>$v>=0&&$v<count($photos))));
@@ -583,7 +602,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $photo=$photos[$index];$oldTitle=(string)($photo['title']??'');$oldHeading=(string)($photo['heading']??'');$oldDescription=(string)($photo['description']??'');
             $title=mb_substr(trim(strip_tags((string)($_POST['photo_title']??''))),0,180);if($title==='')throw new RuntimeException('Enter a title for this photo.');
             $heading=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
-            $photo['title']=$title;$photo['heading']=$heading;
+            $photo['title']=$title;$photo['heading']=$heading;$photo['updated_at']=date('Y-m-d H:i:s').'.'.sprintf('%06d',(int)((microtime(true)*1000000)%1000000));
             $description=strip_tags((string)($_POST['photo_description']??''),'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
             $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
             $titleChanged=$title!==$oldTitle;$headingChanged=$heading!==$oldHeading;$descriptionChanged=$photo['description']!==$oldDescription;$photoChanged=false;
@@ -603,7 +622,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             elseif($descriptionChanged){$successType='description';$successMessage='The description of the photo has been successfully updated.';}
             elseif($photoChanged){$successType='photo';$successMessage='The photo has been successfully changed.';}
             else{$successType='multiple';$successMessage='The contents has been successfully updated.';}
-            array_splice($photos,$index,1);array_unshift($photos,$photo);$index=0;$settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            $photos[$index]=$photo;$photos=sortSlideshowPhotosByUpdatedAt($photos);$targetPhotoPath=(string)($photo['photo']??'');foreach($photos as $sortedIndex=>$sortedPhoto){if((string)($sortedPhoto['photo']??'')===$targetPhotoPath){$index=$sortedIndex;break;}}$settings['slideshow']['photos']=$photos;$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
             if($oldPath!==(string)$photo['photo']){$old=$safePath($oldPath);if($old)@unlink($old);}
             echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo,'successType'=>$successType,'successMessage'=>$successMessage,'oldTitle'=>$oldTitle,'newTitle'=>$title]);exit;
         }catch(Throwable $e){http_response_code(422);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);exit;}
@@ -649,7 +668,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'title' => mb_substr($title, 0, 180),
                     'heading' => mb_substr($heading, 0, 180),
                     'description' => nl2br(htmlspecialchars(trim((string)($descriptions[$i] ?? '')), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
-                    'photo' => 'uploads/slideshow-photo/' . $filename
+                    'photo' => 'uploads/slideshow-photo/' . $filename,
+                    'updated_at' => date('Y-m-d H:i:s').'.'.sprintf('%06d',(int)((microtime(true)*1000000)%1000000))
                 ];
             }
             $row = $pdo->query('SELECT content_json FROM site_sections_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -657,7 +677,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!is_array($settings)) $settings = [];
             if (!isset($settings['slideshow']) || !is_array($settings['slideshow'])) $settings['slideshow'] = [];
             $existing = (array)($settings['slideshow']['photos'] ?? []);
-            $settings['slideshow']['photos'] = array_values(array_merge($existing, $newPhotos));
+            $settings['slideshow']['photos'] = sortSlideshowPhotosByUpdatedAt(array_merge($existing, $newPhotos));
             $update = $pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');
             $update->execute([json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
             header('Content-Type: application/json; charset=utf-8');
@@ -2927,15 +2947,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    try{
      const response=await fetch('admin.php',{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}});
      const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'The photo could not be updated.');
-     const index=result.index,photo=result.photo;window.slideshowPhotoRecords[index]=photo;
-     const card=slideshowPhotoList.querySelector('[data-photo-index="'+index+'"]');
-     if(card){
-       let img=card.querySelector('img');if(!img){img=document.createElement('img');card.insertBefore(img,card.children[1]);}
-       img.src=photo.photo;img.alt=photo.title;card.querySelector('.gallery-photo-title').textContent=photo.title;card.querySelector('.gallery-photo-title').title=photo.title;
-       const description=card.querySelector('.gallery-photo-description');if(description)description.textContent=(photo.description||'').replace(/<[^>]*>/g,'').trim()||'No description added.';
-     }
-     const preview=document.getElementById('slide-preview-media');
-     if(preview){const item=preview.querySelectorAll('.slideshow-photo-preview-card')[index];if(item){item.querySelector('img').src=photo.photo;item.querySelector('img').alt=photo.title;item.querySelector('strong').textContent=photo.title;item.querySelector('span').textContent=photo.heading||'';}}
+     // The server sorts the persisted photo list by updated_at. Do not patch the old DOM card here:
+     // its pre-sort index may now belong to another photo, which can briefly show a duplicate.
      closeSlideshowEditModal();slideshowEditForm.reset();showSlideshowPhotoEditSuccess(result);
    }catch(error){alert(error.message||'The photo could not be updated.');}
    finally{submit.disabled=false;submit.textContent='Save Changes';}
