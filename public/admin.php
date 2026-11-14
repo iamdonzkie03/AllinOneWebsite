@@ -2685,19 +2685,41 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      if (!indicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return;
      const navRect = tabNav.getBoundingClientRect(), tabRect = tab.getBoundingClientRect();
      const left = tabRect.left - navRect.left - tabNav.clientLeft + tabNav.scrollLeft;
-     if (!animate) indicator.style.transition = 'none';
-     indicator.style.width = tabRect.width + 'px';
-     indicator.style.setProperty('--slider-x', left + 'px');
-     if (!animate) {
-       indicator.getBoundingClientRect();
-       requestAnimationFrame(() => { indicator.style.transition = ''; });
+     const targetTransform = 'translate3d(' + left + 'px,0,0)';
+     const targetWidth = tabRect.width + 'px';
+     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+     // Use the Web Animations API so the pill visibly travels between tabs
+     // even when the tab panel has just become visible or CSS transitions
+     // were temporarily disabled during initial layout.
+     const runningAnimation = indicator.getAnimations ? indicator.getAnimations()[0] : null;
+     const currentTransform = getComputedStyle(indicator).transform;
+     const currentWidth = getComputedStyle(indicator).width;
+     if (runningAnimation) runningAnimation.cancel();
+
+     if (animate && !prefersReducedMotion && typeof indicator.animate === 'function') {
+       const animation = indicator.animate(
+         [
+           { transform: currentTransform === 'none' ? 'translate3d(5px,0,0)' : currentTransform, width: currentWidth },
+           { transform: targetTransform, width: targetWidth }
+         ],
+         { duration: 460, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }
+       );
+       animation.onfinish = () => {
+         indicator.style.transform = targetTransform;
+         indicator.style.width = targetWidth;
+         animation.cancel();
+       };
+     } else {
+       indicator.style.transform = targetTransform;
+       indicator.style.width = targetWidth;
      }
    };
    const scheduleSectionIndicator = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
      const active = tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
      if (active) moveSectionIndicator(active, animate);
    }));
-   const activateSectionTab = (tab, moveFocus = false) => {
+   const activateSectionTab = (tab, moveFocus = false, animateIndicator = true) => {
      if (!tab || !tabs.includes(tab)) return;
      dismissSlideshowDeleteDialogs();
      document.body.classList.remove('modal-open');
@@ -2710,7 +2732,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        item.tabIndex = selected ? 0 : -1;
      });
      panels.forEach(panel => { panel.hidden = panel.dataset.sectionPanel !== tab.dataset.sectionTab; });
-     moveSectionIndicator(tab, true);
+     moveSectionIndicator(tab, animateIndicator);
      if (moveFocus) tab.focus();
    };
    tabNav.addEventListener('click', event => {
@@ -2734,7 +2756,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    root.addEventListener('sectionspanel:shown', () => scheduleSectionIndicator(false));
    const requestedSectionTab = tabNav.dataset.initialTab;
    const initialSectionTab = tabs.find(tab => tab.dataset.sectionTab === requestedSectionTab) || tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
-   activateSectionTab(initialSectionTab);
+   activateSectionTab(initialSectionTab, false, false);
    scheduleSectionIndicator(false);
    if (requestedSectionTab === 'slideshow' && window.location.hash === '#slideshow-photo-list') {
      window.history.scrollRestoration = 'manual';
