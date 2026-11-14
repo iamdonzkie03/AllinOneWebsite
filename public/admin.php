@@ -580,10 +580,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach($removed as $path)if(is_file($path))@unlink($path);echo json_encode(['success'=>true,'deleted'=>count($indices)]);exit;
             }
             $index=filter_var($_POST['photo_index']??null,FILTER_VALIDATE_INT);if($index===false||!isset($photos[$index]))throw new RuntimeException('The selected slideshow photo could not be found.');
-            $photo=$photos[$index];$title=trim(strip_tags((string)($_POST['photo_title']??'')));if($title==='')throw new RuntimeException('Enter a title for this photo.');
-            $photo['title']=mb_substr($title,0,180);$photo['heading']=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
+            $photo=$photos[$index];$oldTitle=(string)($photo['title']??'');$oldHeading=(string)($photo['heading']??'');$oldDescription=(string)($photo['description']??'');
+            $title=mb_substr(trim(strip_tags((string)($_POST['photo_title']??''))),0,180);if($title==='')throw new RuntimeException('Enter a title for this photo.');
+            $heading=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
+            $photo['title']=$title;$photo['heading']=$heading;
             $description=strip_tags((string)($_POST['photo_description']??''),'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
             $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
+            $titleChanged=$title!==$oldTitle;$headingChanged=$heading!==$oldHeading;$descriptionChanged=$photo['description']!==$oldDescription;$photoChanged=false;
             if(isset($_FILES['replacement_photo'])&&(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
                 $file=$_FILES['replacement_photo'];if((int)$file['error']!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded.');
                 if((int)$file['size']>10*1024*1024)throw new RuntimeException('The replacement photo must not exceed 10 MB.');
@@ -591,11 +594,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if(!isset($extensions[$mime])||@getimagesize((string)$file['tmp_name'])===false)throw new RuntimeException('Choose a valid JPG, JPEG, PNG, AVIF or WEBP photo.');
                 $dir=__DIR__.'/uploads/slideshow-photo';if(!is_dir($dir)&&!mkdir($dir,0755,true)&&!is_dir($dir))throw new RuntimeException('Unable to access the slideshow photo folder.');
                 $filename='slideshow-'.date('Ymd-His').'-'.bin2hex(random_bytes(8)).'.'.$extensions[$mime];if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$filename))throw new RuntimeException('Unable to save the replacement photo.');
-                $photo['photo']='uploads/slideshow-photo/'.$filename;
+                $photo['photo']='uploads/slideshow-photo/'.$filename;$photoChanged=true;
             }
+            $changedCount=(int)$titleChanged+(int)$headingChanged+(int)$descriptionChanged+(int)$photoChanged;
+            if($changedCount>1){$successType='multiple';$successMessage='The contents has been successfully updated.';}
+            elseif($titleChanged){$successType='title';$successMessage='The photo title has been successfully renamed.';}
+            elseif($headingChanged){$successType='heading';$successMessage='The photo heading has been successfully updated.';}
+            elseif($descriptionChanged){$successType='description';$successMessage='The description of the photo has been successfully updated.';}
+            elseif($photoChanged){$successType='photo';$successMessage='The photo has been successfully changed.';}
+            else{$successType='multiple';$successMessage='The contents has been successfully updated.';}
             $photos[$index]=$photo;$settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
             if($oldPath!==(string)$photo['photo']){$old=$safePath($oldPath);if($old)@unlink($old);}
-            echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo]);exit;
+            echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo,'successType'=>$successType,'successMessage'=>$successMessage,'oldTitle'=>$oldTitle,'newTitle'=>$title]);exit;
         }catch(Throwable $e){http_response_code(422);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);exit;}
     }
 
@@ -2506,7 +2516,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </section>
  </div>
 
-<div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.avif,.webp,image/jpeg,image/png,image/avif,image/webp"><small>JPG, JPEG, PNG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Photo</button></div></form></section></div>
+<div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.avif,.webp,image/jpeg,image/png,image/avif,image/webp"><small>JPG, JPEG, PNG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div></form></section></div>
  <script>
  // Keep the upload dialog at the document root and apply its full overlay
  // presentation inline so it remains centered even if admin theme CSS is overridden.
@@ -2846,8 +2856,57 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  const renumberSlideshowPhotos=()=>{[...(slideshowPhotoList?.querySelectorAll('.slideshow-saved-photo')||[])].forEach((card,index)=>{card.dataset.photoIndex=String(index);const label=card.querySelector('.photo-index');if(label)label.textContent='Photo '+(index+1);});};
  slideshowPhotoList?.addEventListener('click',event=>{const edit=event.target.closest('.slideshow-edit-photo');if(!edit)return;const card=edit.closest('.slideshow-saved-photo'),index=Number(card.dataset.photoIndex),photo=window.slideshowPhotoRecords[index];if(!photo){alert('Reload the page and try again.');return;}document.getElementById('slideshow-edit-index').value=String(index);document.getElementById('slideshow-edit-title').value=photo.title||'';document.getElementById('slideshow-edit-heading').value=photo.heading||'';document.getElementById('slideshow-edit-description').value=photo.description||'';slideshowEditModal.hidden=false;document.body.classList.add('modal-open');});
  document.getElementById('slideshow-edit-cancel')?.addEventListener('click',()=>{slideshowEditModal.hidden=true;document.body.classList.remove('modal-open');});
- slideshowEditForm?.addEventListener('submit',async event=>{event.preventDefault();const submit=slideshowEditForm.querySelector('[type=submit]');submit.disabled=true;submit.textContent='Saving…';const data=new FormData(slideshowEditForm);data.set('action','edit_slideshow_photo');try{const response=await fetch('admin.php',{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}}),result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'The photo could not be updated.');const index=result.index,photo=result.photo;window.slideshowPhotoRecords[index]=photo;const card=slideshowPhotoList.querySelector('[data-photo-index="'+index+'"]');if(card){let img=card.querySelector('img');if(!img){img=document.createElement('img');card.insertBefore(img,card.children[1]);}img.src=photo.photo;img.alt=photo.title;card.querySelector('.gallery-photo-title').textContent=photo.title;card.querySelector('.gallery-photo-title').title=photo.title;const description=card.querySelector('.gallery-photo-description');if(description)description.textContent=(photo.description||'').replace(/<[^>]*>/g,'').trim()||'No description added.';}const preview=document.getElementById('slide-preview-media');if(preview){const item=preview.querySelectorAll('.slideshow-photo-preview-card')[index];if(item){item.querySelector('img').src=photo.photo;item.querySelector('img').alt=photo.title;item.querySelector('strong').textContent=photo.title;item.querySelector('span').textContent=photo.heading||'';}}slideshowEditModal.hidden=true;document.body.classList.remove('modal-open');slideshowEditForm.reset();showSlideshowPhotoEditSuccess(photo.title||'Untitled photo');}catch(error){alert(error.message||'The photo could not be updated.');}finally{submit.disabled=false;submit.textContent='Save Photo';}});
- const showSlideshowPhotoEditSuccess=title=>{document.getElementById('slideshow-photo-edit-success-modal')?.remove();const overlay=document.createElement('div');overlay.id='slideshow-photo-edit-success-modal';overlay.className='account-status-modal';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');const card=document.createElement('section');card.className='account-status-modal-card';const icon=document.createElement('div');icon.className='account-status-modal-icon';icon.textContent='✓';const message=document.createElement('h2');message.textContent='Slideshow Photo ('+title+') has been successfully updated.';const actions=document.createElement('div');actions.className='gallery-modal-actions';const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='OK';actions.append(ok);card.append(icon,message,actions);overlay.append(card);document.body.appendChild(overlay);document.body.classList.add('modal-open');const close=()=>{overlay.remove();document.body.classList.remove('modal-open');};ok.addEventListener('click',close);ok.focus();};
+ const showSlideshowPhotoEditSuccess=result=>{
+   document.getElementById('slideshow-photo-edit-success-modal')?.remove();
+   const overlay=document.createElement('div');overlay.id='slideshow-photo-edit-success-modal';overlay.className='account-status-modal';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.zIndex='2147483600';
+   const card=document.createElement('section');card.className='account-status-modal-card';
+   const icon=document.createElement('div');icon.className='account-status-modal-icon';icon.textContent='✓';
+   const message=document.createElement('h2');
+   const titleName=result.photo?.title||'Untitled photo';
+   if(result.successType==='title'){
+     message.append(document.createTextNode('The photo title '));
+     const oldTitle=document.createElement('span');oldTitle.textContent=result.oldTitle||'';oldTitle.style.color='#ef5968';message.append(oldTitle);
+     message.append(document.createTextNode(' has been successfully renamed to '));
+     const newTitle=document.createElement('span');newTitle.textContent=result.newTitle||titleName;newTitle.style.color='#55c878';message.append(newTitle);
+     message.append(document.createTextNode('.'));
+   }else if(result.successType==='heading'){
+     message.textContent='The photo heading has been successfully updated.';
+   }else if(result.successType==='description'){
+     message.append(document.createTextNode('The description of the "'));
+     const name=document.createElement('span');name.textContent=titleName;name.style.color='#f0dce2';message.append(name);
+     message.append(document.createTextNode('" has been successfully updated.'));
+   }else if(result.successType==='photo'){
+     message.append(document.createTextNode('The photo of "'));
+     const name=document.createElement('span');name.textContent=titleName;name.style.color='#f0dce2';message.append(name);
+     message.append(document.createTextNode('" has been successfully changed.'));
+   }else{
+     message.textContent='The contents has been successfully updated.';
+   }
+   const actions=document.createElement('div');actions.className='gallery-modal-actions';
+   const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='OK';actions.append(ok);
+   card.append(icon,message,actions);overlay.append(card);document.body.appendChild(overlay);document.body.classList.add('modal-open');
+   ok.addEventListener('click',()=>{window.location.replace('admin.php?section=page-management&tab=sections&section_tab=slideshow#pm-panel-sections');});
+   ok.focus();
+ };
+ slideshowEditForm?.addEventListener('submit',async event=>{
+   event.preventDefault();const submit=slideshowEditForm.querySelector('[type=submit]');submit.disabled=true;submit.textContent='Saving…';
+   const data=new FormData(slideshowEditForm);data.set('action','edit_slideshow_photo');
+   try{
+     const response=await fetch('admin.php',{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}});
+     const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'The photo could not be updated.');
+     const index=result.index,photo=result.photo;window.slideshowPhotoRecords[index]=photo;
+     const card=slideshowPhotoList.querySelector('[data-photo-index="'+index+'"]');
+     if(card){
+       let img=card.querySelector('img');if(!img){img=document.createElement('img');card.insertBefore(img,card.children[1]);}
+       img.src=photo.photo;img.alt=photo.title;card.querySelector('.gallery-photo-title').textContent=photo.title;card.querySelector('.gallery-photo-title').title=photo.title;
+       const description=card.querySelector('.gallery-photo-description');if(description)description.textContent=(photo.description||'').replace(/<[^>]*>/g,'').trim()||'No description added.';
+     }
+     const preview=document.getElementById('slide-preview-media');
+     if(preview){const item=preview.querySelectorAll('.slideshow-photo-preview-card')[index];if(item){item.querySelector('img').src=photo.photo;item.querySelector('img').alt=photo.title;item.querySelector('strong').textContent=photo.title;item.querySelector('span').textContent=photo.heading||'';}}
+     slideshowEditModal.hidden=true;document.body.classList.remove('modal-open');slideshowEditForm.reset();showSlideshowPhotoEditSuccess(result);
+   }catch(error){alert(error.message||'The photo could not be updated.');}
+   finally{submit.disabled=false;submit.textContent='Save Changes';}
+ });
  const slideshowDeleteModal=document.getElementById('slideshow-photo-delete-confirm-modal');const slideshowDeleteSuccessModal=document.getElementById('slideshow-photo-delete-success-modal');const prepareSlideshowDeleteModal=modal=>{if(!modal)return;if(modal.parentElement!==document.body)document.body.appendChild(modal);modal.hidden=true;modal.style.setProperty('display','none','important');};const showSlideshowDeleteModal=modal=>{if(!modal)return;prepareSlideshowDeleteModal(modal);modal.hidden=false;modal.style.setProperty('display','flex','important');};const hideSlideshowDeleteModal=modal=>{if(!modal)return;modal.hidden=true;modal.style.setProperty('display','none','important');};[slideshowDeleteModal,slideshowDeleteSuccessModal].forEach(prepareSlideshowDeleteModal);let slideshowPendingDelete=[];const closeSlideshowDeleteModal=()=>{hideSlideshowDeleteModal(slideshowDeleteModal);slideshowPendingDelete=[];};document.getElementById('slideshow-photo-delete-cancel')?.addEventListener('click',closeSlideshowDeleteModal);document.getElementById('slideshow-photo-delete-confirm')?.addEventListener('click',async()=>{if(!slideshowPendingDelete.length)return;const selected=[...slideshowPendingDelete],data=new FormData();data.append('csrf',slideshowUploadForm.querySelector('[name=csrf]').value);data.append('action','delete_slideshow_photos');selected.forEach(index=>data.append('photo_indices[]',String(index)));const confirmButton=document.getElementById('slideshow-photo-delete-confirm');confirmButton.disabled=true;confirmButton.textContent='Deleting…';try{const response=await fetch('admin.php',{method:'POST',body:data,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}}),result=await response.json();if(!response.ok||!result.success)throw new Error(result.message||'Selected photos could not be deleted.');closeSlideshowDeleteModal();const indices=new Set(selected);window.slideshowPhotoRecords=window.slideshowPhotoRecords.filter((photo,index)=>!indices.has(index));selected.sort((a,b)=>b-a).forEach(index=>slideshowPhotoList.querySelector('[data-photo-index="'+index+'"]')?.remove());if(!slideshowPhotoList.querySelector('.slideshow-saved-photo')){const empty=document.createElement('p');empty.className='muted slideshow-empty';empty.textContent='No slideshow photos have been uploaded yet.';slideshowPhotoList.append(empty);}const preview=document.getElementById('slide-preview-media');if(preview){[...preview.querySelectorAll('.slideshow-photo-preview-card')].forEach((card,index)=>{if(indices.has(index))card.remove();});}renumberSlideshowPhotos();window.syncSlideshowPhotoSelection?.();showSlideshowDeleteModal(slideshowDeleteSuccessModal);}catch(error){alert(error.message||'Selected photos could not be deleted.');window.syncSlideshowPhotoSelection?.();}finally{confirmButton.disabled=false;confirmButton.textContent='Delete';}});slideshowDeleteButton?.addEventListener('click',()=>{slideshowPendingDelete=[...(slideshowPhotoList?.querySelectorAll('.slideshow-photo-checkbox:checked')||[])].map(check=>Number(check.closest('.slideshow-saved-photo').dataset.photoIndex));if(slideshowPendingDelete.length)showSlideshowDeleteModal(slideshowDeleteModal);});document.getElementById('slideshow-photo-delete-success-close')?.addEventListener('click',()=>{hideSlideshowDeleteModal(slideshowDeleteSuccessModal);});
  const slideshowModal=document.getElementById('slideshow-upload-modal');
  const slideshowUploadForm=document.getElementById('slideshow-upload-form');
