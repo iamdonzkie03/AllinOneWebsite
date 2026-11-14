@@ -2392,7 +2392,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  
  <nav class="section-builder-tabs" data-active="banner" aria-label="Homepage section editor" data-initial-tab="<?=e(in_array((string)($_GET['section_tab']??'banner'),['banner','slideshow','mega_menu'],true)?(string)($_GET['section_tab']??'banner'):'banner')?>">
   <span class="section-tab-indicator" aria-hidden="true"></span>
-  <button type="button" data-section-tab="banner" aria-selected="true" role="tab" onclick="return window.activateSectionBuilderTab(this)">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab" onclick="return window.activateSectionBuilderTab(this)">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab" onclick="return window.activateSectionBuilderTab(this)">Mega Menu</button>
+  <button type="button" data-section-tab="banner" aria-selected="true" role="tab" onclick="window.activateSectionBuilderTab(this)">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab" onclick="window.activateSectionBuilderTab(this)">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab" onclick="window.activateSectionBuilderTab(this)">Mega Menu</button>
  </nav>
  <script>
  // Keep section-tab activation on each button itself. This does not depend on
