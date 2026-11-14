@@ -2308,7 +2308,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
  <style>
  .section-builder-tabs{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(100%,650px);margin:18px 0 22px;padding:5px;border:1px solid #45313a;border-radius:999px;background:linear-gradient(135deg,#100c0f,#1a1117);box-shadow:inset 0 2px 8px #0009,0 8px 22px #0003;overflow:hidden}
- .section-tab-indicator{position:absolute;z-index:0;left:5px;top:5px;bottom:5px;box-sizing:border-box;width:calc(33.333333% - 6px);pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transition:left .46s cubic-bezier(.2,.8,.2,1),width .46s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s;will-change:left,width}.section-builder-tabs[data-active=slideshow] .section-tab-indicator{left:calc(33.333333% + 2px)}.section-builder-tabs[data-active=mega_menu] .section-tab-indicator{left:calc(66.666667% - 1px)}
+ .section-tab-indicator{position:absolute;z-index:0;left:5px;top:5px;bottom:5px;box-sizing:border-box;width:calc(33.333333% - 6px);pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transition:left .46s cubic-bezier(.2,.8,.2,1),width .46s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s;will-change:left,width}
  @media(prefers-reduced-motion:reduce){.section-builder-tabs .section-tab-indicator{transition:none!important}}
  .section-builder-tabs[data-active=slideshow] .section-tab-indicator{background:linear-gradient(135deg,#164d83,#102849);border-color:#20b9ff;box-shadow:0 4px 14px #20b9ff30,inset 0 1px #ffffff24}
  .section-builder-tabs[data-active=mega_menu] .section-tab-indicator{background:linear-gradient(135deg,#796800,#403700);border-color:#f5dc00;box-shadow:0 4px 14px #f5dc0030,inset 0 1px #ffffff24}
@@ -2681,10 +2681,31 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        modal.setAttribute('aria-hidden', 'true');
      });
    };
-   // Pill positioning is owned by the standalone controller below. Keep this
-   // legacy helper inert so its ResizeObserver cannot overwrite the CSS transform.
-   const moveSectionIndicator = () => false;
-   const scheduleSectionIndicator = () => {};
+   // Measure the actual tab buttons instead of estimating their positions
+   // with percentage math. This remains accurate at every viewport width.
+   const sectionIndicator = tabNav.querySelector('.section-tab-indicator');
+   const moveSectionIndicator = (tab, animate = true) => {
+     if (!sectionIndicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return;
+     const navRect = tabNav.getBoundingClientRect();
+     const tabRect = tab.getBoundingClientRect();
+     const left = tabRect.left - navRect.left - tabNav.clientLeft;
+     if (!animate) {
+       sectionIndicator.style.transition = 'none';
+       sectionIndicator.style.left = left + 'px';
+       sectionIndicator.style.width = tabRect.width + 'px';
+       sectionIndicator.getBoundingClientRect();
+       requestAnimationFrame(() => { sectionIndicator.style.transition = ''; });
+     } else {
+       sectionIndicator.style.left = left + 'px';
+       sectionIndicator.style.width = tabRect.width + 'px';
+     }
+   };
+   const scheduleSectionIndicator = (animate = false) => {
+     requestAnimationFrame(() => {
+       const active = tabs.find(item => item.getAttribute('aria-selected') === 'true') || tabs[0];
+       if (active) moveSectionIndicator(active, animate);
+     });
+   };
    const activateSectionTab = (tab, moveFocus = false, animateIndicator = true) => {
      if (!tab || !tabs.includes(tab)) return;
      dismissSlideshowDeleteDialogs();
@@ -3254,54 +3275,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
  })();
  </script>
- <script>
- // Direct tab activation. The active data attribute drives pill movement in CSS.
- (() => {
-   const root = document.getElementById('pm-panel-sections');
-   const nav = root?.querySelector('.section-builder-tabs');
-   if (!root || !nav || nav.dataset.cssTabsReady === '1') return;
-   const tabs = [...nav.querySelectorAll('button[data-section-tab]')];
-   const panels = [...root.querySelectorAll('[data-section-panel]')];
-   if (tabs.length !== 3) return;
-   nav.dataset.cssTabsReady = '1';
 
-   const activate = (tab, focus = false) => {
-     if (!tabs.includes(tab)) return;
-     const key = tab.dataset.sectionTab;
-     nav.dataset.active = key;
-     tabs.forEach(item => {
-       const selected = item === tab;
-       item.setAttribute('aria-selected', String(selected));
-       item.tabIndex = selected ? 0 : -1;
-     });
-     panels.forEach(panel => { panel.hidden = panel.dataset.sectionPanel !== key; });
-     const saveField = document.getElementById('section-editor-tab');
-     const saveButton = document.getElementById('save-section-settings-button');
-     if (saveField) saveField.value = key;
-     if (saveButton) saveButton.textContent = key === 'banner' ? 'Save Banner Settings' : key === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
-     if (focus) tab.focus();
-   };
-
-   tabs.forEach(tab => {
-     tab.addEventListener('click', event => {
-       event.preventDefault();
-       event.stopImmediatePropagation();
-       activate(tab);
-     }, true);
-     tab.addEventListener('keydown', event => {
-       let index = tabs.indexOf(tab);
-       if (event.key === 'ArrowRight') index = (index + 1) % tabs.length;
-       else if (event.key === 'ArrowLeft') index = (index - 1 + tabs.length) % tabs.length;
-       else if (event.key === 'Home') index = 0;
-       else if (event.key === 'End') index = tabs.length - 1;
-       else return;
-       event.preventDefault();
-       event.stopImmediatePropagation();
-       activate(tabs[index], true);
-     }, true);
-   });
- })();
- </script>
  <script>
  (() => {
    const list=document.getElementById('slideshow-photo-list');
