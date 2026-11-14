@@ -3302,6 +3302,103 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  })();
  </script>
  <script>
+ // Reliable direct, capture-phase handling for the Banner / Slideshow / Mega Menu tabs.
+ // This is intentionally isolated from the larger Sections editor script so an
+ // unrelated editor initialization error cannot leave these tabs inert.
+ (() => {
+   const root = document.getElementById('pm-panel-sections');
+   const nav = root?.querySelector('.section-builder-tabs');
+   if (!root || !nav || nav.dataset.directTabsReady === '1') return;
+   const tabs = [...nav.querySelectorAll('button[data-section-tab]')];
+   const panels = [...root.querySelectorAll('[data-section-panel]')];
+   const indicator = nav.querySelector('.section-tab-indicator');
+   if (!tabs.length) return;
+   nav.dataset.directTabsReady = '1';
+   let animation = null;
+   let hasMeasured = false;
+   let activeKey = tabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.dataset.sectionTab || 'banner';
+
+   const placeIndicator = (tab, animate) => {
+     if (!indicator || !tab || !nav.getClientRects().length || !tab.getClientRects().length) return;
+     const navRect = nav.getBoundingClientRect();
+     const tabRect = tab.getBoundingClientRect();
+     const left = tabRect.left - navRect.left - nav.clientLeft + nav.scrollLeft;
+     const width = tabRect.width;
+     const currentRect = indicator.getBoundingClientRect();
+     const fromLeft = currentRect.left - navRect.left - nav.clientLeft + nav.scrollLeft;
+     const fromWidth = currentRect.width;
+     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+     if (animation) { animation.cancel(); animation = null; }
+     indicator.style.transition = 'none';
+     indicator.style.left = left + 'px';
+     indicator.style.width = width + 'px';
+     if (animate && hasMeasured && !reduceMotion && typeof indicator.animate === 'function'
+       && (Math.abs(fromLeft-left) > .5 || Math.abs(fromWidth-width) > .5)) {
+       animation = indicator.animate(
+         [{left:fromLeft+'px',width:fromWidth+'px'},{left:left+'px',width:width+'px'}],
+         {duration:460,easing:'cubic-bezier(.2,.8,.2,1)'}
+       );
+       animation.onfinish = () => { if (animation) { animation.cancel(); animation = null; } };
+     }
+     hasMeasured = true;
+   };
+
+   const activate = (tab, focus = false) => {
+     if (!tabs.includes(tab)) return;
+     activeKey = tab.dataset.sectionTab;
+     nav.dataset.active = activeKey;
+     tabs.forEach(item => {
+       const selected = item === tab;
+       item.setAttribute('aria-selected', String(selected));
+       item.tabIndex = selected ? 0 : -1;
+     });
+     panels.forEach(panel => { panel.hidden = panel.dataset.sectionPanel !== activeKey; });
+     const saveTabField = document.getElementById('section-editor-tab');
+     const saveButton = document.getElementById('save-section-settings-button');
+     if (saveTabField) saveTabField.value = activeKey;
+     if (saveButton) saveButton.textContent = activeKey === 'banner' ? 'Save Banner Settings' : activeKey === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
+     placeIndicator(tab, true);
+     if (focus) tab.focus();
+   };
+
+   tabs.forEach(tab => {
+     tab.addEventListener('click', event => {
+       event.preventDefault();
+       event.stopImmediatePropagation();
+       activate(tab);
+     }, true);
+     tab.addEventListener('keydown', event => {
+       let index = tabs.indexOf(tab);
+       if (event.key === 'ArrowRight') index = (index + 1) % tabs.length;
+       else if (event.key === 'ArrowLeft') index = (index - 1 + tabs.length) % tabs.length;
+       else if (event.key === 'Home') index = 0;
+       else if (event.key === 'End') index = tabs.length - 1;
+       else return;
+       event.preventDefault();
+       event.stopImmediatePropagation();
+       activate(tabs[index], true);
+     }, true);
+   });
+
+   const alignActive = () => requestAnimationFrame(() => requestAnimationFrame(() => {
+     const active = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
+     placeIndicator(active, false);
+   }));
+   root.addEventListener('sectionspanel:shown', alignActive);
+   if (typeof ResizeObserver === 'function') {
+     const observer = new ResizeObserver(() => {
+       if (nav.getClientRects().length) {
+         const active = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
+         placeIndicator(active, false);
+       }
+     });
+     observer.observe(nav);
+   }
+   window.addEventListener('resize', alignActive);
+   alignActive();
+ })();
+ </script>
+ <script>
  (() => {
    const list=document.getElementById('slideshow-photo-list');
    const button=document.getElementById('slideshow-delete-selected');
