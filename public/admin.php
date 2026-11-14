@@ -2685,19 +2685,20 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    // with percentage math. This remains accurate at every viewport width.
    const sectionIndicator = tabNav.querySelector('.section-tab-indicator');
    const moveSectionIndicator = (tab, animate = true) => {
-     if (!sectionIndicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return;
-     const navRect = tabNav.getBoundingClientRect();
-     const tabRect = tab.getBoundingClientRect();
-     const left = tabRect.left - navRect.left - tabNav.clientLeft;
+     if (!sectionIndicator || !tab || tabNav.offsetWidth === 0 || tab.offsetWidth === 0) return;
+     // offsetLeft/offsetWidth are measured in the nav's own layout coordinate
+     // space, avoiding viewport-coordinate and border-box conversion errors.
+     const left = tab.offsetLeft;
+     const width = tab.offsetWidth;
      if (!animate) {
        sectionIndicator.style.transition = 'none';
        sectionIndicator.style.left = left + 'px';
-       sectionIndicator.style.width = tabRect.width + 'px';
+       sectionIndicator.style.width = width + 'px';
        sectionIndicator.getBoundingClientRect();
        requestAnimationFrame(() => { sectionIndicator.style.transition = ''; });
      } else {
        sectionIndicator.style.left = left + 'px';
-       sectionIndicator.style.width = tabRect.width + 'px';
+       sectionIndicator.style.width = width + 'px';
      }
    };
    const scheduleSectionIndicator = (animate = false) => {
