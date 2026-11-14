@@ -744,9 +744,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $saved['slideshow']['heading']=$cleanHtml((string)($_POST['slide_heading']??''));
             $saved['slideshow']['subtitle']=$cleanHtml((string)($_POST['slide_subtitle']??''));
             // Slideshow photo records are uploaded and saved independently through the multi-photo modal.
-            $saved['mega_menu']['main_title']=$safeText($_POST['mega_main_title']??'',120);
-            $saved['mega_menu']['heading']=$safeText($_POST['mega_heading']??'',180);
-            $saved['mega_menu']['subtitle']=$safeText($_POST['mega_subtitle']??'',300);
+            $saved['mega_menu']['main_title']=$cleanHtml((string)($_POST['mega_main_title']??''));
+            $saved['mega_menu']['heading']=$cleanHtml((string)($_POST['mega_heading']??''));
+            $saved['mega_menu']['subtitle']=$cleanHtml((string)($_POST['mega_subtitle']??''));
             $panels=[];
             $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
             foreach((array)($_POST['panel_title']??[]) as $k=>$title){
@@ -2515,8 +2515,72 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-confirm-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-title"><div class="account-status-modal-icon slideshow-delete-warning" aria-hidden="true">!</div><h2 id="slideshow-photo-delete-title">Delete Selected Photo/s?</h2><p class="slideshow-delete-message">Are you sure you want to delete the selected photo/s?</p><div class="slideshow-delete-actions"><button class="btn light" type="button" id="slideshow-photo-delete-cancel">Cancel</button><button class="btn bulk-delete" type="button" id="slideshow-photo-delete-confirm">Delete</button></div></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="slideshow-photo-delete-success-title">Selected photo/s deleted successfully.</h2><button type="button" class="btn" id="slideshow-photo-delete-success-close">OK</button></div></div>
  <section class="section-subpanel" data-section-panel="mega_menu" hidden>
-  <div class="section-preview"><div class="preview-kicker" id="mega-preview-title"><?=e($sectionsSettings['mega_menu']['main_title'])?></div><h3 id="mega-preview-heading"><?=e($sectionsSettings['mega_menu']['heading'])?></h3><p class="preview-desc" id="mega-preview-subtitle"><?=e($sectionsSettings['mega_menu']['subtitle'])?></p><div class="section-preview-media"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt=""><?php endif; endforeach; ?></div></div>
-  <div class="section-form-grid"><label class="section-field">Main Title<input name="mega_main_title" value="<?=e($sectionsSettings['mega_menu']['main_title'])?>" data-preview="mega-preview-title"></label><label class="section-field">Heading<input name="mega_heading" value="<?=e($sectionsSettings['mega_menu']['heading'])?>" data-preview="mega-preview-heading"></label><label class="section-field" style="grid-column:1/-1">Subtitle<input name="mega_subtitle" value="<?=e($sectionsSettings['mega_menu']['subtitle'])?>" data-preview="mega-preview-subtitle"></label></div>
+  <div class="section-preview mega-menu-preview"><div class="preview-kicker" id="mega-preview-title"><?= $cleanHtml((string)($sectionsSettings['mega_menu']['main_title']??'')) ?></div><h3 id="mega-preview-heading"><?= $cleanHtml((string)($sectionsSettings['mega_menu']['heading']??'')) ?></h3><p class="preview-desc" id="mega-preview-subtitle"><?= $cleanHtml((string)($sectionsSettings['mega_menu']['subtitle']??'')) ?></p><div class="section-preview-media"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt=""><?php endif; endforeach; ?></div></div>
+  <div class="section-form-grid slideshow-rich-grid mega-menu-rich-grid">
+  <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Main Title</span>
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Main Title formatting">
+     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+    </div>
+<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="mega_main_title" data-placeholder="Enter main title..."><?=e((string)($sectionsSettings['mega_menu']['main_title']??''))?></div>
+<input type="hidden" name="mega_main_title" data-banner-html="mega_main_title" value="<?=e((string)($sectionsSettings['mega_menu']['main_title']??''))?>">
+</div>
+  <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Heading</span>
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Heading formatting">
+     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+    </div>
+<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="mega_heading" data-placeholder="Enter heading..."><?=e((string)($sectionsSettings['mega_menu']['heading']??''))?></div>
+<input type="hidden" name="mega_heading" data-banner-html="mega_heading" value="<?=e((string)($sectionsSettings['mega_menu']['heading']??''))?>">
+</div>
+  <div class="section-field banner-editor-field slideshow-rich-field slideshow-rich-field-wide"><span class="section-field-label">Subtitle</span>
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Subtitle formatting">
+     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+    </div>
+<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="mega_subtitle" data-placeholder="Enter subtitle..."><?=e((string)($sectionsSettings['mega_menu']['subtitle']??''))?></div>
+<input type="hidden" name="mega_subtitle" data-banner-html="mega_subtitle" value="<?=e((string)($sectionsSettings['mega_menu']['subtitle']??''))?>">
+</div>
+  </div>
   <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
  </section>
  <div class="header-settings-actions"><button type="submit" class="btn" id="save-section-settings-button">Save Banner Settings</button></div>
@@ -2587,7 +2651,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  
  (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const moveSectionIndicator=(t,animate=true)=>{if(!tabNav||!t||!t.getClientRects().length)return;const indicator=tabNav.querySelector('.section-tab-indicator');if(!indicator)return;const tabWidth=t.offsetWidth,tabLeft=t.offsetLeft-tabNav.clientLeft;if(!tabWidth)return;if(!animate){indicator.style.transition='none';}indicator.style.width=tabWidth+'px';indicator.style.setProperty('--slider-x',tabLeft+'px');if(!animate){indicator.offsetHeight;indicator.style.transition='';}};const scheduleSectionIndicator=(animate=false)=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{const active=tabs.find(x=>x.getAttribute('aria-selected')==='true')||tabs[0];if(active)moveSectionIndicator(active,animate);}));};root.addEventListener('sectionspanel:shown',()=>scheduleSectionIndicator(false));const activateSectionTab=(t)=>{if(!t)return;const index=tabs.indexOf(t);if(tabNav){tabNav.dataset.active=t.dataset.sectionTab;}moveSectionIndicator(t);if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':t.dataset.sectionTab==='slideshow'?'Save Slideshow Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});const requestedSectionTab=tabNav?.dataset.initialTab;const initialSectionTab=tabs.find(t=>t.dataset.sectionTab===requestedSectionTab)||tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0];activateSectionTab(initialSectionTab);scheduleSectionIndicator(false);if(requestedSectionTab==='slideshow'&&window.location.hash==='#slideshow-photo-list'){window.history.scrollRestoration='manual';const focusSlideshowPhotos=()=>{let attempts=0;const scrollToPhotos=()=>{const list=document.getElementById('slideshow-photo-list');if(list){const top=list.getBoundingClientRect().top+window.scrollY-24;window.scrollTo({top:Math.max(0,top),behavior:'auto'});return;}if(attempts++<12)requestAnimationFrame(scrollToPhotos);};requestAnimationFrame(()=>requestAnimationFrame(scrollToPhotos));};if(document.readyState==='complete')focusSlideshowPhotos();else window.addEventListener('load',focusSlideshowPhotos,{once:true});}window.addEventListener('resize',()=>scheduleSectionIndicator(false));
  root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
- const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description',slide_main_title:'slide-preview-title',slide_heading:'slide-preview-heading',slide_subtitle:'slide-preview-subtitle'};
+ const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description',slide_main_title:'slide-preview-title',slide_heading:'slide-preview-heading',slide_subtitle:'slide-preview-subtitle',mega_main_title:'mega-preview-title',mega_heading:'mega-preview-heading',mega_subtitle:'mega-preview-subtitle'};
  const cleanBannerPreviewHtml=html=>{
    const parsed=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
    const rootNode=parsed.body.firstElementChild;
