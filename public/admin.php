@@ -2660,8 +2660,102 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </script>
  <script>
  
- (()=>{const root=document.getElementById('pm-panel-sections');if(!root)return;const tabs=[...root.querySelectorAll('[data-section-tab]')],panels=[...root.querySelectorAll('[data-section-panel]')],tabNav=root.querySelector('.section-builder-tabs');const saveTabField=document.getElementById('section-editor-tab'),saveTabButton=document.getElementById('save-section-settings-button');const moveSectionIndicator=(t,animate=true)=>{if(!tabNav||!t||!t.getClientRects().length)return;const indicator=tabNav.querySelector('.section-tab-indicator');if(!indicator)return;const tabWidth=t.offsetWidth,tabLeft=t.offsetLeft-tabNav.clientLeft;if(!tabWidth)return;if(!animate){indicator.style.transition='none';}indicator.style.width=tabWidth+'px';indicator.style.setProperty('--slider-x',tabLeft+'px');if(!animate){indicator.offsetHeight;indicator.style.transition='';}};const scheduleSectionIndicator=(animate=false)=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{const active=tabs.find(x=>x.getAttribute('aria-selected')==='true')||tabs[0];if(active)moveSectionIndicator(active,animate);}));};root.addEventListener('sectionspanel:shown',()=>scheduleSectionIndicator(false));const activateSectionTab=(t)=>{if(!t)return;['slideshow-photo-delete-confirm-modal','slideshow-photo-delete-success-modal'].forEach(id=>{const modal=document.getElementById(id);if(modal){modal.hidden=true;modal.style.setProperty('display','none','important');modal.setAttribute('aria-hidden','true');}});document.body.classList.remove('modal-open');const index=tabs.indexOf(t);if(tabNav){tabNav.dataset.active=t.dataset.sectionTab;}moveSectionIndicator(t);if(saveTabField)saveTabField.value=t.dataset.sectionTab;if(saveTabButton)saveTabButton.textContent=t.dataset.sectionTab==='banner'?'Save Banner Settings':t.dataset.sectionTab==='slideshow'?'Save Slideshow Settings':'Save Section Settings';tabs.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;});panels.forEach(p=>{p.hidden=p.dataset.sectionPanel!==t.dataset.sectionTab;});};tabs.forEach((t,index)=>{t.addEventListener('click',()=>activateSectionTab(t));t.addEventListener('keydown',e=>{if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();const next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activateSectionTab(next);next.focus();});});const requestedSectionTab=tabNav?.dataset.initialTab;const initialSectionTab=tabs.find(t=>t.dataset.sectionTab===requestedSectionTab)||tabs.find(t=>t.getAttribute('aria-selected')==='true')||tabs[0];activateSectionTab(initialSectionTab);scheduleSectionIndicator(false);if(requestedSectionTab==='slideshow'&&window.location.hash==='#slideshow-photo-list'){window.history.scrollRestoration='manual';const focusSlideshowPhotos=()=>{let attempts=0;const scrollToPhotos=()=>{const list=document.getElementById('slideshow-photo-list');if(list){const top=list.getBoundingClientRect().top+window.scrollY-24;window.scrollTo({top:Math.max(0,top),behavior:'auto'});return;}if(attempts++<12)requestAnimationFrame(scrollToPhotos);};requestAnimationFrame(()=>requestAnimationFrame(scrollToPhotos));};if(document.readyState==='complete')focusSlideshowPhotos();else window.addEventListener('load',focusSlideshowPhotos,{once:true});}window.addEventListener('resize',()=>scheduleSectionIndicator(false));
- root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
+ (() => {
+   const root = document.getElementById('pm-panel-sections');
+   if (!root || root.dataset.sectionTabsReady === '1') return;
+   root.dataset.sectionTabsReady = '1';
+   const tabs = [...root.querySelectorAll('[data-section-tab]')];
+   const panels = [...root.querySelectorAll('[data-section-panel]')];
+   const tabNav = root.querySelector('.section-builder-tabs');
+   const saveTabField = document.getElementById('section-editor-tab');
+   const saveTabButton = document.getElementById('save-section-settings-button');
+   if (!tabNav || !tabs.length) return;
+
+   const dismissSlideshowDeleteDialogs = () => {
+     ['slideshow-photo-delete-confirm-modal', 'slideshow-photo-delete-success-modal'].forEach(id => {
+       const modal = document.getElementById(id);
+       if (!modal) return;
+       modal.hidden = true;
+       modal.style.setProperty('display', 'none', 'important');
+       modal.setAttribute('aria-hidden', 'true');
+     });
+   };
+   const moveSectionIndicator = (tab, animate = true) => {
+     const indicator = tabNav.querySelector('.section-tab-indicator');
+     if (!indicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return;
+     const navRect = tabNav.getBoundingClientRect(), tabRect = tab.getBoundingClientRect();
+     const left = tabRect.left - navRect.left - tabNav.clientLeft + tabNav.scrollLeft;
+     if (!animate) indicator.style.transition = 'none';
+     indicator.style.width = tabRect.width + 'px';
+     indicator.style.setProperty('--slider-x', left + 'px');
+     if (!animate) {
+       indicator.getBoundingClientRect();
+       requestAnimationFrame(() => { indicator.style.transition = ''; });
+     }
+   };
+   const scheduleSectionIndicator = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
+     const active = tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
+     if (active) moveSectionIndicator(active, animate);
+   }));
+   const activateSectionTab = (tab, moveFocus = false) => {
+     if (!tab || !tabs.includes(tab)) return;
+     dismissSlideshowDeleteDialogs();
+     document.body.classList.remove('modal-open');
+     tabNav.dataset.active = tab.dataset.sectionTab;
+     if (saveTabField) saveTabField.value = tab.dataset.sectionTab;
+     if (saveTabButton) saveTabButton.textContent = tab.dataset.sectionTab === 'banner' ? 'Save Banner Settings' : tab.dataset.sectionTab === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
+     tabs.forEach(item => {
+       const selected = item === tab;
+       item.setAttribute('aria-selected', String(selected));
+       item.tabIndex = selected ? 0 : -1;
+     });
+     panels.forEach(panel => { panel.hidden = panel.dataset.sectionPanel !== tab.dataset.sectionTab; });
+     moveSectionIndicator(tab, true);
+     if (moveFocus) tab.focus();
+   };
+   tabNav.addEventListener('click', event => {
+     const tab = event.target instanceof Element ? event.target.closest('[data-section-tab]') : null;
+     if (!tab || !tabNav.contains(tab)) return;
+     event.preventDefault();
+     activateSectionTab(tab);
+   });
+   tabNav.addEventListener('keydown', event => {
+     const current = event.target instanceof Element ? event.target.closest('[data-section-tab]') : null;
+     if (!current || !tabs.includes(current)) return;
+     let next = tabs.indexOf(current);
+     if (event.key === 'ArrowRight') next = (next + 1) % tabs.length;
+     else if (event.key === 'ArrowLeft') next = (next - 1 + tabs.length) % tabs.length;
+     else if (event.key === 'Home') next = 0;
+     else if (event.key === 'End') next = tabs.length - 1;
+     else return;
+     event.preventDefault();
+     activateSectionTab(tabs[next], true);
+   });
+   root.addEventListener('sectionspanel:shown', () => scheduleSectionIndicator(false));
+   const requestedSectionTab = tabNav.dataset.initialTab;
+   const initialSectionTab = tabs.find(tab => tab.dataset.sectionTab === requestedSectionTab) || tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
+   activateSectionTab(initialSectionTab);
+   scheduleSectionIndicator(false);
+   if (requestedSectionTab === 'slideshow' && window.location.hash === '#slideshow-photo-list') {
+     window.history.scrollRestoration = 'manual';
+     const focusSlideshowPhotos = () => {
+       let attempts = 0;
+       const scrollToPhotos = () => {
+         const list = document.getElementById('slideshow-photo-list');
+         if (list) {
+           const top = list.getBoundingClientRect().top + window.scrollY - 24;
+           window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+           return;
+         }
+         if (attempts++ < 12) requestAnimationFrame(scrollToPhotos);
+       };
+       requestAnimationFrame(() => requestAnimationFrame(scrollToPhotos));
+     };
+     if (document.readyState === 'complete') focusSlideshowPhotos();
+     else window.addEventListener('load', focusSlideshowPhotos, { once: true });
+   }
+   window.addEventListener('resize', () => scheduleSectionIndicator(false));
+   root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
  const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description',slide_main_title:'slide-preview-title',slide_heading:'slide-preview-heading',slide_subtitle:'slide-preview-subtitle',mega_main_title:'mega-preview-title',mega_heading:'mega-preview-heading',mega_subtitle:'mega-preview-subtitle'};
  const cleanBannerPreviewHtml=html=>{
    const parsed=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
