@@ -585,7 +585,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $heading=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
             $photo['title']=$title;$photo['heading']=$heading;
             $description=strip_tags((string)($_POST['photo_description']??''),'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
-            $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
+            $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
             $titleChanged=$title!==$oldTitle;$headingChanged=$heading!==$oldHeading;$descriptionChanged=$photo['description']!==$oldDescription;$photoChanged=false;
             if(isset($_FILES['replacement_photo'])&&(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
                 $file=$_FILES['replacement_photo'];if((int)$file['error']!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded.');
