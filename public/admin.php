@@ -603,7 +603,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             elseif($descriptionChanged){$successType='description';$successMessage='The description of the photo has been successfully updated.';}
             elseif($photoChanged){$successType='photo';$successMessage='The photo has been successfully changed.';}
             else{$successType='multiple';$successMessage='The contents has been successfully updated.';}
-            $photos[$index]=$photo;$settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
+            array_splice($photos,$index,1);array_unshift($photos,$photo);$index=0;$settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
             if($oldPath!==(string)$photo['photo']){$old=$safePath($oldPath);if($old)@unlink($old);}
             echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo,'successType'=>$successType,'successMessage'=>$successMessage,'oldTitle'=>$oldTitle,'newTitle'=>$title]);exit;
         }catch(Throwable $e){http_response_code(422);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);exit;}
@@ -2918,7 +2918,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const actions=document.createElement('div');actions.className='gallery-modal-actions';
    const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='OK';actions.append(ok);
    card.append(icon,message,actions);overlay.append(card);document.body.appendChild(overlay);document.body.classList.add('modal-open');
-   ok.addEventListener('click',()=>{window.location.replace('admin.php?section=page-management&tab=sections&section_tab=slideshow#pm-panel-sections');});
+   ok.type='button';ok.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();overlay.remove();document.body.classList.remove('modal-open');const destination=new URL('admin.php?section=page-management&tab=sections&section_tab=slideshow#pm-panel-sections',document.baseURI);window.location.assign(destination.href);},{once:true});
    ok.focus();
  };
  slideshowEditForm?.addEventListener('submit',async event=>{
