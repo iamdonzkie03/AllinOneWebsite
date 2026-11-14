@@ -2309,6 +2309,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <style>
  .section-builder-tabs{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(100%,650px);margin:18px 0 22px;padding:5px;border:1px solid #45313a;border-radius:999px;background:linear-gradient(135deg,#100c0f,#1a1117);box-shadow:inset 0 2px 8px #0009,0 8px 22px #0003;overflow:hidden}
  .section-tab-indicator{position:absolute;z-index:0;left:0;top:5px;bottom:5px;width:0;pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:translate3d(var(--slider-x,5px),0,0);transition:transform .42s cubic-bezier(.2,.8,.2,1),width .42s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s}
+ @media(prefers-reduced-motion:reduce){.section-builder-tabs .section-tab-indicator{transition:none!important}}
  .section-builder-tabs[data-active=slideshow] .section-tab-indicator{background:linear-gradient(135deg,#164d83,#102849);border-color:#20b9ff;box-shadow:0 4px 14px #20b9ff30,inset 0 1px #ffffff24}
  .section-builder-tabs[data-active=mega_menu] .section-tab-indicator{background:linear-gradient(135deg,#796800,#403700);border-color:#f5dc00;box-shadow:0 4px 14px #f5dc0030,inset 0 1px #ffffff24}
  .section-builder-tabs button{position:relative;z-index:1;min-width:0;border:1px solid transparent;background:transparent;color:#cbbdc3;border-radius:999px;padding:11px 14px;font:700 13px Ubuntu;letter-spacing:.02em;cursor:pointer;transition:color .2s,transform .2s}
@@ -2683,37 +2684,27 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const moveSectionIndicator = (tab, animate = true) => {
      const indicator = tabNav.querySelector('.section-tab-indicator');
      if (!indicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return;
-     const navRect = tabNav.getBoundingClientRect(), tabRect = tab.getBoundingClientRect();
+     const navRect = tabNav.getBoundingClientRect();
+     const tabRect = tab.getBoundingClientRect();
      const left = tabRect.left - navRect.left - tabNav.clientLeft + tabNav.scrollLeft;
-     const targetTransform = 'translate3d(' + left + 'px,0,0)';
      const targetWidth = tabRect.width + 'px';
-     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-     // Use the Web Animations API so the pill visibly travels between tabs
-     // even when the tab panel has just become visible or CSS transitions
-     // were temporarily disabled during initial layout.
-     const runningAnimation = indicator.getAnimations ? indicator.getAnimations()[0] : null;
-     const currentTransform = getComputedStyle(indicator).transform;
-     const currentWidth = getComputedStyle(indicator).width;
-     if (runningAnimation) runningAnimation.cancel();
-
-     if (animate && !prefersReducedMotion && typeof indicator.animate === 'function') {
-       const animation = indicator.animate(
-         [
-           { transform: currentTransform === 'none' ? 'translate3d(5px,0,0)' : currentTransform, width: currentWidth },
-           { transform: targetTransform, width: targetWidth }
-         ],
-         { duration: 460, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }
-       );
-       animation.onfinish = () => {
-         indicator.style.transform = targetTransform;
-         indicator.style.width = targetWidth;
-         animation.cancel();
-       };
-     } else {
-       indicator.style.transform = targetTransform;
+     // CSS transitions interpolate the custom property and width from their
+     // currently rendered values. This also handles rapid/reversed tab clicks
+     // without cancelling an animation and jumping back to its start.
+     if (!animate) {
+       indicator.style.transition = 'none';
+       indicator.style.setProperty('--slider-x', left + 'px');
        indicator.style.width = targetWidth;
+       indicator.getBoundingClientRect();
+       requestAnimationFrame(() => {
+         indicator.style.removeProperty('transition');
+       });
+       return;
      }
+
+     indicator.style.setProperty('--slider-x', left + 'px');
+     indicator.style.width = targetWidth;
    };
    const scheduleSectionIndicator = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
      const active = tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
