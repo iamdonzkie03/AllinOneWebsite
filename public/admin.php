@@ -2694,7 +2694,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      // without cancelling an animation and jumping back to its start.
      if (!animate) {
        indicator.style.transition = 'none';
-       indicator.style.setProperty('--slider-x', left + 'px');
+       indicator.style.transform = 'translate3d(' + left + 'px,0,0)';
        indicator.style.width = targetWidth;
        indicator.getBoundingClientRect();
        requestAnimationFrame(() => {
@@ -2703,7 +2703,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        return;
      }
 
-     indicator.style.setProperty('--slider-x', left + 'px');
+     indicator.style.transform = 'translate3d(' + left + 'px,0,0)';
      indicator.style.width = targetWidth;
    };
    const scheduleSectionIndicator = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
