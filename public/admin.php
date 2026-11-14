@@ -2308,7 +2308,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
  <style>
  .section-builder-tabs{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(100%,650px);margin:18px 0 22px;padding:5px;border:1px solid #45313a;border-radius:999px;background:linear-gradient(135deg,#100c0f,#1a1117);box-shadow:inset 0 2px 8px #0009,0 8px 22px #0003;overflow:hidden}
- .section-tab-indicator{position:absolute;z-index:0;left:5px;top:5px;bottom:5px;width:0;pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:none;transition:left .46s cubic-bezier(.2,.8,.2,1),width .46s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s}
+ .section-tab-indicator{position:absolute;z-index:0;left:5px;top:5px;bottom:5px;width:0;pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:translate3d(0,0,0);transition:transform .46s cubic-bezier(.2,.8,.2,1),width .46s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s;will-change:transform,width}.section-tab-indicator.no-motion{transition:none!important}
  @media(prefers-reduced-motion:reduce){.section-builder-tabs .section-tab-indicator{transition:none!important}}
  .section-builder-tabs[data-active=slideshow] .section-tab-indicator{background:linear-gradient(135deg,#164d83,#102849);border-color:#20b9ff;box-shadow:0 4px 14px #20b9ff30,inset 0 1px #ffffff24}
  .section-builder-tabs[data-active=mega_menu] .section-tab-indicator{background:linear-gradient(135deg,#796800,#403700);border-color:#f5dc00;box-shadow:0 4px 14px #f5dc0030,inset 0 1px #ffffff24}
@@ -2681,57 +2681,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        modal.setAttribute('aria-hidden', 'true');
      });
    };
-   let indicatorHasInitialPosition = false;
-   let sectionIndicatorAnimation = null;
-   const moveSectionIndicator = (tab, animate = true) => {
-     const indicator = tabNav.querySelector('.section-tab-indicator');
-     if (!indicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return false;
-     const navRect = tabNav.getBoundingClientRect();
-     const tabRect = tab.getBoundingClientRect();
-     const left = tabRect.left - navRect.left - tabNav.clientLeft + tabNav.scrollLeft;
-     const targetWidth = tabRect.width;
-     const shouldAnimate = animate && indicatorHasInitialPosition
-       && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-       && typeof indicator.animate === 'function';
-
-     // Capture the currently rendered position before cancelling an in-flight
-     // animation. This lets rapid/reversed clicks continue smoothly in place.
-     const rendered = window.getComputedStyle(indicator);
-     const fromLeft = Number.parseFloat(rendered.left);
-     const fromWidth = Number.parseFloat(rendered.width);
-     if (sectionIndicatorAnimation) {
-       sectionIndicatorAnimation.cancel();
-       sectionIndicatorAnimation = null;
-     }
-
-     // Keep CSS transitions from competing with the explicit position animation.
-     indicator.style.transition = 'none';
-     indicator.style.left = left + 'px';
-     indicator.style.width = targetWidth + 'px';
-
-     if (shouldAnimate && Number.isFinite(fromLeft) && Number.isFinite(fromWidth)
-       && (Math.abs(fromLeft - left) > 0.5 || Math.abs(fromWidth - targetWidth) > 0.5)) {
-       sectionIndicatorAnimation = indicator.animate(
-         [
-           { left: fromLeft + 'px', width: fromWidth + 'px' },
-           { left: left + 'px', width: targetWidth + 'px' }
-         ],
-         { duration: 460, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
-       );
-       sectionIndicatorAnimation.onfinish = () => {
-         if (sectionIndicatorAnimation) {
-           sectionIndicatorAnimation.cancel();
-           sectionIndicatorAnimation = null;
-         }
-       };
-     }
-     indicatorHasInitialPosition = true;
-     return true;
-   };
-   const scheduleSectionIndicator = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
-     const active = tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
-     if (active) moveSectionIndicator(active, animate);
-   }));
+   // Pill positioning is owned by the standalone controller below. Keep this
+   // legacy helper inert so its ResizeObserver cannot overwrite the CSS transform.
+   const moveSectionIndicator = () => false;
+   const scheduleSectionIndicator = () => {};
    const activateSectionTab = (tab, moveFocus = false, animateIndicator = true) => {
      if (!tab || !tabs.includes(tab)) return;
      dismissSlideshowDeleteDialogs();
@@ -3302,48 +3255,42 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  })();
  </script>
  <script>
- // Reliable direct, capture-phase handling for the Banner / Slideshow / Mega Menu tabs.
- // This is intentionally isolated from the larger Sections editor script so an
- // unrelated editor initialization error cannot leave these tabs inert.
+ // One owner for tab activation and pill geometry. CSS transitions interpolate
+ // transform and width from their currently rendered values, including rapid reversals.
  (() => {
    const root = document.getElementById('pm-panel-sections');
    const nav = root?.querySelector('.section-builder-tabs');
-   if (!root || !nav || nav.dataset.directTabsReady === '1') return;
+   if (!root || !nav || nav.dataset.pillControllerReady === '1') return;
    const tabs = [...nav.querySelectorAll('button[data-section-tab]')];
    const panels = [...root.querySelectorAll('[data-section-panel]')];
-   const indicator = nav.querySelector('.section-tab-indicator');
-   if (!tabs.length) return;
-   nav.dataset.directTabsReady = '1';
-   let animation = null;
-   let hasMeasured = false;
+   const pill = nav.querySelector('.section-tab-indicator');
+   if (!tabs.length || !pill) return;
+   nav.dataset.pillControllerReady = '1';
    let activeKey = tabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.dataset.sectionTab || 'banner';
+   const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-   const placeIndicator = (tab, animate) => {
-     if (!indicator || !tab || !nav.getClientRects().length || !tab.getClientRects().length) return;
+   const positionPill = (tab, animate = false) => {
+     if (!tab || !nav.getClientRects().length || !tab.getClientRects().length) return false;
      const navRect = nav.getBoundingClientRect();
      const tabRect = tab.getBoundingClientRect();
-     const left = tabRect.left - navRect.left - nav.clientLeft + nav.scrollLeft;
+     const x = tabRect.left - navRect.left - nav.clientLeft - 5;
      const width = tabRect.width;
-     const currentRect = indicator.getBoundingClientRect();
-     const fromLeft = currentRect.left - navRect.left - nav.clientLeft + nav.scrollLeft;
-     const fromWidth = currentRect.width;
-     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-     if (animation) { animation.cancel(); animation = null; }
-     indicator.style.transition = 'none';
-     indicator.style.left = left + 'px';
-     indicator.style.width = width + 'px';
-     if (animate && hasMeasured && !reduceMotion && typeof indicator.animate === 'function'
-       && (Math.abs(fromLeft-left) > .5 || Math.abs(fromWidth-width) > .5)) {
-       animation = indicator.animate(
-         [{left:fromLeft+'px',width:fromWidth+'px'},{left:left+'px',width:width+'px'}],
-         {duration:460,easing:'cubic-bezier(.2,.8,.2,1)'}
-       );
-       animation.onfinish = () => { if (animation) { animation.cancel(); animation = null; } };
+     if (!animate || reducedMotion()) {
+       pill.classList.add('no-motion');
+       pill.style.width = width + 'px';
+       pill.style.transform = 'translate3d(' + x + 'px,0,0)';
+       // Re-enable transitions only after the non-animated geometry has painted.
+       requestAnimationFrame(() => requestAnimationFrame(() => pill.classList.remove('no-motion')));
+     } else {
+       // Do not set a starting value: the browser transitions from the exact
+       // currently rendered transform/width, even if the previous transition is mid-flight.
+       pill.style.width = width + 'px';
+       pill.style.transform = 'translate3d(' + x + 'px,0,0)';
      }
-     hasMeasured = true;
+     return true;
    };
 
-   const activate = (tab, focus = false) => {
+   const activate = (tab, focus = false, animate = true) => {
      if (!tabs.includes(tab)) return;
      activeKey = tab.dataset.sectionTab;
      nav.dataset.active = activeKey;
@@ -3357,7 +3304,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      const saveButton = document.getElementById('save-section-settings-button');
      if (saveTabField) saveTabField.value = activeKey;
      if (saveButton) saveButton.textContent = activeKey === 'banner' ? 'Save Banner Settings' : activeKey === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
-     placeIndicator(tab, true);
+     positionPill(tab, animate);
      if (focus) tab.focus();
    };
 
@@ -3365,7 +3312,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      tab.addEventListener('click', event => {
        event.preventDefault();
        event.stopImmediatePropagation();
-       activate(tab);
+       activate(tab, false, true);
      }, true);
      tab.addEventListener('keydown', event => {
        let index = tabs.indexOf(tab);
@@ -3376,26 +3323,26 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        else return;
        event.preventDefault();
        event.stopImmediatePropagation();
-       activate(tabs[index], true);
+       activate(tabs[index], true, true);
      }, true);
    });
 
-   const alignActive = () => requestAnimationFrame(() => requestAnimationFrame(() => {
-     const active = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
-     placeIndicator(active, false);
+   const align = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
+     const selected = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
+     positionPill(selected, animate);
    }));
-   root.addEventListener('sectionspanel:shown', alignActive);
+   root.addEventListener('sectionspanel:shown', () => align(false));
    if (typeof ResizeObserver === 'function') {
      const observer = new ResizeObserver(() => {
        if (nav.getClientRects().length) {
-         const active = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
-         placeIndicator(active, false);
+         const selected = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
+         positionPill(selected, false);
        }
      });
      observer.observe(nav);
    }
-   window.addEventListener('resize', alignActive);
-   alignActive();
+   window.addEventListener('resize', () => align(false));
+   align(false);
  })();
  </script>
  <script>
