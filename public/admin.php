@@ -580,10 +580,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach($removed as $path)if(is_file($path))@unlink($path);echo json_encode(['success'=>true,'deleted'=>count($indices)]);exit;
             }
             $index=filter_var($_POST['photo_index']??null,FILTER_VALIDATE_INT);if($index===false||!isset($photos[$index]))throw new RuntimeException('The selected slideshow photo could not be found.');
-            $photo=$photos[$index];$title=trim(strip_tags((string)($_POST['photo_title']??'')));if($title==='')throw new RuntimeException('Enter a title for this photo.');
-            $photo['title']=mb_substr($title,0,180);$photo['heading']=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
+            $photo=$photos[$index];$oldTitle=(string)($photo['title']??'');$oldHeading=(string)($photo['heading']??'');$oldDescription=(string)($photo['description']??'');
+            $title=mb_substr(trim(strip_tags((string)($_POST['photo_title']??''))),0,180);if($title==='')throw new RuntimeException('Enter a title for this photo.');
+            $heading=mb_substr(trim(strip_tags((string)($_POST['photo_heading']??''))),0,180);
+            $photo['title']=$title;$photo['heading']=$heading;
             $description=strip_tags((string)($_POST['photo_description']??''),'<p><br><strong><b><em><i><u><s><ul><ol><li><h2><h3><h4><blockquote><a><span>');
-            $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
+            $photo['description']=trim(preg_replace('/\\s+on[a-z]+\\s*=\\s*(["\\\\\\']).*?\\1/i','',$description));$oldPath=(string)($photo['photo']??'');
+            $titleChanged=$title!==$oldTitle;$headingChanged=$heading!==$oldHeading;$descriptionChanged=$photo['description']!==$oldDescription;$photoChanged=false;
             if(isset($_FILES['replacement_photo'])&&(int)($_FILES['replacement_photo']['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
                 $file=$_FILES['replacement_photo'];if((int)$file['error']!==UPLOAD_ERR_OK)throw new RuntimeException('The replacement photo could not be uploaded.');
                 if((int)$file['size']>10*1024*1024)throw new RuntimeException('The replacement photo must not exceed 10 MB.');
@@ -591,11 +594,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if(!isset($extensions[$mime])||@getimagesize((string)$file['tmp_name'])===false)throw new RuntimeException('Choose a valid JPG, JPEG, PNG, AVIF or WEBP photo.');
                 $dir=__DIR__.'/uploads/slideshow-photo';if(!is_dir($dir)&&!mkdir($dir,0755,true)&&!is_dir($dir))throw new RuntimeException('Unable to access the slideshow photo folder.');
                 $filename='slideshow-'.date('Ymd-His').'-'.bin2hex(random_bytes(8)).'.'.$extensions[$mime];if(!move_uploaded_file((string)$file['tmp_name'],$dir.'/'.$filename))throw new RuntimeException('Unable to save the replacement photo.');
-                $photo['photo']='uploads/slideshow-photo/'.$filename;
+                $photo['photo']='uploads/slideshow-photo/'.$filename;$photoChanged=true;
             }
+            $changedCount=(int)$titleChanged+(int)$headingChanged+(int)$descriptionChanged+(int)$photoChanged;
+            if($changedCount>1){$successType='multiple';$successMessage='The contents has been successfully updated.';}
+            elseif($titleChanged){$successType='title';$successMessage='The photo title has been successfully renamed.';}
+            elseif($headingChanged){$successType='heading';$successMessage='The photo heading has been successfully updated.';}
+            elseif($descriptionChanged){$successType='description';$successMessage='The description of the photo has been successfully updated.';}
+            elseif($photoChanged){$successType='photo';$successMessage='The photo has been successfully changed.';}
+            else{$successType='multiple';$successMessage='The contents has been successfully updated.';}
             $photos[$index]=$photo;$settings['slideshow']['photos']=array_values($photos);$save=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$save->execute([json_encode($settings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
             if($oldPath!==(string)$photo['photo']){$old=$safePath($oldPath);if($old)@unlink($old);}
-            echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo]);exit;
+            echo json_encode(['success'=>true,'index'=>(int)$index,'photo'=>$photo,'successType'=>$successType,'successMessage'=>$successMessage,'oldTitle'=>$oldTitle,'newTitle'=>$title]);exit;
         }catch(Throwable $e){http_response_code(422);echo json_encode(['success'=>false,'message'=>$e->getMessage()]);exit;}
     }
 
@@ -2506,7 +2516,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </section>
  </div>
 
-<div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.avif,.webp,image/jpeg,image/png,image/avif,image/webp"><small>JPG, JPEG, PNG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Photo</button></div></form></section></div>
+<div class="gallery-modal-backdrop" id="slideshow-photo-edit-modal" hidden><section class="gallery-modal slideshow-photo-edit-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-edit-title"><div class="gallery-modal-head"><div><h2 id="slideshow-photo-edit-title">Edit Slideshow Photo</h2><p class="muted">Update this photo's details or replace its image.</p></div></div><form id="slideshow-photo-edit-form" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="photo_index" id="slideshow-edit-index"><div class="slideshow-photo-edit-fields"><label class="section-field">Photo Title<input name="photo_title" id="slideshow-edit-title" maxlength="180" required></label><label class="section-field">Photo Heading<input name="photo_heading" id="slideshow-edit-heading" maxlength="180"></label><label class="section-field wide">Description<textarea name="photo_description" id="slideshow-edit-description"></textarea></label><label class="section-field wide">Replace Photo (optional)<input type="file" name="replacement_photo" accept=".jpg,.jpeg,.png,.avif,.webp,image/jpeg,image/png,image/avif,image/webp"><small>JPG, JPEG, PNG, AVIF or WEBP · maximum 10 MB</small></label></div><div class="gallery-modal-actions"><button type="button" class="btn light" id="slideshow-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div></form></section></div>
  <script>
  // Keep the upload dialog at the document root and apply its full overlay
  // presentation inline so it remains centered even if admin theme CSS is overridden.
