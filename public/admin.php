@@ -2392,8 +2392,39 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  
  <nav class="section-builder-tabs" data-active="banner" aria-label="Homepage section editor" data-initial-tab="<?=e(in_array((string)($_GET['section_tab']??'banner'),['banner','slideshow','mega_menu'],true)?(string)($_GET['section_tab']??'banner'):'banner')?>">
   <span class="section-tab-indicator" aria-hidden="true"></span>
-  <button type="button" data-section-tab="banner" aria-selected="true" role="tab">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab">Mega Menu</button>
+  <button type="button" data-section-tab="banner" aria-selected="true" role="tab" onclick="return window.activateSectionBuilderTab(this)">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab" onclick="return window.activateSectionBuilderTab(this)">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab" onclick="return window.activateSectionBuilderTab(this)">Mega Menu</button>
  </nav>
+ <script>
+ // Keep section-tab activation on each button itself. This does not depend on
+ // delegated bubbling handlers, so other admin-page listeners cannot swallow
+ // the tab click before the section editor receives it.
+ window.activateSectionBuilderTab = function(button) {
+   const root = document.getElementById('pm-panel-sections');
+   const nav = button && button.closest('.section-builder-tabs');
+   if (!root || !nav || !nav.contains(button)) return false;
+   const key = button.dataset.sectionTab;
+   if (!['banner', 'slideshow', 'mega_menu'].includes(key)) return false;
+   nav.dataset.active = key;
+   nav.querySelectorAll('[data-section-tab]').forEach(tab => {
+     const selected = tab === button;
+     tab.setAttribute('aria-selected', String(selected));
+     tab.tabIndex = selected ? 0 : -1;
+   });
+   root.querySelectorAll('[data-section-panel]').forEach(panel => {
+     panel.hidden = panel.dataset.sectionPanel !== key;
+   });
+   const field = document.getElementById('section-editor-tab');
+   const save = document.getElementById('save-section-settings-button');
+   if (field) field.value = key;
+   if (save) save.textContent = key === 'banner' ? 'Save Banner Settings' : key === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
+   const indicator = nav.querySelector('.section-tab-indicator');
+   if (indicator && button.offsetWidth) {
+     indicator.style.left = button.offsetLeft + 'px';
+     indicator.style.width = button.offsetWidth + 'px';
+   }
+   return false;
+ };
+ </script>
  <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings"><input type="hidden" name="section_editor_tab" id="section-editor-tab" value="banner">
  <section class="section-subpanel" data-section-panel="banner">
   <div class="section-preview banner-preview-stage" id="banner-preview">
