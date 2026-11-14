@@ -2308,7 +2308,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
  <style>
  .section-builder-tabs{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(100%,650px);margin:18px 0 22px;padding:5px;border:1px solid #45313a;border-radius:999px;background:linear-gradient(135deg,#100c0f,#1a1117);box-shadow:inset 0 2px 8px #0009,0 8px 22px #0003;overflow:hidden}
- .section-tab-indicator{position:absolute;z-index:0;left:0;top:5px;bottom:5px;width:0;pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:translate3d(var(--slider-x,5px),0,0);transition:transform .42s cubic-bezier(.2,.8,.2,1),width .42s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s}
+ .section-tab-indicator{position:absolute;z-index:0;left:5px;top:5px;bottom:5px;width:0;pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:none;transition:left .46s cubic-bezier(.2,.8,.2,1),width .46s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s}
  @media(prefers-reduced-motion:reduce){.section-builder-tabs .section-tab-indicator{transition:none!important}}
  .section-builder-tabs[data-active=slideshow] .section-tab-indicator{background:linear-gradient(135deg,#164d83,#102849);border-color:#20b9ff;box-shadow:0 4px 14px #20b9ff30,inset 0 1px #ffffff24}
  .section-builder-tabs[data-active=mega_menu] .section-tab-indicator{background:linear-gradient(135deg,#796800,#403700);border-color:#f5dc00;box-shadow:0 4px 14px #f5dc0030,inset 0 1px #ffffff24}
@@ -2681,30 +2681,32 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        modal.setAttribute('aria-hidden', 'true');
      });
    };
+   let indicatorHasInitialPosition = false;
    const moveSectionIndicator = (tab, animate = true) => {
      const indicator = tabNav.querySelector('.section-tab-indicator');
-     if (!indicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return;
+     if (!indicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return false;
      const navRect = tabNav.getBoundingClientRect();
      const tabRect = tab.getBoundingClientRect();
      const left = tabRect.left - navRect.left - tabNav.clientLeft + tabNav.scrollLeft;
      const targetWidth = tabRect.width + 'px';
+     const shouldAnimate = animate && indicatorHasInitialPosition
+       && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-     // CSS transitions interpolate the custom property and width from their
-     // currently rendered values. This also handles rapid/reversed tab clicks
-     // without cancelling an animation and jumping back to its start.
-     if (!animate) {
+     // Use left + width (not transform/custom-property composition) so the
+     // pill's movement is independent of transforms applied by other styles.
+     indicator.style.removeProperty('transition');
+     if (!shouldAnimate) {
        indicator.style.transition = 'none';
-       indicator.style.transform = 'translate3d(' + left + 'px,0,0)';
+       indicator.style.left = left + 'px';
        indicator.style.width = targetWidth;
        indicator.getBoundingClientRect();
-       requestAnimationFrame(() => {
-         indicator.style.removeProperty('transition');
-       });
-       return;
+       requestAnimationFrame(() => indicator.style.removeProperty('transition'));
+     } else {
+       indicator.style.left = left + 'px';
+       indicator.style.width = targetWidth;
      }
-
-     indicator.style.transform = 'translate3d(' + left + 'px,0,0)';
-     indicator.style.width = targetWidth;
+     indicatorHasInitialPosition = true;
+     return true;
    };
    const scheduleSectionIndicator = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
      const active = tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
@@ -2766,6 +2768,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      };
      if (document.readyState === 'complete') focusSlideshowPhotos();
      else window.addEventListener('load', focusSlideshowPhotos, { once: true });
+   }
+   // The Sections panel starts hidden on most Page Management visits.
+   // Observe it becoming measurable so the pill gets a correct first position
+   // before any user-initiated tab transition.
+   if (typeof ResizeObserver === 'function') {
+     const sectionTabResizeObserver = new ResizeObserver(() => {
+       if (!tabNav.getClientRects().length) return;
+       const active = tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
+       if (active) moveSectionIndicator(active, false);
+     });
+     sectionTabResizeObserver.observe(tabNav);
    }
    window.addEventListener('resize', () => scheduleSectionIndicator(false));
    root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
