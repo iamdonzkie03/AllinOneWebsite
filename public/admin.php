@@ -2681,57 +2681,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        modal.setAttribute('aria-hidden', 'true');
      });
    };
-   let indicatorHasInitialPosition = false;
-   let sectionIndicatorAnimation = null;
-   const moveSectionIndicator = (tab, animate = true) => {
-     const indicator = tabNav.querySelector('.section-tab-indicator');
-     if (!indicator || !tab || !tabNav.getClientRects().length || !tab.getClientRects().length) return false;
-     const navRect = tabNav.getBoundingClientRect();
-     const tabRect = tab.getBoundingClientRect();
-     const left = tabRect.left - navRect.left - tabNav.clientLeft + tabNav.scrollLeft;
-     const targetWidth = tabRect.width;
-     const shouldAnimate = animate && indicatorHasInitialPosition
-       && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-       && typeof indicator.animate === 'function';
-
-     // Capture the currently rendered position before cancelling an in-flight
-     // animation. This lets rapid/reversed clicks continue smoothly in place.
-     const rendered = window.getComputedStyle(indicator);
-     const fromLeft = Number.parseFloat(rendered.left);
-     const fromWidth = Number.parseFloat(rendered.width);
-     if (sectionIndicatorAnimation) {
-       sectionIndicatorAnimation.cancel();
-       sectionIndicatorAnimation = null;
-     }
-
-     // Keep CSS transitions from competing with the explicit position animation.
-     indicator.style.transition = 'none';
-     indicator.style.left = left + 'px';
-     indicator.style.width = targetWidth + 'px';
-
-     if (shouldAnimate && Number.isFinite(fromLeft) && Number.isFinite(fromWidth)
-       && (Math.abs(fromLeft - left) > 0.5 || Math.abs(fromWidth - targetWidth) > 0.5)) {
-       sectionIndicatorAnimation = indicator.animate(
-         [
-           { left: fromLeft + 'px', width: fromWidth + 'px' },
-           { left: left + 'px', width: targetWidth + 'px' }
-         ],
-         { duration: 460, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
-       );
-       sectionIndicatorAnimation.onfinish = () => {
-         if (sectionIndicatorAnimation) {
-           sectionIndicatorAnimation.cancel();
-           sectionIndicatorAnimation = null;
-         }
-       };
-     }
-     indicatorHasInitialPosition = true;
-     return true;
-   };
-   const scheduleSectionIndicator = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
-     const active = tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0];
-     if (active) moveSectionIndicator(active, animate);
-   }));
+   // Pill positioning is owned by the standalone controller below. Keep this
+   // legacy helper inert so its ResizeObserver cannot overwrite the CSS transform.
+   const moveSectionIndicator = () => false;
+   const scheduleSectionIndicator = () => {};
    const activateSectionTab = (tab, moveFocus = false, animateIndicator = true) => {
      if (!tab || !tabs.includes(tab)) return;
      dismissSlideshowDeleteDialogs();
