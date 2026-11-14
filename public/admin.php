@@ -2872,13 +2872,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    }else if(result.successType==='heading'){
      message.textContent='The photo heading has been successfully updated.';
    }else if(result.successType==='description'){
-     message.append(document.createTextNode('The description of the '));
+     message.append(document.createTextNode('The description of the "'));
      const name=document.createElement('span');name.textContent=titleName;name.style.color='#f0dce2';message.append(name);
-     message.append(document.createTextNode(' has been successfully updated.'));
+     message.append(document.createTextNode('" has been successfully updated.'));
    }else if(result.successType==='photo'){
-     message.append(document.createTextNode('The photo of '));
+     message.append(document.createTextNode('The photo of "'));
      const name=document.createElement('span');name.textContent=titleName;name.style.color='#f0dce2';message.append(name);
-     message.append(document.createTextNode(' has been successfully changed.'));
+     message.append(document.createTextNode('" has been successfully changed.'));
    }else{
      message.textContent='The contents has been successfully updated.';
    }
