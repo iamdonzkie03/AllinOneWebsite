@@ -2308,7 +2308,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
  <style>
  .section-builder-tabs{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(100%,650px);margin:18px 0 22px;padding:5px;border:1px solid #45313a;border-radius:999px;background:linear-gradient(135deg,#100c0f,#1a1117);box-shadow:inset 0 2px 8px #0009,0 8px 22px #0003;overflow:hidden}
- .section-tab-indicator{position:absolute;z-index:0;left:5px;top:5px;bottom:5px;width:0;pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:translate3d(0,0,0);transition:transform .46s cubic-bezier(.2,.8,.2,1),width .46s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s;will-change:transform,width}.section-tab-indicator.no-motion{transition:none!important}
+ .section-tab-indicator{position:absolute;z-index:0;left:5px;top:5px;bottom:5px;width:calc((100% - 18px)/3);pointer-events:none;border:1px solid #ef3340;border-radius:999px;background:linear-gradient(135deg,#751624,#3c0b14);box-shadow:0 4px 14px #ef334033,inset 0 1px #ffffff24;transform:translate3d(0,0,0);transition:transform .46s cubic-bezier(.2,.8,.2,1),width .46s cubic-bezier(.2,.8,.2,1),background .25s,border-color .25s,box-shadow .25s;will-change:transform}.section-builder-tabs[data-active=slideshow] .section-tab-indicator{transform:translate3d(calc(100% + 4px),0,0)}.section-builder-tabs[data-active=mega_menu] .section-tab-indicator{transform:translate3d(calc((100% + 4px)*2),0,0)}
  @media(prefers-reduced-motion:reduce){.section-builder-tabs .section-tab-indicator{transition:none!important}}
  .section-builder-tabs[data-active=slideshow] .section-tab-indicator{background:linear-gradient(135deg,#164d83,#102849);border-color:#20b9ff;box-shadow:0 4px 14px #20b9ff30,inset 0 1px #ffffff24}
  .section-builder-tabs[data-active=mega_menu] .section-tab-indicator{background:linear-gradient(135deg,#796800,#403700);border-color:#f5dc00;box-shadow:0 4px 14px #f5dc0030,inset 0 1px #ffffff24}
@@ -3255,56 +3255,30 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  })();
  </script>
  <script>
- // One owner for tab activation and pill geometry. CSS transitions interpolate
- // transform and width from their currently rendered values, including rapid reversals.
+ // Direct tab activation. The active data attribute drives pill movement in CSS.
  (() => {
    const root = document.getElementById('pm-panel-sections');
    const nav = root?.querySelector('.section-builder-tabs');
-   if (!root || !nav || nav.dataset.pillControllerReady === '1') return;
+   if (!root || !nav || nav.dataset.cssTabsReady === '1') return;
    const tabs = [...nav.querySelectorAll('button[data-section-tab]')];
    const panels = [...root.querySelectorAll('[data-section-panel]')];
-   const pill = nav.querySelector('.section-tab-indicator');
-   if (!tabs.length || !pill) return;
-   nav.dataset.pillControllerReady = '1';
-   let activeKey = tabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.dataset.sectionTab || 'banner';
-   const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+   if (tabs.length !== 3) return;
+   nav.dataset.cssTabsReady = '1';
 
-   const positionPill = (tab, animate = false) => {
-     if (!tab || !nav.getClientRects().length || !tab.getClientRects().length) return false;
-     const navRect = nav.getBoundingClientRect();
-     const tabRect = tab.getBoundingClientRect();
-     const x = tabRect.left - navRect.left - nav.clientLeft - 5;
-     const width = tabRect.width;
-     if (!animate || reducedMotion()) {
-       pill.classList.add('no-motion');
-       pill.style.width = width + 'px';
-       pill.style.transform = 'translate3d(' + x + 'px,0,0)';
-       // Re-enable transitions only after the non-animated geometry has painted.
-       requestAnimationFrame(() => requestAnimationFrame(() => pill.classList.remove('no-motion')));
-     } else {
-       // Do not set a starting value: the browser transitions from the exact
-       // currently rendered transform/width, even if the previous transition is mid-flight.
-       pill.style.width = width + 'px';
-       pill.style.transform = 'translate3d(' + x + 'px,0,0)';
-     }
-     return true;
-   };
-
-   const activate = (tab, focus = false, animate = true) => {
+   const activate = (tab, focus = false) => {
      if (!tabs.includes(tab)) return;
-     activeKey = tab.dataset.sectionTab;
-     nav.dataset.active = activeKey;
+     const key = tab.dataset.sectionTab;
+     nav.dataset.active = key;
      tabs.forEach(item => {
        const selected = item === tab;
        item.setAttribute('aria-selected', String(selected));
        item.tabIndex = selected ? 0 : -1;
      });
-     panels.forEach(panel => { panel.hidden = panel.dataset.sectionPanel !== activeKey; });
-     const saveTabField = document.getElementById('section-editor-tab');
+     panels.forEach(panel => { panel.hidden = panel.dataset.sectionPanel !== key; });
+     const saveField = document.getElementById('section-editor-tab');
      const saveButton = document.getElementById('save-section-settings-button');
-     if (saveTabField) saveTabField.value = activeKey;
-     if (saveButton) saveButton.textContent = activeKey === 'banner' ? 'Save Banner Settings' : activeKey === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
-     positionPill(tab, animate);
+     if (saveField) saveField.value = key;
+     if (saveButton) saveButton.textContent = key === 'banner' ? 'Save Banner Settings' : key === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
      if (focus) tab.focus();
    };
 
@@ -3312,7 +3286,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      tab.addEventListener('click', event => {
        event.preventDefault();
        event.stopImmediatePropagation();
-       activate(tab, false, true);
+       activate(tab);
      }, true);
      tab.addEventListener('keydown', event => {
        let index = tabs.indexOf(tab);
@@ -3323,26 +3297,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        else return;
        event.preventDefault();
        event.stopImmediatePropagation();
-       activate(tabs[index], true, true);
+       activate(tabs[index], true);
      }, true);
    });
-
-   const align = (animate = false) => requestAnimationFrame(() => requestAnimationFrame(() => {
-     const selected = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
-     positionPill(selected, animate);
-   }));
-   root.addEventListener('sectionspanel:shown', () => align(false));
-   if (typeof ResizeObserver === 'function') {
-     const observer = new ResizeObserver(() => {
-       if (nav.getClientRects().length) {
-         const selected = tabs.find(tab => tab.dataset.sectionTab === activeKey) || tabs[0];
-         positionPill(selected, false);
-       }
-     });
-     observer.observe(nav);
-   }
-   window.addEventListener('resize', () => align(false));
-   align(false);
  })();
  </script>
  <script>
