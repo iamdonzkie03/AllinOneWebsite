@@ -2852,10 +2852,43 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  
  window.slideshowPhotoRecords=<?=json_encode(array_values((array)($sectionsSettings['slideshow']['photos']??[])),JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?>;
  const slideshowPhotoList=document.getElementById('slideshow-photo-list'),slideshowEditModal=document.getElementById('slideshow-photo-edit-modal'),slideshowEditForm=document.getElementById('slideshow-photo-edit-form'),slideshowDeleteButton=document.getElementById('slideshow-delete-selected'),slideshowSelectAll=document.getElementById('slideshow-select-all');
+ // Move the dialog out of Page Management containers so it overlays the viewport.
+ if(slideshowEditModal&&slideshowEditModal.parentElement!==document.body)document.body.appendChild(slideshowEditModal);
+ const closeSlideshowEditModal=()=>{
+   if(!slideshowEditModal)return;
+   slideshowEditModal.hidden=true;
+   slideshowEditModal.style.setProperty('display','none','important');
+   document.body.classList.remove('modal-open');
+ };
+ const openSlideshowEditModal=()=>{
+   if(!slideshowEditModal)return;
+   slideshowEditModal.hidden=false;
+   Object.assign(slideshowEditModal.style,{
+     position:'fixed',top:'0',right:'0',bottom:'0',left:'0',
+     width:'100vw',height:'100vh',boxSizing:'border-box',
+     zIndex:'2147483500',display:'flex',alignItems:'center',
+     justifyContent:'center',padding:'20px',
+     background:'rgba(0,0,0,.78)',backdropFilter:'blur(7px)',
+     overflowY:'auto'
+   });
+   slideshowEditModal.style.setProperty('display','flex','important');
+   const card=slideshowEditModal.querySelector('.slideshow-photo-edit-modal');
+   if(card)Object.assign(card.style,{
+     display:'block',position:'relative',width:'min(680px,calc(100vw - 40px))',
+     maxWidth:'680px',maxHeight:'88vh',overflowY:'auto',
+     boxSizing:'border-box',padding:'22px',
+     border:'1px solid rgba(184,50,63,.55)',borderRadius:'15px',
+     background:'#130e12',color:'#f5e9ed',
+     boxShadow:'0 24px 70px rgba(0,0,0,.65)'
+   });
+   document.body.classList.add('modal-open');
+   window.requestAnimationFrame(()=>document.getElementById('slideshow-edit-title')?.focus());
+ };
+ closeSlideshowEditModal();
  window.syncSlideshowPhotoSelection?.();
  const renumberSlideshowPhotos=()=>{[...(slideshowPhotoList?.querySelectorAll('.slideshow-saved-photo')||[])].forEach((card,index)=>{card.dataset.photoIndex=String(index);const label=card.querySelector('.photo-index');if(label)label.textContent='Photo '+(index+1);});};
- slideshowPhotoList?.addEventListener('click',event=>{const edit=event.target.closest('.slideshow-edit-photo');if(!edit)return;const card=edit.closest('.slideshow-saved-photo'),index=Number(card.dataset.photoIndex),photo=window.slideshowPhotoRecords[index];if(!photo){alert('Reload the page and try again.');return;}document.getElementById('slideshow-edit-index').value=String(index);document.getElementById('slideshow-edit-title').value=photo.title||'';document.getElementById('slideshow-edit-heading').value=photo.heading||'';document.getElementById('slideshow-edit-description').value=photo.description||'';slideshowEditModal.hidden=false;document.body.classList.add('modal-open');});
- document.getElementById('slideshow-edit-cancel')?.addEventListener('click',()=>{slideshowEditModal.hidden=true;document.body.classList.remove('modal-open');});
+ slideshowPhotoList?.addEventListener('click',event=>{const edit=event.target.closest('.slideshow-edit-photo');if(!edit)return;const card=edit.closest('.slideshow-saved-photo'),index=Number(card.dataset.photoIndex),photo=window.slideshowPhotoRecords[index];if(!photo){alert('Reload the page and try again.');return;}document.getElementById('slideshow-edit-index').value=String(index);document.getElementById('slideshow-edit-title').value=photo.title||'';document.getElementById('slideshow-edit-heading').value=photo.heading||'';document.getElementById('slideshow-edit-description').value=photo.description||'';openSlideshowEditModal();});
+ document.getElementById('slideshow-edit-cancel')?.addEventListener('click',closeSlideshowEditModal);
  const showSlideshowPhotoEditSuccess=result=>{
    document.getElementById('slideshow-photo-edit-success-modal')?.remove();
    const overlay=document.createElement('div');overlay.id='slideshow-photo-edit-success-modal';overlay.className='account-status-modal';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.style.zIndex='2147483600';
@@ -2903,7 +2936,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      }
      const preview=document.getElementById('slide-preview-media');
      if(preview){const item=preview.querySelectorAll('.slideshow-photo-preview-card')[index];if(item){item.querySelector('img').src=photo.photo;item.querySelector('img').alt=photo.title;item.querySelector('strong').textContent=photo.title;item.querySelector('span').textContent=photo.heading||'';}}
-     slideshowEditModal.hidden=true;document.body.classList.remove('modal-open');slideshowEditForm.reset();showSlideshowPhotoEditSuccess(result);
+     closeSlideshowEditModal();slideshowEditForm.reset();showSlideshowPhotoEditSuccess(result);
    }catch(error){alert(error.message||'The photo could not be updated.');}
    finally{submit.disabled=false;submit.textContent='Save Changes';}
  });
