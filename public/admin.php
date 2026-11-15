@@ -2577,32 +2577,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="slideshow-photo-delete-success-title">Selected photo/s deleted successfully.</h2><button type="button" class="btn" id="slideshow-photo-delete-success-close">OK</button></div></div>
  <section class="section-subpanel" data-section-panel="mega_menu" hidden>
   <?php
-$megaPreviewDefaults = [
- ['title'=>'Creative Arts and Photography','description'=>'Photography, visual art, design and local creative voices.','url'=>'?category=creative-arts-photography#latest','symbol'=>'✳'],
- ['title'=>'News Connect','description'=>'Community updates, civic stories and current affairs.','url'=>'?category=news-connect#latest','symbol'=>'◎'],
- ['title'=>'Marketplace','description'=>'Discover products, local makers, services and listings.','url'=>'?category=marketplace#latest','symbol'=>'◇'],
- ['title'=>'Entertainment & Politics','description'=>'Entertainment, public figures, political discussion and analysis.','url'=>'?category=entertainment-politics#latest','symbol'=>'♫'],
- ['title'=>'History & Culture','description'=>'Zamboanga heritage, Chavacano identity and living traditions.','url'=>'?category=history-culture#latest','symbol'=>'⌂'],
-];
 $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
-if (!$megaPreviewPanels) $megaPreviewPanels = $megaPreviewDefaults;
 ?>
 <div class="section-preview mega-menu-preview">
  <div class="category-row module-grid" id="mega-menu-live-preview">
- <?php if($megaPreviewPanels): foreach($megaPreviewPanels as $pn): ?>
+ <?php foreach($megaPreviewPanels as $pn): ?>
   <a class="category module-card" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false">
    <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php endif; ?>
    <strong><?=e($pn['title']??'')?></strong>
    <span class="module-description"><?=e($pn['description']??'')?></span>
    <span class="module-link">Explore module ↗</span>
   </a>
- <?php endforeach; else: foreach($megaPreviewDefaults as $pn): ?>
-  <a class="category module-card" href="<?=e($pn['url'])?>" tabindex="-1" aria-disabled="true" onclick="return false">
-   <strong><?=e($pn['title'])?></strong>
-   <span class="module-description"><?=e($pn['description'])?></span>
-   <span class="module-link">Explore module ↗</span>
-  </a>
- <?php endforeach; endif; ?>
+ <?php endforeach; ?>
  </div>
 </div>
   <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
@@ -3282,7 +3268,6 @@ if (!$megaPreviewPanels) $megaPreviewPanels = $megaPreviewDefaults;
  root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
  const megaPreview=document.getElementById('mega-menu-live-preview');
  const megaPanelList=document.getElementById('mega-panel-list');
- const megaDefaultPanels=[{"title":"Creative Arts and Photography","description":"Photography, visual art, design and local creative voices.","url":"?category=creative-arts-photography#latest","symbol":"✳"},{"title":"News Connect","description":"Community updates, civic stories and current affairs.","url":"?category=news-connect#latest","symbol":"◎"},{"title":"Marketplace","description":"Discover products, local makers, services and listings.","url":"?category=marketplace#latest","symbol":"◇"},{"title":"Entertainment & Politics","description":"Entertainment, public figures, political discussion and analysis.","url":"?category=entertainment-politics#latest","symbol":"♫"},{"title":"History & Culture","description":"Zamboanga heritage, Chavacano identity and living traditions.","url":"?category=history-culture#latest","symbol":"⌂"}];
  const renderMegaPreview=()=>{
    if(!megaPreview||!megaPanelList)return;
    const cards=[...megaPanelList.querySelectorAll('.section-repeat-card')].map(card=>{
@@ -3292,9 +3277,8 @@ if (!$megaPreviewPanels) $megaPreviewPanels = $megaPreviewDefaults;
      if(file){if(card.dataset.previewObjectUrl)URL.revokeObjectURL(card.dataset.previewObjectUrl);card.dataset.previewObjectUrl=image;}
      return {title:value('panel_title'),description:value('panel_description'),url:value('panel_url'),image};
    }).filter(card=>card.title||card.description||card.url||card.image);
-   const items=cards.length?cards:megaDefaultPanels;
    megaPreview.replaceChildren();
-   items.forEach(item=>{
+   cards.forEach(item=>{
      const card=document.createElement('a');card.className='category module-card';card.href='#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
      else if(item.symbol){const symbol=document.createElement('span');symbol.className='symbol';symbol.textContent=item.symbol;card.append(symbol);}
