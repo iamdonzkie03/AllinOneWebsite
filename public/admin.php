@@ -2599,6 +2599,12 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
+<style id="mega-panel-tooltip-styles">.mega-menu-preview .mega-preview-panel{position:relative;cursor:default}
+.mega-menu-preview .mega-preview-panel[data-description]:after{content:attr(data-description);position:absolute;left:50%;bottom:calc(100% + 12px);z-index:30;width:max-content;max-width:min(300px,80vw);padding:11px 14px;border:1px solid rgba(255,255,255,.22);border-radius:12px;background:rgba(18,13,24,.96);color:#fff;font-size:12px;line-height:1.5;text-align:left;white-space:normal;box-shadow:0 12px 32px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease;pointer-events:none}
+.mega-menu-preview .mega-preview-panel[data-description]:before{content:"";position:absolute;left:50%;bottom:calc(100% + 4px);z-index:31;border:7px solid transparent;border-top-color:rgba(18,13,24,.96);opacity:0;visibility:hidden;transform:translateX(-50%);transition:opacity .18s ease,visibility .18s ease}
+.mega-menu-preview .mega-preview-panel[data-description]:hover:after,.mega-menu-preview .mega-preview-panel[data-description]:focus-visible:after,.mega-menu-preview .mega-preview-panel[data-description]:hover:before,.mega-menu-preview .mega-preview-panel[data-description]:focus-visible:before{opacity:1;visibility:visible;transform:translate(-50%,0)}
+.mega-menu-preview .mega-preview-panel[data-description]:hover:before,.mega-menu-preview .mega-preview-panel[data-description]:focus-visible:before{transform:translateX(-50%)}
+@media(hover:none){.mega-menu-preview .mega-preview-panel[data-description]:after{display:none}}</style>
 <style id="mega-panel-modal-styles">
 /* Page Management needs its own copy of the Gallery modal rules:
    Media Management's stylesheet is only rendered on that separate page. */
@@ -3392,11 +3398,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      megaPreview.append(empty);
    }
    cards.forEach(item=>{
-     const card=document.createElement('a');card.className='category module-card';card.href='#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
+     const card=document.createElement('div');card.className='category module-card mega-preview-panel';card.tabIndex=0;
+     if(item.description){card.dataset.description=item.description;card.setAttribute('aria-label',item.title+': '+item.description);}
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
-     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('i');glyph.setAttribute('data-lucide',({ 'compact-disc':'disc-3',taxi:'car-front',car:'car-front' }[item.symbol]||item.symbol||'star'));symbol.append(glyph);card.append(symbol);}
+     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(item.symbol||'laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
      const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';card.append(title);
-     const description=document.createElement('span');description.className='module-description';description.textContent=item.description;card.append(description);
      const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';card.append(link);
      megaPreview.append(card);
    });
