@@ -2630,6 +2630,19 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  box-shadow:0 24px 70px rgba(0,0,0,.55);
 }
 .panel-icon-picker{position:relative;display:block;width:100%}
+.panel-icon-trigger{background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.035))!important;border:1px solid rgba(255,255,255,.24)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 8px 24px rgba(0,0,0,.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.panel-icon-popup{width:min(520px,calc(100vw - 48px));max-height:min(440px,65vh);overflow:hidden;display:flex;flex-direction:column;gap:9px;padding:13px;background:linear-gradient(145deg,rgba(44,28,39,.92),rgba(15,13,20,.94));border:1px solid rgba(255,255,255,.22);box-shadow:0 22px 60px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.panel-icon-search{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.09);color:#fff;font:13px Ubuntu,sans-serif;outline:none}
+.panel-icon-search::placeholder{color:rgba(255,255,255,.56)}
+.panel-icon-search:focus{border-color:rgba(230,115,146,.8);box-shadow:0 0 0 3px rgba(184,50,63,.18)}
+.panel-icon-count{font:11px Ubuntu,sans-serif;color:rgba(255,255,255,.68)}
+.panel-icon-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 4px 2px}
+.panel-icon-option{min-width:0;min-height:68px;border:1px solid rgba(255,255,255,.17);border-radius:11px;background:linear-gradient(145deg,rgba(255,255,255,.17),rgba(255,255,255,.045));box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 5px 14px rgba(0,0,0,.18);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.panel-icon-option:hover,.panel-icon-option[aria-pressed="true"]{transform:translateY(-2px);border-color:rgba(255,143,170,.85);background:linear-gradient(145deg,rgba(184,50,63,.36),rgba(255,255,255,.1));box-shadow:0 8px 22px rgba(184,50,63,.2),inset 0 1px 0 rgba(255,255,255,.2)}
+.panel-icon-option-glyph{font-size:25px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.35))}
+.panel-icon-option-name{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;color:rgba(255,255,255,.78)}
+.panel-icon-option[hidden]{display:none!important}
+@media(max-width:480px){.panel-icon-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .panel-icon-trigger{display:flex;align-items:center;gap:11px;width:100%;min-height:42px;padding:8px 11px;border:1px solid rgba(220,174,187,.32);border-radius:9px;background:#21171d;color:#f4e9ed;font:13px Ubuntu,sans-serif;text-align:left;cursor:pointer;transition:border-color .18s,background .18s}
 .panel-icon-trigger:hover,.panel-icon-trigger[aria-expanded="true"]{border-color:#b8323f;background:#2b1921}
 .panel-icon-current{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;background:rgba(184,50,63,.18);font-size:20px}
@@ -3960,11 +3973,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelIcon=document.getElementById('mega-panel-icon');
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
- const panelIconChoices=[
-  ['✳','Spark'],['◎','Circle'],['◇','Diamond'],['♫','Music'],['⌂','Home'],
-  ['📷','Camera'],['📰','News'],['🛍️','Marketplace'],['🎭','Arts'],
-  ['🏛️','Heritage'],['🌐','Globe'],['★','Star']
- ];
+ const panelIconGroups=[["People",["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😎"]],["People & Faces",["😍","🥰","😘","😗","😙","😚","🙂","🙃","😉","🤗"]],["Expressions",["🤔","🤨","😐","😑","😶","🙄","😏","😣","😥","😮"]],["Hands",["👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞"]],["Gestures",["🤟","🤘","🤙","👈","👉","👆","👇","☝️","👍","👎"]],["People & Work",["👏","🙌","👐","🤲","🙏","💪","🦾","🧑‍💻","👨‍🎓","👩‍🏫"]],["Animals",["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯"]],["Wildlife",["🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧"]],["Birds & Sea",["🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄"]],["Nature",["🐝","🦋","🐌","🐞","🐜","🪲","🪳","🕷️","🦂","🐢"]],["Plants",["🌵","🎄","🌲","🌳","🌴","🌱","🌿","☘️","🍀","🎍"]],["Flowers",["🌷","🌹","🥀","🌺","🌸","🌼","🌻","🌞","🌝","🌛"]],["Food",["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈"]],["Meals",["🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦"]],["Drinks",["🥕","🌽","🌶️","🫑","🥒","🥬","🥔","🧄","🧅","🍄"]],["Travel",["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐"]],["Transport",["🛻","🚚","🚛","🚜","🛵","🏍️","🛺","🚲","🛴","🚏"]],["Places",["✈️","🛫","🛬","🚀","🛸","🚁","⛵","🚤","🛳️","🚢"]],["Buildings",["🏠","🏡","🏢","🏬","🏣","🏤","🏥","🏦","🏨","🏩"]],["Landmarks",["🏛️","🏰","🏯","🗼","🗽","⛪","🕌","🛕","⛩️","🕍"]],["Objects",["⌚","📱","💻","⌨️","🖥️","🖨️","🖱️","🕹️","💽","💾"]],["Office",["📷","📸","📹","🎥","📞","☎️","📟","📠","📺","📻"]],["Media",["🎙️","🎚️","🎛️","🧭","⏱️","⏰","⌛","⏳","📡","🔋"]],["Documents",["📔","📕","📖","📗","📘","📙","📚","📓","📒","📃"]],["Writing",["📄","📰","🗞️","📑","🔖","🏷️","💰","💴","💵","💶"]],["Shopping",["💳","🧾","🛒","🎁","🎀","🛍️","📦","📫","📮","✉️"]],["Symbols",["❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","❣️"]],["Shapes",["⭐","🌟","✨","⚡","🔥","💧","🌊","☀️","🌙","☁️"]],["Tools",["🔨","🪓","⛏️","⚒️","🛠️","🗡️","⚔️","🔧","🪛","🔩"]],["Security & Tech",["🔒","🔓","🔏","🔐","🔑","🗝️","🔍","🔎","💡","🔦"]]];
+ const panelIconChoices=panelIconGroups.flatMap(([category,icons])=>icons.map((symbol,index)=>[symbol,category+' '+String(index+1).padStart(2,'0'),category]));
  const createPanelIconPicker=(value='✳',name='panel_symbol[]')=>{
   const wrap=document.createElement('div');wrap.className='panel-icon-picker';wrap.dataset.iconPicker='';
   const hidden=document.createElement('input');hidden.type='hidden';hidden.name=name;hidden.value=value;
@@ -3979,11 +3989,19 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const populatePanelIconPicker=wrap=>{
   const popup=wrap.querySelector('[data-icon-picker-popup]');if(!popup||popup.dataset.ready)return;
   popup.dataset.ready='1';
-  panelIconChoices.forEach(([symbol,label])=>{
-   const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.title=label;option.setAttribute('aria-label',label);
+  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search 300 icons…';search.setAttribute('aria-label','Search icons');
+  const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length+' icons';
+  const grid=document.createElement('div');grid.className='panel-icon-grid';popup.append(search,count,grid);
+  panelIconChoices.forEach(([symbol,label,category],index)=>{
+   const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.dataset.iconSearch=(label+' '+category+' '+symbol).toLowerCase();option.title=label;option.setAttribute('aria-label',label);
    const glyph=document.createElement('span');glyph.className='panel-icon-option-glyph';glyph.textContent=symbol;
    const caption=document.createElement('span');caption.className='panel-icon-option-name';caption.textContent=label;
-   option.append(glyph,caption);popup.append(option);
+   option.append(glyph,caption);grid.append(option);
+  });
+  search.addEventListener('input',()=>{
+   const term=search.value.trim().toLowerCase();let visible=0;
+   grid.querySelectorAll('[data-icon-value]').forEach(option=>{const match=!term||option.dataset.iconSearch.includes(term);option.hidden=!match;if(match)visible++;});
+   count.textContent=visible+' of '+panelIconChoices.length+' icons';
   });
  };
  document.querySelectorAll('[data-icon-picker]').forEach(populatePanelIconPicker);
