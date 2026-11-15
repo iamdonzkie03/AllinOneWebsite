@@ -1240,7 +1240,23 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></form></section>
   <style>
   .users-table-controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.users-table-controls label{display:flex;align-items:center;gap:9px}.users-table-controls select,.users-table-controls input{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}.users-table-controls input{width:min(280px,65vw)}.users-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 22px}.users-page-buttons{display:flex;align-items:center;gap:8px}.users-page-buttons .btn{padding:8px 12px;font-size:12px}.users-page-buttons .btn:disabled{opacity:.4;cursor:not-allowed}
-  </style>
+ 
+.mega-menu-preview{display:block!important;text-align:left!important;padding:24px!important;overflow:hidden}
+.mega-menu-preview .section-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin:0 0 25px}
+.mega-menu-preview .eyebrow{font-size:10px;font-weight:850;letter-spacing:2px;text-transform:uppercase;color:#d8b477}
+.mega-menu-preview h2{font:500 clamp(28px,3vw,38px)/1.12 Georgia,"Times New Roman",serif;letter-spacing:-.8px;margin:7px 0;color:#f4e9ec}
+.mega-menu-preview .muted{color:#aaa0a3;font-size:13px;line-height:1.7}
+.mega-menu-preview .category-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.mega-menu-preview .category{position:relative;isolation:isolate;padding:21px 16px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012));border:1px solid rgba(255,255,255,.12);border-radius:16px;min-height:230px;overflow:hidden;color:#f4e9ec;text-decoration:none;display:flex;flex-direction:column;align-items:flex-start}
+.mega-menu-preview .category:after{content:"";position:absolute;z-index:-1;width:90px;height:90px;right:-42px;bottom:-44px;border:1px solid rgba(216,180,119,.2);border-radius:50%;box-shadow:0 0 0 14px rgba(216,180,119,.025)}
+.mega-menu-preview .category .symbol{font-size:25px;color:#d8b477}
+.mega-menu-preview .category strong{display:block;margin-top:16px;font-size:14px;line-height:1.4;min-height:40px;color:#f4e9ec}
+.mega-menu-preview .module-description{display:block;margin-top:8px;color:#aaa0a3;font-size:11px;line-height:1.65}
+.mega-menu-preview .module-link{display:block;margin-top:auto;padding-top:17px;font-size:10px;font-weight:800;letter-spacing:.7px;color:#e05260}
+.mega-menu-preview .mega-panel-cover{width:100%;height:110px;object-fit:cover;border-radius:9px;margin-bottom:10px}
+@media(max-width:1100px){.mega-menu-preview .category-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.mega-menu-preview .category-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+ </style>
   <script>
   (()=>{const all=document.getElementById('select-all-users');const table=document.querySelector('.users-table');if(!table)return;const rows=[...table.tBodies[0].rows].filter(row=>row.querySelector('.user-select'));const filter=document.getElementById('users-filter');const size=document.getElementById('users-page-size');const info=document.getElementById('users-page-info');const number=document.getElementById('users-page-number');const prev=document.getElementById('users-prev');const next=document.getElementById('users-next');let page=1;function matches(){const q=filter.value.trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));}function render(){const found=matches();const perPage=Number(size.value);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=found.slice(start,end);const visibleSet=new Set(visible);rows.forEach(row=>row.hidden=!visibleSet.has(row));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(all){const checks=visible.map(row=>row.querySelector('.user-select'));all.checked=checks.length>0&&checks.every(box=>box.checked);all.indeterminate=checks.some(box=>box.checked)&&!all.checked;}}filter.addEventListener('input',()=>{page=1;render();});size.addEventListener('change',()=>{page=1;render();});prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{page++;render();});if(all)all.addEventListener('change',()=>{matches().slice((page-1)*Number(size.value),page*Number(size.value)).forEach(row=>row.querySelector('.user-select').checked=all.checked);render();});rows.forEach(row=>row.querySelector('.user-select').addEventListener('change',render));render();})();
   </script>
@@ -2560,7 +2576,34 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-confirm-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-title"><div class="account-status-modal-icon slideshow-delete-warning" aria-hidden="true">!</div><h2 id="slideshow-photo-delete-title">Delete Selected Photo/s?</h2><p class="slideshow-delete-message">Are you sure you want to delete the selected photo/s?</p><div class="slideshow-delete-actions"><button class="btn light" type="button" id="slideshow-photo-delete-cancel">Cancel</button><button class="btn bulk-delete" type="button" id="slideshow-photo-delete-confirm">Delete</button></div></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="slideshow-photo-delete-success-title">Selected photo/s deleted successfully.</h2><button type="button" class="btn" id="slideshow-photo-delete-success-close">OK</button></div></div>
  <section class="section-subpanel" data-section-panel="mega_menu" hidden>
-  <div class="section-preview mega-menu-preview"><div class="preview-kicker" id="mega-preview-title"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['main_title']??''), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></div><h3 id="mega-preview-heading"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['heading']??''), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></h3><p class="preview-desc" id="mega-preview-subtitle"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['subtitle']??''), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></p><div class="section-preview-media"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt=""><?php endif; endforeach; ?></div></div>
+  <?php
+$megaPreviewDefaults = [
+ ['title'=>'Creative Arts and Photography','description'=>'Photography, visual art, design and local creative voices.','url'=>'?category=creative-arts-photography#latest','symbol'=>'✳'],
+ ['title'=>'News Connect','description'=>'Community updates, civic stories and current affairs.','url'=>'?category=news-connect#latest','symbol'=>'◎'],
+ ['title'=>'Marketplace','description'=>'Discover products, local makers, services and listings.','url'=>'?category=marketplace#latest','symbol'=>'◇'],
+ ['title'=>'Entertainment & Politics','description'=>'Entertainment, public figures, political discussion and analysis.','url'=>'?category=entertainment-politics#latest','symbol'=>'♫'],
+ ['title'=>'History & Culture','description'=>'Zamboanga heritage, Chavacano identity and living traditions.','url'=>'?category=history-culture#latest','symbol'=>'⌂'],
+];
+$megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
+if (!$megaPreviewPanels) $megaPreviewPanels = $megaPreviewDefaults;
+?>
+<div class="section-preview mega-menu-preview">
+ <div class="section-head"><div>
+  <div class="eyebrow" id="mega-preview-title"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['main_title']??'Explore the platform'), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></div>
+  <h2 id="mega-preview-heading"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['heading']??'Five ways to connect'), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></h2>
+  <p class="muted" id="mega-preview-subtitle"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['subtitle']??'A single community space for creativity, information, commerce and cultural memory.'), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></p>
+ </div></div>
+ <div class="category-row module-grid mega-menu-preview-grid" id="mega-menu-live-preview">
+ <?php foreach($megaPreviewPanels as $k=>$pn): ?>
+  <a class="category module-card" href="#" tabindex="-1" aria-disabled="true">
+   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php elseif(isset($pn['symbol'])): ?><span class="symbol"><?=e($pn['symbol'])?></span><?php endif; ?>
+   <strong><?=e($pn['title']??'')?></strong>
+   <span class="module-description"><?=e($pn['description']??'')?></span>
+   <span class="module-link">Explore module ↗</span>
+  </a>
+ <?php endforeach; ?>
+ </div>
+</div>
   <div class="section-form-grid slideshow-rich-grid mega-menu-rich-grid">
   <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Main Title</span>
     <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Main Title formatting">
@@ -2626,7 +2669,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 <input type="hidden" name="mega_subtitle" data-banner-html="mega_subtitle" value="<?=e((string)($sectionsSettings['mega_menu']['subtitle']??''))?>">
 </div>
   </div>
-  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
+  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Section Settings</button></div>
  </section>
  </form>
@@ -3301,8 +3344,37 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  });
  document.getElementById('slideshow-upload-modal')?.addEventListener('click',event=>{if(event.target===slideshowModal)return;});
  root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
+ const megaPreview=document.getElementById('mega-menu-live-preview');
+ const megaPanelList=document.getElementById('mega-panel-list');
+ const megaDefaultPanels=[{"title":"Creative Arts and Photography","description":"Photography, visual art, design and local creative voices.","url":"?category=creative-arts-photography#latest","symbol":"✳"},{"title":"News Connect","description":"Community updates, civic stories and current affairs.","url":"?category=news-connect#latest","symbol":"◎"},{"title":"Marketplace","description":"Discover products, local makers, services and listings.","url":"?category=marketplace#latest","symbol":"◇"},{"title":"Entertainment & Politics","description":"Entertainment, public figures, political discussion and analysis.","url":"?category=entertainment-politics#latest","symbol":"♫"},{"title":"History & Culture","description":"Zamboanga heritage, Chavacano identity and living traditions.","url":"?category=history-culture#latest","symbol":"⌂"}];
+ const renderMegaPreview=()=>{
+   if(!megaPreview||!megaPanelList)return;
+   const cards=[...megaPanelList.querySelectorAll('.section-repeat-card')].map(card=>{
+     const value=name=>card.querySelector('[name="'+name+'[]"]')?.value?.trim()||'';
+     const file=card.querySelector('input[type="file"]')?.files?.[0];
+     const image=file?URL.createObjectURL(file):(card.dataset.previewImage||'');
+     if(file){if(card.dataset.previewObjectUrl)URL.revokeObjectURL(card.dataset.previewObjectUrl);card.dataset.previewObjectUrl=image;}
+     return {title:value('panel_title'),description:value('panel_description'),url:value('panel_url'),image};
+   }).filter(card=>card.title||card.description||card.url||card.image);
+   const items=cards.length?cards:megaDefaultPanels;
+   megaPreview.replaceChildren();
+   items.forEach(item=>{
+     const card=document.createElement('a');card.className='category module-card';card.href='#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
+     if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
+     else if(item.symbol){const symbol=document.createElement('span');symbol.className='symbol';symbol.textContent=item.symbol;card.append(symbol);}
+     const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';card.append(title);
+     const description=document.createElement('span');description.className='module-description';description.textContent=item.description;card.append(description);
+     const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';card.append(link);
+     megaPreview.append(card);
+   });
+ };
+ megaPreview?.addEventListener('click',event=>event.preventDefault());
+ megaPanelList?.addEventListener('input',renderMegaPreview);
+ megaPanelList?.addEventListener('change',renderMegaPreview);
+ megaPanelList?.addEventListener('click',event=>{if(event.target.closest('.section-remove'))requestAnimationFrame(renderMegaPreview)});
+ renderMegaPreview();
  const add=(target,html)=>{document.getElementById(target).insertAdjacentHTML('beforeend',html)};
- document.getElementById('add-mega-panel')?.addEventListener('click',()=>add('mega-panel-list','<div class="section-repeat-card"><div class="section-repeat-head"><strong>New Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]"></label><label class="section-field">Panel Description<textarea name="panel_description[]"></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"></label></div></div>'));
+ document.getElementById('add-mega-panel')?.addEventListener('click',()=>{add('mega-panel-list','<div class="section-repeat-card"><div class="section-repeat-head"><strong>New Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]"></label><label class="section-field">Panel Description<textarea name="panel_description[]"></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"></label></div></div>');renderMegaPreview();});
  root.addEventListener('click',e=>{if(e.target.classList.contains('section-remove'))e.target.closest('.section-repeat-card')?.remove()});
  root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
  })();
