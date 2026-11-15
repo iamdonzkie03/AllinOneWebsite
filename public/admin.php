@@ -3329,7 +3329,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelUrl=document.getElementById('mega-panel-url');
  const panelIcon=document.getElementById('mega-panel-icon');
  const addPanelButton=document.getElementById('add-mega-panel');
- const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+ const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
  let panelModalPreviousFocus=null;
  let panelModalPreviousOverflow='';
