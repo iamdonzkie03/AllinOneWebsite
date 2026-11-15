@@ -771,7 +771,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sectionsSettings=$saved;
             $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':($sectionEditorTab==='slideshow'?'slideshow_saved=1':'sections_saved=1');
             $sectionTabParam='&section_tab='.rawurlencode(in_array($sectionEditorTab,['banner','slideshow','mega_menu'],true)?$sectionEditorTab:'banner');
-            header('Location: admin.php?section=page-management&tab=sections'.$sectionTabParam.'&'.$saveFlag.'#pm-panel-sections',true,303); exit;
+            $panelCreatedTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_created_title']??'',100):'';
+            $panelCreatedParam=$panelCreatedTitle!==''?'&panel_created_title='.rawurlencode($panelCreatedTitle):'';
+            header('Location: admin.php?section=page-management&tab=sections'.$sectionTabParam.'&'.$saveFlag.$panelCreatedParam.'#pm-panel-sections',true,303); exit;
         } catch(Throwable $e) { $message=$e->getMessage(); }
         $section='page-management';
     }
@@ -2442,7 +2444,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    return false;
  };
  </script>
- <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings"><input type="hidden" name="section_editor_tab" id="section-editor-tab" value="banner">
+ <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings"><input type="hidden" name="section_editor_tab" id="section-editor-tab" value="banner"><input type="hidden" name="panel_created_title" id="panel-created-title" value="">
  <section class="section-subpanel" data-section-panel="banner">
   <div class="section-preview banner-preview-stage" id="banner-preview">
    <div class="banner-preview-grid">
@@ -2595,7 +2597,24 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endforeach; ?>
  </div>
 </div>
-  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong><?=e($pn['title']??'Menu Panel')?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><div class="section-field"><span class="section-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'laptop')?>"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><iconify-icon icon="tabler:<?=e(preg_replace('/^tabler:/','',(string)($pn['symbol']??'laptop'))?:'laptop')?>"></iconify-icon></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>" readonly></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
+  <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards, like Slideshow Photos.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
+  <div class="slideshow-photo-list mega-panel-record-list" id="mega-panel-list">
+   <?php foreach((array)($sectionsSettings['mega_menu']['panels']??[]) as $pn): ?>
+    <article class="gallery-photo-card slideshow-saved-photo mega-panel-record" data-preview-image="<?=e($pn['photo']??'')?>">
+     <div class="gallery-photo-image mega-panel-record-art">
+      <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="<?=e($pn['title']??'Panel menu')?>" loading="lazy"><?php else: ?><span class="panel-record-icon"><iconify-icon icon="tabler:<?=e(preg_replace('/^tabler:/','',(string)($pn['symbol']??'laptop'))?:'laptop')?>"></iconify-icon></span><?php endif; ?>
+      <div class="gallery-photo-description"><?=e(trim((string)($pn['description']??''))!==''?$pn['description']:'No description added.')?></div>
+     </div>
+     <div class="gallery-photo-title" title="<?=e($pn['title']??'Untitled panel')?>"><?=e($pn['title']??'Untitled panel')?></div>
+     <button type="button" class="btn light section-remove mega-panel-remove">Remove</button>
+     <input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'tabler:laptop')?>">
+     <input type="hidden" name="panel_title[]" value="<?=e($pn['title']??'')?>">
+     <input type="hidden" name="panel_description[]" value="<?=e($pn['description']??'')?>">
+     <input type="hidden" name="panel_url[]" value="<?=e($pn['url']??'')?>">
+    </article>
+   <?php endforeach; ?>
+   <?php if(empty($sectionsSettings['mega_menu']['panels'])): ?><p class="muted slideshow-empty mega-panel-empty">No panel menus have been created yet.</p><?php endif; ?>
+  </div>
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
@@ -2708,6 +2727,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <div class="gallery-modal-actions mega-panel-modal-actions"><button type="button" class="btn light" id="mega-panel-cancel">Cancel</button><button type="button" class="btn" id="mega-panel-create">Save Menu</button></div>
   </section>
  </div>
+ <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-created-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-created-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-created-success-title">The panel menu has been successfully created.</h2><button type="button" class="btn" id="mega-panel-created-success-ok">OK</button></div></div>
   <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
   <section class="gallery-modal slideshow-upload-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-upload-modal-title">
    <div class="gallery-modal-head"><div><h2 id="slideshow-upload-modal-title">Upload Photos</h2><p class="muted">Select up to 20 photos. Add a Photo Title, Photo Heading and Description for each photo.</p></div></div>
@@ -3987,6 +4007,23 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 
 <script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
 <script>
+// Show the confirmation after the panel menu has been saved by the server.
+(() => {
+ const params=new URLSearchParams(window.location.search);
+ const createdTitle=params.get('panel_created_title');
+ const modal=document.getElementById('mega-panel-created-success-modal');
+ const title=document.getElementById('mega-panel-created-success-title');
+ const ok=document.getElementById('mega-panel-created-success-ok');
+ if(!createdTitle||!modal||!ok)return;
+ if(title)title.textContent='The panel menu ('+createdTitle+') has been successfully created.';
+ modal.hidden=false;document.body.classList.add('modal-open');
+ ok.addEventListener('click',()=>{
+  modal.hidden=true;document.body.classList.remove('modal-open');
+  document.querySelector('[data-section-panel="mega_menu"] #mega-panel-list')?.scrollIntoView({behavior:'smooth',block:'start'});
+  const cleanUrl=new URL(window.location.href);cleanUrl.searchParams.delete('panel_created_title');
+  window.history.replaceState({},'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
+ });
+})();
 // Independent Add Panel modal controller: must not depend on section-builder initialization.
 (() => {
  const panelModal=document.getElementById('mega-panel-modal');
@@ -4121,27 +4158,41 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    const title=panelTitle.value.trim();
    if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
    panelTitle.setCustomValidity('');
-   const card=document.createElement('div');card.className='section-repeat-card';
-   const head=document.createElement('div');head.className='section-repeat-head';
-   const heading=document.createElement('strong');heading.textContent=title;
-   const remove=document.createElement('button');remove.type='button';remove.className='section-remove';remove.textContent='Remove';
-   head.append(heading,remove);
-   const grid=document.createElement('div');grid.className='section-form-grid';
-   const makeField=(labelText,control)=>{const label=document.createElement('label');label.className='section-field';label.append(document.createTextNode(labelText),control);grid.append(label);};
-   const icon=createPanelIconPicker(panelIcon.value,'panel_symbol[]');
-   const titleInput=document.createElement('input');titleInput.name='panel_title[]';titleInput.value=title;
-   const description=document.createElement('textarea');description.name='panel_description[]';description.value=panelDescription.value.trim();
-   const url=document.createElement('input');url.name='panel_url[]';url.value=panelUrl.value;url.readOnly=true;
-   const photo=document.createElement('input');photo.type='file';photo.name='panel_photo[]';photo.accept='image/*';
-   makeField('Select Icon',icon);makeField('Panel Title',titleInput);makeField('Panel Description',description);makeField('Panel Page URL',url);makeField('Upload Panel Cover Photo',photo);
    if(!megaPanelList)throw new Error('Panel list is unavailable.');
-   card.append(head,grid);megaPanelList.append(card);createPanelLucideIcons();
-   // Notify the existing live-preview listener without coupling modal setup to its scope.
-   titleInput.dispatchEvent(new Event('input',{bubbles:true}));
+   megaPanelList.querySelector('.mega-panel-empty')?.remove();
+   const card=document.createElement('article');card.className='gallery-photo-card slideshow-saved-photo mega-panel-record';
+   const art=document.createElement('div');art.className='gallery-photo-image mega-panel-record-art';
+   const glyphWrap=document.createElement('span');glyphWrap.className='panel-record-icon';
+   glyphWrap.style.setProperty('--icon-hue',panelIconHue(panelIcon.value));
+   const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(panelIcon.value||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');glyphWrap.append(glyph);art.append(glyphWrap);
+   const descriptionText=panelDescription.value.trim();
+   const descriptionOverlay=document.createElement('div');descriptionOverlay.className='gallery-photo-description';descriptionOverlay.textContent=descriptionText||'No description added.';art.append(descriptionOverlay);
+   const titleNode=document.createElement('div');titleNode.className='gallery-photo-title';titleNode.title=title;titleNode.textContent=title;
+   const remove=document.createElement('button');remove.type='button';remove.className='btn light section-remove mega-panel-remove';remove.textContent='Remove';
+   const hidden=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;return input;};
+   card.append(art,titleNode,remove,hidden('panel_symbol[]',panelIcon.value||'tabler:laptop'),hidden('panel_title[]',title),hidden('panel_description[]',descriptionText),hidden('panel_url[]',panelUrl.value));
+   megaPanelList.append(card);
+   card.querySelector('[name="panel_title[]"]')?.dispatchEvent(new Event('input',{bubbles:true}));
    closePanelModal();
+   const form=document.getElementById('sections-settings-form');
+   const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
+   const created=document.getElementById('panel-created-title');if(created)created.value=title;
+   const saveButton=form?.querySelector('[data-section-save="mega_menu"]');
+   if(form&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';form.requestSubmit();}
  });
 })();
 </script>
+<style>
+.mega-panel-record-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:14px}
+.mega-panel-record{min-width:0}
+.mega-panel-record-art{display:flex;align-items:center;justify-content:center;min-height:145px;aspect-ratio:4/3;background:linear-gradient(145deg,rgba(112,48,82,.32),rgba(26,25,39,.82))}
+.mega-panel-record-art>img{width:100%;height:100%;object-fit:cover}
+.panel-record-icon{--icon-hue:205;display:flex;align-items:center;justify-content:center;width:78px;height:78px;border-radius:24px;color:hsl(var(--icon-hue) 100% 76%);background:linear-gradient(145deg,hsl(var(--icon-hue) 90% 60% / .32),hsl(calc(var(--icon-hue) + 65) 90% 52% / .16));border:1px solid hsl(var(--icon-hue) 95% 80% / .45);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 12px 28px hsl(var(--icon-hue) 90% 45% / .24)}
+.panel-record-icon iconify-icon{font-size:42px;filter:drop-shadow(0 0 6px currentColor)}
+.mega-panel-record .gallery-photo-title{margin:10px 0 8px}
+.mega-panel-record .mega-panel-remove{width:100%;margin-top:4px}
+.mega-panel-record-list .mega-panel-empty{grid-column:1/-1}
+</style>
 <style>.panel-icon-option-glyph svg{width:27px;height:27px;stroke:currentColor;stroke-width:1.8}.panel-icon-current svg,.panel-icon-current iconify-icon{width:23px;height:23px;stroke:currentColor}.panel-lucide-icon svg{width:1em;height:1em;stroke:currentColor;stroke-width:1.8}</style>
 
 <style>
