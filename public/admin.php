@@ -4195,7 +4195,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 .mega-panel-record{min-width:0}
 .mega-panel-record-art{display:flex;align-items:center;justify-content:center;min-height:145px;aspect-ratio:4/3;background:linear-gradient(145deg,rgba(112,48,82,.32),rgba(26,25,39,.82))}
 .mega-panel-record-art>img{width:100%;height:100%;object-fit:cover}
-.panel-record-icon{--icon-hue:205;display:flex;align-items:center;justify-content:center;width:78px;height:78px;border-radius:24px;color:hsl(var(--icon-hue) 100% 76%);background:linear-gradient(145deg,hsl(var(--icon-hue) 92% 66% / .32),hsl(calc(var(--icon-hue) + 70) 90% 56% / .16));border:1px solid hsl(var(--icon-hue) 95% 80% / .4);box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 12px 28px hsl(var(--icon-hue) 90% 45% / .24);filter:drop-shadow(0 2px 5px hsl(var(--icon-hue) 100% 60% / .32)}
+.panel-record-icon{--icon-hue:205;display:flex;align-items:center;justify-content:center;width:78px;height:78px;border-radius:24px;color:hsl(var(--icon-hue) 92% 70%);background:linear-gradient(145deg,hsl(var(--icon-hue) 92% 66% / .32),hsl(calc(var(--icon-hue) + 70) 90% 56% / .16));border:1px solid hsl(var(--icon-hue) 95% 80% / .4);box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 12px 28px hsl(var(--icon-hue) 90% 45% / .24);filter:drop-shadow(0 2px 5px hsl(var(--icon-hue) 100% 60% / .32))}
 .panel-record-icon iconify-icon{font-size:42px;filter:drop-shadow(0 0 5px currentColor);color:inherit}
 .mega-panel-record .gallery-photo-title{margin:10px 0 8px}
 .mega-panel-record .mega-panel-remove{width:100%;margin-top:4px}
