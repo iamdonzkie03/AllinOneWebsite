@@ -553,4 +553,12 @@ $(function(){
 })();
 </script>
 <script src="https://unpkg.com/lucide@latest"></script><script>if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});</script>
+
+<style>
+/* Colorful glass icon tiles on the public Mega Menu */
+.mega-menu-section .module-grid>.module-card .panel-lucide-icon{width:76px;height:76px;margin:0 auto 14px;color:#7be7ff;background:linear-gradient(145deg,rgba(33,201,255,.28),rgba(125,93,255,.25) 52%,rgba(255,89,174,.2));border:1px solid rgba(133,224,255,.48);border-radius:22px;box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(48,150,255,.22),0 0 22px rgba(116,91,255,.14);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.mega-menu-section .module-grid>.module-card:nth-child(3n+2) .panel-lucide-icon{color:#ff9bd2;background:linear-gradient(145deg,rgba(255,85,173,.3),rgba(151,92,255,.24),rgba(255,186,93,.16));border-color:rgba(255,164,218,.48);box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(224,75,171,.2)}
+.mega-menu-section .module-grid>.module-card:nth-child(3n) .panel-lucide-icon{color:#a8ffbd;background:linear-gradient(145deg,rgba(57,224,154,.28),rgba(42,185,255,.22),rgba(169,255,119,.15));border-color:rgba(160,255,194,.46);box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(49,215,157,.18)}
+.mega-menu-section .module-grid>.module-card .panel-lucide-icon svg{width:39px;height:39px;stroke:currentColor;stroke-width:2.15;filter:drop-shadow(0 0 7px currentColor)}
+</style>
 </body></html>

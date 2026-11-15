@@ -3994,7 +3994,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelIconPreferred=['laptop','compact-disc','key','lock','car','taxi','earth','disc','disc-2','disc-3','globe','globe-2','smartphone','monitor','printer','camera','video','music','headphones','wifi','bluetooth','mail','phone','tablet','watch','map','map-pin','house','building','store','shopping-cart','credit-card','wallet','briefcase','calendar','clock','alarm-clock','bell','book','book-open','file','folder','image','film','gamepad-2','joystick','lightbulb','plug','battery','zap','cloud','sun','moon','star','heart','shield','shield-check','user','users','settings','wrench','hammer','scissors','package','truck','bus','bike','plane','ship','train','rocket'];
  const panelIconNames=(()=>{const icons=window.lucide?.icons||{};const available=Object.keys(icons).sort();const names=[...panelIconPreferred,...available].filter((name,index,array)=>array.indexOf(name)===index).filter(name=>Boolean(icons[panelIconAliases[name]||name]));return names.slice(0,1500);})();
  const panelIconChoices=panelIconNames.map(name=>[name,name,name.split('-')[0]]);
- const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const icon=document.createElement('i');icon.setAttribute('data-lucide',panelIconAliases[name]||name||'star');element.append(icon);};
+ const panelIconHue=name=>{let hash=0;for(const char of String(name||''))hash=(hash*31+char.charCodeAt(0))>>>0;return hash%360;};
+ const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const hue=panelIconHue(name);element.style.setProperty('--icon-hue',hue);element.style.color=`hsl(${hue} 92% 70%)`;const icon=document.createElement('i');icon.setAttribute('data-lucide',panelIconAliases[name]||name||'star');element.append(icon);};
  const createPanelLucideIcons=()=>{if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});};
  const createPanelIconPicker=(value='✳',name='panel_symbol[]')=>{
   const wrap=document.createElement('div');wrap.className='panel-icon-picker';wrap.dataset.iconPicker='';
@@ -4014,7 +4015,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length+' named icons';
   const grid=document.createElement('div');grid.className='panel-icon-grid';popup.append(search,count,grid);
   panelIconChoices.forEach(([symbol,label,category],index)=>{
-   const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.dataset.iconSearch=(label+' '+category+' '+symbol).toLowerCase();option.title=label;option.setAttribute('aria-label',label);
+   const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.style.setProperty('--icon-hue',panelIconHue(symbol));option.dataset.iconSearch=(label+' '+category+' '+symbol).toLowerCase();option.title=label;option.setAttribute('aria-label',label);
    const glyph=document.createElement('span');glyph.className='panel-icon-option-glyph';renderPanelLucide(glyph,symbol);
    const caption=document.createElement('span');caption.className='panel-icon-option-name';caption.textContent=label;
    option.append(glyph,caption);grid.append(option);
@@ -4127,4 +4128,17 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 })();
 </script>
 <style>.panel-icon-option-glyph svg{width:27px;height:27px;stroke:currentColor;stroke-width:1.8}.panel-icon-current svg{width:23px;height:23px;stroke:currentColor}.panel-lucide-icon svg{width:1em;height:1em;stroke:currentColor;stroke-width:1.8}</style>
+
+<style>
+/* Colorful glassmorphism treatment for the named icon library */
+.panel-icon-option{--icon-hue:205;background:linear-gradient(145deg,hsl(var(--icon-hue) 88% 58% / .30),hsl(calc(var(--icon-hue) + 55) 88% 48% / .12) 55%,rgba(255,255,255,.055))!important;border-color:hsl(var(--icon-hue) 90% 75% / .35)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.23),0 7px 18px hsl(var(--icon-hue) 90% 45% / .12),0 3px 10px rgba(0,0,0,.2)!important}
+.panel-icon-option-glyph{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,hsl(var(--icon-hue) 92% 66% / .32),hsl(calc(var(--icon-hue) + 70) 90% 56% / .16));border:1px solid hsl(var(--icon-hue) 95% 80% / .4);box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 5px 14px hsl(var(--icon-hue) 90% 45% / .22);color:hsl(var(--icon-hue) 100% 76%);filter:drop-shadow(0 2px 5px hsl(var(--icon-hue) 100% 60% / .32))}
+.panel-icon-option-glyph svg{width:27px;height:27px;stroke:currentColor;stroke-width:2.15;filter:drop-shadow(0 0 5px currentColor)}
+.panel-icon-option-name{color:#fff!important;text-shadow:0 1px 5px rgba(0,0,0,.65)}
+.panel-icon-option:hover,.panel-icon-option[aria-pressed=true]{background:linear-gradient(145deg,hsl(var(--icon-hue) 90% 58% / .46),hsl(calc(var(--icon-hue) + 65) 90% 52% / .24))!important;border-color:hsl(var(--icon-hue) 100% 82% / .85)!important;box-shadow:0 0 0 1px hsl(var(--icon-hue) 100% 75% / .22),0 10px 26px hsl(var(--icon-hue) 95% 50% / .24),inset 0 1px 0 rgba(255,255,255,.3)!important}
+.panel-icon-current{width:34px;height:34px;border-radius:11px;background:linear-gradient(145deg,hsl(var(--icon-hue,205) 90% 60% / .34),hsl(calc(var(--icon-hue,205) + 65) 90% 50% / .18));border:1px solid hsl(var(--icon-hue,205) 95% 78% / .42);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 4px 12px hsl(var(--icon-hue,205) 90% 50% / .2)}
+.panel-icon-current svg{width:23px;height:23px;stroke:currentColor;stroke-width:2.2;filter:drop-shadow(0 0 5px currentColor)}
+.panel-lucide-icon{display:inline-flex;align-items:center;justify-content:center;color:#70e1ff;background:linear-gradient(145deg,rgba(36,197,255,.24),rgba(155,92,255,.2),rgba(255,91,171,.16));border:1px solid rgba(126,220,255,.4);border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 7px 20px rgba(58,157,255,.18)}
+.panel-lucide-icon svg{width:1em;height:1em;stroke:currentColor;stroke-width:2.1;filter:drop-shadow(0 0 5px currentColor)}
+</style>
 </body></html>
