@@ -3894,12 +3894,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelDescription=document.getElementById('mega-panel-description');
  const panelUrl=document.getElementById('mega-panel-url');
  const panelIcon=document.getElementById('mega-panel-icon');
- const addPanelButton=document.getElementById('add-mega-panel');
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
  let panelModalPreviousFocus=null;
  let panelModalPreviousOverflow='';
- // Keep the overlay directly under <body>, outside hidden tab panels and forms.
+ // Keep the dialog outside the Page Management tab and form layout.
  if(panelModal&&panelModal.parentElement!==document.body)document.body.appendChild(panelModal);
  const openPanelModal=()=>{
    if(!panelModal||!panelTitle||!panelDescription||!panelIcon)return;
@@ -3911,20 +3910,30 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    panelTitle.setCustomValidity('');
    updatePanelUrl();
    panelModal.hidden=false;
-   panelModal.style.display='flex';
+   panelModal.removeAttribute('hidden');
    panelModal.setAttribute('aria-hidden','false');
+   // Force a true viewport-level dialog, independent of tab/container CSS.
+   const styles={position:'fixed',inset:'0',zIndex:'200000',display:'flex',alignItems:'center',justifyContent:'center',boxSizing:'border-box',padding:'22px',overflowY:'auto',background:'rgba(0,0,0,.76)',backdropFilter:'blur(7px)',visibility:'visible',opacity:'1',pointerEvents:'auto'};
+   Object.entries(styles).forEach(([key,value])=>panelModal.style.setProperty(key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),value,'important'));
    document.body.style.overflow='hidden';
    requestAnimationFrame(()=>panelTitle.focus());
  };
  const closePanelModal=()=>{
    if(!panelModal)return;
    panelModal.hidden=true;
-   panelModal.style.removeProperty('display');
+   ['position','inset','z-index','display','align-items','justify-content','box-sizing','padding','overflow-y','background','backdrop-filter','visibility','opacity','pointer-events'].forEach(property=>panelModal.style.removeProperty(property));
    panelModal.setAttribute('aria-hidden','true');
    document.body.style.overflow=panelModalPreviousOverflow;
    if(panelModalPreviousFocus instanceof HTMLElement)panelModalPreviousFocus.focus();
  };
- addPanelButton?.addEventListener('click',openPanelModal);
+ // Capture the trigger at document level, even if tab content is re-rendered.
+ document.addEventListener('click',event=>{
+   const target=event.target instanceof Element?event.target:null;
+   if(!target?.closest('#add-mega-panel'))return;
+   event.preventDefault();
+   event.stopPropagation();
+   openPanelModal();
+ },true);
  panelTitle?.addEventListener('input',()=>{panelTitle.setCustomValidity('');updatePanelUrl();});
  document.getElementById('mega-panel-modal-close')?.addEventListener('click',closePanelModal);
  document.getElementById('mega-panel-cancel')?.addEventListener('click',closePanelModal);
