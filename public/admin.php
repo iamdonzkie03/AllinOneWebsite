@@ -771,7 +771,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sectionsSettings=$saved;
             $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':($sectionEditorTab==='slideshow'?'slideshow_saved=1':'sections_saved=1');
             $sectionTabParam='&section_tab='.rawurlencode(in_array($sectionEditorTab,['banner','slideshow','mega_menu'],true)?$sectionEditorTab:'banner');
-            header('Location: admin.php?section=page-management&tab=sections'.$sectionTabParam.'&'.$saveFlag.'#pm-panel-sections',true,303); exit;
+            $panelCreatedTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_created_title']??'',100):'';
+            $panelCreatedParam=$panelCreatedTitle!==''?'&panel_created_title='.rawurlencode($panelCreatedTitle):'';
+            header('Location: admin.php?section=page-management&tab=sections'.$sectionTabParam.'&'.$saveFlag.$panelCreatedParam.'#pm-panel-sections',true,303); exit;
         } catch(Throwable $e) { $message=$e->getMessage(); }
         $section='page-management';
     }
@@ -2442,7 +2444,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    return false;
  };
  </script>
- <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings"><input type="hidden" name="section_editor_tab" id="section-editor-tab" value="banner">
+ <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings"><input type="hidden" name="section_editor_tab" id="section-editor-tab" value="banner"><input type="hidden" name="panel_created_title" id="panel-created-title" value="">
  <section class="section-subpanel" data-section-panel="banner">
   <div class="section-preview banner-preview-stage" id="banner-preview">
    <div class="banner-preview-grid">
@@ -2708,6 +2710,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <div class="gallery-modal-actions mega-panel-modal-actions"><button type="button" class="btn light" id="mega-panel-cancel">Cancel</button><button type="button" class="btn" id="mega-panel-create">Save Menu</button></div>
   </section>
  </div>
+ <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-created-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-created-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-created-success-title">The panel menu has been successfully created.</h2><button type="button" class="btn" id="mega-panel-created-success-ok">OK</button></div></div>
   <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
   <section class="gallery-modal slideshow-upload-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-upload-modal-title">
    <div class="gallery-modal-head"><div><h2 id="slideshow-upload-modal-title">Upload Photos</h2><p class="muted">Select up to 20 photos. Add a Photo Title, Photo Heading and Description for each photo.</p></div></div>
@@ -3987,6 +3990,23 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 
 <script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
 <script>
+// Show the confirmation after the panel menu has been saved by the server.
+(() => {
+ const params=new URLSearchParams(window.location.search);
+ const createdTitle=params.get('panel_created_title');
+ const modal=document.getElementById('mega-panel-created-success-modal');
+ const title=document.getElementById('mega-panel-created-success-title');
+ const ok=document.getElementById('mega-panel-created-success-ok');
+ if(!createdTitle||!modal||!ok)return;
+ if(title)title.textContent='The panel menu ('+createdTitle+') has been successfully created.';
+ modal.hidden=false;document.body.classList.add('modal-open');
+ ok.addEventListener('click',()=>{
+  modal.hidden=true;document.body.classList.remove('modal-open');
+  document.querySelector('[data-section-panel="mega_menu"] #mega-panel-list')?.scrollIntoView({behavior:'smooth',block:'start'});
+  const cleanUrl=new URL(window.location.href);cleanUrl.searchParams.delete('panel_created_title');
+  window.history.replaceState({},'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
+ });
+})();
 // Independent Add Panel modal controller: must not depend on section-builder initialization.
 (() => {
  const panelModal=document.getElementById('mega-panel-modal');
