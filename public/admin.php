@@ -2599,6 +2599,41 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
+<style id="mega-panel-modal-styles">
+/* Page Management needs its own copy of the Gallery modal rules:
+   Media Management's stylesheet is only rendered on that separate page. */
+#mega-panel-modal{
+ position:fixed;
+ inset:0;
+ z-index:10000;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ box-sizing:border-box;
+ padding:18px;
+ background:rgba(0,0,0,.76);
+ backdrop-filter:blur(7px);
+ -webkit-backdrop-filter:blur(7px);
+}
+#mega-panel-modal[hidden]{
+ display:none!important;
+}
+#mega-panel-modal .gallery-modal{
+ width:min(720px,96vw);
+ max-height:90vh;
+ overflow:auto;
+ box-sizing:border-box;
+ padding:22px;
+ border:1px solid rgba(184,50,63,.38);
+ border-radius:15px;
+ background:#130e12;
+ box-shadow:0 24px 70px rgba(0,0,0,.55);
+}
+@media(max-width:600px){
+ #mega-panel-modal{padding:12px}
+ #mega-panel-modal .gallery-modal{width:100%;max-height:92vh;padding:18px}
+}
+</style>
 <div class="gallery-modal-backdrop" id="mega-panel-modal" hidden aria-hidden="true">
   <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="mega-panel-modal-title">
    <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create a menu panel for the public homepage.</p></div><button type="button" class="gallery-modal-close" id="mega-panel-modal-close" aria-label="Close">×</button></div>
