@@ -3323,28 +3323,6 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  megaPanelList?.addEventListener('change',renderMegaPreview);
  megaPanelList?.addEventListener('click',event=>{if(event.target.closest('.section-remove'))requestAnimationFrame(renderMegaPreview)});
  renderMegaPreview();
- document.getElementById('mega-panel-create')?.addEventListener('click',()=>{
-   const title=panelTitle.value.trim();
-   if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
-   panelTitle.setCustomValidity('');
-   const card=document.createElement('div');card.className='section-repeat-card';
-   const head=document.createElement('div');head.className='section-repeat-head';
-   const heading=document.createElement('strong');heading.textContent=title;
-   const remove=document.createElement('button');remove.type='button';remove.className='section-remove';remove.textContent='Remove';
-   head.append(heading,remove);
-   const grid=document.createElement('div');grid.className='section-form-grid';
-   const makeField=(labelText,control)=>{const label=document.createElement('label');label.className='section-field';label.append(document.createTextNode(labelText),control);grid.append(label);};
-   const icon=document.createElement('select');icon.name='panel_symbol[]';
-   [...panelIcon.options].forEach(option=>{const copy=document.createElement('option');copy.value=option.value;copy.textContent=option.textContent;icon.append(copy);});icon.value=panelIcon.value;
-   const titleInput=document.createElement('input');titleInput.name='panel_title[]';titleInput.value=title;
-   const description=document.createElement('textarea');description.name='panel_description[]';description.value=panelDescription.value.trim();
-   const url=document.createElement('input');url.name='panel_url[]';url.value=panelUrl.value;url.readOnly=true;
-   const photo=document.createElement('input');photo.type='file';photo.name='panel_photo[]';photo.accept='image/*';
-   makeField('Select Icon',icon);makeField('Panel Title',titleInput);makeField('Panel Description',description);makeField('Panel Page URL',url);makeField('Upload Panel Cover Photo',photo);
-   card.append(head,grid);megaPanelList.append(card);
-   closePanelModal();renderMegaPreview();
- });
- document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panelModal&&!panelModal.hidden)closePanelModal();});
  root.addEventListener('click',e=>{if(e.target.classList.contains('section-remove'))e.target.closest('.section-repeat-card')?.remove()});
  root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
  })();
@@ -3964,6 +3942,32 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    }
  });
 
+
+ const megaPanelList=document.getElementById('mega-panel-list');
+ document.getElementById('mega-panel-create')?.addEventListener('click',()=>{
+   const title=panelTitle.value.trim();
+   if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
+   panelTitle.setCustomValidity('');
+   const card=document.createElement('div');card.className='section-repeat-card';
+   const head=document.createElement('div');head.className='section-repeat-head';
+   const heading=document.createElement('strong');heading.textContent=title;
+   const remove=document.createElement('button');remove.type='button';remove.className='section-remove';remove.textContent='Remove';
+   head.append(heading,remove);
+   const grid=document.createElement('div');grid.className='section-form-grid';
+   const makeField=(labelText,control)=>{const label=document.createElement('label');label.className='section-field';label.append(document.createTextNode(labelText),control);grid.append(label);};
+   const icon=document.createElement('select');icon.name='panel_symbol[]';
+   [...panelIcon.options].forEach(option=>{const copy=document.createElement('option');copy.value=option.value;copy.textContent=option.textContent;icon.append(copy);});icon.value=panelIcon.value;
+   const titleInput=document.createElement('input');titleInput.name='panel_title[]';titleInput.value=title;
+   const description=document.createElement('textarea');description.name='panel_description[]';description.value=panelDescription.value.trim();
+   const url=document.createElement('input');url.name='panel_url[]';url.value=panelUrl.value;url.readOnly=true;
+   const photo=document.createElement('input');photo.type='file';photo.name='panel_photo[]';photo.accept='image/*';
+   makeField('Select Icon',icon);makeField('Panel Title',titleInput);makeField('Panel Description',description);makeField('Panel Page URL',url);makeField('Upload Panel Cover Photo',photo);
+   if(!megaPanelList)throw new Error('Panel list is unavailable.');
+   card.append(head,grid);megaPanelList.append(card);
+   // Notify the existing live-preview listener without coupling modal setup to its scope.
+   titleInput.dispatchEvent(new Event('input',{bubbles:true}));
+   closePanelModal();
+ });
 })();
 </script>
 </body></html>
