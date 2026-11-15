@@ -2588,87 +2588,23 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 if (!$megaPreviewPanels) $megaPreviewPanels = $megaPreviewDefaults;
 ?>
 <div class="section-preview mega-menu-preview">
- <div class="section-head"><div>
-  <div class="eyebrow" id="mega-preview-title"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['main_title']??'Explore the platform'), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></div>
-  <h2 id="mega-preview-heading"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['heading']??'Five ways to connect'), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></h2>
-  <p class="muted" id="mega-preview-subtitle"><?=html_entity_decode((string)($sectionsSettings['mega_menu']['subtitle']??'A single community space for creativity, information, commerce and cultural memory.'), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></p>
- </div></div>
- <div class="category-row module-grid mega-menu-preview-grid" id="mega-menu-live-preview">
- <?php foreach($megaPreviewPanels as $k=>$pn): ?>
-  <a class="category module-card" href="#" tabindex="-1" aria-disabled="true">
-   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php elseif(isset($pn['symbol'])): ?><span class="symbol"><?=e($pn['symbol'])?></span><?php endif; ?>
+ <div class="category-row module-grid" id="mega-menu-live-preview">
+ <?php if($megaPreviewPanels): foreach($megaPreviewPanels as $pn): ?>
+  <a class="category module-card" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false">
+   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php endif; ?>
    <strong><?=e($pn['title']??'')?></strong>
    <span class="module-description"><?=e($pn['description']??'')?></span>
    <span class="module-link">Explore module ↗</span>
   </a>
- <?php endforeach; ?>
+ <?php endforeach; else: foreach($megaPreviewDefaults as $pn): ?>
+  <a class="category module-card" href="<?=e($pn['url'])?>" tabindex="-1" aria-disabled="true" onclick="return false">
+   <strong><?=e($pn['title'])?></strong>
+   <span class="module-description"><?=e($pn['description'])?></span>
+   <span class="module-link">Explore module ↗</span>
+  </a>
+ <?php endforeach; endif; ?>
  </div>
 </div>
-  <div class="section-form-grid slideshow-rich-grid mega-menu-rich-grid">
-  <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Main Title</span>
-    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Main Title formatting">
-     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
-     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
-     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
-     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
-     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
-     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
-     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
-     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
-     <button type="button" data-banner-command="undo" title="Undo">↶</button>
-     <button type="button" data-banner-command="redo" title="Redo">↷</button>
-    </div>
-<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="mega_main_title" data-placeholder="Enter main title..."><?=html_entity_decode((string)($sectionsSettings['mega_menu']['main_title']??''), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></div>
-<input type="hidden" name="mega_main_title" data-banner-html="mega_main_title" value="<?=e((string)($sectionsSettings['mega_menu']['main_title']??''))?>">
-</div>
-  <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label">Heading</span>
-    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Heading formatting">
-     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
-     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
-     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
-     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
-     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
-     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
-     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
-     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
-     <button type="button" data-banner-command="undo" title="Undo">↶</button>
-     <button type="button" data-banner-command="redo" title="Redo">↷</button>
-    </div>
-<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="mega_heading" data-placeholder="Enter heading..."><?=html_entity_decode((string)($sectionsSettings['mega_menu']['heading']??''), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></div>
-<input type="hidden" name="mega_heading" data-banner-html="mega_heading" value="<?=e((string)($sectionsSettings['mega_menu']['heading']??''))?>">
-</div>
-  <div class="section-field banner-editor-field slideshow-rich-field slideshow-rich-field-wide"><span class="section-field-label">Subtitle</span>
-    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="Subtitle formatting">
-     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
-     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
-     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
-     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
-     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
-     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
-     <span class="content-manager-rich-divider"></span>
-     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
-     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
-     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
-     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
-     <button type="button" data-banner-command="undo" title="Undo">↶</button>
-     <button type="button" data-banner-command="redo" title="Redo">↷</button>
-    </div>
-<div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="mega_subtitle" data-placeholder="Enter subtitle..."><?=html_entity_decode((string)($sectionsSettings['mega_menu']['subtitle']??''), ENT_QUOTES | ENT_HTML5, 'UTF-8')?></div>
-<input type="hidden" name="mega_subtitle" data-banner-html="mega_subtitle" value="<?=e((string)($sectionsSettings['mega_menu']['subtitle']??''))?>">
-</div>
-  </div>
   <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Section Settings</button></div>
  </section>
