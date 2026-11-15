@@ -4020,7 +4020,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const loading=document.createElement('div');loading.className='panel-icon-count';loading.textContent='Loading the complete A–Z icon library…';popup.append(loading);
   try{await panelIconCatalogPromise;}catch(error){loading.textContent='The icon catalog could not be loaded. Check your connection and reload this page.';popup.dataset.ready='error';return;}
   loading.remove();popup.dataset.ready='1';
-  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search 6,000+ named icons…';search.setAttribute('aria-label','Search icons');
+  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search '+panelIconChoices.length.toLocaleString()+' named icons…';search.setAttribute('aria-label','Search icons');
   const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length.toLocaleString()+' icons · A–Z';
   const grid=document.createElement('div');grid.className='panel-icon-grid';popup.append(search,count,grid);
   panelIconChoices.forEach(([symbol,label,category],index)=>{
