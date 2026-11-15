@@ -2629,6 +2629,13 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  background:#130e12;
  box-shadow:0 24px 70px rgba(0,0,0,.55);
 }
+#mega-panel-modal #mega-panel-url{
+ background:#343238;
+ color:#aaa5aa;
+ border-color:#514b52;
+ cursor:not-allowed;
+ box-shadow:none;
+}
 #mega-panel-modal .mega-panel-modal-actions{
  display:flex;
  justify-content:flex-end;
