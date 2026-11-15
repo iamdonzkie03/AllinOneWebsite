@@ -751,7 +751,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
             foreach((array)($_POST['panel_title']??[]) as $k=>$title){
                 $old=$oldPanels[$k]??[];
-                $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'✳'),20),'photo'=>(string)($old['photo']??'')];
+                $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($old['photo']??'')];
                 if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
                     $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
                     $panel['photo']=$upload($f,'panel');
@@ -2587,7 +2587,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endif; ?>
  <?php foreach($megaPreviewPanels as $pn): ?>
   <a class="category module-card" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false">
-   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><span class="symbol"><?=e($pn['symbol']??'✳')?></span><?php endif; ?>
+   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); if(preg_match('/^[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="symbol panel-lucide-icon"><i data-lucide="<?=e($panelIconName)?>"></i></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?>
    <strong><?=e($pn['title']??'')?></strong>
    <span class="module-description"><?=e($pn['description']??'')?></span>
    <span class="module-link">Explore module ↗</span>
@@ -2595,7 +2595,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endforeach; ?>
  </div>
 </div>
-  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong><?=e($pn['title']??'Menu Panel')?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><div class="section-field"><span class="section-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'✳')?>"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><?=e($pn['symbol']??'✳')?></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>" readonly></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
+  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong><?=e($pn['title']??'Menu Panel')?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><div class="section-field"><span class="section-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'laptop')?>"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><i data-lucide="<?=e(preg_match('/^[a-z0-9-]{1,60}$/',(string)($pn['symbol']??''))?($pn['symbol']??'laptop'):'star')?>"></i></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>" readonly></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
@@ -3394,7 +3394,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    cards.forEach(item=>{
      const card=document.createElement('a');card.className='category module-card';card.href='#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
-     else {const symbol=document.createElement('span');symbol.className='symbol';symbol.textContent=item.symbol||'✳';card.append(symbol);}
+     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('i');glyph.setAttribute('data-lucide',panelIconAliases[item.symbol]||item.symbol||'star');symbol.append(glyph);card.append(symbol);window.lucide?.createIcons?.({root:symbol});}
      const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';card.append(title);
      const description=document.createElement('span');description.className='module-description';description.textContent=item.description;card.append(description);
      const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';card.append(link);
@@ -3988,13 +3988,16 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelIcon=document.getElementById('mega-panel-icon');
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
- const panelIconGroups=[["People",["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😎"]],["People & Faces",["😍","🥰","😘","😗","😙","😚","🙂","🙃","😉","🤗"]],["Expressions",["🤔","🤨","😐","😑","😶","🙄","😏","😣","😥","😮"]],["Hands",["👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞"]],["Gestures",["🤟","🤘","🤙","👈","👉","👆","👇","☝️","👍","👎"]],["People & Work",["👏","🙌","👐","🤲","🙏","💪","🦾","🧑‍💻","👨‍🎓","👩‍🏫"]],["Animals",["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯"]],["Wildlife",["🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧"]],["Birds & Sea",["🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄"]],["Nature",["🐝","🦋","🐌","🐞","🐜","🪲","🪳","🕷️","🦂","🐢"]],["Plants",["🌵","🎄","🌲","🌳","🌴","🌱","🌿","☘️","🍀","🎍"]],["Flowers",["🌷","🌹","🥀","🌺","🌸","🌼","🌻","🌞","🌝","🌛"]],["Food",["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈"]],["Meals",["🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦"]],["Drinks",["🥕","🌽","🌶️","🫑","🥒","🥬","🥔","🧄","🧅","🍄"]],["Travel",["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐"]],["Transport",["🛻","🚚","🚛","🚜","🛵","🏍️","🛺","🚲","🛴","🚏"]],["Places",["✈️","🛫","🛬","🚀","🛸","🚁","⛵","🚤","🛳️","🚢"]],["Buildings",["🏠","🏡","🏢","🏬","🏣","🏤","🏥","🏦","🏨","🏩"]],["Landmarks",["🏛️","🏰","🏯","🗼","🗽","⛪","🕌","🛕","⛩️","🕍"]],["Objects",["⌚","📱","💻","⌨️","🖥️","🖨️","🖱️","🕹️","💽","💾"]],["Office",["📷","📸","📹","🎥","📞","☎️","📟","📠","📺","📻"]],["Media",["🎙️","🎚️","🎛️","🧭","⏱️","⏰","⌛","⏳","📡","🔋"]],["Documents",["📔","📕","📖","📗","📘","📙","📚","📓","📒","📃"]],["Writing",["📄","📰","🗞️","📑","🔖","🏷️","💰","💴","💵","💶"]],["Shopping",["💳","🧾","🛒","🎁","🎀","🛍️","📦","📫","📮","✉️"]],["Symbols",["❤️","🧡","💛","💚","💙","💜","🖤","🤍","💔","❣️"]],["Shapes",["⭐","🌟","✨","⚡","🔥","💧","🌊","☀️","🌙","☁️"]],["Tools",["🔨","🪓","⛏️","⚒️","🛠️","🗡️","⚔️","🔧","🪛","🔩"]],["Security & Tech",["🔒","🔓","🔏","🔐","🔑","🗝️","🔍","🔎","💡","🔦"]]];
- const panelIconChoices=panelIconGroups.flatMap(([category,icons])=>icons.map((symbol,index)=>[symbol,category+' '+String(index+1).padStart(2,'0'),category]));
+ const panelIconAliases={'compact-disc':'disc-3','taxi':'car-front','car':'car-front','earth':'earth'};
+ const panelIconPreferred=['laptop','compact-disc','key','lock','car','taxi','earth','disc','disc-2','disc-3','globe','globe-2','smartphone','monitor','printer','camera','video','music','headphones','wifi','bluetooth','mail','phone','tablet','watch','map','map-pin','house','building','store','shopping-cart','credit-card','wallet','briefcase','calendar','clock','alarm-clock','bell','book','book-open','file','folder','image','film','gamepad-2','joystick','lightbulb','plug','battery','zap','cloud','sun','moon','star','heart','shield','shield-check','user','users','settings','wrench','hammer','scissors','package','truck','bus','bike','plane','ship','train','rocket'];
+ const panelIconNames=(()=>{const available=Object.keys(window.lucide?.icons||{}).sort();const names=[...panelIconPreferred,...available].filter((name,index,array)=>array.indexOf(name)===index).filter(name=>panelIconAliases[name]||window.lucide?.icons?.[name]);return names.slice(0,1500);})();
+ const panelIconChoices=panelIconNames.map(name=>[name,name.replace(/-/g,' '),name.split('-')[0]]);
+ const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const icon=document.createElement('i');icon.setAttribute('data-lucide',panelIconAliases[name]||name);element.append(icon);window.lucide?.createIcons?.({root:element});};
  const createPanelIconPicker=(value='✳',name='panel_symbol[]')=>{
   const wrap=document.createElement('div');wrap.className='panel-icon-picker';wrap.dataset.iconPicker='';
   const hidden=document.createElement('input');hidden.type='hidden';hidden.name=name;hidden.value=value;
   const trigger=document.createElement('button');trigger.type='button';trigger.className='panel-icon-trigger';trigger.dataset.iconPickerTrigger='';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');
-  const current=document.createElement('span');current.className='panel-icon-current';current.textContent=value;
+  const current=document.createElement('span');current.className='panel-icon-current';renderPanelLucide(current,value);
   const label=document.createElement('span');label.className='panel-icon-trigger-label';label.textContent='Choose icon';
   const chevron=document.createElement('span');chevron.className='panel-icon-chevron';chevron.textContent='▾';
   trigger.append(current,label,chevron);
@@ -4004,19 +4007,19 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const populatePanelIconPicker=wrap=>{
   const popup=wrap.querySelector('[data-icon-picker-popup]');if(!popup||popup.dataset.ready)return;
   popup.dataset.ready='1';
-  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search 300 icons…';search.setAttribute('aria-label','Search icons');
-  const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length+' icons';
+  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search 1,500 named icons…';search.setAttribute('aria-label','Search icons');
+  const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length+' named icons';
   const grid=document.createElement('div');grid.className='panel-icon-grid';popup.append(search,count,grid);
   panelIconChoices.forEach(([symbol,label,category],index)=>{
    const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.dataset.iconSearch=(label+' '+category+' '+symbol).toLowerCase();option.title=label;option.setAttribute('aria-label',label);
-   const glyph=document.createElement('span');glyph.className='panel-icon-option-glyph';glyph.textContent=symbol;
+   const glyph=document.createElement('span');glyph.className='panel-icon-option-glyph';renderPanelLucide(glyph,symbol);
    const caption=document.createElement('span');caption.className='panel-icon-option-name';caption.textContent=label;
    option.append(glyph,caption);grid.append(option);
   });
   search.addEventListener('input',()=>{
    const term=search.value.trim().toLowerCase();let visible=0;
    grid.querySelectorAll('[data-icon-value]').forEach(option=>{const match=!term||option.dataset.iconSearch.includes(term);option.hidden=!match;if(match)visible++;});
-   count.textContent=visible+' of '+panelIconChoices.length+' icons';
+   count.textContent=visible+' of '+panelIconChoices.length+' named icons';
   });
  };
  document.querySelectorAll('[data-icon-picker]').forEach(populatePanelIconPicker);
@@ -4031,7 +4034,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const choice=target.closest('[data-icon-value]');
   if(choice){
    const picker=choice.closest('[data-icon-picker]');const hidden=picker?.querySelector('input[type="hidden"]');const current=picker?.querySelector('.panel-icon-current');const popup=picker?.querySelector('[data-icon-picker-popup]');const button=picker?.querySelector('[data-icon-picker-trigger]');
-   if(hidden)hidden.value=choice.dataset.iconValue||'✳';if(current)current.textContent=choice.dataset.iconValue||'✳';
+   if(hidden)hidden.value=choice.dataset.iconValue||'laptop';if(current)renderPanelLucide(current,choice.dataset.iconValue||'laptop');
    popup&&(popup.hidden=true);button?.setAttribute('aria-expanded','false');
    picker?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String(item===choice)));
    return;
@@ -4050,7 +4053,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    panelModalPreviousFocus=document.activeElement;
    panelTitle.value='';
    panelDescription.value='';
-   panelIcon.value='✳';
+   panelIcon.value='laptop';
    panelTitle.setCustomValidity('');
    updatePanelUrl();
    panelModal.hidden=false;
