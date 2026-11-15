@@ -2595,7 +2595,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endforeach; ?>
  </div>
 </div>
-  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong><?=e($pn['title']??'Menu Panel')?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Select Icon<select name="panel_symbol[]"><?php foreach(['✳','◎','◇','♫','⌂','📷','📰','🛍️','🎭','🏛️','🌐','★'] as $ico): ?><option value="<?=e($ico)?>" <?=($pn['symbol']??'✳')===$ico?'selected':''?>><?=e($ico)?></option><?php endforeach; ?></select></label><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>" readonly></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
+  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong><?=e($pn['title']??'Menu Panel')?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><div class="section-field"><span class="section-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'✳')?>"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><?=e($pn['symbol']??'✳')?></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>" readonly></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
@@ -2629,6 +2629,19 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  background:#130e12;
  box-shadow:0 24px 70px rgba(0,0,0,.55);
 }
+.panel-icon-picker{position:relative;display:block;width:100%}
+.panel-icon-trigger{display:flex;align-items:center;gap:11px;width:100%;min-height:42px;padding:8px 11px;border:1px solid rgba(220,174,187,.32);border-radius:9px;background:#21171d;color:#f4e9ed;font:13px Ubuntu,sans-serif;text-align:left;cursor:pointer;transition:border-color .18s,background .18s}
+.panel-icon-trigger:hover,.panel-icon-trigger[aria-expanded="true"]{border-color:#b8323f;background:#2b1921}
+.panel-icon-current{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;background:rgba(184,50,63,.18);font-size:20px}
+.panel-icon-trigger-label{flex:1;color:#e6d9de}
+.panel-icon-chevron{color:#c99aa7}
+.panel-icon-popup{position:absolute;z-index:10020;left:0;top:calc(100% + 8px);width:min(340px,calc(100vw - 48px));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:11px;border:1px solid rgba(220,174,187,.35);border-radius:12px;background:#171115;box-shadow:0 16px 38px rgba(0,0,0,.62)}
+.panel-icon-popup[hidden]{display:none!important}
+.panel-icon-option{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:62px;padding:6px 3px;border:1px solid rgba(220,174,187,.13);border-radius:8px;background:#241920;color:#f4e9ed;cursor:pointer;font:11px Ubuntu,sans-serif}
+.panel-icon-option:hover,.panel-icon-option[aria-pressed="true"]{border-color:#c44b5a;background:#49202b}
+.panel-icon-option-glyph{font-size:23px;line-height:1.2}
+.panel-icon-option-name{font-size:10px;color:#d8c5cc}
+.section-field-label,.gallery-field-label{display:block;margin-bottom:7px;color:inherit;font:inherit}
 #mega-panel-modal #mega-panel-url{
  background:#343238;
  color:#aaa5aa;
@@ -2653,7 +2666,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="mega-panel-modal-title">
    <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create a menu panel for the public homepage.</p></div></div>
    <div class="gallery-form-grid">
-    <label class="gallery-form-field">Select Icon<select id="mega-panel-icon"><option value="✳">✳ — Spark</option><option value="◎">◎ — Circle</option><option value="◇">◇ — Diamond</option><option value="♫">♫ — Music</option><option value="⌂">⌂ — Home</option><option value="📷">📷 — Camera</option><option value="📰">📰 — News</option><option value="🛍️">🛍️ — Marketplace</option><option value="🎭">🎭 — Arts</option><option value="🏛️">🏛️ — Heritage</option><option value="🌐">🌐 — Globe</option><option value="★">★ — Star</option></select></label>
+    <div class="gallery-form-field"><span class="gallery-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" id="mega-panel-icon" value="✳"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current">✳</span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div>
     <label class="gallery-form-field">Title<input id="mega-panel-title" type="text" maxlength="100" placeholder="Enter panel title"></label>
     <label class="gallery-form-field">Description<textarea id="mega-panel-description" rows="3" maxlength="400" placeholder="Enter panel description"></textarea></label>
     <label class="gallery-form-field">Page URL<input id="mega-panel-url" type="text" readonly value="admin.php?category=#latest"><small>Automatically generated from the title.</small></label>
@@ -3947,6 +3960,55 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelIcon=document.getElementById('mega-panel-icon');
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
+ const panelIconChoices=[
+  ['✳','Spark'],['◎','Circle'],['◇','Diamond'],['♫','Music'],['⌂','Home'],
+  ['📷','Camera'],['📰','News'],['🛍️','Marketplace'],['🎭','Arts'],
+  ['🏛️','Heritage'],['🌐','Globe'],['★','Star']
+ ];
+ const createPanelIconPicker=(value='✳',name='panel_symbol[]')=>{
+  const wrap=document.createElement('div');wrap.className='panel-icon-picker';wrap.dataset.iconPicker='';
+  const hidden=document.createElement('input');hidden.type='hidden';hidden.name=name;hidden.value=value;
+  const trigger=document.createElement('button');trigger.type='button';trigger.className='panel-icon-trigger';trigger.dataset.iconPickerTrigger='';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');
+  const current=document.createElement('span');current.className='panel-icon-current';current.textContent=value;
+  const label=document.createElement('span');label.className='panel-icon-trigger-label';label.textContent='Choose icon';
+  const chevron=document.createElement('span');chevron.className='panel-icon-chevron';chevron.textContent='▾';
+  trigger.append(current,label,chevron);
+  const popup=document.createElement('div');popup.className='panel-icon-popup';popup.dataset.iconPickerPopup='';popup.hidden=true;popup.setAttribute('role','dialog');popup.setAttribute('aria-label','Choose an icon');
+  wrap.append(hidden,trigger,popup);populatePanelIconPicker(wrap);return wrap;
+ };
+ const populatePanelIconPicker=wrap=>{
+  const popup=wrap.querySelector('[data-icon-picker-popup]');if(!popup||popup.dataset.ready)return;
+  popup.dataset.ready='1';
+  panelIconChoices.forEach(([symbol,label])=>{
+   const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.title=label;option.setAttribute('aria-label',label);
+   const glyph=document.createElement('span');glyph.className='panel-icon-option-glyph';glyph.textContent=symbol;
+   const caption=document.createElement('span');caption.className='panel-icon-option-name';caption.textContent=label;
+   option.append(glyph,caption);popup.append(option);
+  });
+ };
+ document.querySelectorAll('[data-icon-picker]').forEach(populatePanelIconPicker);
+ document.addEventListener('click',event=>{
+  const target=event.target instanceof Element?event.target:null;if(!target)return;
+  const trigger=target.closest('[data-icon-picker-trigger]');
+  if(trigger){
+   const picker=trigger.closest('[data-icon-picker]');const popup=picker?.querySelector('[data-icon-picker-popup]');if(!picker||!popup)return;
+   document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(other=>{if(other!==popup){other.hidden=true;other.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');}});
+   popup.hidden=!popup.hidden;trigger.setAttribute('aria-expanded',String(!popup.hidden));return;
+  }
+  const choice=target.closest('[data-icon-value]');
+  if(choice){
+   const picker=choice.closest('[data-icon-picker]');const hidden=picker?.querySelector('input[type="hidden"]');const current=picker?.querySelector('.panel-icon-current');const popup=picker?.querySelector('[data-icon-picker-popup]');const button=picker?.querySelector('[data-icon-picker-trigger]');
+   if(hidden)hidden.value=choice.dataset.iconValue||'✳';if(current)current.textContent=choice.dataset.iconValue||'✳';
+   popup&&(popup.hidden=true);button?.setAttribute('aria-expanded','false');
+   picker?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String(item===choice)));
+   return;
+  }
+  if(!target.closest('[data-icon-picker]'))document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
+ });
+ document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape')return;
+  document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
+ });
  let panelModalPreviousFocus=null;
  // Keep the dialog outside the Page Management tab and form layout.
  if(panelModal&&panelModal.parentElement!==document.body)document.body.appendChild(panelModal);
@@ -4010,8 +4072,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    head.append(heading,remove);
    const grid=document.createElement('div');grid.className='section-form-grid';
    const makeField=(labelText,control)=>{const label=document.createElement('label');label.className='section-field';label.append(document.createTextNode(labelText),control);grid.append(label);};
-   const icon=document.createElement('select');icon.name='panel_symbol[]';
-   [...panelIcon.options].forEach(option=>{const copy=document.createElement('option');copy.value=option.value;copy.textContent=option.textContent;icon.append(copy);});icon.value=panelIcon.value;
+   const icon=createPanelIconPicker(panelIcon.value,'panel_symbol[]');
    const titleInput=document.createElement('input');titleInput.name='panel_title[]';titleInput.value=title;
    const description=document.createElement('textarea');description.name='panel_description[]';description.value=panelDescription.value.trim();
    const url=document.createElement('input');url.name='panel_url[]';url.value=panelUrl.value;url.readOnly=true;
