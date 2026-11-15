@@ -3323,58 +3323,6 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  megaPanelList?.addEventListener('change',renderMegaPreview);
  megaPanelList?.addEventListener('click',event=>{if(event.target.closest('.section-remove'))requestAnimationFrame(renderMegaPreview)});
  renderMegaPreview();
- const panelModal=document.getElementById('mega-panel-modal');
- const panelTitle=document.getElementById('mega-panel-title');
- const panelDescription=document.getElementById('mega-panel-description');
- const panelUrl=document.getElementById('mega-panel-url');
- const panelIcon=document.getElementById('mega-panel-icon');
- const addPanelButton=document.getElementById('add-mega-panel');
- const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
- const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
- let panelModalPreviousFocus=null;
- let panelModalPreviousOverflow='';
- // Keep the overlay directly under <body>, outside hidden tab panels and forms.
- if(panelModal&&panelModal.parentElement!==document.body)document.body.appendChild(panelModal);
- const openPanelModal=()=>{
-   if(!panelModal||!panelTitle||!panelDescription||!panelIcon)return;
-   panelModalPreviousFocus=document.activeElement;
-   panelModalPreviousOverflow=document.body.style.overflow;
-   panelTitle.value='';
-   panelDescription.value='';
-   panelIcon.value='✳';
-   panelTitle.setCustomValidity('');
-   updatePanelUrl();
-   panelModal.hidden=false;
-   panelModal.style.display='flex';
-   panelModal.setAttribute('aria-hidden','false');
-   document.body.style.overflow='hidden';
-   requestAnimationFrame(()=>panelTitle.focus());
- };
- const closePanelModal=()=>{
-   if(!panelModal)return;
-   panelModal.hidden=true;
-   panelModal.style.removeProperty('display');
-   panelModal.setAttribute('aria-hidden','true');
-   document.body.style.overflow=panelModalPreviousOverflow;
-   if(panelModalPreviousFocus instanceof HTMLElement)panelModalPreviousFocus.focus();
- };
- addPanelButton?.addEventListener('click',openPanelModal);
- panelTitle?.addEventListener('input',()=>{panelTitle.setCustomValidity('');updatePanelUrl();});
- document.getElementById('mega-panel-modal-close')?.addEventListener('click',closePanelModal);
- document.getElementById('mega-panel-cancel')?.addEventListener('click',closePanelModal);
- // Match the other admin dialogs: backdrop clicks do not dismiss an in-progress form.
- panelModal?.addEventListener('click',event=>{if(event.target===panelModal)event.preventDefault();});
- document.addEventListener('keydown',event=>{
-   if(!panelModal||panelModal.hidden)return;
-   if(event.key==='Escape'){event.preventDefault();closePanelModal();return;}
-   if(event.key==='Tab'){
-     const focusable=[...panelModal.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>!el.hidden);
-     if(!focusable.length)return;
-     const first=focusable[0],last=focusable[focusable.length-1];
-     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
-     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
-   }
- });
  document.getElementById('mega-panel-create')?.addEventListener('click',()=>{
    const title=panelTitle.value.trim();
    if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
@@ -3959,4 +3907,63 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
     }
   }, true);
 })();</script>
+
+<script>
+// Independent Add Panel modal controller: must not depend on section-builder initialization.
+(() => {
+ const panelModal=document.getElementById('mega-panel-modal');
+ const panelTitle=document.getElementById('mega-panel-title');
+ const panelDescription=document.getElementById('mega-panel-description');
+ const panelUrl=document.getElementById('mega-panel-url');
+ const panelIcon=document.getElementById('mega-panel-icon');
+ const addPanelButton=document.getElementById('add-mega-panel');
+ const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+ const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
+ let panelModalPreviousFocus=null;
+ let panelModalPreviousOverflow='';
+ // Keep the overlay directly under <body>, outside hidden tab panels and forms.
+ if(panelModal&&panelModal.parentElement!==document.body)document.body.appendChild(panelModal);
+ const openPanelModal=()=>{
+   if(!panelModal||!panelTitle||!panelDescription||!panelIcon)return;
+   panelModalPreviousFocus=document.activeElement;
+   panelModalPreviousOverflow=document.body.style.overflow;
+   panelTitle.value='';
+   panelDescription.value='';
+   panelIcon.value='✳';
+   panelTitle.setCustomValidity('');
+   updatePanelUrl();
+   panelModal.hidden=false;
+   panelModal.style.display='flex';
+   panelModal.setAttribute('aria-hidden','false');
+   document.body.style.overflow='hidden';
+   requestAnimationFrame(()=>panelTitle.focus());
+ };
+ const closePanelModal=()=>{
+   if(!panelModal)return;
+   panelModal.hidden=true;
+   panelModal.style.removeProperty('display');
+   panelModal.setAttribute('aria-hidden','true');
+   document.body.style.overflow=panelModalPreviousOverflow;
+   if(panelModalPreviousFocus instanceof HTMLElement)panelModalPreviousFocus.focus();
+ };
+ addPanelButton?.addEventListener('click',openPanelModal);
+ panelTitle?.addEventListener('input',()=>{panelTitle.setCustomValidity('');updatePanelUrl();});
+ document.getElementById('mega-panel-modal-close')?.addEventListener('click',closePanelModal);
+ document.getElementById('mega-panel-cancel')?.addEventListener('click',closePanelModal);
+ // Match the other admin dialogs: backdrop clicks do not dismiss an in-progress form.
+ panelModal?.addEventListener('click',event=>{if(event.target===panelModal)event.preventDefault();});
+ document.addEventListener('keydown',event=>{
+   if(!panelModal||panelModal.hidden)return;
+   if(event.key==='Escape'){event.preventDefault();closePanelModal();return;}
+   if(event.key==='Tab'){
+     const focusable=[...panelModal.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>!el.hidden);
+     if(!focusable.length)return;
+     const first=focusable[0],last=focusable[focusable.length-1];
+     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+   }
+ });
+
+})();
+</script>
 </body></html>
