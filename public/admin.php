@@ -3394,12 +3394,13 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    cards.forEach(item=>{
      const card=document.createElement('a');card.className='category module-card';card.href='#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
-     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('i');glyph.setAttribute('data-lucide',panelIconAliases[item.symbol]||item.symbol||'star');symbol.append(glyph);card.append(symbol);window.lucide?.createIcons?.({root:symbol});}
+     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('i');glyph.setAttribute('data-lucide',panelIconAliases[item.symbol]||item.symbol||'star');symbol.append(glyph);card.append(symbol);}
      const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';card.append(title);
      const description=document.createElement('span');description.className='module-description';description.textContent=item.description;card.append(description);
      const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';card.append(link);
      megaPreview.append(card);
    });
+   if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});
  };
  megaPreview?.addEventListener('click',event=>event.preventDefault());
  megaPanelList?.addEventListener('input',event=>{
@@ -3978,6 +3979,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   }, true);
 })();</script>
 
+<script src="https://unpkg.com/lucide@latest"></script>
 <script>
 // Independent Add Panel modal controller: must not depend on section-builder initialization.
 (() => {
@@ -3990,9 +3992,10 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
  const panelIconAliases={'compact-disc':'disc-3','taxi':'car-front','car':'car-front','earth':'earth'};
  const panelIconPreferred=['laptop','compact-disc','key','lock','car','taxi','earth','disc','disc-2','disc-3','globe','globe-2','smartphone','monitor','printer','camera','video','music','headphones','wifi','bluetooth','mail','phone','tablet','watch','map','map-pin','house','building','store','shopping-cart','credit-card','wallet','briefcase','calendar','clock','alarm-clock','bell','book','book-open','file','folder','image','film','gamepad-2','joystick','lightbulb','plug','battery','zap','cloud','sun','moon','star','heart','shield','shield-check','user','users','settings','wrench','hammer','scissors','package','truck','bus','bike','plane','ship','train','rocket'];
- const panelIconNames=(()=>{const available=Object.keys(window.lucide?.icons||{}).sort();const names=[...panelIconPreferred,...available].filter((name,index,array)=>array.indexOf(name)===index).filter(name=>panelIconAliases[name]||window.lucide?.icons?.[name]);return names.slice(0,1500);})();
- const panelIconChoices=panelIconNames.map(name=>[name,name.replace(/-/g,' '),name.split('-')[0]]);
- const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const icon=document.createElement('i');icon.setAttribute('data-lucide',panelIconAliases[name]||name);element.append(icon);window.lucide?.createIcons?.({root:element});};
+ const panelIconNames=(()=>{const icons=window.lucide?.icons||{};const available=Object.keys(icons).sort();const names=[...panelIconPreferred,...available].filter((name,index,array)=>array.indexOf(name)===index).filter(name=>Boolean(icons[panelIconAliases[name]||name]));return names.slice(0,1500);})();
+ const panelIconChoices=panelIconNames.map(name=>[name,name,name.split('-')[0]]);
+ const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const icon=document.createElement('i');icon.setAttribute('data-lucide',panelIconAliases[name]||name||'star');element.append(icon);};
+ const createPanelLucideIcons=()=>{if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});};
  const createPanelIconPicker=(value='✳',name='panel_symbol[]')=>{
   const wrap=document.createElement('div');wrap.className='panel-icon-picker';wrap.dataset.iconPicker='';
   const hidden=document.createElement('input');hidden.type='hidden';hidden.name=name;hidden.value=value;
@@ -4016,6 +4019,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    const caption=document.createElement('span');caption.className='panel-icon-option-name';caption.textContent=label;
    option.append(glyph,caption);grid.append(option);
   });
+  createPanelLucideIcons();
   search.addEventListener('input',()=>{
    const term=search.value.trim().toLowerCase();let visible=0;
    grid.querySelectorAll('[data-icon-value]').forEach(option=>{const match=!term||option.dataset.iconSearch.includes(term);option.hidden=!match;if(match)visible++;});
@@ -4034,7 +4038,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const choice=target.closest('[data-icon-value]');
   if(choice){
    const picker=choice.closest('[data-icon-picker]');const hidden=picker?.querySelector('input[type="hidden"]');const current=picker?.querySelector('.panel-icon-current');const popup=picker?.querySelector('[data-icon-picker-popup]');const button=picker?.querySelector('[data-icon-picker-trigger]');
-   if(hidden)hidden.value=choice.dataset.iconValue||'laptop';if(current)renderPanelLucide(current,choice.dataset.iconValue||'laptop');
+   if(hidden)hidden.value=choice.dataset.iconValue||'laptop';if(current)renderPanelLucide(current,choice.dataset.iconValue||'laptop');createPanelLucideIcons();
    popup&&(popup.hidden=true);button?.setAttribute('aria-expanded','false');
    picker?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String(item===choice)));
    return;
@@ -4115,11 +4119,12 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    const photo=document.createElement('input');photo.type='file';photo.name='panel_photo[]';photo.accept='image/*';
    makeField('Select Icon',icon);makeField('Panel Title',titleInput);makeField('Panel Description',description);makeField('Panel Page URL',url);makeField('Upload Panel Cover Photo',photo);
    if(!megaPanelList)throw new Error('Panel list is unavailable.');
-   card.append(head,grid);megaPanelList.append(card);
+   card.append(head,grid);megaPanelList.append(card);createPanelLucideIcons();
    // Notify the existing live-preview listener without coupling modal setup to its scope.
    titleInput.dispatchEvent(new Event('input',{bubbles:true}));
    closePanelModal();
  });
 })();
 </script>
+<style>.panel-icon-option-glyph svg{width:27px;height:27px;stroke:currentColor;stroke-width:1.8}.panel-icon-current svg{width:23px;height:23px;stroke:currentColor}.panel-lucide-icon svg{width:1em;height:1em;stroke:currentColor;stroke-width:1.8}</style>
 </body></html>
