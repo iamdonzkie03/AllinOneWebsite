@@ -4007,21 +4007,27 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 
 <script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
 <script>
-// Show the confirmation after the panel menu has been saved by the server.
+// Show the creation confirmation only on the post-save return to the Mega Menu tab.
 (() => {
  const params=new URLSearchParams(window.location.search);
  const createdTitle=params.get('panel_created_title');
+ const requestedTab=params.get('section_tab');
  const modal=document.getElementById('mega-panel-created-success-modal');
  const title=document.getElementById('mega-panel-created-success-title');
  const ok=document.getElementById('mega-panel-created-success-ok');
- if(!createdTitle||!modal||!ok)return;
+ if(!createdTitle || requestedTab!=='mega_menu' || !modal || !ok)return;
+ // Consume the one-time flag immediately so switching tabs or refreshing cannot reopen it.
+ params.delete('panel_created_title');
+ const cleanQuery=params.toString();
+ window.history.replaceState({},'',window.location.pathname+(cleanQuery?'?'+cleanQuery:'')+window.location.hash);
  if(title)title.textContent='The panel menu ('+createdTitle+') has been successfully created.';
- modal.hidden=false;document.body.classList.add('modal-open');
+ modal.hidden=false;
+ document.body.classList.add('modal-open');
  ok.addEventListener('click',()=>{
-  modal.hidden=true;document.body.classList.remove('modal-open');
-  document.querySelector('[data-section-panel="mega_menu"] #mega-panel-list')?.scrollIntoView({behavior:'smooth',block:'start'});
-  const cleanUrl=new URL(window.location.href);cleanUrl.searchParams.delete('panel_created_title');
-  window.history.replaceState({},'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
+  modal.hidden=true;
+  document.body.classList.remove('modal-open');
+  const panelList=document.querySelector('[data-section-panel="mega_menu"] #mega-panel-list');
+  panelList?.scrollIntoView({behavior:'smooth',block:'start'});
  });
 })();
 // Independent Add Panel modal controller: must not depend on section-builder initialization.
@@ -4183,6 +4189,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 })();
 </script>
 <style>
+#mega-panel-created-success-modal[hidden]{display:none!important}
 .mega-panel-record-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:14px}
 .mega-panel-record{min-width:0}
 .mega-panel-record-art{display:flex;align-items:center;justify-content:center;min-height:145px;aspect-ratio:4/3;background:linear-gradient(145deg,rgba(112,48,82,.32),rgba(26,25,39,.82))}
