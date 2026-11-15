@@ -552,4 +552,4 @@ $(function(){
   update();
 })();
 </script>
-<script src="https://unpkg.com/lucide@latest"></script><script>window.lucide?.createIcons?.();</script>\n</body></html>
+<script src="https://unpkg.com/lucide@latest"></script><script>if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});</script>\n</body></html>
