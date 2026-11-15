@@ -2629,6 +2629,14 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  background:#130e12;
  box-shadow:0 24px 70px rgba(0,0,0,.55);
 }
+#mega-panel-modal .mega-panel-modal-actions{
+ display:flex;
+ justify-content:flex-end;
+ align-items:center;
+ gap:10px;
+ margin-top:26px;
+ padding-top:4px;
+}
 @media(max-width:600px){
  #mega-panel-modal{padding:12px}
  #mega-panel-modal .gallery-modal{width:100%;max-height:92vh;padding:18px}
@@ -2636,14 +2644,14 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 </style>
 <div class="gallery-modal-backdrop" id="mega-panel-modal" hidden aria-hidden="true">
   <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="mega-panel-modal-title">
-   <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create a menu panel for the public homepage.</p></div><button type="button" class="gallery-modal-close" id="mega-panel-modal-close" aria-label="Close">×</button></div>
+   <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create a menu panel for the public homepage.</p></div></div>
    <div class="gallery-form-grid">
     <label class="gallery-form-field">Select Icon<select id="mega-panel-icon"><option value="✳">✳ — Spark</option><option value="◎">◎ — Circle</option><option value="◇">◇ — Diamond</option><option value="♫">♫ — Music</option><option value="⌂">⌂ — Home</option><option value="📷">📷 — Camera</option><option value="📰">📰 — News</option><option value="🛍️">🛍️ — Marketplace</option><option value="🎭">🎭 — Arts</option><option value="🏛️">🏛️ — Heritage</option><option value="🌐">🌐 — Globe</option><option value="★">★ — Star</option></select></label>
     <label class="gallery-form-field">Title<input id="mega-panel-title" type="text" maxlength="100" placeholder="Enter panel title"></label>
     <label class="gallery-form-field">Description<textarea id="mega-panel-description" rows="3" maxlength="400" placeholder="Enter panel description"></textarea></label>
     <label class="gallery-form-field">Page URL<input id="mega-panel-url" type="text" readonly value="admin.php?category=#latest"><small>Automatically generated from the title.</small></label>
    </div>
-   <div class="gallery-modal-actions"><button type="button" class="btn light" id="mega-panel-cancel">Cancel</button><button type="button" class="btn" id="mega-panel-create">Add Panel Menu</button></div>
+   <div class="gallery-modal-actions mega-panel-modal-actions"><button type="button" class="btn light" id="mega-panel-cancel">Cancel</button><button type="button" class="btn" id="mega-panel-create">Save Menu</button></div>
   </section>
  </div>
   <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
@@ -3967,7 +3975,6 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    openPanelModal();
  },true);
  panelTitle?.addEventListener('input',()=>{panelTitle.setCustomValidity('');updatePanelUrl();});
- document.getElementById('mega-panel-modal-close')?.addEventListener('click',closePanelModal);
  document.getElementById('mega-panel-cancel')?.addEventListener('click',closePanelModal);
  // Match the other admin dialogs: backdrop clicks do not dismiss an in-progress form.
  panelModal?.addEventListener('click',event=>{if(event.target===panelModal)event.preventDefault();});
