@@ -2581,6 +2581,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 ?>
 <div class="section-preview mega-menu-preview">
  <div class="category-row module-grid" id="mega-menu-live-preview">
+ <?php if (!$megaPreviewPanels): ?>
+  <p class="mega-menu-empty-state">No panel menu created. Click the Add Panel button below to add.</p>
+ <?php endif; ?>
  <?php foreach($megaPreviewPanels as $pn): ?>
   <a class="category module-card" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false">
    <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php endif; ?>
@@ -2592,7 +2595,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  </div>
 </div>
   <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong>Menu Panel</strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>"></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
-  <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Section Settings</button></div>
+  <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
  <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
@@ -3278,6 +3281,12 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      return {title:value('panel_title'),description:value('panel_description'),url:value('panel_url'),image};
    }).filter(card=>card.title||card.description||card.url||card.image);
    megaPreview.replaceChildren();
+   if(!cards.length){
+     const empty=document.createElement('p');
+     empty.className='mega-menu-empty-state';
+     empty.textContent='No panel menu created. Click the Add Panel button below to add.';
+     megaPreview.append(empty);
+   }
    cards.forEach(item=>{
      const card=document.createElement('a');card.className='category module-card';card.href='#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
