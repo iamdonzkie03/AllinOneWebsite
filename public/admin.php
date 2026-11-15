@@ -2586,7 +2586,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endif; ?>
  <?php foreach($megaPreviewPanels as $pn): ?>
   <a class="category module-card" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false">
-   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php endif; ?>
+   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><span class="symbol"><?=e($pn['symbol']??'✳')?></span><?php endif; ?>
    <strong><?=e($pn['title']??'')?></strong>
    <span class="module-description"><?=e($pn['description']??'')?></span>
    <span class="module-link">Explore module ↗</span>
@@ -3310,7 +3310,16 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    });
  };
  megaPreview?.addEventListener('click',event=>event.preventDefault());
- megaPanelList?.addEventListener('input',renderMegaPreview);
+ megaPanelList?.addEventListener('input',event=>{
+   if(event.target.matches('[name="panel_title[]"]')){
+     const card=event.target.closest('.section-repeat-card');
+     const heading=card?.querySelector('.section-repeat-head strong');
+     if(heading)heading.textContent=event.target.value.trim()||'Menu Panel';
+     const url=card?.querySelector('[name="panel_url[]"]');
+     if(url)url.value='admin.php?category='+slugify(event.target.value)+'#latest';
+   }
+   renderMegaPreview();
+ });
  megaPanelList?.addEventListener('change',renderMegaPreview);
  megaPanelList?.addEventListener('click',event=>{if(event.target.closest('.section-remove'))requestAnimationFrame(renderMegaPreview)});
  renderMegaPreview();
@@ -3319,11 +3328,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelDescription=document.getElementById('mega-panel-description');
  const panelUrl=document.getElementById('mega-panel-url');
  const panelIcon=document.getElementById('mega-panel-icon');
- const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+ const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
  const closePanelModal=()=>{panelModal.hidden=true;};
  document.getElementById('add-mega-panel')?.addEventListener('click',()=>{panelTitle.value='';panelDescription.value='';panelIcon.value='✳';updatePanelUrl();panelModal.hidden=false;panelTitle.focus();});
- panelTitle?.addEventListener('input',updatePanelUrl);
+ panelTitle?.addEventListener('input',()=>{panelTitle.setCustomValidity('');updatePanelUrl();});
  document.getElementById('mega-panel-modal-close')?.addEventListener('click',closePanelModal);
  document.getElementById('mega-panel-cancel')?.addEventListener('click',closePanelModal);
  panelModal?.addEventListener('click',event=>{if(event.target===panelModal)event.stopPropagation();});
