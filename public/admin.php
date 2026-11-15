@@ -4172,6 +4172,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    const hidden=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;return input;};
    card.append(art,titleNode,remove,hidden('panel_symbol[]',panelIcon.value||'tabler:laptop'),hidden('panel_title[]',title),hidden('panel_description[]',descriptionText),hidden('panel_url[]',panelUrl.value));
    megaPanelList.append(card);
+   card.querySelector('[name="panel_title[]"]')?.dispatchEvent(new Event('input',{bubbles:true}));
    closePanelModal();
    const form=document.getElementById('sections-settings-form');
    const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
