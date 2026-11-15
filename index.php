@@ -288,7 +288,7 @@ $modules = [
 </div></div></section>
 
 <?php $megaSection=$publicSections['mega_menu']??[]; $megaPanels=(array)($megaSection['panels']??[]); ?>
-<section class="section mega-menu-section" id="modules"><div class="wrap"><div class="category-row module-grid"><?php if($megaPanels): foreach($megaPanels as $pn): ?><a class="category module-card" href="<?=e($pn['url']??'#')?>"><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><span class="symbol"><?=e($pn['symbol']??'✳')?></span><?php endif; ?><strong><?=e($pn['title']??'')?></strong><span class="module-description"><?=e($pn['description']??'')?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
+<section class="section mega-menu-section" id="modules"><div class="wrap"><div class="category-row module-grid"><?php if($megaPanels): foreach($megaPanels as $pn): ?><a class="category module-card" href="<?=e($pn['url']??'#')?>"><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); if(preg_match('/^[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="symbol panel-lucide-icon"><i data-lucide="<?=e($panelIconName)?>"></i></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><strong><?=e($pn['title']??'')?></strong><span class="module-description"><?=e($pn['description']??'')?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
 
 <section class="section" id="latest"><div class="wrap">
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
@@ -552,4 +552,4 @@ $(function(){
   update();
 })();
 </script>
-</body></html>
+<script src="https://unpkg.com/lucide@latest"></script><script>window.lucide?.createIcons?.();</script>\n</body></html>
