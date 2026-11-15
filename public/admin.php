@@ -2655,6 +2655,21 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 .panel-icon-option-glyph{font-size:23px;line-height:1.2}
 .panel-icon-option-name{font-size:10px;color:#d8c5cc}
 .section-field-label,.gallery-field-label{display:block;margin-bottom:7px;color:inherit;font:inherit}
+/* Glassmorphism icon library popup: override the legacy compact picker rules below. */
+.panel-icon-trigger{background:linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.035))!important;border:1px solid rgba(255,255,255,.24)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 8px 24px rgba(0,0,0,.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.panel-icon-popup{width:min(520px,calc(100vw - 48px));max-height:min(440px,65vh);overflow:hidden;display:flex;flex-direction:column;gap:9px;padding:13px;background:linear-gradient(145deg,rgba(44,28,39,.92),rgba(15,13,20,.94));border:1px solid rgba(255,255,255,.22);box-shadow:0 22px 60px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.panel-icon-search{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.09);color:#fff;font:13px Ubuntu,sans-serif;outline:none}
+.panel-icon-search::placeholder{color:rgba(255,255,255,.56)}
+.panel-icon-search:focus{border-color:rgba(230,115,146,.8);box-shadow:0 0 0 3px rgba(184,50,63,.18)}
+.panel-icon-count{font:11px Ubuntu,sans-serif;color:rgba(255,255,255,.68)}
+.panel-icon-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 4px 2px}
+.panel-icon-option{min-width:0;min-height:68px;border:1px solid rgba(255,255,255,.17);border-radius:11px;background:linear-gradient(145deg,rgba(255,255,255,.17),rgba(255,255,255,.045));box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 5px 14px rgba(0,0,0,.18);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:transform .16s ease,border-color .16s ease,background .16s ease}
+.panel-icon-option:hover,.panel-icon-option[aria-pressed="true"]{transform:translateY(-2px);border-color:rgba(255,143,170,.85);background:linear-gradient(145deg,rgba(184,50,63,.36),rgba(255,255,255,.1));box-shadow:0 8px 22px rgba(184,50,63,.2),inset 0 1px 0 rgba(255,255,255,.2)}
+.panel-icon-option-glyph{font-size:25px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.35))}
+.panel-icon-option-name{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;color:rgba(255,255,255,.78)}
+.panel-icon-option[hidden]{display:none!important}
+@media(max-width:480px){.panel-icon-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
 #mega-panel-modal #mega-panel-url{
  background:#343238;
  color:#aaa5aa;
