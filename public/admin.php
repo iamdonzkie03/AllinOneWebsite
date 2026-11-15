@@ -2595,7 +2595,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endforeach; ?>
  </div>
 </div>
-  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong><?=e($pn['title']??'Menu Panel')?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><div class="section-field"><span class="section-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'laptop')?>"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><i data-lucide="<?=e((['compact-disc'=>'disc-3','taxi'=>'car-front','car'=>'car-front'][(string)($pn['symbol']??'')]??(preg_match('/^[a-z0-9-]{1,60}$/',(string)($pn['symbol']??''))?($pn['symbol']??'laptop'):'star')) )?>"></i></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>" readonly></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
+  <div class="section-repeat-head"><h3>Panel View Menu</h3><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div><div id="mega-panel-list"><?php foreach($sectionsSettings['mega_menu']['panels'] as $pn): ?><div class="section-repeat-card" data-preview-image="<?=e($pn['photo']??'')?>"><div class="section-repeat-head"><strong><?=e($pn['title']??'Menu Panel')?></strong><button type="button" class="section-remove">Remove</button></div><div class="section-form-grid"><div class="section-field"><span class="section-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'laptop')?>"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><iconify-icon icon="tabler:<?=e(preg_replace('/^tabler:/','',(string)($pn['symbol']??'laptop'))?:'laptop')?>"></iconify-icon></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div><label class="section-field">Panel Title<input name="panel_title[]" value="<?=e($pn['title']??'')?>"></label><label class="section-field">Panel Description<textarea name="panel_description[]"><?=e($pn['description']??'')?></textarea></label><label class="section-field">Panel Page URL<input name="panel_url[]" value="<?=e($pn['url']??'')?>" readonly></label><label class="section-field">Upload Panel Cover Photo<input type="file" name="panel_photo[]" accept="image/*"><?php if(!empty($pn['photo'])): ?><small>Current photo: <?=e(basename($pn['photo']))?></small><?php endif; ?></label></div></div><?php endforeach; ?></div>
   <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
@@ -2694,7 +2694,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="mega-panel-modal-title">
    <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create a menu panel for the public homepage.</p></div></div>
    <div class="gallery-form-grid">
-    <div class="gallery-form-field"><span class="gallery-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" id="mega-panel-icon" value="✳"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current">✳</span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div>
+    <div class="gallery-form-field"><span class="gallery-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" id="mega-panel-icon" value="tabler:laptop"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><iconify-icon icon="tabler:laptop" aria-hidden="true"></iconify-icon></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div>
     <label class="gallery-form-field">Title<input id="mega-panel-title" type="text" maxlength="100" placeholder="Enter panel title"></label>
     <label class="gallery-form-field">Description<textarea id="mega-panel-description" rows="3" maxlength="400" placeholder="Enter panel description"></textarea></label>
     <label class="gallery-form-field">Page URL<input id="mega-panel-url" type="text" readonly value="admin.php?category=#latest"><small>Automatically generated from the title.</small></label>
@@ -3979,7 +3979,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   }, true);
 })();</script>
 
-<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
 <script>
 // Independent Add Panel modal controller: must not depend on section-builder initialization.
 (() => {
@@ -3990,12 +3990,18 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelIcon=document.getElementById('mega-panel-icon');
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
- const panelIconAliases={'compact-disc':'disc-3','taxi':'car-front','car':'car-front','earth':'earth'};
+ const panelIconAliases={'compact-disc':'disc','taxi':'car-taxi','car':'car','earth':'world'};
  const panelIconPreferred=['laptop','compact-disc','key','lock','car','taxi','earth','disc','disc-2','disc-3','globe','globe-2','smartphone','monitor','printer','camera','video','music','headphones','wifi','bluetooth','mail','phone','tablet','watch','map','map-pin','house','building','store','shopping-cart','credit-card','wallet','briefcase','calendar','clock','alarm-clock','bell','book','book-open','file','folder','image','film','gamepad-2','joystick','lightbulb','plug','battery','zap','cloud','sun','moon','star','heart','shield','shield-check','user','users','settings','wrench','hammer','scissors','package','truck','bus','bike','plane','ship','train','rocket'];
- const panelIconNames=(()=>{const icons=window.lucide?.icons||{};const available=Object.keys(icons).sort();const names=[...panelIconPreferred,...available].filter((name,index,array)=>array.indexOf(name)===index).filter(name=>Boolean(icons[panelIconAliases[name]||name]));return names.slice(0,1500);})();
- const panelIconChoices=panelIconNames.map(name=>[name,name,name.split('-')[0]]);
+ let panelIconNames=[];let panelIconChoices=[];
+ const panelIconCatalogPromise=fetch('https://api.iconify.design/collection?prefix=tabler').then(response=>{if(!response.ok)throw new Error('Icon catalog request failed');return response.json();}).then(data=>{
+  const names=[...(data.uncategorized||[]),...Object.values(data.categories||{}).flat()].filter(name=>typeof name==='string');
+  panelIconNames=[...new Set(names)].sort((left,right)=>left.localeCompare(right));
+  if(panelIconNames.length<1500)throw new Error('The Tabler catalog returned fewer than 1,500 icons.');
+  panelIconChoices=panelIconNames.map(name=>[name,name,name.split('-')[0]]);
+  return panelIconChoices;
+ });
  const panelIconHue=name=>{let hash=0;for(const char of String(name||''))hash=(hash*31+char.charCodeAt(0))>>>0;return hash%360;};
- const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const hue=panelIconHue(name);element.style.setProperty('--icon-hue',hue);element.style.color=`hsl(${hue} 92% 70%)`;const icon=document.createElement('i');icon.setAttribute('data-lucide',panelIconAliases[name]||name||'star');element.append(icon);};
+ const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const hue=panelIconHue(name);element.style.setProperty('--icon-hue',hue);element.style.color=`hsl(${hue} 92% 70%)`;const icon=document.createElement('iconify-icon');icon.setAttribute('icon','tabler:'+String(name||'laptop').replace(/^tabler:/,''));icon.setAttribute('aria-hidden','true');element.append(icon);};
  const createPanelLucideIcons=()=>{if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});};
  const createPanelIconPicker=(value='✳',name='panel_symbol[]')=>{
   const wrap=document.createElement('div');wrap.className='panel-icon-picker';wrap.dataset.iconPicker='';
@@ -4008,11 +4014,14 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const popup=document.createElement('div');popup.className='panel-icon-popup';popup.dataset.iconPickerPopup='';popup.hidden=true;popup.setAttribute('role','dialog');popup.setAttribute('aria-label','Choose an icon');
   wrap.append(hidden,trigger,popup);populatePanelIconPicker(wrap);return wrap;
  };
- const populatePanelIconPicker=wrap=>{
+ const populatePanelIconPicker=async wrap=>{
   const popup=wrap.querySelector('[data-icon-picker-popup]');if(!popup||popup.dataset.ready)return;
-  popup.dataset.ready='1';
-  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search 1,500 named icons…';search.setAttribute('aria-label','Search icons');
-  const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length+' named icons';
+  popup.dataset.ready='loading';
+  const loading=document.createElement('div');loading.className='panel-icon-count';loading.textContent='Loading the complete A–Z icon library…';popup.append(loading);
+  try{await panelIconCatalogPromise;}catch(error){loading.textContent='The icon catalog could not be loaded. Check your connection and reload this page.';popup.dataset.ready='error';return;}
+  loading.remove();popup.dataset.ready='1';
+  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search 6,000+ named icons…';search.setAttribute('aria-label','Search icons');
+  const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length.toLocaleString()+' icons · A–Z';
   const grid=document.createElement('div');grid.className='panel-icon-grid';popup.append(search,count,grid);
   panelIconChoices.forEach(([symbol,label,category],index)=>{
    const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.style.setProperty('--icon-hue',panelIconHue(symbol));option.dataset.iconSearch=(label+' '+category+' '+symbol).toLowerCase();option.title=label;option.setAttribute('aria-label',label);
@@ -4024,7 +4033,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   search.addEventListener('input',()=>{
    const term=search.value.trim().toLowerCase();let visible=0;
    grid.querySelectorAll('[data-icon-value]').forEach(option=>{const match=!term||option.dataset.iconSearch.includes(term);option.hidden=!match;if(match)visible++;});
-   count.textContent=visible+' of '+panelIconChoices.length+' named icons';
+   count.textContent=visible.toLocaleString()+' of '+panelIconChoices.length.toLocaleString()+' icons';
   });
  };
  document.querySelectorAll('[data-icon-picker]').forEach(populatePanelIconPicker);
@@ -4039,7 +4048,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const choice=target.closest('[data-icon-value]');
   if(choice){
    const picker=choice.closest('[data-icon-picker]');const hidden=picker?.querySelector('input[type="hidden"]');const current=picker?.querySelector('.panel-icon-current');const popup=picker?.querySelector('[data-icon-picker-popup]');const button=picker?.querySelector('[data-icon-picker-trigger]');
-   if(hidden)hidden.value=choice.dataset.iconValue||'laptop';if(current)renderPanelLucide(current,choice.dataset.iconValue||'laptop');createPanelLucideIcons();
+   if(hidden)hidden.value='tabler:'+(choice.dataset.iconValue||'laptop');if(current)renderPanelLucide(current,choice.dataset.iconValue||'laptop');createPanelLucideIcons();
    popup&&(popup.hidden=true);button?.setAttribute('aria-expanded','false');
    picker?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String(item===choice)));
    return;
@@ -4058,7 +4067,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    panelModalPreviousFocus=document.activeElement;
    panelTitle.value='';
    panelDescription.value='';
-   panelIcon.value='laptop';
+   panelIcon.value='tabler:laptop';
    panelTitle.setCustomValidity('');
    updatePanelUrl();
    panelModal.hidden=false;
@@ -4127,13 +4136,13 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  });
 })();
 </script>
-<style>.panel-icon-option-glyph svg{width:27px;height:27px;stroke:currentColor;stroke-width:1.8}.panel-icon-current svg{width:23px;height:23px;stroke:currentColor}.panel-lucide-icon svg{width:1em;height:1em;stroke:currentColor;stroke-width:1.8}</style>
+<style>.panel-icon-option-glyph svg{width:27px;height:27px;stroke:currentColor;stroke-width:1.8}.panel-icon-current svg,.panel-icon-current iconify-icon{width:23px;height:23px;stroke:currentColor}.panel-lucide-icon svg{width:1em;height:1em;stroke:currentColor;stroke-width:1.8}</style>
 
 <style>
 /* Colorful glassmorphism treatment for the named icon library */
 .panel-icon-option{--icon-hue:205;background:linear-gradient(145deg,hsl(var(--icon-hue) 88% 58% / .30),hsl(calc(var(--icon-hue) + 55) 88% 48% / .12) 55%,rgba(255,255,255,.055))!important;border-color:hsl(var(--icon-hue) 90% 75% / .35)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.23),0 7px 18px hsl(var(--icon-hue) 90% 45% / .12),0 3px 10px rgba(0,0,0,.2)!important}
 .panel-icon-option-glyph{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,hsl(var(--icon-hue) 92% 66% / .32),hsl(calc(var(--icon-hue) + 70) 90% 56% / .16));border:1px solid hsl(var(--icon-hue) 95% 80% / .4);box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 5px 14px hsl(var(--icon-hue) 90% 45% / .22);color:hsl(var(--icon-hue) 100% 76%);filter:drop-shadow(0 2px 5px hsl(var(--icon-hue) 100% 60% / .32))}
-.panel-icon-option-glyph svg{width:27px;height:27px;stroke:currentColor;stroke-width:2.15;filter:drop-shadow(0 0 5px currentColor)}
+.panel-icon-option-glyph svg,.panel-icon-option-glyph iconify-icon{width:27px;height:27px;stroke:currentColor;stroke-width:2.15;filter:drop-shadow(0 0 5px currentColor)}
 .panel-icon-option-name{color:#fff!important;text-shadow:0 1px 5px rgba(0,0,0,.65)}
 .panel-icon-option:hover,.panel-icon-option[aria-pressed=true]{background:linear-gradient(145deg,hsl(var(--icon-hue) 90% 58% / .46),hsl(calc(var(--icon-hue) + 65) 90% 52% / .24))!important;border-color:hsl(var(--icon-hue) 100% 82% / .85)!important;box-shadow:0 0 0 1px hsl(var(--icon-hue) 100% 75% / .22),0 10px 26px hsl(var(--icon-hue) 95% 50% / .24),inset 0 1px 0 rgba(255,255,255,.3)!important}
 .panel-icon-current{width:34px;height:34px;border-radius:11px;background:linear-gradient(145deg,hsl(var(--icon-hue,205) 90% 60% / .34),hsl(calc(var(--icon-hue,205) + 65) 90% 50% / .18));border:1px solid hsl(var(--icon-hue,205) 95% 78% / .42);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 4px 12px hsl(var(--icon-hue,205) 90% 50% / .2)}
