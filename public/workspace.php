@@ -52,13 +52,13 @@ $sql.=" ORDER BY c.updated_at DESC";$stmt=$pdo->prepare($sql);$stmt->execute($pa
 <div class="creator-profile-subheading">Social Hub</div>
 <div class="creator-social-grid">
 <?php foreach(['Facebook'=>'facebook_url','X'=>'x_url','YouTube'=>'youtube_url'] as $network=>$field): ?>
-<div class="creator-profile-tile"><span><?=e($network)?></span><?php if(!empty($profile[$field])): ?><a href="<?=e((string)$profile[$field])?>" target="_blank" rel="noopener noreferrer"><?=e((string)$profile[$field])?></a><?php else: ?><small>Not connected</small><?php endif; ?></div>
+<div class="creator-profile-tile"><span><?=e($network)?></span><?php if(!empty($profile[$field]) && preg_match('~^https?://~i',(string)$profile[$field])): ?><a href="<?=e((string)$profile[$field])?>" target="_blank" rel="noopener noreferrer"><?=e((string)$profile[$field])?></a><?php else: ?><small>Not connected</small><?php endif; ?></div>
 <?php endforeach; ?>
 <div class="creator-profile-tile"><span>Other Social Media</span><strong><?=!empty($profile['other_social_links'])?nl2br(e((string)$profile['other_social_links'])):'Not added yet'?></strong></div>
 </div>
 <div class="creator-profile-subheading creator-profile-subheading-spaced">Posts &amp; Articles</div>
-<div class="panel creator-posts-panel"><table class="table"><thead><tr><th>Post / Article</th><th>Category</th><th>Published</th><th>View</th></tr></thead><tbody>
-<?php foreach($publishedPosts as $post): ?><tr><td><?=e((string)$post['title'])?></td><td><?=e((string)$post['category_name'])?></td><td><?=e($formatProfileDate(isset($post['published_at'])?(string)$post['published_at']:null))?></td><td><a href="../index.php?article=<?=rawurlencode((string)$post['slug'])?>" target="_blank" rel="noopener noreferrer">View</a></td></tr><?php endforeach; ?>
+<div class="panel creator-posts-panel"><table class="table"><thead><tr><th>Post / Article</th><th>Category</th><th>Published</th><th>Status</th></tr></thead><tbody>
+<?php foreach($publishedPosts as $post): ?><tr><td><?=e((string)$post['title'])?></td><td><?=e((string)$post['category_name'])?></td><td><?=e($formatProfileDate(isset($post['published_at'])?(string)$post['published_at']:null))?></td><td><span class="status">Published</span></td></tr><?php endforeach; ?>
 <?php if(!$publishedPosts): ?><tr><td colspan="4">No published posts or articles yet.</td></tr><?php endif; ?>
 </tbody></table></div>
 </div>
@@ -66,8 +66,8 @@ $sql.=" ORDER BY c.updated_at DESC";$stmt=$pdo->prepare($sql);$stmt->execute($pa
 <div class="creator-profile-group"><h3>Monetization &amp; Business Offerings</h3>
 <div class="creator-social-grid creator-business-grid">
 <div class="creator-profile-tile"><span>Affiliate Links</span><strong><?=!empty($profile['affiliate_links'])?nl2br(e((string)$profile['affiliate_links'])):'Not added yet'?></strong></div>
-<div class="creator-profile-tile"><span>Direct Support</span><?php if(!empty($profile['direct_support_url'])): ?><a href="<?=e((string)$profile['direct_support_url'])?>" target="_blank" rel="noopener noreferrer"><?=e((string)$profile['direct_support_url'])?></a><?php else: ?><small>Not configured</small><?php endif; ?></div>
-<div class="creator-profile-tile"><span>E-Commerce</span><?php if(!empty($profile['ecommerce_url'])): ?><a href="<?=e((string)$profile['ecommerce_url'])?>" target="_blank" rel="noopener noreferrer"><?=e((string)$profile['ecommerce_url'])?></a><?php else: ?><small>Not configured</small><?php endif; ?></div>
+<div class="creator-profile-tile"><span>Direct Support</span><?php if(!empty($profile['direct_support_url']) && preg_match('~^https?://~i',(string)$profile['direct_support_url'])): ?><a href="<?=e((string)$profile['direct_support_url'])?>" target="_blank" rel="noopener noreferrer"><?=e((string)$profile['direct_support_url'])?></a><?php else: ?><small>Not configured</small><?php endif; ?></div>
+<div class="creator-profile-tile"><span>E-Commerce</span><?php if(!empty($profile['ecommerce_url']) && preg_match('~^https?://~i',(string)$profile['ecommerce_url'])): ?><a href="<?=e((string)$profile['ecommerce_url'])?>" target="_blank" rel="noopener noreferrer"><?=e((string)$profile['ecommerce_url'])?></a><?php else: ?><small>Not configured</small><?php endif; ?></div>
 </div>
 </div>
 
