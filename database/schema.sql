@@ -5,6 +5,10 @@ USE allinoneweb;
 CREATE TABLE users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(160) NOT NULL,
+  last_name VARCHAR(100) NULL,
+  first_name VARCHAR(100) NULL,
+  middle_name VARCHAR(100) NULL,
+  name_suffix VARCHAR(30) NULL,
   email VARCHAR(190) NOT NULL UNIQUE,
   mobile_no VARCHAR(16) NULL,
   nickname VARCHAR(80) NULL,
