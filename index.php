@@ -568,7 +568,7 @@ $(function(){
   background:radial-gradient(circle at 50% 35%,hsl(var(--icon-hue,205) 92% 58% / .38),transparent 72%),linear-gradient(145deg,hsl(var(--icon-hue,205) 88% 42% / .48),hsl(var(--icon-hue,205) 72% 18% / .88))
 }
 .mega-menu-section .module-grid>.mega-public-panel .mega-panel-icon-background iconify-icon{
-  display:block;width:auto;height:auto;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.42;
+  display:block;width:auto;height:auto;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.25;
   color:currentColor;filter:drop-shadow(0 0 24px currentColor)
 }
 .mega-menu-section .module-grid>.mega-public-panel>.mega-panel-icon-background~.mega-panel-preview-content{
