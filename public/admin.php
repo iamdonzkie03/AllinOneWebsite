@@ -2603,6 +2603,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   <a class="category module-card mega-public-panel mega-preview-panel" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>>
    <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??'tabler:laptop'); if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="symbol panel-lucide-icon"><iconify-icon icon="tabler:<?=e(preg_replace('/^tabler:/','',$panelIconName)?:'laptop')?>" aria-hidden="true"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?>
    <strong><?=e($pn['title']??'')?></strong>
+   <?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?>
    <span class="module-link">Explore module ↗</span>
   </a>
  <?php endforeach; ?>
@@ -2629,12 +2630,10 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   </div>
  </section>
  </form>
-<style id="mega-panel-tooltip-styles">.mega-menu-preview .mega-preview-panel{position:relative;cursor:default}
-.mega-menu-preview .mega-preview-panel[data-description]:after{content:attr(data-description);position:absolute;left:50%;bottom:calc(100% + 12px);z-index:30;width:max-content;max-width:min(300px,80vw);padding:11px 14px;border:1px solid rgba(255,255,255,.22);border-radius:12px;background:rgba(18,13,24,.96);color:#fff;font-size:12px;line-height:1.5;text-align:left;white-space:normal;box-shadow:0 12px 32px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease;pointer-events:none}
-.mega-menu-preview .mega-preview-panel[data-description]:before{content:"";position:absolute;left:50%;bottom:calc(100% + 4px);z-index:31;border:7px solid transparent;border-top-color:rgba(18,13,24,.96);opacity:0;visibility:hidden;transform:translateX(-50%);transition:opacity .18s ease,visibility .18s ease}
-.mega-menu-preview .mega-preview-panel[data-description]:hover:after,.mega-menu-preview .mega-preview-panel[data-description]:focus-visible:after,.mega-menu-preview .mega-preview-panel[data-description]:hover:before,.mega-menu-preview .mega-preview-panel[data-description]:focus-visible:before{opacity:1;visibility:visible;transform:translate(-50%,0)}
-.mega-menu-preview .mega-preview-panel[data-description]:hover:before,.mega-menu-preview .mega-preview-panel[data-description]:focus-visible:before{transform:translateX(-50%)}
-@media(hover:none){.mega-menu-preview .mega-preview-panel[data-description]:after{display:none}}</style>
+<style id="mega-panel-description-styles">
+.mega-menu-preview .mega-preview-panel{cursor:default}
+.mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px auto 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:12px;line-height:1.5;font-weight:400;text-align:center;white-space:normal;overflow-wrap:anywhere}
+</style>
 <style id="mega-panel-modal-styles">
 /* Page Management needs its own copy of the Gallery modal rules:
    Media Management's stylesheet is only rendered on that separate page. */
@@ -3430,10 +3429,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    }
    cards.forEach(item=>{
      const card=document.createElement('a');card.className='category module-card mega-public-panel mega-preview-panel';card.href=item.url||'#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
-     if(item.description){card.dataset.description=item.description;card.setAttribute('aria-label',(item.title||'Menu panel')+': '+item.description);}
+     if(item.description)card.setAttribute('aria-label',(item.title||'Menu panel')+': '+item.description);
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
      else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(item.symbol||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
      const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';card.append(title);
+     if(item.description){const description=document.createElement('span');description.className='mega-panel-description';description.textContent=item.description;card.append(description);}
      const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';card.append(link);
      megaPreview.append(card);
    });
