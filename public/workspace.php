@@ -124,7 +124,7 @@ $sql.=" ORDER BY c.updated_at DESC";$stmt=$pdo->prepare($sql);$stmt->execute($pa
 <section class="panel creator-profile-panel" id="my-profile">
 <div class="creator-profile-heading"><div><div class="eyebrow">My Profile</div><h2>Creator Profile</h2><p class="muted">Your public identity, content presence, and business offerings.</p></div><span class="creator-profile-status"><?=e(ucfirst((string)($profile['account_status']??'approved')))?></span></div>
 
-<div class="creator-profile-group creator-profile-card"><div class="creator-profile-group-heading"><h3>Identity and Visual Branding</h3><button type="button" class="btn light creator-profile-edit" data-profile-modal="identity">Edit</button></div>
+<div class="creator-profile-group creator-profile-card creator-profile-identity"><div class="creator-profile-group-heading"><h3>Identity and Visual Branding</h3><button type="button" class="btn light creator-profile-edit" data-profile-modal="identity">Edit</button></div>
 <div class="creator-branding-preview">
 <div class="creator-profile-banner"><?php if(!empty($profile['banner_path'])): ?><img src="<?=e((string)$profile['banner_path'])?>" alt="Creator banner"><?php else: ?><span>Banner not uploaded</span><?php endif; ?></div>
 <div class="creator-profile-avatar"><?php if(!empty($profile['avatar_path'])): ?><img src="<?=e((string)$profile['avatar_path'])?>" alt="Creator avatar"><?php else: ?><span><?=e(strtoupper(substr((string)($profile['nickname']??$profile['full_name']??'C'),0,1)))?></span><?php endif; ?></div>
@@ -134,7 +134,7 @@ $sql.=" ORDER BY c.updated_at DESC";$stmt=$pdo->prepare($sql);$stmt->execute($pa
 <div><span class="muted">Short Bio</span><strong class="creator-profile-notes"><?=e((string)($profile['short_bio']??'Not added yet'))?></strong></div>
 </div></div>
 
-<div class="creator-profile-group creator-profile-card"><div class="creator-profile-group-heading"><h3>Content &amp; Social Hub</h3><button type="button" class="btn light creator-profile-edit" data-profile-modal="social">Edit</button></div>
+<div class="creator-profile-group creator-profile-card creator-profile-social"><div class="creator-profile-group-heading"><h3>Content &amp; Social Hub</h3><button type="button" class="btn light creator-profile-edit" data-profile-modal="social">Edit</button></div>
 <div class="creator-profile-subheading">Social Hub</div>
 <div class="creator-social-grid">
 <?php foreach(['Facebook'=>'facebook_url','X'=>'x_url','YouTube'=>'youtube_url'] as $network=>$field): ?>
@@ -149,7 +149,7 @@ $sql.=" ORDER BY c.updated_at DESC";$stmt=$pdo->prepare($sql);$stmt->execute($pa
 </tbody></table></div>
 </div>
 
-<div class="creator-profile-group creator-profile-card"><div class="creator-profile-group-heading"><h3>Monetization &amp; Business Offerings</h3><button type="button" class="btn light creator-profile-edit" data-profile-modal="business">Edit</button></div>
+<div class="creator-profile-group creator-profile-card creator-profile-business"><div class="creator-profile-group-heading"><h3>Monetization &amp; Business Offerings</h3><button type="button" class="btn light creator-profile-edit" data-profile-modal="business">Edit</button></div>
 <div class="creator-social-grid creator-business-grid">
 <div class="creator-profile-tile"><span>Affiliate Links</span><strong><?=!empty($profile['affiliate_links'])?nl2br(e((string)$profile['affiliate_links'])):'Not added yet'?></strong></div>
 <div class="creator-profile-tile"><span>Direct Support</span><?php if(!empty($profile['direct_support_url']) && preg_match('~^https?://~i',(string)$profile['direct_support_url'])): ?><a href="<?=e((string)$profile['direct_support_url'])?>" target="_blank" rel="noopener noreferrer"><?=e((string)$profile['direct_support_url'])?></a><?php else: ?><small>Not configured</small><?php endif; ?></div>
@@ -219,7 +219,10 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.qu
 #my-profile{scroll-margin-top:18px}
 @media(max-width:620px){.creator-social-grid,.creator-business-grid{grid-template-columns:1fr}.creator-profile-banner{height:112px}.creator-main-menu-inner{overflow-x:auto;gap:0}.creator-main-menu-link{padding:0 13px;font-size:12px}.creator-profile-grid{grid-template-columns:1fr;gap:13px}.creator-profile-panel{padding:18px}.creator-profile-heading{flex-direction:column}.creator-dashboard-layout{padding-top:22px}}
 
-.creator-profile-group.creator-profile-card{margin:16px 0;padding:20px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:linear-gradient(145deg,rgba(75,30,47,.30),rgba(255,255,255,.025));box-shadow:0 12px 28px rgba(0,0,0,.16)}
+.creator-profile-group.creator-profile-card{margin:16px 0;padding:20px;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 12px 28px rgba(0,0,0,.18)}
+.creator-profile-group.creator-profile-identity{background:linear-gradient(135deg,rgba(106,35,55,.58),rgba(54,22,35,.72))}
+.creator-profile-group.creator-profile-social{background:linear-gradient(135deg,rgba(35,68,91,.58),rgba(22,39,57,.76))}
+.creator-profile-group.creator-profile-business{background:linear-gradient(135deg,rgba(75,75,39,.58),rgba(43,48,27,.76))}
 .creator-profile-group-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px}
 .creator-profile-group-heading h3{margin:0}
 .creator-profile-edit{padding:7px 15px;font-size:12px}
