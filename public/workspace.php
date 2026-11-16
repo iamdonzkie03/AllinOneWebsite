@@ -4,6 +4,32 @@ require __DIR__ . '/../app/bootstrap.php';
 $user=require_login();
 if ($user['role']==='system_admin') { header('Location: admin.php'); exit; }
 if ($user['account_status']!=='approved') { session_destroy(); header('Location: login.php'); exit; }
+
+// Give every Creator a private, predictable upload directory. The numeric ID
+// is added only when two Creators normalize to the same folder name.
+$creatorFolderLabel=trim((string)($user['nickname']??''));
+if ($creatorFolderLabel==='') $creatorFolderLabel=trim((string)($user['full_name']??'creator'));
+$creatorFolderSlug=function(string $label): string {
+    $ascii=function_exists('iconv')?iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$label):$label;
+    $slug=strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/','-',(string)($ascii!==false?$ascii:$label)),'-'));
+    return $slug!==''?$slug:'creator';
+};
+$creatorFolderName=$creatorFolderSlug($creatorFolderLabel);
+$creatorRoot=__DIR__.'/creator/'.$creatorFolderName;
+if (is_dir($creatorRoot)) {
+    $ownerMarker=$creatorRoot.'/.creator-id';
+    if (is_file($ownerMarker) && trim((string)file_get_contents($ownerMarker))!==(string)(int)$user['id']) {
+        $creatorFolderName.='-'.(int)$user['id'];
+        $creatorRoot=__DIR__.'/creator/'.$creatorFolderName;
+    }
+}
+foreach ([$creatorRoot,$creatorRoot.'/banner',$creatorRoot.'/avatar'] as $creatorDirectory) {
+    if (!is_dir($creatorDirectory) && !mkdir($creatorDirectory,0755,true) && !is_dir($creatorDirectory)) {
+        http_response_code(500); exit('Unable to create your personal Creator upload folders.');
+    }
+}
+@file_put_contents($creatorRoot.'/.creator-id',(string)(int)$user['id'],LOCK_EX);
+
 // Ensure Creator profile fields exist before selecting them. This is deliberately
 // idempotent so existing Laragon databases are upgraded on their next visit.
 $creatorProfileColumns = [
@@ -59,16 +85,24 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             if ($newPassword!==$confirmPassword) { http_response_code(422); exit('The new password and retyped password do not match.'); }
             if (strlen($newPassword)<10 || !preg_match('/[A-Z]/',$newPassword) || !preg_match('/[a-z]/',$newPassword) || !preg_match('/[0-9]/',$newPassword) || !preg_match('/[^A-Za-z0-9]/',$newPassword)) { http_response_code(422); exit('Password must be at least 10 characters and include uppercase, lowercase, number, and symbol characters.'); }
         }
-        $avatarPath=null; $bannerPath=null; $uploadDir=__DIR__.'/uploads/creator_profiles';
-        if (!is_dir($uploadDir) && !mkdir($uploadDir,0755,true) && !is_dir($uploadDir)) { http_response_code(500); exit('Unable to create the profile image folder.'); }
+        $avatarPath=null; $bannerPath=null;
         foreach (['avatar'=>'avatar_path','banner'=>'banner_path'] as $input=>$column) {
             if (!isset($_FILES[$input]) || (int)$_FILES[$input]['error']===UPLOAD_ERR_NO_FILE) continue;
             if ((int)$_FILES[$input]['error']!==UPLOAD_ERR_OK || (int)$_FILES[$input]['size']>5*1024*1024) { http_response_code(422); exit('Each profile image must be 5 MB or smaller.'); }
             $mime=(new finfo(FILEINFO_MIME_TYPE))->file($_FILES[$input]['tmp_name']); $extensions=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
             if (!isset($extensions[$mime])) { http_response_code(422); exit('Profile images must be JPG, PNG, or WebP files.'); }
-            $filename=$input.'-'.$creatorId.'-'.bin2hex(random_bytes(12)).'.'.$extensions[$mime];
-            if (!move_uploaded_file($_FILES[$input]['tmp_name'],$uploadDir.'/'.$filename)) { http_response_code(500); exit('Unable to save the uploaded profile image.'); }
-            if ($input==='avatar') $avatarPath='uploads/creator_profiles/'.$filename; else $bannerPath='uploads/creator_profiles/'.$filename;
+            $dateCreated=date('Ymd_His');
+            $filePrefix=$input==='avatar'?'avatar':'banner';
+            $filename=$filePrefix.'_'.$creatorFolderName.'_'.$dateCreated.'.'.$extensions[$mime];
+            $targetDirectory=$creatorRoot.'/'.$input;
+            $counter=2;
+            while (is_file($targetDirectory.'/'.$filename)) {
+                $filename=$filePrefix.'_'.$creatorFolderName.'_'.$dateCreated.'_'.$counter.'.'.$extensions[$mime];
+                $counter++;
+            }
+            if (!move_uploaded_file($_FILES[$input]['tmp_name'],$targetDirectory.'/'.$filename)) { http_response_code(500); exit('Unable to save the uploaded profile image.'); }
+            $relativePath='creator/'.$creatorFolderName.'/'.$input.'/'.$filename;
+            if ($input==='avatar') $avatarPath=$relativePath; else $bannerPath=$relativePath;
         }
         $fullName=$lastName.', '.$firstName.($middleName!==''?' '.$middleName:'').($suffix!==''?' '.$suffix:'');
         $sql='UPDATE users SET last_name=?,first_name=?,middle_name=?,name_suffix=?,full_name=?,nickname=?,email=?,mobile_no=?,birthdate=?,birthplace=?,credential_notes=?,short_bio=?';
