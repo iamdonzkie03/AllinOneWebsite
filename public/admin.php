@@ -754,7 +754,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
                 foreach((array)($_POST['panel_title']??[]) as $k=>$title){
                     $old=$oldPanels[$k]??[];
-                    $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($old['photo']??'')];
+                    $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($_POST['panel_existing_photo'][$k]??($old['photo']??''))];
                     if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
                         $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
                         $panel['photo']=$upload($f,'panel');
@@ -2616,21 +2616,24 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endforeach; ?>
  </div></div>
 </section>
-  <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards, like Slideshow Photos.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
+  <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards. Maximum of ten (10) panels can be created.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
+  <div class="slideshow-photo-list-toolbar gallery-photo-bulk-form mega-panel-bulk-toolbar"><label class="muted"><input type="checkbox" id="mega-panel-select-all"> Select all panels</label><button type="button" class="btn bulk-delete" id="mega-panel-delete-selected" disabled aria-disabled="true">Delete Selected</button></div>
   <div class="slideshow-photo-list mega-panel-record-list" id="mega-panel-list">
    <?php foreach((array)($sectionsSettings['mega_menu']['panels']??[]) as $pn): ?>
     <?php $panelRecordSymbol=preg_replace('/^tabler:/','',(string)($pn['symbol']??'laptop'))?:'laptop'; $panelRecordHash=0; foreach(str_split($panelRecordSymbol) as $panelRecordChar){$panelRecordHash=(($panelRecordHash*31)+ord($panelRecordChar)) & 0xFFFFFFFF;} $panelRecordHue=$panelRecordHash%360; ?>
-    <article class="gallery-photo-card slideshow-saved-photo mega-panel-record" data-preview-image="<?=e($pn['photo']??'')?>">
+    <article class="gallery-photo-card slideshow-saved-photo mega-panel-record">
      <div class="gallery-photo-image mega-panel-record-art">
       <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="<?=e($pn['title']??'Panel menu')?>" loading="lazy"><?php else: ?><span class="panel-record-icon" style="--icon-hue:<?=$panelRecordHue?>"><iconify-icon icon="tabler:<?=e($panelRecordSymbol)?>"></iconify-icon></span><?php endif; ?>
       <div class="gallery-photo-description"><?=e(trim((string)($pn['description']??''))!==''?$pn['description']:'No description added.')?></div>
      </div>
      <div class="gallery-photo-title" title="<?=e($pn['title']??'Untitled panel')?>"><?=e($pn['title']??'Untitled panel')?></div>
-     <button type="button" class="btn light section-remove mega-panel-remove">Remove</button>
+     <label class="gallery-photo-select"><input type="checkbox" class="mega-panel-checkbox" aria-label="Select panel <?=e($pn['title']??'Panel menu')?>"> Select</label>
+     <button type="button" class="btn light gallery-photo-edit mega-panel-edit">Edit</button>
      <input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'tabler:laptop')?>">
      <input type="hidden" name="panel_title[]" value="<?=e($pn['title']??'')?>">
      <input type="hidden" name="panel_description[]" value="<?=e($pn['description']??'')?>">
      <input type="hidden" name="panel_url[]" value="<?=e($pn['url']??'')?>">
+     <input type="hidden" name="panel_existing_photo[]" value="<?=e($pn['photo']??'')?>">
     </article>
    <?php endforeach; ?>
    <?php if(empty($sectionsSettings['mega_menu']['panels'])): ?><p class="muted slideshow-empty mega-panel-empty">No panel menus have been created yet.</p><?php endif; ?>
@@ -2742,7 +2745,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 </style>
 <div class="gallery-modal-backdrop" id="mega-panel-modal" hidden aria-hidden="true">
   <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="mega-panel-modal-title">
-   <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create a menu panel for the public homepage.</p></div></div>
+   <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create or edit a menu panel for the public homepage.</p></div></div>
    <div class="gallery-form-grid">
     <div class="gallery-form-field"><span class="gallery-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" id="mega-panel-icon" value="tabler:laptop"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><iconify-icon icon="tabler:laptop" aria-hidden="true"></iconify-icon></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div>
     <label class="gallery-form-field">Title<input id="mega-panel-title" type="text" maxlength="100" placeholder="Enter panel title"></label>
@@ -3427,829 +3430,87 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  root.querySelectorAll('[data-link]').forEach(b=>b.addEventListener('click',()=>{const url=prompt('Enter the link URL (https://, http://, or mailto:):');if(url){const ed=b.closest('.section-field')?.querySelector('[contenteditable=true]');ed?.focus();document.execCommand('createLink',false,url);ed?.dispatchEvent(new Event('input'))}}));
  const megaPreview=document.getElementById('mega-menu-live-preview');
  const megaPanelList=document.getElementById('mega-panel-list');
- const renderMegaPreview=()=>{
-   if(!megaPreview||!megaPanelList)return;
-   const cards=[...megaPanelList.querySelectorAll('.mega-panel-record')].map(card=>{
-     const value=name=>card.querySelector('[name="'+name+'[]"]')?.value?.trim()||'';
-     const file=card.querySelector('input[type="file"]')?.files?.[0];
-     const image=file?URL.createObjectURL(file):(card.dataset.previewImage||'');
-     if(file){if(card.dataset.previewObjectUrl)URL.revokeObjectURL(card.dataset.previewObjectUrl);card.dataset.previewObjectUrl=image;}
-     return {title:value('panel_title'),description:value('panel_description'),url:value('panel_url'),symbol:card.querySelector('[name="panel_symbol[]"]')?.value||'',image};
-   }).filter(card=>card.title||card.description||card.url||card.image);
-   megaPreview.replaceChildren();
-   if(!cards.length){
-     const empty=document.createElement('p');
-     empty.className='mega-menu-empty-state';
-     empty.textContent='No panel menu created. Click the Add Panel button below to add.';
-     megaPreview.append(empty);
-   }
-   cards.forEach(item=>{
-     const card=document.createElement('a');card.className='category module-card mega-public-panel mega-preview-panel';card.href=item.url||'#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
-     if(item.description)card.setAttribute('aria-label',(item.title||'Menu panel')+': '+item.description);
-     if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
-     else {const symbol=document.createElement('span');symbol.className='mega-panel-icon-background';symbol.setAttribute('aria-hidden','true');const iconName=String(item.symbol||'tabler:laptop').replace(/^tabler:/,'');let iconHash=0;for(const character of iconName)iconHash=((iconHash*31)+character.charCodeAt(0))>>>0;symbol.style.setProperty('--icon-hue',iconHash%360);const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+iconName);glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
-     const content=document.createElement('div');content.className='mega-panel-preview-content';
-     const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';content.append(title);
-     if(item.description){const description=document.createElement('span');description.className='mega-panel-description';description.textContent=item.description;content.append(description);}
-     const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';content.append(link);card.append(content);
-     megaPreview.append(card);
-   });
-   if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});
+ const panelForm=document.getElementById('sections-settings-form');
+ const makeHidden=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;return input;};
+ const setPanelIcon=value=>{
+  panelIcon.value=value||'tabler:laptop';
+  const picker=panelIcon.closest('[data-icon-picker]');
+  renderPanelLucide(picker?.querySelector('.panel-icon-current'),panelIcon.value);
+  picker?.querySelectorAll('[data-icon-value]').forEach(option=>option.setAttribute('aria-pressed',String(option.dataset.iconValue===panelIcon.value.replace(/^tabler:/,''))));
  };
- megaPreview?.addEventListener('click',event=>event.preventDefault());
- megaPanelList?.addEventListener('input',event=>{
-   if(event.target.matches('[name="panel_title[]"]')){
-     const card=event.target.closest('.section-repeat-card');
-     const heading=card?.querySelector('.section-repeat-head strong');
-     if(heading)heading.textContent=event.target.value.trim()||'Menu Panel';
-     const url=card?.querySelector('[name="panel_url[]"]');
-     if(url)url.value='admin.php?category='+slugify(event.target.value)+'#latest';
-   }
-   renderMegaPreview();
- });
- megaPanelList?.addEventListener('change',renderMegaPreview);
- megaPanelList?.addEventListener('click',event=>{if(event.target.closest('.section-remove'))requestAnimationFrame(renderMegaPreview)});
- renderMegaPreview();
- root.addEventListener('click',e=>{if(e.target.classList.contains('section-remove'))e.target.closest('.section-repeat-card')?.remove()});
- root.querySelector('#sections-settings-form')?.addEventListener('submit',()=>{root.querySelectorAll('[contenteditable=true]').forEach(ed=>{const ta=ed.parentElement.querySelector('textarea');if(ta)ta.value=ed.innerHTML})});
- })();
- </script>
-
- <script>
- (() => {
-   const list=document.getElementById('slideshow-photo-list');
-   const button=document.getElementById('slideshow-delete-selected');
-   const selectAll=document.getElementById('slideshow-select-all');
-   if(!list||!button||!selectAll)return;
-   // Start disabled before any selection events can fire.
-   button.disabled=true;
-   button.setAttribute('disabled','');
-   button.setAttribute('aria-disabled','true');
-   button.style.pointerEvents='none';
-   const checks=()=>Array.from(list.querySelectorAll('input.slideshow-photo-checkbox'));
-   const sync=()=>{
-     const boxes=checks();
-     const any=boxes.some(box=>box.checked);
-     button.textContent='Delete Selected';
-     button.disabled=!any;
-     button.toggleAttribute('disabled',!any);
-     button.setAttribute('aria-disabled',String(!any));
-     button.style.pointerEvents=any?'auto':'none';
-     selectAll.checked=boxes.length>0&&boxes.every(box=>box.checked);
-     selectAll.indeterminate=boxes.some(box=>box.checked)&&!selectAll.checked;
-     selectAll.disabled=boxes.length===0;
-   };
-   window.syncSlideshowPhotoSelection=sync;
-   selectAll.addEventListener('change',()=>{
-     checks().forEach(box=>{box.checked=selectAll.checked;});
-     sync();
-   });
-   list.addEventListener('change',event=>{
-     if(event.target instanceof HTMLInputElement&&event.target.matches('input.slideshow-photo-checkbox'))sync();
-   });
-   list.addEventListener('click',event=>{
-     const label=event.target instanceof Element?event.target.closest('label.gallery-photo-select'):null;
-     if(label)queueMicrotask(sync);
-   });
-   sync();
- })();
- </script>
-
-</section>
-    </section>
-    <script>
-    (() => {
-      const form = document.getElementById('footer-settings-form');
-      if (!form) return;
-      const fields = {
-        brand: document.getElementById('footer-brand'),
-        description: document.getElementById('footer-description'),
-        copyright: document.getElementById('footer-copyright'),
-        exploreTitle: document.getElementById('footer-explore-title'),
-        discoverTitle: document.getElementById('footer-discover-title')
-      };
-      const updateLinks = group => {
-        const editor = document.getElementById('footer-'+group+'-editor');
-        const preview = document.getElementById(group === 'brand' ? 'preview-footer-brand-links' : 'preview-footer-'+group+'-links');
-        preview.replaceChildren();
-        editor.querySelectorAll('.footer-link-row').forEach(row => {
-          const label = row.querySelector('[name="'+group+'_label[]"]').value.trim();
-          const url = row.querySelector('[name="'+group+'_url[]"]').value.trim();
-          if (!label) return;
-          const item = url ? document.createElement('a') : document.createElement('span');
-          item.textContent = label;
-          if (url) item.href = url; else item.className = 'footer-preview-text-item';
-          preview.append(item);
-        });
-      };
-      const updatePreview = () => {
-        document.getElementById('preview-footer-brand').childNodes[0].textContent = fields.brand.value;
-        document.getElementById('preview-footer-description').textContent = fields.description.value;
-        document.getElementById('preview-footer-copyright').textContent = fields.copyright.value.replaceAll('{year}', String(new Date().getFullYear()));
-        document.getElementById('preview-footer-explore-title').textContent = fields.exploreTitle.value;
-        document.getElementById('preview-footer-discover-title').textContent = fields.discoverTitle.value;
-        updateLinks('brand'); updateLinks('explore'); updateLinks('discover');
-      };
-      const addRow = group => {
-        const editor = document.getElementById('footer-'+group+'-editor');
-        const row = document.createElement('div'); row.className = 'footer-link-row';
-        const label = document.createElement('input'); label.className='field'; label.name=group+'_label[]'; label.maxLength=100; label.placeholder='Link title'; label.setAttribute('aria-label',group+' link title');
-        const url = document.createElement('input'); url.className='field'; url.name=group+'_url[]'; url.maxLength=500; url.placeholder='Page URL'; url.setAttribute('aria-label',group+' link URL');
-        const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-footer-link'; remove.textContent='Remove';
-        row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
-      };
-      form.addEventListener('input', event => { if (event.target.matches('.footer-link-row input')) event.target.classList.remove('footer-field-invalid'); updatePreview(); });
-      form.addEventListener('change', updatePreview);
-      let invalidTitleField = null;
-      form.addEventListener('submit', event => {
-        form.querySelectorAll('.footer-field-invalid').forEach(field => field.classList.remove('footer-field-invalid'));
-        for (const group of [{name:'brand',column:'1'},{name:'explore',column:'2'},{name:'discover',column:'3'}]) {
-          const rows=[...document.querySelectorAll('#footer-'+group.name+'-editor .footer-link-row')];
-          const missing=rows.filter(row=>row.querySelector('[name="'+group.name+'_url[]"]').value.trim()&&!row.querySelector('[name="'+group.name+'_label[]"]').value.trim());
-          if(missing.length){event.preventDefault();missing.forEach(row=>row.querySelector('[name="'+group.name+'_label[]"]').classList.add('footer-field-invalid'));invalidTitleField=missing[0].querySelector('[name="'+group.name+'_label[]"]');const popup=document.createElement('div');popup.className='account-status-modal';popup.id='footer-client-validation-modal';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');const card=document.createElement('div');card.className='account-status-modal-card';const icon=document.createElement('div');icon.className='account-status-modal-icon';icon.textContent='!';const heading=document.createElement('h2');heading.textContent='Please enter a title in Column '+group.column+'.';const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='OK';ok.addEventListener('click',()=>{popup.remove();if(invalidTitleField){invalidTitleField.focus();invalidTitleField.scrollIntoView({behavior:'smooth',block:'center'});}});card.append(icon,heading,ok);popup.append(card);document.body.append(popup);ok.focus();return;}
-        }
-      });
-      form.addEventListener('click', event => {
-        const add = event.target.closest('.add-footer-link');
-        if (add) { addRow(add.dataset.group); return; }
-        const remove = event.target.closest('.remove-footer-link');
-        if (remove) { remove.closest('.footer-link-row').remove(); updatePreview(); }
-      });
-      updatePreview();
-    })();
-    (() => {
-      const form = document.getElementById('header-settings-form');
-      if (form) {
-        const links = document.getElementById('header-links-list');
-        const add = document.getElementById('add-header-link');
-        const makeLinkRow = (label = '', url = '') => {
-          const row=document.createElement('div');row.className='header-link-row';
-          const urlInput=document.createElement('input');urlInput.className='field';urlInput.type='text';urlInput.name='header_link_url[]';urlInput.maxLength=500;urlInput.placeholder='Page URL';urlInput.value=url;
-          const labelInput=document.createElement('input');labelInput.className='field';labelInput.type='text';labelInput.name='header_link_label[]';labelInput.maxLength=60;labelInput.placeholder='Link title';labelInput.setAttribute('aria-label','Link title');labelInput.value=label;
-          const remove=document.createElement('button');remove.type='button';remove.className='btn light remove-header-link';remove.textContent='Remove';remove.addEventListener('click',()=>{row.remove();updatePreview();});
-          row.append(urlInput,labelInput,remove);return row;
-        };
-        const editorText = row => row.querySelector('[name="header_link_label[]"]')?.value || '';
-        const updatePreview = () => {
-          const titleEditor=form.querySelector('[data-rich-editor="title"]'),leftEditor=form.querySelector('[data-rich-editor="hidden_left"]'),rightEditor=form.querySelector('[data-rich-editor="hidden_right"]');
-          if(document.activeElement!==titleEditor && titleEditor.value.trim()!==form.elements.header_title.value.trim())titleEditor.value=form.elements.header_title.value;
-          if(document.activeElement!==leftEditor && leftEditor.innerText.trim()!==form.elements.hidden_left.value.trim())leftEditor.textContent=form.elements.hidden_left.value;
-          if(document.activeElement!==rightEditor && rightEditor.innerText.trim()!==form.elements.hidden_right.value.trim())rightEditor.textContent=form.elements.hidden_right.value;
-          const title=titleEditor.value.trim() || 'Header Title';form.elements.header_title.value=titleEditor.value.trim();
-          document.getElementById('preview-header-title').textContent=title;
-          document.getElementById('preview-hidden-left').textContent=form.elements.hidden_left.value;
-          document.getElementById('preview-hidden-right').textContent=form.elements.hidden_right.value;
-          const brand=document.getElementById('preview-header-brand');
-          const savedTypography=<?=json_encode(json_decode((string)($headerSettings['typography_json'] ?? '{}'),true) ?: [],JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
-          const styleFor=(key)=>{const group=form.querySelectorAll('[name^="typography['+key+']"]');const values={};group.forEach(el=>values[el.name.match(/\[([^\]]+)\]$/)[1]]=el.value);return values;};
-          const previewTypography=(key,fallback)=>{const st=styleFor(key);const saved=savedTypography[key]||{};const formats=(st.format??saved.format??'').split(/[ ,]+/).filter(Boolean);return {family:st.family||saved.family||'Ubuntu',style:formats.includes('italic')?'italic':(saved.style||'normal'),size:(st.size||saved.size||fallback.size)+'px',weight:formats.includes('bold')?700:(saved.weight||fallback.weight),decoration:formats.includes('underline')?'underline':'none',color:st.color||saved.color||fallback.color};};
-          const titleStyle=previewTypography('title',{size:20,weight:700,color:'#f7eef0'});const titlePreviewElement=document.getElementById('preview-header-title');Object.assign(titlePreviewElement.style,{fontFamily:titleStyle.family,fontStyle:titleStyle.style,fontSize:titleStyle.size,fontWeight:titleStyle.weight,textDecoration:'none',color:titleStyle.color});
-          form.querySelectorAll('[data-rich-editor]').forEach(editor=>{const target=form.querySelector('[data-rich-value="'+editor.dataset.richEditor+'"]');if(target)target.value=editor.innerHTML;});
-          const titlePreview=document.getElementById('preview-header-title');renderTitlePreview();
-          // Keep the base family on the title container as a normal inherited
-          // value. Per-range spans carry their own font-family declarations.
-          titlePreview.style.fontFamily=titleStyle.family||'Ubuntu';
-          document.getElementById('preview-hidden-left').innerHTML=form.querySelector('[data-rich-editor="hidden_left"]').innerHTML;
-          document.getElementById('preview-hidden-right').innerHTML=form.querySelector('[data-rich-editor="hidden_right"]').innerHTML;
-          const nav=document.getElementById('preview-header-links'); nav.querySelectorAll('.custom-preview-link').forEach(a=>a.remove());
-          [...links.querySelectorAll('.header-link-row')].forEach(row=>{const label=editorText(row).trim();const url=row.querySelector('[name="header_link_url[]"]').value.trim();if(label){const a=document.createElement('a');a.className='custom-preview-link';a.textContent=label;a.href=url||'#';nav.insertBefore(a,nav.querySelector('.preview-signin'));}});
-          const logo=document.getElementById('preview-header-logo');
-          const logoWidth=form.elements.logo_width.value,logoHeight=form.elements.logo_height.value;
-          logo.style.width=logoWidth+'px';logo.style.height=logoHeight+'px';logo.style.objectFit='contain';
-          document.getElementById('logo-width-value').textContent=logoWidth+' px';
-          document.getElementById('logo-height-value').textContent=logoHeight+' px';
-        };
-        const attachColorPalette=(input)=>{
-          if(!input||input.dataset.paletteReady)return;
-          input.dataset.paletteReady='1';
-          const button=document.createElement('button');
-          button.type='button';button.className='font-color-palette';
-          button.setAttribute('aria-label','Open font color palette');
-          button.setAttribute('aria-haspopup','true');button.setAttribute('aria-expanded','false');
-          button.title='Choose font color';
-          button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 1.6-3.9 1.2 1.2 0 0 1 .9-2.1H18a3 3 0 0 0 3-3c0-5-4-8-9-9Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="6.8" r="1"/><circle cx="15" cy="7.5" r="1"/><circle cx="17.5" cy="11" r="1"/></svg>';
-          const palette=document.createElement('div');
-          palette.className='font-color-palette-popover';palette.hidden=true;
-          palette.setAttribute('role','group');palette.setAttribute('aria-label','Font color choices');
-          const colors=['#ffffff','#f7eef0','#e8dce0','#d9a6b2','#c83e5b','#92243a','#5b1427','#171115','#000000','#f4c542','#55a66b','#4285d4','#8b5cf6','#ec6b2d'];
-          colors.forEach(color=>{
-            const swatch=document.createElement('button');swatch.type='button';
-            swatch.className='font-color-swatch';swatch.style.setProperty('--swatch-color',color);
-            swatch.setAttribute('aria-label','Use '+color);swatch.title=color;
-            swatch.addEventListener('mousedown',event=>event.preventDefault());
-            swatch.addEventListener('click',()=>{
-              input.value=color;input.dispatchEvent(new Event('input',{bubbles:true}));
-              input.dispatchEvent(new Event('change',{bubbles:true}));
-              palette.hidden=true;button.setAttribute('aria-expanded','false');button.style.setProperty('--palette-color',color);
-            });
-            palette.append(swatch);
-          });
-          const custom=document.createElement('button');custom.type='button';custom.className='font-color-custom';custom.textContent='Custom…';
-          custom.addEventListener('mousedown',event=>event.preventDefault());
-          custom.addEventListener('click',()=>{try{if(input.showPicker)input.showPicker();else input.click();}catch(error){input.click();}});
-          palette.append(custom);
-          input.classList.add('font-color-native');
-          input.insertAdjacentElement('afterend',button);button.insertAdjacentElement('afterend',palette);
-          const sync=()=>{button.style.setProperty('--palette-color',input.value);};
-          button.addEventListener('mousedown',event=>{event.preventDefault();rememberTitleSelection?.();});
-          button.addEventListener('click',()=>{
-            rememberTitleSelection?.();
-            palette.hidden=!palette.hidden;button.setAttribute('aria-expanded',String(!palette.hidden));
-          });
-          input.addEventListener('input',sync);input.addEventListener('change',sync);sync();
-        };
-
-        // Selected-text typography is preview-only: keep the editor itself untouched.
-        const titleEditor=form.querySelector('[data-rich-editor="title"]');
-        const titlePreview=document.getElementById('preview-header-title');
-        // Bind the independent controls to the Header Title fieldset explicitly.
-        // This reference was previously missing and caused a ReferenceError that
-        // stopped the entire selected-text typography workflow from initializing.
-        const titleTypographyGroup=titleEditor?.closest('.header-field')?.querySelector('fieldset.typography-group') || null;
-        let savedTitleSelection=null;
-        const titlePreviewStyles=[];
-        // Rebuild selected-range formatting from the last saved title HTML so the
-        // preview remains identical after a save or a later visit to this tab.
-        const savedTitleHtml=<?=json_encode((string)($headerSettings['title_html'] ?? ''),JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
-        let titlePreviewHasUserEdits=false;
-        let titlePreviewFirstRender=true;
-        if(savedTitleHtml){
-          const savedTemplate=document.createElement('template');
-          savedTemplate.innerHTML=savedTitleHtml;
-          let savedOffset=0;
-          const readSavedTitleNodes=(node,inherited={})=>{
-            if(node.nodeType===Node.TEXT_NODE){
-              const value=node.nodeValue||'';
-              if(value.length&&Object.keys(inherited).length)titlePreviewStyles.push({start:savedOffset,end:savedOffset+value.length,styles:{...inherited}});
-              savedOffset+=value.length;
-              return;
-            }
-            if(node.nodeType!==Node.ELEMENT_NODE&&node.nodeType!==Node.DOCUMENT_FRAGMENT_NODE)return;
-            const next={...inherited};
-            if(node.nodeType===Node.ELEMENT_NODE){
-              const tag=node.tagName.toLowerCase(),style=node.style;
-              if(tag==='b'||tag==='strong')next.fontWeight='700';
-              if(tag==='i'||tag==='em')next.fontStyle='italic';
-              if(tag==='u')next.textDecoration='underline';
-              if(style.color)next.color=style.color;
-              if(style.fontFamily)next.fontFamily=style.fontFamily;
-              if(style.fontSize)next.fontSize=style.fontSize;
-              if(style.fontWeight)next.fontWeight=style.fontWeight;
-              if(style.fontStyle)next.fontStyle=style.fontStyle;
-              if(style.textDecoration)next.textDecoration=style.textDecoration;
-            }
-            [...node.childNodes].forEach(child=>readSavedTitleNodes(child,next));
-          };
-          readSavedTitleNodes(savedTemplate.content);
-        }
-        const readTitleSelection=()=>{
-          const start=titleEditor.selectionStart;
-          const end=titleEditor.selectionEnd;
-          return Number.isInteger(start)&&Number.isInteger(end)&&end>start?{start,end}:null;
-        };
-        const rememberTitleSelection=()=>{
-          const next=readTitleSelection();
-          if(next)savedTitleSelection=next;
-        };
-        ['select','keyup','mouseup','touchend'].forEach(eventName=>titleEditor.addEventListener(eventName,rememberTitleSelection));
-        // Textarea selectionStart/selectionEnd remain reliable even after a typography
-        // control receives focus, unlike document.getSelection() on contenteditable.
-        const captureTitleRangeBeforeControlFocus=event=>{
-          if(!titleTypographyGroup || !titleTypographyGroup.contains(event.target))return;
-          // Capture while the textarea still owns focus; native select controls
-          // collapse its live selection as soon as they receive focus.
-          rememberTitleSelection();
-        };
-        document.addEventListener('pointerdown',captureTitleRangeBeforeControlFocus,true);
-        document.addEventListener('mousedown',captureTitleRangeBeforeControlFocus,true);
-        document.addEventListener('touchstart',captureTitleRangeBeforeControlFocus,{capture:true,passive:true});
-        titleTypographyGroup?.addEventListener('focusin',()=>{
-          // Do not replace the saved range with the now-collapsed textarea range.
-          if(!savedTitleSelection)rememberTitleSelection();
-        });
-        const escapePreviewText=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-        const renderTitlePreview=()=>{
-          const text=titleEditor.value||'';
-          const richField=form.querySelector('[data-rich-value="title"]');
-          // On first load, show the exact HTML that was saved in the database.
-          // This avoids a lossy reconstruction of nested/overlapping inline styles
-          // and guarantees the preview starts from the persisted configuration.
-          if(titlePreviewFirstRender && !titlePreviewHasUserEdits && savedTitleHtml){
-            titlePreview.innerHTML=savedTitleHtml;
-            if(richField)richField.value=savedTitleHtml;
-            titlePreviewFirstRender=false;
-            return;
-          }
-          titlePreviewFirstRender=false;
-          const baseFormats=new Set((titleTypographyGroup?.querySelector('[data-format-value]')?.value||'').split(/[ ,]+/).filter(Boolean));
-          const boundaries=new Set([0,text.length]);
-          titlePreviewStyles.forEach(item=>{
-            boundaries.add(Math.max(0,Math.min(text.length,item.start)));
-            boundaries.add(Math.max(0,Math.min(text.length,item.end)));
-          });
-          const points=[...boundaries].sort((a,b)=>a-b);
-          let html='';
-          for(let i=0;i<points.length-1;i++){
-            const start=points[i],end=points[i+1];
-            if(end<=start)continue;
-            const styles={};
-            if(baseFormats.has('bold'))styles.fontWeight='700';
-            if(baseFormats.has('italic'))styles.fontStyle='italic';
-            if(baseFormats.has('underline'))styles.textDecoration='underline';
-            titlePreviewStyles.filter(item=>item.start<end&&item.end>start).forEach(item=>Object.assign(styles,item.styles));
-            const underline=styles.textDecoration==='underline';
-            delete styles.textDecoration;
-            const content=escapePreviewText(text.slice(start,end));
-            const declarations=Object.entries(styles).map(([key,value])=>{
-              const cssName=key.replace(/[A-Z]/g,m=>'-'+m.toLowerCase());
-              return cssName+':'+String(value);
-            }).join(';');
-            const formatted=underline?'<u>'+content+'</u>':content;
-            html+=declarations?'<span style="'+declarations+'">'+formatted+'</span>':formatted;
-          }
-          titlePreview.innerHTML=html||escapePreviewText(text);
-          if(richField)richField.value=html||escapePreviewText(text);
-        };
-        const applyTitleSelectionStyle=(property,value)=>{
-          if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start)return false;
-          const textLength=titleEditor.value.length;
-          const start=Math.max(0,Math.min(textLength,savedTitleSelection.start));
-          const end=Math.max(start,Math.min(textLength,savedTitleSelection.end));
-          if(end<=start)return false;
-          // Add a range override instead of mutating a matching interval. This
-          // preserves earlier formatting outside the newly selected text, even
-          // when the new selection partially overlaps an existing formatted range.
-          titlePreviewHasUserEdits=true;
-          titlePreviewFirstRender=false;
-          titlePreviewStyles.push({start,end,styles:{[property]:value}});
-          renderTitlePreview();
-          return true;
-        };
-        const isTitleRangeFullyStyled=(property,expectedValue)=>{
-          if(!savedTitleSelection||savedTitleSelection.end<=savedTitleSelection.start)return false;
-          const start=Math.max(0,Math.min(titleEditor.value.length,savedTitleSelection.start));
-          const end=Math.max(start,Math.min(titleEditor.value.length,savedTitleSelection.end));
-          if(end<=start)return false;
-          const baseFormats=new Set((titleTypographyGroup?.querySelector('[data-format-value]')?.value||'').split(/[ ,]+/).filter(Boolean));
-          for(let offset=start;offset<end;offset++){
-            const styles={};
-            titlePreviewStyles.filter(entry=>entry.start<=offset&&entry.end>offset).forEach(entry=>Object.assign(styles,entry.styles));
-            let actual=styles[property];
-            if(actual===undefined){
-              if(property==='fontWeight')actual=baseFormats.has('bold')?'700':'400';
-              else if(property==='fontStyle')actual=baseFormats.has('italic')?'italic':'normal';
-              else if(property==='textDecoration')actual=baseFormats.has('underline')?'underline':'none';
-            }
-            if(String(actual)!==String(expectedValue))return false;
-          }
-          return true;
-        };
-        // Attach palettes only after selection helpers exist, so opening and choosing
-        // a color can preserve and format the exact highlighted textarea range.
-        titleTypographyGroup?.querySelectorAll('input[type="color"]').forEach(attachColorPalette);
-
-        titleTypographyGroup?.querySelectorAll('[data-format-toggle]').forEach(button=>{
-          // Snapshot the textarea range before the browser moves focus to the
-          // toolbar button. Preventing the pointer default also keeps the
-          // highlighted text visibly selected while the command is applied.
-          button.addEventListener('pointerdown',event=>{rememberTitleSelection();event.preventDefault();});
-          button.addEventListener('mousedown',event=>{rememberTitleSelection();event.preventDefault();});
-          button.addEventListener('click',()=>{
-            const currentRange=readTitleSelection();
-            if(currentRange)savedTitleSelection=currentRange;
-            const fmt=button.dataset.formatToggle;
-            if(savedTitleSelection&&savedTitleSelection.end>savedTitleSelection.start){
-              const prop=fmt==='bold'?'fontWeight':fmt==='italic'?'fontStyle':'textDecoration';
-              const onValue=fmt==='bold'?'700':fmt==='italic'?'italic':'underline';
-              const offValue=fmt==='bold'?'400':fmt==='italic'?'normal':'none';
-              // Mixed selections become uniformly formatted on the first click;
-              // a second click removes that formatting from the same selection.
-              const alreadyApplied=isTitleRangeFullyStyled(prop,onValue);
-              const nextValue=alreadyApplied?offValue:onValue;
-              if(applyTitleSelectionStyle(prop,nextValue)){
-                button.setAttribute('aria-pressed',String(!alreadyApplied));
-                updatePreview();
-                return;
-              }
-            }
-            const hidden=titleTypographyGroup.querySelector('[data-format-value]');
-            const set=new Set((hidden?.value||'').split(/[ ,]+/).filter(Boolean));
-            const active=set.has(fmt);
-            active?set.delete(fmt):set.add(fmt);
-            if(hidden)hidden.value=['bold','italic','underline'].filter(x=>set.has(x)).join(' ');
-            button.setAttribute('aria-pressed',String(!active));
-            updatePreview();
-          });
-        });
-        // Every other Independent Typography panel must also refresh the preview live.
-        form.querySelectorAll('.typography-group').forEach(group=>{
-          if(group===titleTypographyGroup)return;
-          group.querySelectorAll('select,input[type="color"]').forEach(input=>{
-            input.addEventListener('input',updatePreview);
-            input.addEventListener('change',updatePreview);
-          });
-          group.querySelectorAll('[data-format-toggle]').forEach(button=>{
-            button.addEventListener('mousedown',event=>event.preventDefault());
-            button.addEventListener('click',()=>{
-              const hidden=group.querySelector('[data-format-value]');
-              const format=button.dataset.formatToggle;
-              const formats=new Set((hidden?.value||'').split(/[ ,]+/).filter(Boolean));
-              const active=formats.has(format);
-              active?formats.delete(format):formats.add(format);
-              if(hidden)hidden.value=['bold','italic','underline'].filter(item=>formats.has(item)).join(' ');
-              button.setAttribute('aria-pressed',String(!active));
-              updatePreview();
-            });
-          });
-        });
-        titleTypographyGroup?.querySelectorAll('select[name$="[family]"],select[name$="[size]"],input[name$="[color]"]').forEach(input=>{
-          const applyControlValue=()=>{
-            const range=savedTitleSelection;
-            if(!range||range.end<=range.start){updatePreview();return;}
-            const prop=input.name.endsWith('[family]')?'fontFamily':input.name.endsWith('[size]')?'fontSize':'color';
-            const value=input.name.endsWith('[size]')?input.value+'px':input.value;
-            if(applyTitleSelectionStyle(prop,value))updatePreview();
-            else updatePreview();
-          };
-          // Selects commit once on change. Color inputs also emit input while
-          // the picker is adjusted, so they update continuously.
-          if(input.matches('input[type="color"]'))input.addEventListener('input',applyControlValue);
-          input.addEventListener('change',applyControlValue);
-        });
-        const initRichEditors=()=>{
-          form.querySelectorAll('[data-rich-editor]').forEach(editor=>{
-            if(editor.dataset.ready)return;editor.dataset.ready='1';
-            const key=editor.dataset.richEditor;
-            const hidden=form.querySelector('[data-rich-value="'+key+'"]');editor.addEventListener('input',()=>{if(hidden)hidden.value=key==='title'?(form.querySelector('[data-rich-value="title"]')?.value||escapePreviewText(editor.value)):editor.innerHTML;if(key==='title'){titlePreviewHasUserEdits=true;titlePreviewFirstRender=false;titlePreviewStyles.length=0;savedTitleSelection=null;}const plain=key==='title'?editor.value.trim():editor.innerText.trim();const plainField=form.querySelector('[data-plain-value="'+key+'"]');if(plainField)plainField.value=plain;updatePreview();});
-          });
-          form.querySelectorAll('[data-style-controls="link"]').forEach((box)=>{
-            if(box.dataset.ready)return;box.dataset.ready='1';const row=box.closest('.header-link-row');const idx=[...links.querySelectorAll('.header-link-row')].indexOf(row);let saved={};try{saved=JSON.parse(box.dataset.typography||'{}')}catch(e){}
-            const fields=[['family','Font family','select',['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma']],['size','Font size','select',[8,9,10,11,12,13,14,16,18,20,24,28,32,36,40]],['color','Font color','color',[]],['format','Font formatting','format-icons',[]]];
-            fields.forEach(([key,label,type,options])=>{if(type==='format-icons'){const wrap=document.createElement('div');wrap.className='font-format-tools';wrap.setAttribute('role','group');wrap.setAttribute('aria-label','Font formatting');const hidden=document.createElement('input');hidden.type='hidden';hidden.name='typography[links]['+idx+'][format]';hidden.dataset.formatValue='';hidden.value=saved.format||'';['bold','italic','underline'].forEach(fmt=>{const b=document.createElement('button');b.type='button';b.className='format-icon';b.dataset.formatToggle=fmt;b.setAttribute('aria-label',fmt);b.setAttribute('aria-pressed',String(hidden.value.split(/[ ,]+/).includes(fmt)));b.innerHTML=fmt==='bold'?'<b>B</b>':fmt==='italic'?'<i>I</i>':'<u>U</u>';b.addEventListener('mousedown',e=>e.preventDefault());b.addEventListener('click',()=>{const set=new Set(hidden.value.split(/[ ,]+/).filter(Boolean));set.has(fmt)?set.delete(fmt):set.add(fmt);hidden.value=['bold','italic','underline'].filter(x=>set.has(x)).join(' ');b.setAttribute('aria-pressed',String(set.has(fmt)));updatePreview();});wrap.append(b);});wrap.append(hidden);box.append(wrap);return;}const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement(type==='color'?'input':'select');input.name='typography[links]['+idx+']['+key+']';if(type==='color'){input.type='color';input.value=saved[key]||'#e8dce0';attachColorPalette(input)}else{options.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=key==='size'?v+' px':v;input.append(o)});input.value=saved[key]|| (key==='family'?'Ubuntu':key==='size'?13:'normal')}input.addEventListener('change',updatePreview);wrap.append(input);box.append(wrap);});
-          });
-        };
-        initRichEditors();
-        updatePreview();
-        add.addEventListener('click',()=>{links.append(makeLinkRow());initRichEditors();updatePreview();});
-        links.querySelectorAll('.remove-header-link').forEach(button=>button.addEventListener('click',()=>{button.closest('.header-link-row').remove();updatePreview();}));
-        // Synchronize every editable Header field immediately before POST. This prevents
-        // stale hidden inputs from overwriting the values currently visible in the editors.
-        form.addEventListener('submit', () => {
-          form.querySelectorAll('[data-rich-editor]').forEach(editor => {
-            const key = editor.dataset.richEditor;
-            const plain = key === 'title' ? editor.value.trim() : editor.innerText.trim();
-            const rich = key === 'title' ? (form.querySelector('[data-rich-value="title"]')?.value || escapePreviewText(editor.value)) : editor.innerHTML;
-            const plainField = editor.closest('.header-link-row')
-              ? editor.closest('.header-link-row').querySelector('[data-plain-value="link"]')
-              : form.querySelector('[data-plain-value="' + key + '"]');
-            const richField = editor.closest('.header-link-row')
-              ? editor.closest('.header-link-row').querySelector('[data-rich-value="link"]')
-              : form.querySelector('[data-rich-value="' + key + '"]');
-            if (plainField) plainField.value = plain;
-            if (richField) richField.value = rich;
-          });
-          form.querySelectorAll('.header-link-row').forEach((row, index) => {
-            row.querySelectorAll('[name^="typography[links]"]').forEach(field => {
-              field.name = field.name.replace(/typography\[links\]\[\d+\]/, 'typography[links][' + index + ']');
-            });
-          });
-        });
-        form.addEventListener('input', updatePreview);
-        form.addEventListener('change', updatePreview);
-        const fileInput=document.getElementById('header-logo-input');fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(!file)return;if(!['image/png','image/jpeg'].includes(file.type)){alert('Choose a PNG, JPG or JPEG image.');fileInput.value='';return;}const reader=new FileReader();reader.onload=()=>{const img=document.getElementById('preview-header-logo');img.src=reader.result;img.style.display='block';updatePreview();};reader.readAsDataURL(file);});
-        updatePreview();
-      }
-    })();
-    const paletteStyle=document.createElement('style');paletteStyle.textContent=".font-color-palette-popover{position:absolute;z-index:1000;display:grid;grid-template-columns:repeat(7,25px);gap:5px;padding:9px;margin-top:5px;border:1px solid rgba(220,174,187,.4);border-radius:10px;background:#171115;box-shadow:0 10px 28px rgba(0,0,0,.45)}.font-color-palette-popover[hidden]{display:none}.font-color-swatch{width:25px;height:25px;border:1px solid rgba(255,255,255,.35);border-radius:6px;background:var(--swatch-color);cursor:pointer}.font-color-swatch:focus-visible,.font-color-custom:focus-visible{outline:2px solid #d99aaa;outline-offset:2px}.font-color-custom{grid-column:1/-1;padding:6px;border:1px solid rgba(220,174,187,.35);border-radius:6px;background:#26171d;color:#fff;cursor:pointer;font:11px Ubuntu,sans-serif}.font-color-palette{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin-left:7px;padding:7px;border:1px solid rgba(220,174,187,.35);border-radius:9px;background:rgba(91,20,39,.22);color:var(--palette-color,#e8dce0);cursor:pointer;vertical-align:middle;transition:background .2s,border-color .2s,transform .2s}.font-color-palette:hover{background:rgba(130,30,57,.35);border-color:rgba(220,174,187,.7);transform:translateY(-1px)}.font-color-palette:focus-visible{outline:2px solid #d99aaa;outline-offset:2px}.font-color-palette svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.font-color-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}";document.head.append(paletteStyle);
-
-    </script>
-  <?php else: $info=$settings[$section]; ?>
-    <section class="panel admin-panel"><div class="symbol" style="font-size:30px;color:var(--gold)"><?=e($info[2])?></div><h2 style="margin-top:12px"><?=e($info[0])?></h2><p class="muted"><?=e($info[1])?></p><div class="admin-note">This Settings tab is ready for its management controls. No existing records have been changed.</div></section>
-  <?php endif; ?>
-<?php endif;?>
-<script>
-(()=> {
-  const toggle = document.getElementById('settings-menu-toggle');
-  const submenu = document.getElementById('settings-submenu');
-  if (!toggle || !submenu) return;
-  toggle.addEventListener('click', () => {
-    const expanded = toggle.getAttribute('aria-expanded') === 'true';
-    const shouldExpand = !expanded;
-
-    // Settings is the only active top-level item while its submenu is open.
-    toggle.closest('.admin-nav')?.querySelectorAll(':scope > a').forEach(item => {
-      item.classList.remove('active');
-    });
-    toggle.classList.toggle('active', shouldExpand);
-    toggle.setAttribute('aria-expanded', String(shouldExpand));
-    submenu.classList.toggle('is-open', shouldExpand);
-  });
-})();
-
-(()=>{['account-status-modal','banner-settings-success-modal','slideshow-settings-success-modal','header-settings-success-modal','footer-settings-success-modal','footer-validation-modal'].forEach(id=>{const modal=document.getElementById(id);if(!modal)return;const closeButton=modal.querySelector('button');const close=()=>modal.remove();closeButton?.addEventListener('click',close);modal.addEventListener('click',event=>{if(event.target===modal)close();});document.addEventListener('keydown',event=>{if(event.key==='Escape')close();});closeButton?.focus();});})();
-</script>
-</main></div><script>
-
-</script>
-<script>
-// Reset every Gallery overlay when Media Management is entered.
-// Several Gallery actions render their own success backdrops (for example,
-// Edit Folder), so closing only the upload modals leaves stale overlays behind.
-(() => {
-  const isMediaManagement = () => {
-    try {
-      return new URL(window.location.href).searchParams.get('section') === 'media-management';
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const closeGalleryOverlays = () => {
-    document.querySelectorAll('.gallery-modal-backdrop').forEach(modal => {
-      // Keep server-rendered success dialogs visible after their redirect.
-      // The entry cleanup must close stale interactive forms, not fresh success
-      // confirmations for actions completed by the current request.
-      const preserveAddPhotoPrompt = new URLSearchParams(window.location.search).get('gallery_upload_prompt') === '1';
-      if (
-        modal.id === 'gallery-delete-success-modal' ||
-        modal.id === 'gallery-photo-delete-success-modal' ||
-        modal.id === 'gallery-photo-edit-success-modal' ||
-        modal.id === 'gallery-add-folder-success-modal'
-      ) return;
-      if (modal.id === 'gallery-add-modal' && preserveAddPhotoPrompt) return;
-      modal.hidden = true;
-      modal.style.setProperty('display', 'none', 'important');
-    });
-    document.getElementById('slideshow-upload-success-modal')?.remove();
-    document.getElementById('gallery-upload-success-modal')?.remove();
-
-    // Remove any dynamically-created slideshow upload confirmation as well.
-    document.querySelectorAll('.account-status-modal').forEach(overlay => {
-      const message = overlay.textContent || '';
-      if (/slideshow\\s+photos?\\s+(?:was|were)\\s+successfully\\s+uploaded/i.test(message)) {
-        overlay.remove();
-      }
-    });
-    if (new URLSearchParams(window.location.search).get('gallery_upload_prompt') === '1') {
-      document.body.classList.add('modal-open');
-    } else {
-      document.body.classList.remove('modal-open');
-    }
-  };
-
-  const clearOverlaysOnEntry = () => {
-    if (!isMediaManagement()) return;
-    closeGalleryOverlays();
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('gallery_upload_prompt') !== '1') return;
-    const folder = params.get('gallery_folder') || '';
-    if (!folder) return;
-    // Dispatch after cleanup and tab activation have both completed.
-    const galleryTab = document.querySelector('[data-media-tab="gallery"]');
-    galleryTab?.click();
-    document.dispatchEvent(new CustomEvent('gallery:open-upload-for-folder', {detail:{folder}}));
-  };
-
-  // Direct entry and browser back/forward (including BFCache restoration).
-  clearOverlaysOnEntry();
-  window.addEventListener('pageshow', clearOverlaysOnEntry);
-
-  // Close stale overlays before navigating to Media Management from another tab.
-  document.addEventListener('click', event => {
-    const target = event.target instanceof Element ? event.target : null;
-    const link = target?.closest('a[href]');
-    if (!link) return;
-
-    let destination;
-    try {
-      destination = new URL(link.getAttribute('href'), window.location.href);
-    } catch (error) {
-      return;
-    }
-
-    if (destination.searchParams.get('section') === 'media-management') {
-      closeGalleryOverlays();
-    }
-  }, true);
-})();</script>
-
-<script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
-<script>
-// Show the Mega Menu settings confirmation only on the one-time return
-// from an explicit Save Mega Menu Settings submission.
-(() => {
- const params=new URLSearchParams(window.location.search);
- const isMegaMenuSaveReturn=
-  params.get('mega_menu_saved')==='1' &&
-  params.get('section')==='page-management' &&
-  params.get('tab')==='sections' &&
-  params.get('section_tab')==='mega_menu';
- if(!isMegaMenuSaveReturn)return;
- const modal=document.getElementById('mega-menu-settings-success-modal');
- const ok=document.getElementById('mega-menu-settings-success-ok');
- if(!modal||!ok)return;
- // Consume the flag before opening the dialog so tab changes, refreshes,
- // and browser history cannot replay the success message.
- params.delete('mega_menu_saved');
- const query=params.toString();
- window.history.replaceState({},'',window.location.pathname+(query?'?'+query:'')+window.location.hash);
- // The dialog must not remain inside the initially hidden Page Management
- // panel; portal it to body so its visibility is independent of tab switching.
- if(modal.parentElement!==document.body)document.body.appendChild(modal);
- modal.hidden=false;
- modal.style.setProperty('display','flex','important');
- document.body.classList.add('modal-open');
- const close=()=>{
-  modal.hidden=true;
-  modal.style.setProperty('display','none','important');
-  document.body.classList.remove('modal-open');
+ const syncMegaPanelSelection=()=>{
+  const boxes=[...megaPanelList.querySelectorAll('.mega-panel-checkbox')],selected=boxes.filter(box=>box.checked).length;
+  const selectAll=document.getElementById('mega-panel-select-all'),del=document.getElementById('mega-panel-delete-selected');
+  if(selectAll){selectAll.checked=boxes.length>0&&selected===boxes.length;selectAll.indeterminate=selected>0&&selected<boxes.length;selectAll.disabled=boxes.length===0;}
+  if(del){del.disabled=selected===0;del.setAttribute('aria-disabled',String(selected===0));del.style.pointerEvents=selected?'auto':'none';}
  };
- ok.addEventListener('click',close,{once:true});
-})();
-// Show the creation confirmation only on the post-save return to the Mega Menu tab.
-(() => {
- const params=new URLSearchParams(window.location.search);
- const createdTitle=params.get('panel_created_title');
- const requestedTab=params.get('section_tab');
- const modal=document.getElementById('mega-panel-created-success-modal');
- const title=document.getElementById('mega-panel-created-success-title');
- const ok=document.getElementById('mega-panel-created-success-ok');
- if(!createdTitle || requestedTab!=='mega_menu' || !modal || !ok)return;
- // Consume the one-time flag immediately so switching tabs or refreshing cannot reopen it.
- params.delete('panel_created_title');
- const cleanQuery=params.toString();
- window.history.replaceState({},'',window.location.pathname+(cleanQuery?'?'+cleanQuery:'')+window.location.hash);
- if(title){
-  title.replaceChildren(
-   document.createTextNode('The panel menu '),
-   Object.assign(document.createElement('span'),{className:'mega-panel-created-name',textContent:createdTitle}),
-   document.createTextNode(' has been successfully created.')
-  );
- }
- modal.hidden=false;
- document.body.classList.add('modal-open');
- ok.addEventListener('click',()=>{
-  modal.hidden=true;
-  document.body.classList.remove('modal-open');
-  const panelList=document.querySelector('[data-section-panel="mega_menu"] #mega-panel-list');
-  panelList?.scrollIntoView({behavior:'smooth',block:'start'});
+ document.getElementById('mega-panel-select-all')?.addEventListener('change',event=>{megaPanelList.querySelectorAll('.mega-panel-checkbox').forEach(box=>box.checked=event.target.checked);syncMegaPanelSelection();});
+ megaPanelList?.addEventListener('change',event=>{if(event.target.matches('.mega-panel-checkbox'))syncMegaPanelSelection();});
+ megaPanelList?.addEventListener('click',event=>{
+  const edit=event.target.closest('.mega-panel-edit');if(!edit)return;
+  const card=edit.closest('.mega-panel-record');if(!card)return;
+  editingPanelCard=card;
+  panelTitle.value=card.querySelector('[name="panel_title[]"]')?.value||'';
+  panelDescription.value=card.querySelector('[name="panel_description[]"]')?.value||'';
+  panelUrl.value=card.querySelector('[name="panel_url[]"]')?.value||'';
+  setPanelIcon(card.querySelector('[name="panel_symbol[]"]')?.value||'tabler:laptop');
+  if(panelModalHeading)panelModalHeading.textContent='Edit Panel Menu';
+  if(panelSaveButton)panelSaveButton.textContent='Save Changes';
+  panelModalPreviousFocus=edit;
+  panelModal.hidden=false;panelModal.removeAttribute('hidden');panelModal.setAttribute('aria-hidden','false');panelModal.style.removeProperty('display');document.body.classList.add('modal-open');
+  requestAnimationFrame(()=>panelTitle.focus());
  });
-})();
-// Independent Add Panel modal controller: must not depend on section-builder initialization.
-(() => {
- const panelModal=document.getElementById('mega-panel-modal');
- const panelTitle=document.getElementById('mega-panel-title');
- const panelDescription=document.getElementById('mega-panel-description');
- const panelUrl=document.getElementById('mega-panel-url');
- const panelIcon=document.getElementById('mega-panel-icon');
- const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
- const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
- const panelIconAliases={'compact-disc':'disc','taxi':'car-taxi','car':'car','earth':'world'};
- const panelIconPreferred=['laptop','compact-disc','key','lock','car','taxi','earth','disc','disc-2','disc-3','globe','globe-2','smartphone','monitor','printer','camera','video','music','headphones','wifi','bluetooth','mail','phone','tablet','watch','map','map-pin','house','building','store','shopping-cart','credit-card','wallet','briefcase','calendar','clock','alarm-clock','bell','book','book-open','file','folder','image','film','gamepad-2','joystick','lightbulb','plug','battery','zap','cloud','sun','moon','star','heart','shield','shield-check','user','users','settings','wrench','hammer','scissors','package','truck','bus','bike','plane','ship','train','rocket'];
- let panelIconNames=[];let panelIconChoices=[];
- const panelIconCatalogPromise=fetch('https://api.iconify.design/collection?prefix=tabler').then(response=>{if(!response.ok)throw new Error('Icon catalog request failed');return response.json();}).then(data=>{
-  const names=[...(data.uncategorized||[]),...Object.values(data.categories||{}).flat()].filter(name=>typeof name==='string');
-  panelIconNames=[...new Set(names)].sort((left,right)=>left.localeCompare(right));
-  if(panelIconNames.length<1500)throw new Error('The Tabler catalog returned fewer than 1,500 icons.');
-  panelIconChoices=panelIconNames.map(name=>[name,name,name.split('-')[0]]);
-  return panelIconChoices;
+ document.getElementById('mega-panel-delete-selected')?.addEventListener('click',()=>{
+  const selected=[...megaPanelList.querySelectorAll('.mega-panel-checkbox:checked')];if(!selected.length)return;
+  if(!window.confirm('Delete the selected panel menu(s)? This action cannot be undone.'))return;
+  selected.forEach(box=>box.closest('.mega-panel-record')?.remove());
+  if(!megaPanelList.querySelector('.mega-panel-record')){const empty=document.createElement('p');empty.className='muted slideshow-empty mega-panel-empty';empty.textContent='No panel menus have been created yet.';megaPanelList.append(empty);}
+  syncMegaPanelSelection();
+  const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
+  const saveButton=panelForm?.querySelector('[data-section-save="mega_menu"]');
+  if(panelForm&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';panelForm.requestSubmit();}
  });
- const panelIconHue=name=>{let hash=0;const cleanName=String(name||'laptop').replace(/^tabler:/,'');for(const char of cleanName)hash=(hash*31+char.charCodeAt(0))>>>0;return hash%360;};
- const renderPanelLucide=(element,name)=>{if(!element)return;element.replaceChildren();const hue=panelIconHue(name);element.style.setProperty('--icon-hue',hue);element.style.color=`hsl(${hue} 92% 70%)`;const icon=document.createElement('iconify-icon');icon.setAttribute('icon','tabler:'+String(name||'laptop').replace(/^tabler:/,''));icon.setAttribute('aria-hidden','true');element.append(icon);};
- const createPanelLucideIcons=()=>{if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});};
- const createPanelIconPicker=(value='✳',name='panel_symbol[]')=>{
-  const wrap=document.createElement('div');wrap.className='panel-icon-picker';wrap.dataset.iconPicker='';
-  const hidden=document.createElement('input');hidden.type='hidden';hidden.name=name;hidden.value=value;
-  const trigger=document.createElement('button');trigger.type='button';trigger.className='panel-icon-trigger';trigger.dataset.iconPickerTrigger='';trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-expanded','false');
-  const current=document.createElement('span');current.className='panel-icon-current';renderPanelLucide(current,value);
-  const label=document.createElement('span');label.className='panel-icon-trigger-label';label.textContent='Choose icon';
-  const chevron=document.createElement('span');chevron.className='panel-icon-chevron';chevron.textContent='▾';
-  trigger.append(current,label,chevron);
-  const popup=document.createElement('div');popup.className='panel-icon-popup';popup.dataset.iconPickerPopup='';popup.hidden=true;popup.setAttribute('role','dialog');popup.setAttribute('aria-label','Choose an icon');
-  wrap.append(hidden,trigger,popup);populatePanelIconPicker(wrap);return wrap;
- };
- const populatePanelIconPicker=async wrap=>{
-  const popup=wrap.querySelector('[data-icon-picker-popup]');if(!popup||popup.dataset.ready)return;
-  popup.dataset.ready='loading';
-  const loading=document.createElement('div');loading.className='panel-icon-count';loading.textContent='Loading the complete A–Z icon library…';popup.append(loading);
-  try{await panelIconCatalogPromise;}catch(error){loading.textContent='The icon catalog could not be loaded. Check your connection and reload this page.';popup.dataset.ready='error';return;}
-  loading.remove();popup.dataset.ready='1';
-  const search=document.createElement('input');search.type='search';search.className='panel-icon-search';search.placeholder='Search '+panelIconChoices.length.toLocaleString()+' named icons…';search.setAttribute('aria-label','Search icons');
-  const count=document.createElement('div');count.className='panel-icon-count';count.textContent=panelIconChoices.length.toLocaleString()+' icons · A–Z';
-  const grid=document.createElement('div');grid.className='panel-icon-grid';popup.append(search,count,grid);
-  panelIconChoices.forEach(([symbol,label,category],index)=>{
-   const option=document.createElement('button');option.type='button';option.className='panel-icon-option';option.dataset.iconValue=symbol;option.style.setProperty('--icon-hue',panelIconHue(symbol));option.dataset.iconSearch=(label+' '+category+' '+symbol).toLowerCase();option.title=label;option.setAttribute('aria-label',label);
-   const glyph=document.createElement('span');glyph.className='panel-icon-option-glyph';renderPanelLucide(glyph,symbol);
-   const caption=document.createElement('span');caption.className='panel-icon-option-name';caption.textContent=label;
-   option.append(glyph,caption);grid.append(option);
-  });
-  createPanelLucideIcons();
-  search.addEventListener('input',()=>{
-   const term=search.value.trim().toLowerCase();let visible=0;
-   grid.querySelectorAll('[data-icon-value]').forEach(option=>{const match=!term||option.dataset.iconSearch.includes(term);option.hidden=!match;if(match)visible++;});
-   count.textContent=visible.toLocaleString()+' of '+panelIconChoices.length.toLocaleString()+' icons';
-  });
- };
- document.querySelectorAll('[data-icon-picker]').forEach(populatePanelIconPicker);
- document.addEventListener('click',event=>{
-  const target=event.target instanceof Element?event.target:null;if(!target)return;
-  const trigger=target.closest('[data-icon-picker-trigger]');
-  if(trigger){
-   const picker=trigger.closest('[data-icon-picker]');const popup=picker?.querySelector('[data-icon-picker-popup]');if(!picker||!popup)return;
-   document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(other=>{if(other!==popup){other.hidden=true;other.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');}});
-   popup.hidden=!popup.hidden;trigger.setAttribute('aria-expanded',String(!popup.hidden));return;
-  }
-  const choice=target.closest('[data-icon-value]');
-  if(choice){
-   const picker=choice.closest('[data-icon-picker]');const hidden=picker?.querySelector('input[type="hidden"]');const current=picker?.querySelector('.panel-icon-current');const popup=picker?.querySelector('[data-icon-picker-popup]');const button=picker?.querySelector('[data-icon-picker-trigger]');
-   if(hidden)hidden.value='tabler:'+(choice.dataset.iconValue||'laptop');if(current)renderPanelLucide(current,choice.dataset.iconValue||'laptop');createPanelLucideIcons();
-   popup&&(popup.hidden=true);button?.setAttribute('aria-expanded','false');
-   picker?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String(item===choice)));
-   return;
-  }
-  if(!target.closest('[data-icon-picker]'))document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
- });
- document.addEventListener('keydown',event=>{
-  if(event.key!=='Escape')return;
-  document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
- });
- let panelModalPreviousFocus=null;
- // Keep the dialog outside the Page Management tab and form layout.
- if(panelModal&&panelModal.parentElement!==document.body)document.body.appendChild(panelModal);
- const openPanelModal=()=>{
-   if(!panelModal||!panelTitle||!panelDescription||!panelIcon)return;
-   panelModalPreviousFocus=document.activeElement;
-   panelTitle.value='';
-   panelDescription.value='';
-   panelIcon.value='tabler:laptop';
-   panelTitle.setCustomValidity('');
-   updatePanelUrl();
-   panelModal.hidden=false;
-   panelModal.removeAttribute('hidden');
-   panelModal.setAttribute('aria-hidden','false');
-   panelModal.style.removeProperty('display');
-   document.body.classList.add('modal-open');
-   requestAnimationFrame(()=>panelTitle.focus());
- };
- const closePanelModal=()=>{
-   if(!panelModal)return;
-   panelModal.hidden=true;
-   panelModal.style.removeProperty('display');
-   panelModal.setAttribute('aria-hidden','true');
-   document.body.classList.remove('modal-open');
-   if(panelModalPreviousFocus instanceof HTMLElement)panelModalPreviousFocus.focus();
- };
- // Capture the trigger at document level, even if tab content is re-rendered.
- document.addEventListener('click',event=>{
-   const target=event.target instanceof Element?event.target:null;
-   if(!target?.closest('#add-mega-panel'))return;
-   event.preventDefault();
-   event.stopPropagation();
-   openPanelModal();
- },true);
- panelTitle?.addEventListener('input',()=>{panelTitle.setCustomValidity('');updatePanelUrl();});
- document.getElementById('mega-panel-cancel')?.addEventListener('click',closePanelModal);
- // Match the other admin dialogs: backdrop clicks do not dismiss an in-progress form.
- panelModal?.addEventListener('click',event=>{if(event.target===panelModal)event.preventDefault();});
- document.addEventListener('keydown',event=>{
-   if(!panelModal||panelModal.hidden)return;
-   if(event.key==='Escape'){event.preventDefault();closePanelModal();return;}
-   if(event.key==='Tab'){
-     const focusable=[...panelModal.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>!el.hidden);
-     if(!focusable.length)return;
-     const first=focusable[0],last=focusable[focusable.length-1];
-     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
-     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
-   }
- });
-
-
- const megaPanelList=document.getElementById('mega-panel-list');
  document.getElementById('mega-panel-create')?.addEventListener('click',()=>{
-   const title=panelTitle.value.trim();
-   if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
-   panelTitle.setCustomValidity('');
-   if(!megaPanelList)throw new Error('Panel list is unavailable.');
+  const title=panelTitle.value.trim();
+  if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
+  panelTitle.setCustomValidity('');
+  if(!megaPanelList)throw new Error('Panel list is unavailable.');
+  if(!editingPanelCard&&megaPanelList.querySelectorAll('.mega-panel-record').length>=10){alert('A maximum of ten (10) panel menus can be created.');return;}
+  const symbol=panelIcon.value||'tabler:laptop',descriptionText=panelDescription.value.trim(),url=panelUrl.value;
+  if(editingPanelCard){
+   const card=editingPanelCard;
+   const art=card.querySelector('.mega-panel-record-art');
+   const iconName=symbol.replace(/^tabler:/,'');
+   const hue=panelIconHue(symbol);
+   const iconWrap=document.createElement('span');iconWrap.className='panel-record-icon';iconWrap.style.setProperty('--icon-hue',hue);
+   const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+iconName);glyph.setAttribute('aria-hidden','true');iconWrap.append(glyph);
+   const image=card.querySelector('.mega-panel-record-art img');
+   if(!image)art.replaceChildren(iconWrap);
+   const descriptionOverlay=art.querySelector('.gallery-photo-description')||document.createElement('div');descriptionOverlay.className='gallery-photo-description';descriptionOverlay.textContent=descriptionText||'No description added.';if(!descriptionOverlay.parentElement)art.append(descriptionOverlay);
+   const titleNode=card.querySelector('.gallery-photo-title');if(titleNode){titleNode.textContent=title;titleNode.title=title;}
+   card.querySelector('[name="panel_symbol[]"]').value=symbol;
+   card.querySelector('[name="panel_title[]"]').value=title;
+   card.querySelector('[name="panel_description[]"]').value=descriptionText;
+   card.querySelector('[name="panel_url[]"]').value=url;
+  }else{
    megaPanelList.querySelector('.mega-panel-empty')?.remove();
    const card=document.createElement('article');card.className='gallery-photo-card slideshow-saved-photo mega-panel-record';
    const art=document.createElement('div');art.className='gallery-photo-image mega-panel-record-art';
-   const glyphWrap=document.createElement('span');glyphWrap.className='panel-record-icon';
-   glyphWrap.style.setProperty('--icon-hue',panelIconHue(panelIcon.value));
-   const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(panelIcon.value||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');glyphWrap.append(glyph);art.append(glyphWrap);
-   const descriptionText=panelDescription.value.trim();
+   const glyphWrap=document.createElement('span');glyphWrap.className='panel-record-icon';glyphWrap.style.setProperty('--icon-hue',panelIconHue(symbol));
+   const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+symbol.replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');glyphWrap.append(glyph);art.append(glyphWrap);
    const descriptionOverlay=document.createElement('div');descriptionOverlay.className='gallery-photo-description';descriptionOverlay.textContent=descriptionText||'No description added.';art.append(descriptionOverlay);
    const titleNode=document.createElement('div');titleNode.className='gallery-photo-title';titleNode.title=title;titleNode.textContent=title;
-   const remove=document.createElement('button');remove.type='button';remove.className='btn light section-remove mega-panel-remove';remove.textContent='Remove';
-   const hidden=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;return input;};
-   card.append(art,titleNode,remove,hidden('panel_symbol[]',panelIcon.value||'tabler:laptop'),hidden('panel_title[]',title),hidden('panel_description[]',descriptionText),hidden('panel_url[]',panelUrl.value));
+   const selectLabel=document.createElement('label');selectLabel.className='gallery-photo-select';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='mega-panel-checkbox';checkbox.setAttribute('aria-label','Select panel '+title);selectLabel.append(checkbox,document.createTextNode(' Select'));
+   const edit=document.createElement('button');edit.type='button';edit.className='btn light gallery-photo-edit mega-panel-edit';edit.textContent='Edit';
+   card.append(art,titleNode,selectLabel,edit,makeHidden('panel_symbol[]',symbol),makeHidden('panel_title[]',title),makeHidden('panel_description[]',descriptionText),makeHidden('panel_url[]',url),makeHidden('panel_existing_photo[]',''));
    megaPanelList.append(card);
-   card.querySelector('[name="panel_title[]"]')?.dispatchEvent(new Event('input',{bubbles:true}));
-   closePanelModal();
-   const form=document.getElementById('sections-settings-form');
-   const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
-   const created=document.getElementById('panel-created-title');if(created)created.value=title;
-   const saveButton=form?.querySelector('[data-section-save="mega_menu"]');
-   if(form&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';form.requestSubmit();}
+  }
+  syncMegaPanelSelection();
+  closePanelModal();
+  const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
+  const created=document.getElementById('panel-created-title');if(created)created.value=editingPanelCard?'':title;
+  if(panelForm&&panelSaveButton){const saveButton=panelForm.querySelector('[data-section-save="mega_menu"]');if(saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';panelForm.requestSubmit();}}
+  editingPanelCard=null;
  });
 })();
 </script>
