@@ -778,7 +778,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sectionTabParam='&section_tab='.rawurlencode(in_array($sectionEditorTab,['banner','slideshow','mega_menu'],true)?$sectionEditorTab:'banner');
             $panelCreatedTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_created_title']??'',100):'';
             $panelCreatedParam=$panelCreatedTitle!==''?'&panel_created_title='.rawurlencode($panelCreatedTitle):'';
-            header('Location: admin.php?section=page-management&tab=sections'.$sectionTabParam.'&'.$saveFlag.$panelCreatedParam.'#pm-panel-sections',true,303); exit;
+            $panelEditType=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_edit_type']??'',20):'';
+            $panelEditOldTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_edit_old_title']??'',100):'';
+            $panelEditNewTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_edit_new_title']??'',100):'';
+            $panelEditCurrentTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_edit_current_title']??'',100):'';
+            $panelEditParam=$panelEditType!==''?'&panel_edit_type='.rawurlencode($panelEditType).'&panel_edit_old_title='.rawurlencode($panelEditOldTitle).'&panel_edit_new_title='.rawurlencode($panelEditNewTitle).'&panel_edit_current_title='.rawurlencode($panelEditCurrentTitle):'';
+            header('Location: admin.php?section=page-management&tab=sections'.$sectionTabParam.'&'.$saveFlag.$panelCreatedParam.$panelEditParam.'#pm-panel-sections',true,303); exit;
         } catch(Throwable $e) { $message=$e->getMessage(); }
         $section='page-management';
     }
@@ -2758,6 +2763,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  </div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-menu-settings-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-menu-settings-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-menu-settings-success-title">Mega Menu settings successfully saved.</h2><button type="button" class="btn" id="mega-menu-settings-success-ok">OK</button></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-created-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-created-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-created-success-title">The panel menu has been successfully created.</h2><button type="button" class="btn" id="mega-panel-created-success-ok">OK</button></div></div>
+ <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-edit-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-edit-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-edit-success-title">The panel menu has been successfully updated.</h2><button type="button" class="btn" id="mega-panel-edit-success-ok">OK</button></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-delete-confirm-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="mega-panel-delete-confirm-title">Are you sure you want to delete the selected panel/s?</h2><div class="gallery-modal-actions"><button type="button" class="btn light" id="mega-panel-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="mega-panel-delete-confirm">Delete</button></div></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-delete-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-delete-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-delete-success-title">The panel/s selected has been successfully deleted.</h2><button type="button" class="btn" id="mega-panel-delete-success-ok">OK</button></div></div>
   <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
@@ -4111,6 +4117,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelModalHeading=document.getElementById('mega-panel-modal-title');
  const panelSaveButton=document.getElementById('mega-panel-create');
  let editingPanelCard=null;
+ let editingPanelOriginal=null;
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
  const panelIconAliases={'compact-disc':'disc','taxi':'car-taxi','car':'car','earth':'world'};
@@ -4257,6 +4264,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const edit=event.target.closest('.mega-panel-edit');if(!edit)return;
   const card=edit.closest('.mega-panel-record');if(!card)return;
   editingPanelCard=card;
+  editingPanelOriginal={title:card.querySelector('[name="panel_title[]"]')?.value||'',description:card.querySelector('[name="panel_description[]"]')?.value||'',symbol:card.querySelector('[name="panel_symbol[]"]')?.value||'',url:card.querySelector('[name="panel_url[]"]')?.value||''};
   panelTitle.value=card.querySelector('[name="panel_title[]"]')?.value||'';
   panelDescription.value=card.querySelector('[name="panel_description[]"]')?.value||'';
   panelUrl.value=card.querySelector('[name="panel_url[]"]')?.value||'';
@@ -4267,6 +4275,30 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   panelModal.hidden=false;panelModal.removeAttribute('hidden');panelModal.setAttribute('aria-hidden','false');panelModal.style.removeProperty('display');document.body.classList.add('modal-open');
   requestAnimationFrame(()=>panelTitle.focus());
  });
+ // Show a tailored confirmation after a successful panel edit save.
+ (() => {
+  const params=new URLSearchParams(window.location.search);
+  const type=params.get('panel_edit_type');
+  const modal=document.getElementById('mega-panel-edit-success-modal');
+  const title=document.getElementById('mega-panel-edit-success-title');
+  const ok=document.getElementById('mega-panel-edit-success-ok');
+  if(!type||params.get('section_tab')!=='mega_menu'||!modal||!title||!ok)return;
+  const oldTitle=params.get('panel_edit_old_title')||'';
+  const newTitle=params.get('panel_edit_new_title')||'';
+  const currentTitle=params.get('panel_edit_current_title')||newTitle||oldTitle;
+  params.delete('panel_edit_type');params.delete('panel_edit_old_title');params.delete('panel_edit_new_title');params.delete('panel_edit_current_title');
+  const clean=params.toString();
+  window.history.replaceState({},'',window.location.pathname+(clean?'?'+clean:'')+window.location.hash);
+  if(type==='rename'){
+   title.replaceChildren(document.createTextNode('The panel '),Object.assign(document.createElement('span'),{className:'mega-panel-edit-old-title',textContent:oldTitle}),document.createTextNode(' has been successfully renamed to '),Object.assign(document.createElement('span'),{className:'mega-panel-edit-new-title',textContent:newTitle}),document.createTextNode('.'));
+  }else if(type==='description'){
+   title.replaceChildren(document.createTextNode('The description of panel '),Object.assign(document.createElement('span'),{className:'mega-panel-edit-current-title',textContent:currentTitle}),document.createTextNode(' has been successfully changed.'));
+  }else{
+   title.textContent='The panel menu has been successfully updated.';
+  }
+  modal.hidden=false;modal.style.setProperty('display','flex','important');document.body.classList.add('modal-open');
+  ok.addEventListener('click',()=>{modal.hidden=true;modal.style.setProperty('display','none','important');document.body.classList.remove('modal-open');document.querySelector('[data-section-panel="mega_menu"] #mega-panel-list')?.scrollIntoView({behavior:'smooth',block:'start'});},{once:true});
+ })();
  document.getElementById('mega-panel-delete-selected')?.addEventListener('click',()=>{
   pendingPanelDelete=[...megaPanelList.querySelectorAll('.mega-panel-checkbox:checked')];
   if(!pendingPanelDelete.length)return;
@@ -4312,6 +4344,15 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   if(!editingPanelCard&&megaPanelList.querySelectorAll('.mega-panel-record').length>=10){alert('A maximum of ten (10) panel menus can be created.');return;}
   const symbol=panelIcon.value||'tabler:laptop',descriptionText=panelDescription.value.trim(),url=panelUrl.value;
   if(editingPanelCard){
+   const original=editingPanelOriginal||{title:'',description:'',symbol:'',url:''};
+   const changed={title:title!==original.title,description:descriptionText!==original.description,symbol:symbol!==original.symbol,url:url!==original.url};
+   const changedCount=[changed.title,changed.description,changed.symbol,changed.url&&!changed.title].filter(Boolean).length;
+   const editType=changedCount>1?'updated':(changed.title?'rename':(changed.description?'description':'updated'));
+   const setEditMeta=(name,value)=>{let field=panelForm.querySelector('[name="'+name+'"]');if(!field){field=document.createElement('input');field.type='hidden';field.name=name;panelForm.append(field);}field.value=value;};
+   setEditMeta('panel_edit_type',editType);
+   setEditMeta('panel_edit_old_title',original.title);
+   setEditMeta('panel_edit_new_title',title);
+   setEditMeta('panel_edit_current_title',title);
    const card=editingPanelCard,art=card.querySelector('.mega-panel-record-art');
    const iconWrap=document.createElement('span');iconWrap.className='panel-record-icon';iconWrap.style.setProperty('--icon-hue',panelIconHue(symbol));
    const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+symbol.replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');iconWrap.append(glyph);
@@ -4341,7 +4382,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const created=document.getElementById('panel-created-title');if(created)created.value=editingPanelCard?'':title;
   const saveButton=panelForm?.querySelector('[data-section-save="mega_menu"]');
   if(panelForm&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';panelForm.requestSubmit();}
-  editingPanelCard=null;
+  editingPanelCard=null;editingPanelOriginal=null;
  });
 })();
 </script>
@@ -4349,6 +4390,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 #mega-panel-created-success-modal[hidden]{display:none!important}
 #mega-panel-created-success-title{color:inherit!important}
 #mega-panel-created-success-title .mega-panel-created-name{color:#e05260!important}
+#mega-panel-edit-success-title .mega-panel-edit-old-title{color:#e05260!important}
+#mega-panel-edit-success-title .mega-panel-edit-new-title{color:#f0cf45!important}
+#mega-panel-edit-success-title .mega-panel-edit-current-title{color:#e05260!important}
 .mega-panel-record-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:14px}
 .mega-panel-record{min-width:0}
 .mega-panel-record-art{display:flex;align-items:center;justify-content:center;min-height:145px;aspect-ratio:4/3;background:linear-gradient(145deg,rgba(112,48,82,.32),rgba(26,25,39,.82))}
