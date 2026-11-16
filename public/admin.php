@@ -747,6 +747,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Only replace Mega Menu data when its own Save button submitted the form.
             // Other Sections saves must never clear existing public menu panels.
             if ($sectionEditorTab === 'mega_menu') {
+                if (count((array)($_POST['panel_title'] ?? [])) > 10) throw new RuntimeException('A maximum of ten (10) panel menus can be created.');
                 if (array_key_exists('mega_main_title', $_POST)) $saved['mega_menu']['main_title']=$cleanHtml((string)$_POST['mega_main_title']);
                 if (array_key_exists('mega_heading', $_POST)) $saved['mega_menu']['heading']=$cleanHtml((string)$_POST['mega_heading']);
                 if (array_key_exists('mega_subtitle', $_POST)) $saved['mega_menu']['subtitle']=$cleanHtml((string)$_POST['mega_subtitle']);
