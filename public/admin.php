@@ -2632,7 +2632,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  </form>
 <style id="mega-panel-description-styles">
 .mega-menu-preview .mega-preview-panel{cursor:default}
-.mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px auto 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:12px;line-height:1.5;font-weight:400;text-align:center;white-space:normal;overflow-wrap:anywhere}
+.mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:12px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
 </style>
 <style id="mega-panel-modal-styles">
 /* Page Management needs its own copy of the Gallery modal rules:
