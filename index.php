@@ -186,10 +186,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
         if (str_starts_with($digits, '0063')) $digits = substr($digits, 4);
         elseif (str_starts_with($digits, '63')) $digits = substr($digits, 2);
         if (str_starts_with($digits, '0')) $digits = substr($digits, 1);
-        $stmtLogin = $pdo->prepare("SELECT id,full_name,email,password_hash,role,account_status FROM users WHERE mobile_no=? LIMIT 1");
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status FROM users WHERE mobile_no=? LIMIT 1");
         $stmtLogin->execute(['+63' . $digits]);
     } else {
-        $stmtLogin = $pdo->prepare("SELECT id,full_name,email,password_hash,role,account_status FROM users WHERE email=? LIMIT 1");
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status FROM users WHERE email=? LIMIT 1");
         $stmtLogin->execute([strtolower($loginValue)]);
     }
     $loginUser = $stmtLogin->fetch();
@@ -201,11 +201,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
         unset($loginUser['password_hash']);
         $_SESSION['user'] = $loginUser;
         $_SESSION['login_progress'] = true;
-        $_SESSION['login_redirect'] = ($targetContext === 'admin' ? 'public/admin.php' : 'public/workspace.php');
+        $_SESSION['login_redirect'] = ($targetContext === 'admin' ? 'public/admin.php' : 'index.php?session_context=creator');
         header('Location: index.php?session_context=' . $targetContext);
         exit;
     }
 }
+$currentPublicUser = (isset($_SESSION['user']) && is_array($_SESSION['user'])) ? $_SESSION['user'] : null;
+$isCreatorSignedIn = $currentPublicUser && (string)($currentPublicUser['role'] ?? '') === 'creator';
+$creatorHeaderNickname = $isCreatorSignedIn ? trim((string)($currentPublicUser['nickname'] ?? '')) : '';
+if ($isCreatorSignedIn && $creatorHeaderNickname === '') $creatorHeaderNickname = trim((string)($currentPublicUser['full_name'] ?? 'Creator'));
 $search = trim((string)($_GET['q'] ?? ''));
 $moduleSlug = trim((string)($_GET['module'] ?? ''));
 $moduleView = $moduleSlug !== '';
@@ -297,7 +301,7 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <a class="brand" href="index.php" aria-label="Home"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:<?=$publicHeaderLogoWidth?>px;height:<?=$publicHeaderLogoHeight?>px;max-width:100%;object-fit:contain;object-position:center;border-radius:0"><?php endif; ?></a>
 <nav class="navlinks">
 <?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; $headerLinkLabel = $renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label']); $headerLinkUrl = trim((string)($headerLink['url'] ?? '')); ?><?php if ($headerLinkUrl !== ''): ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e($headerLinkUrl)?>"><?=$headerLinkLabel?></a><?php else: ?><span class="header-type-link-<?= (int)$headerLinkIndex ?>"><?=$headerLinkLabel?></span><?php endif; ?><?php endforeach; ?>
-<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
+<?php if ($isCreatorSignedIn): ?><span class="creator-header-nickname" aria-label="Signed in as <?=e($creatorHeaderNickname)?>"><?=e($creatorHeaderNickname)?></span><?php else: ?><a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a><?php endif; ?>
 </nav></div></header>
 <main>
 <?php $publicSections=$sectionsSettings ?? []; $bannerSection=$publicSections['banner']??[]; ?>
