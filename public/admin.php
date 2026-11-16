@@ -747,6 +747,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Only replace Mega Menu data when its own Save button submitted the form.
             // Other Sections saves must never clear existing public menu panels.
             if ($sectionEditorTab === 'mega_menu') {
+                if (count((array)($_POST['panel_title'] ?? [])) > 10) throw new RuntimeException('A maximum of ten (10) panel menus can be created.');
                 if (array_key_exists('mega_main_title', $_POST)) $saved['mega_menu']['main_title']=$cleanHtml((string)$_POST['mega_main_title']);
                 if (array_key_exists('mega_heading', $_POST)) $saved['mega_menu']['heading']=$cleanHtml((string)$_POST['mega_heading']);
                 if (array_key_exists('mega_subtitle', $_POST)) $saved['mega_menu']['subtitle']=$cleanHtml((string)$_POST['mega_subtitle']);
@@ -754,7 +755,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
                 foreach((array)($_POST['panel_title']??[]) as $k=>$title){
                     $old=$oldPanels[$k]??[];
-                    $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($old['photo']??'')];
+                    $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($_POST['panel_existing_photo'][$k]??($old['photo']??''))];
                     if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
                         $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
                         $panel['photo']=$upload($f,'panel');
@@ -2616,21 +2617,24 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endforeach; ?>
  </div></div>
 </section>
-  <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards, like Slideshow Photos.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
+  <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards. Maximum of ten (10) panels can be created.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
+  <div class="slideshow-photo-list-toolbar gallery-photo-bulk-form mega-panel-bulk-toolbar"><label class="muted"><input type="checkbox" id="mega-panel-select-all"> Select all panels</label><button type="button" class="btn bulk-delete" id="mega-panel-delete-selected" disabled aria-disabled="true">Delete Selected</button></div>
   <div class="slideshow-photo-list mega-panel-record-list" id="mega-panel-list">
    <?php foreach((array)($sectionsSettings['mega_menu']['panels']??[]) as $pn): ?>
     <?php $panelRecordSymbol=preg_replace('/^tabler:/','',(string)($pn['symbol']??'laptop'))?:'laptop'; $panelRecordHash=0; foreach(str_split($panelRecordSymbol) as $panelRecordChar){$panelRecordHash=(($panelRecordHash*31)+ord($panelRecordChar)) & 0xFFFFFFFF;} $panelRecordHue=$panelRecordHash%360; ?>
-    <article class="gallery-photo-card slideshow-saved-photo mega-panel-record" data-preview-image="<?=e($pn['photo']??'')?>">
+    <article class="gallery-photo-card slideshow-saved-photo mega-panel-record">
      <div class="gallery-photo-image mega-panel-record-art">
       <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="<?=e($pn['title']??'Panel menu')?>" loading="lazy"><?php else: ?><span class="panel-record-icon" style="--icon-hue:<?=$panelRecordHue?>"><iconify-icon icon="tabler:<?=e($panelRecordSymbol)?>"></iconify-icon></span><?php endif; ?>
       <div class="gallery-photo-description"><?=e(trim((string)($pn['description']??''))!==''?$pn['description']:'No description added.')?></div>
      </div>
      <div class="gallery-photo-title" title="<?=e($pn['title']??'Untitled panel')?>"><?=e($pn['title']??'Untitled panel')?></div>
-     <button type="button" class="btn light section-remove mega-panel-remove">Remove</button>
+     <label class="gallery-photo-select"><input type="checkbox" class="mega-panel-checkbox" aria-label="Select panel <?=e($pn['title']??'Panel menu')?>"> Select</label>
+     <button type="button" class="btn light gallery-photo-edit mega-panel-edit">Edit</button>
      <input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'tabler:laptop')?>">
      <input type="hidden" name="panel_title[]" value="<?=e($pn['title']??'')?>">
      <input type="hidden" name="panel_description[]" value="<?=e($pn['description']??'')?>">
      <input type="hidden" name="panel_url[]" value="<?=e($pn['url']??'')?>">
+     <input type="hidden" name="panel_existing_photo[]" value="<?=e($pn['photo']??'')?>">
     </article>
    <?php endforeach; ?>
    <?php if(empty($sectionsSettings['mega_menu']['panels'])): ?><p class="muted slideshow-empty mega-panel-empty">No panel menus have been created yet.</p><?php endif; ?>
@@ -2742,7 +2746,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 </style>
 <div class="gallery-modal-backdrop" id="mega-panel-modal" hidden aria-hidden="true">
   <section class="gallery-modal" role="dialog" aria-modal="true" aria-labelledby="mega-panel-modal-title">
-   <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create a menu panel for the public homepage.</p></div></div>
+   <div class="gallery-modal-head"><div><h2 id="mega-panel-modal-title">Add Panel Menu</h2><p class="muted">Create or edit a menu panel for the public homepage.</p></div></div>
    <div class="gallery-form-grid">
     <div class="gallery-form-field"><span class="gallery-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" id="mega-panel-icon" value="tabler:laptop"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><iconify-icon icon="tabler:laptop" aria-hidden="true"></iconify-icon></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div>
     <label class="gallery-form-field">Title<input id="mega-panel-title" type="text" maxlength="100" placeholder="Enter panel title"></label>
@@ -4102,6 +4106,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const panelDescription=document.getElementById('mega-panel-description');
  const panelUrl=document.getElementById('mega-panel-url');
  const panelIcon=document.getElementById('mega-panel-icon');
+ const panelModalHeading=document.getElementById('mega-panel-modal-title');
+ const panelSaveButton=document.getElementById('mega-panel-create');
+ let editingPanelCard=null;
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
  const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
  const panelIconAliases={'compact-disc':'disc','taxi':'car-taxi','car':'car','earth':'world'};
@@ -4179,6 +4186,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const openPanelModal=()=>{
    if(!panelModal||!panelTitle||!panelDescription||!panelIcon)return;
    panelModalPreviousFocus=document.activeElement;
+   editingPanelCard=null;
+   if(panelModalHeading)panelModalHeading.textContent='Add Panel Menu';
+   if(panelSaveButton)panelSaveButton.textContent='Save Menu';
    panelTitle.value='';
    panelDescription.value='';
    panelIcon.value='tabler:laptop';
@@ -4225,31 +4235,84 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 
 
  const megaPanelList=document.getElementById('mega-panel-list');
+ const panelForm=document.getElementById('sections-settings-form');
+ const makeHidden=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;return input;};
+ const setPanelIcon=value=>{
+  panelIcon.value=value||'tabler:laptop';
+  const picker=panelIcon.closest('[data-icon-picker]');
+  renderPanelLucide(picker?.querySelector('.panel-icon-current'),panelIcon.value);
+  picker?.querySelectorAll('[data-icon-value]').forEach(option=>option.setAttribute('aria-pressed',String(option.dataset.iconValue===panelIcon.value.replace(/^tabler:/,''))));
+ };
+ const syncMegaPanelSelection=()=>{
+  const boxes=[...megaPanelList.querySelectorAll('.mega-panel-checkbox')],selected=boxes.filter(box=>box.checked).length;
+  const selectAll=document.getElementById('mega-panel-select-all'),del=document.getElementById('mega-panel-delete-selected');
+  if(selectAll){selectAll.checked=boxes.length>0&&selected===boxes.length;selectAll.indeterminate=selected>0&&selected<boxes.length;selectAll.disabled=boxes.length===0;}
+  if(del){del.disabled=selected===0;del.setAttribute('aria-disabled',String(selected===0));del.style.pointerEvents=selected?'auto':'none';}
+ };
+ document.getElementById('mega-panel-select-all')?.addEventListener('change',event=>{megaPanelList.querySelectorAll('.mega-panel-checkbox').forEach(box=>box.checked=event.target.checked);syncMegaPanelSelection();});
+ megaPanelList?.addEventListener('change',event=>{if(event.target.matches('.mega-panel-checkbox'))syncMegaPanelSelection();});
+ megaPanelList?.addEventListener('click',event=>{
+  const edit=event.target.closest('.mega-panel-edit');if(!edit)return;
+  const card=edit.closest('.mega-panel-record');if(!card)return;
+  editingPanelCard=card;
+  panelTitle.value=card.querySelector('[name="panel_title[]"]')?.value||'';
+  panelDescription.value=card.querySelector('[name="panel_description[]"]')?.value||'';
+  panelUrl.value=card.querySelector('[name="panel_url[]"]')?.value||'';
+  setPanelIcon(card.querySelector('[name="panel_symbol[]"]')?.value||'tabler:laptop');
+  if(panelModalHeading)panelModalHeading.textContent='Edit Panel Menu';
+  if(panelSaveButton)panelSaveButton.textContent='Save Changes';
+  panelModalPreviousFocus=edit;
+  panelModal.hidden=false;panelModal.removeAttribute('hidden');panelModal.setAttribute('aria-hidden','false');panelModal.style.removeProperty('display');document.body.classList.add('modal-open');
+  requestAnimationFrame(()=>panelTitle.focus());
+ });
+ document.getElementById('mega-panel-delete-selected')?.addEventListener('click',()=>{
+  const selected=[...megaPanelList.querySelectorAll('.mega-panel-checkbox:checked')];if(!selected.length)return;
+  if(!window.confirm('Delete the selected panel menu(s)? This action cannot be undone.'))return;
+  selected.forEach(box=>box.closest('.mega-panel-record')?.remove());
+  if(!megaPanelList.querySelector('.mega-panel-record')){const empty=document.createElement('p');empty.className='muted slideshow-empty mega-panel-empty';empty.textContent='No panel menus have been created yet.';megaPanelList.append(empty);}
+  syncMegaPanelSelection();
+  const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
+  const saveButton=panelForm?.querySelector('[data-section-save="mega_menu"]');
+  if(panelForm&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';panelForm.requestSubmit();}
+ });
  document.getElementById('mega-panel-create')?.addEventListener('click',()=>{
-   const title=panelTitle.value.trim();
-   if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
-   panelTitle.setCustomValidity('');
-   if(!megaPanelList)throw new Error('Panel list is unavailable.');
+  const title=panelTitle.value.trim();
+  if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
+  panelTitle.setCustomValidity('');
+  if(!megaPanelList)throw new Error('Panel list is unavailable.');
+  if(!editingPanelCard&&megaPanelList.querySelectorAll('.mega-panel-record').length>=10){alert('A maximum of ten (10) panel menus can be created.');return;}
+  const symbol=panelIcon.value||'tabler:laptop',descriptionText=panelDescription.value.trim(),url=panelUrl.value;
+  if(editingPanelCard){
+   const card=editingPanelCard,art=card.querySelector('.mega-panel-record-art');
+   const iconWrap=document.createElement('span');iconWrap.className='panel-record-icon';iconWrap.style.setProperty('--icon-hue',panelIconHue(symbol));
+   const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+symbol.replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');iconWrap.append(glyph);
+   if(!card.querySelector('.mega-panel-record-art img'))art.replaceChildren(iconWrap);
+   const desc=art.querySelector('.gallery-photo-description')||document.createElement('div');desc.className='gallery-photo-description';desc.textContent=descriptionText||'No description added.';if(!desc.parentElement)art.append(desc);
+   const titleNode=card.querySelector('.gallery-photo-title');if(titleNode){titleNode.textContent=title;titleNode.title=title;}
+   card.querySelector('[name="panel_symbol[]"]').value=symbol;
+   card.querySelector('[name="panel_title[]"]').value=title;
+   card.querySelector('[name="panel_description[]"]').value=descriptionText;
+   card.querySelector('[name="panel_url[]"]').value=url;
+  }else{
    megaPanelList.querySelector('.mega-panel-empty')?.remove();
    const card=document.createElement('article');card.className='gallery-photo-card slideshow-saved-photo mega-panel-record';
    const art=document.createElement('div');art.className='gallery-photo-image mega-panel-record-art';
-   const glyphWrap=document.createElement('span');glyphWrap.className='panel-record-icon';
-   glyphWrap.style.setProperty('--icon-hue',panelIconHue(panelIcon.value));
-   const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(panelIcon.value||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');glyphWrap.append(glyph);art.append(glyphWrap);
-   const descriptionText=panelDescription.value.trim();
-   const descriptionOverlay=document.createElement('div');descriptionOverlay.className='gallery-photo-description';descriptionOverlay.textContent=descriptionText||'No description added.';art.append(descriptionOverlay);
+   const iconWrap=document.createElement('span');iconWrap.className='panel-record-icon';iconWrap.style.setProperty('--icon-hue',panelIconHue(symbol));
+   const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+symbol.replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');iconWrap.append(glyph);art.append(iconWrap);
+   const desc=document.createElement('div');desc.className='gallery-photo-description';desc.textContent=descriptionText||'No description added.';art.append(desc);
    const titleNode=document.createElement('div');titleNode.className='gallery-photo-title';titleNode.title=title;titleNode.textContent=title;
-   const remove=document.createElement('button');remove.type='button';remove.className='btn light section-remove mega-panel-remove';remove.textContent='Remove';
-   const hidden=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;return input;};
-   card.append(art,titleNode,remove,hidden('panel_symbol[]',panelIcon.value||'tabler:laptop'),hidden('panel_title[]',title),hidden('panel_description[]',descriptionText),hidden('panel_url[]',panelUrl.value));
+   const selectLabel=document.createElement('label');selectLabel.className='gallery-photo-select';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='mega-panel-checkbox';checkbox.setAttribute('aria-label','Select panel '+title);selectLabel.append(checkbox,document.createTextNode(' Select'));
+   const edit=document.createElement('button');edit.type='button';edit.className='btn light gallery-photo-edit mega-panel-edit';edit.textContent='Edit';
+   card.append(art,titleNode,selectLabel,edit,makeHidden('panel_symbol[]',symbol),makeHidden('panel_title[]',title),makeHidden('panel_description[]',descriptionText),makeHidden('panel_url[]',url),makeHidden('panel_existing_photo[]',''));
    megaPanelList.append(card);
-   card.querySelector('[name="panel_title[]"]')?.dispatchEvent(new Event('input',{bubbles:true}));
-   closePanelModal();
-   const form=document.getElementById('sections-settings-form');
-   const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
-   const created=document.getElementById('panel-created-title');if(created)created.value=title;
-   const saveButton=form?.querySelector('[data-section-save="mega_menu"]');
-   if(form&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';form.requestSubmit();}
+  }
+  syncMegaPanelSelection();
+  closePanelModal();
+  const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
+  const created=document.getElementById('panel-created-title');if(created)created.value=editingPanelCard?'':title;
+  const saveButton=panelForm?.querySelector('[data-section-save="mega_menu"]');
+  if(panelForm&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';panelForm.requestSubmit();}
+  editingPanelCard=null;
  });
 })();
 </script>
