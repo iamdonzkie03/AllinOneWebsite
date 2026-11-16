@@ -744,21 +744,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $saved['slideshow']['heading']=$cleanHtml((string)($_POST['slide_heading']??''));
             $saved['slideshow']['subtitle']=$cleanHtml((string)($_POST['slide_subtitle']??''));
             // Slideshow photo records are uploaded and saved independently through the multi-photo modal.
-            $saved['mega_menu']['main_title']=$cleanHtml((string)($_POST['mega_main_title']??''));
-            $saved['mega_menu']['heading']=$cleanHtml((string)($_POST['mega_heading']??''));
-            $saved['mega_menu']['subtitle']=$cleanHtml((string)($_POST['mega_subtitle']??''));
-            $panels=[];
-            $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
-            foreach((array)($_POST['panel_title']??[]) as $k=>$title){
-                $old=$oldPanels[$k]??[];
-                $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($old['photo']??'')];
-                if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
-                    $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
-                    $panel['photo']=$upload($f,'panel');
+            // Only replace Mega Menu data when its own Save button submitted the form.
+            // Other Sections saves must never clear existing public menu panels.
+            if ($sectionEditorTab === 'mega_menu') {
+                if (array_key_exists('mega_main_title', $_POST)) $saved['mega_menu']['main_title']=$cleanHtml((string)$_POST['mega_main_title']);
+                if (array_key_exists('mega_heading', $_POST)) $saved['mega_menu']['heading']=$cleanHtml((string)$_POST['mega_heading']);
+                if (array_key_exists('mega_subtitle', $_POST)) $saved['mega_menu']['subtitle']=$cleanHtml((string)$_POST['mega_subtitle']);
+                $panels=[];
+                $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
+                foreach((array)($_POST['panel_title']??[]) as $k=>$title){
+                    $old=$oldPanels[$k]??[];
+                    $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($old['photo']??'')];
+                    if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
+                        $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
+                        $panel['photo']=$upload($f,'panel');
+                    }
+                    if($panel['title']!==''||$panel['description']!==''||$panel['url']!==''||$panel['photo']!=='') $panels[]=$panel;
                 }
-                if($panel['title']!==''||$panel['description']!==''||$panel['url']!==''||$panel['photo']!=='') $panels[]=$panel;
+                $saved['mega_menu']['panels']=$panels;
             }
-            $saved['mega_menu']['panels']=$panels;
             $save=$pdo->prepare("INSERT INTO site_sections_settings (id,content_json) VALUES (1,?) ON DUPLICATE KEY UPDATE content_json=VALUES(content_json)");
             $save->execute([json_encode($saved,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);
             if($newBannerPhoto!=='' && $oldBannerPhoto!=='') {
