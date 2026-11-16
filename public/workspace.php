@@ -4,6 +4,27 @@ require __DIR__ . '/../app/bootstrap.php';
 $user=require_login();
 if ($user['role']==='system_admin') { header('Location: admin.php'); exit; }
 if ($user['account_status']!=='approved') { session_destroy(); header('Location: login.php'); exit; }
+// Ensure Creator profile fields exist before selecting them. This is deliberately
+// idempotent so existing Laragon databases are upgraded on their next visit.
+$creatorProfileColumns = [
+    'avatar_path' => 'VARCHAR(500) NULL',
+    'banner_path' => 'VARCHAR(500) NULL',
+    'short_bio' => 'VARCHAR(500) NULL',
+    'facebook_url' => 'VARCHAR(500) NULL',
+    'x_url' => 'VARCHAR(500) NULL',
+    'youtube_url' => 'VARCHAR(500) NULL',
+    'other_social_links' => 'LONGTEXT NULL',
+    'affiliate_links' => 'LONGTEXT NULL',
+    'direct_support_url' => 'VARCHAR(500) NULL',
+    'ecommerce_url' => 'VARCHAR(500) NULL',
+];
+$profileColumnCheck=$pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=\'users\' AND COLUMN_NAME=?');
+foreach ($creatorProfileColumns as $column=>$definition) {
+    $profileColumnCheck->execute([$column]);
+    if ((int)$profileColumnCheck->fetchColumn()===0) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN {$column} {$definition}");
+    }
+}
 $profileStmt=$pdo->prepare('SELECT full_name,nickname,birthdate,birthplace,email,mobile_no,credential_notes,email_verified_at,phone_verified_at,account_status,created_at,updated_at,avatar_path,banner_path,short_bio,facebook_url,x_url,youtube_url,other_social_links,affiliate_links,direct_support_url,ecommerce_url FROM users WHERE id=? LIMIT 1');
 $profileStmt->execute([(int)$user['id']]);
 $profile=$profileStmt->fetch() ?: $user;
