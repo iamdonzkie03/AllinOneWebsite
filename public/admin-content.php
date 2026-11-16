@@ -114,7 +114,35 @@ $slugify = static function(string $value): string {
 };
 
 try {
-    if ($action === 'save_category') {
+    if ($action === 'assign_category_to_mega_menu') {
+        $categoryId = (int)($_POST['item_id'] ?? 0);
+        $findCategory = $pdo->prepare("SELECT id,name,slug,description FROM categories WHERE id=? AND parent_id IS NULL AND slug<>'uncategorized' AND is_active=1");
+        $findCategory->execute([$categoryId]);
+        $category = $findCategory->fetch(PDO::FETCH_ASSOC);
+        if (!$category) throw new RuntimeException('category_invalid');
+        $settingsRow = $pdo->query("SELECT content_json FROM site_sections_settings WHERE id=1")->fetch(PDO::FETCH_ASSOC) ?: [];
+        $settings = json_decode((string)($settingsRow['content_json'] ?? ''), true);
+        if (!is_array($settings)) $settings = [];
+        if (!isset($settings['mega_menu']) || !is_array($settings['mega_menu'])) $settings['mega_menu'] = ['main_title'=>'EXPLORE THE PLATFORM','heading'=>'Five ways to connect','subtitle'=>'','panels'=>[]];
+        $panels = (array)($settings['mega_menu']['panels'] ?? []);
+        foreach ($panels as $panel) {
+            if ((int)($panel['category_id'] ?? 0) === $categoryId) throw new RuntimeException('category_already_menu');
+        }
+        if (count($panels) >= 10) throw new RuntimeException('mega_menu_full');
+        $panels[] = [
+            'title' => mb_substr(trim((string)$category['name']), 0, 100),
+            'description' => mb_substr(trim((string)$category['description']), 0, 400),
+            'url' => '?category=' . rawurlencode((string)$category['slug']) . '#latest',
+            'symbol' => 'folder',
+            'photo' => '',
+            'category_id' => $categoryId
+        ];
+        $settings['mega_menu']['panels'] = array_values($panels);
+        $saveSettings = $pdo->prepare("INSERT INTO site_sections_settings (id,content_json) VALUES (1,?) ON DUPLICATE KEY UPDATE content_json=VALUES(content_json)");
+        $saveSettings->execute([json_encode($settings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+        $successNames[] = (string)$category['name'];
+        $notice = 'category_assigned_menu';
+    } elseif ($action === 'save_category') {
         $id = (int)($_POST['category_id'] ?? 0);
         $name = trim((string)($_POST['name'] ?? ''));
         $description = trim((string)($_POST['description'] ?? ''));
@@ -406,7 +434,7 @@ try {
     $notice = $e->getMessage();
 }
 
-$returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory','bulk_delete_categories'], true);
+$returnToCategoryList = in_array($action, ['save_category','save_subcategory','delete_category','delete_subcategory','bulk_delete_categories','assign_category_to_mega_menu'], true);
 $redirect = $returnToCategoryList
     ? 'admin.php?session_context=admin&section=page-management&tab=contents&view=categories&notice='
     : 'admin.php?session_context=admin&section=page-management&tab=contents&notice=';
