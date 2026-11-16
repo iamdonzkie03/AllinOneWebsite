@@ -1008,7 +1008,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['banner_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Banner Settings successfully saved.';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['slideshow_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Slideshow settings successfully saved.';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['sections_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Sections settings successfully saved.';
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['mega_menu_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Mega Menu settings successfully saved.';
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['mega_menu_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections' && (string)($_GET['section_tab'] ?? '') === 'mega_menu') $message='Mega Menu settings successfully saved.';
 // A successful Footer save is shown only on the redirected GET request.
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
     $message = 'Footer settings successfully updated.';
