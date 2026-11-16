@@ -1243,21 +1243,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <style>
   .users-table-controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.users-table-controls label{display:flex;align-items:center;gap:9px}.users-table-controls select,.users-table-controls input{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}.users-table-controls input{width:min(280px,65vw)}.users-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 22px}.users-page-buttons{display:flex;align-items:center;gap:8px}.users-page-buttons .btn{padding:8px 12px;font-size:12px}.users-page-buttons .btn:disabled{opacity:.4;cursor:not-allowed}
  
-.mega-menu-preview{display:block!important;text-align:left!important;padding:24px!important;overflow:hidden}
-.mega-menu-preview .section-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin:0 0 25px}
-.mega-menu-preview .eyebrow{font-size:10px;font-weight:850;letter-spacing:2px;text-transform:uppercase;color:#d8b477}
-.mega-menu-preview h2{font:500 clamp(28px,3vw,38px)/1.12 Georgia,"Times New Roman",serif;letter-spacing:-.8px;margin:7px 0;color:#f4e9ec}
-.mega-menu-preview .muted{color:#aaa0a3;font-size:13px;line-height:1.7}
-.mega-menu-preview .category-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-.mega-menu-preview .category{position:relative;isolation:isolate;padding:21px 16px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012));border:1px solid rgba(255,255,255,.12);border-radius:16px;min-height:230px;overflow:hidden;color:#f4e9ec;text-decoration:none;display:flex;flex-direction:column;align-items:flex-start}
-.mega-menu-preview .category:after{content:"";position:absolute;z-index:-1;width:90px;height:90px;right:-42px;bottom:-44px;border:1px solid rgba(216,180,119,.2);border-radius:50%;box-shadow:0 0 0 14px rgba(216,180,119,.025)}
-.mega-menu-preview .category .symbol{font-size:25px;color:#d8b477}
-.mega-menu-preview .category strong{display:block;margin-top:16px;font-size:14px;line-height:1.4;min-height:40px;color:#f4e9ec}
-.mega-menu-preview .module-description{display:block;margin-top:8px;color:#aaa0a3;font-size:11px;line-height:1.65}
-.mega-menu-preview .module-link{display:block;margin-top:auto;padding-top:17px;font-size:10px;font-weight:800;letter-spacing:.7px;color:#e05260}
-.mega-menu-preview .mega-panel-cover{width:100%;height:110px;object-fit:cover;border-radius:9px;margin-bottom:10px}
-@media(max-width:1100px){.mega-menu-preview .category-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:650px){.mega-menu-preview .category-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Match the public index.php Mega Menu card and icon treatment inside the admin preview. */
+.mega-menu-preview{display:block!important;text-align:left!important;padding:0!important;overflow:visible}
+.mega-menu-preview.mega-menu-section .module-grid>.module-card .panel-lucide-icon{width:76px;height:76px;margin:0 auto 14px;color:#7be7ff;background:linear-gradient(145deg,rgba(33,201,255,.28),rgba(125,93,255,.25) 52%,rgba(255,89,174,.2));border:1px solid rgba(133,224,255,.48);border-radius:22px;box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(48,150,255,.22),0 0 22px rgba(116,91,255,.14);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.mega-menu-preview.mega-menu-section .module-grid>.module-card:nth-child(3n+2) .panel-lucide-icon{color:#ff9bd2;background:linear-gradient(145deg,rgba(255,85,173,.3),rgba(151,92,255,.24),rgba(255,186,93,.16));border-color:rgba(255,164,218,.48);box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(224,75,171,.2)}
+.mega-menu-preview.mega-menu-section .module-grid>.module-card:nth-child(3n) .panel-lucide-icon{color:#a8ffbd;background:linear-gradient(145deg,rgba(57,224,154,.28),rgba(42,185,255,.22),rgba(169,255,119,.15));border-color:rgba(160,255,194,.46);box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(49,215,157,.18)}
+.mega-menu-preview.mega-menu-section .module-grid>.module-card .panel-lucide-icon iconify-icon{width:39px;height:39px;stroke:currentColor;stroke-width:2.15;filter:drop-shadow(0 0 7px currentColor)}
+.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel{position:relative}
+.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:after{content:attr(data-description);position:absolute;left:50%;bottom:calc(100% + 12px);z-index:30;width:max-content;max-width:min(320px,82vw);padding:12px 15px;border:1px solid rgba(255,255,255,.22);border-radius:13px;background:rgba(18,13,24,.96);color:#fff;font-size:12px;line-height:1.55;text-align:left;white-space:normal;box-shadow:0 14px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease;pointer-events:none}
+.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:before{content:"";position:absolute;left:50%;bottom:calc(100% + 4px);z-index:31;border:7px solid transparent;border-top-color:rgba(18,13,24,.96);opacity:0;visibility:hidden;transition:opacity .18s ease,visibility .18s ease;pointer-events:none}
+.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:hover:after,.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:focus-visible:after,.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:hover:before,.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:focus-visible:before{opacity:1;visibility:visible;transform:translate(-50%,0)}
+.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:hover:before,.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:focus-visible:before{transform:translateX(-50%)}
+@media(hover:none){.mega-menu-preview.mega-menu-section .module-grid>.mega-public-panel[data-description]:after{display:none}}
  </style>
   <script>
   (()=>{const all=document.getElementById('select-all-users');const table=document.querySelector('.users-table');if(!table)return;const rows=[...table.tBodies[0].rows].filter(row=>row.querySelector('.user-select'));const filter=document.getElementById('users-filter');const size=document.getElementById('users-page-size');const info=document.getElementById('users-page-info');const number=document.getElementById('users-page-number');const prev=document.getElementById('users-prev');const next=document.getElementById('users-next');let page=1;function matches(){const q=filter.value.trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));}function render(){const found=matches();const perPage=Number(size.value);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=found.slice(start,end);const visibleSet=new Set(visible);rows.forEach(row=>row.hidden=!visibleSet.has(row));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(all){const checks=visible.map(row=>row.querySelector('.user-select'));all.checked=checks.length>0&&checks.every(box=>box.checked);all.indeterminate=checks.some(box=>box.checked)&&!all.checked;}}filter.addEventListener('input',()=>{page=1;render();});size.addEventListener('change',()=>{page=1;render();});prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{page++;render();});if(all)all.addEventListener('change',()=>{matches().slice((page-1)*Number(size.value),page*Number(size.value)).forEach(row=>row.querySelector('.user-select').checked=all.checked);render();});rows.forEach(row=>row.querySelector('.user-select').addEventListener('change',render));render();})();
@@ -2582,20 +2579,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php
 $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 ?>
-<div class="section-preview mega-menu-preview">
- <div class="category-row module-grid" id="mega-menu-live-preview">
+<div class="section-preview mega-menu-preview mega-menu-section">
+ <div class="wrap"><div class="category-row module-grid" id="mega-menu-live-preview">
  <?php if (!$megaPreviewPanels): ?>
   <p class="mega-menu-empty-state">No panel menu created. Click the Add Panel button below to add.</p>
  <?php endif; ?>
  <?php foreach($megaPreviewPanels as $pn): ?>
-  <a class="category module-card" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false">
-   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); if(preg_match('/^[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="symbol panel-lucide-icon"><i data-lucide="<?=e((['compact-disc'=>'disc-3','taxi'=>'car-front','car'=>'car-front'][$panelIconName]??$panelIconName))?>"></i></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?>
+  <a class="category module-card mega-public-panel" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>>
+   <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??'tabler:laptop'); if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="symbol panel-lucide-icon"><iconify-icon icon="tabler:<?=e(preg_replace('/^tabler:/','',$panelIconName)?:'laptop')?>" aria-hidden="true"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?>
    <strong><?=e($pn['title']??'')?></strong>
-   <span class="module-description"><?=e($pn['description']??'')?></span>
    <span class="module-link">Explore module ↗</span>
   </a>
  <?php endforeach; ?>
- </div>
+ </div></div>
 </div>
   <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards, like Slideshow Photos.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
   <div class="slideshow-photo-list mega-panel-record-list" id="mega-panel-list">
@@ -3418,10 +3414,10 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      megaPreview.append(empty);
    }
    cards.forEach(item=>{
-     const card=document.createElement('div');card.className='category module-card mega-preview-panel';card.tabIndex=0;
-     if(item.description){card.dataset.description=item.description;card.setAttribute('aria-label',item.title+': '+item.description);}
+     const card=document.createElement('a');card.className='category module-card mega-public-panel';card.href=item.url||'#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
+     if(item.description){card.dataset.description=item.description;card.setAttribute('aria-label',(item.title||'Menu panel')+': '+item.description);}
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
-     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(item.symbol||'laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
+     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(item.symbol||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
      const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';card.append(title);
      const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';card.append(link);
      megaPreview.append(card);
