@@ -5,12 +5,11 @@ $user=require_login();
 if ($user['role']==='system_admin') { header('Location: admin.php'); exit; }
 if ($user['account_status']!=='approved') { session_destroy(); header('Location: login.php'); exit; }
 
-// Normalize profile-name components for safe, readable upload directory and file names.
+// Normalize identity components for safe Creator upload folder and filename tokens.
 $creatorPathToken=static function(string $value): string {
     $value=trim($value);
     $ascii=function_exists('iconv')?iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value):$value;
-    $normalized=strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/','_', (string)($ascii!==false?$ascii:$value)),'_'));
-    return $normalized;
+    return strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/','_', (string)($ascii!==false?$ascii:$value)),'_'));
 };
 
 // Ensure Creator profile fields exist before selecting them. This is deliberately
@@ -70,48 +69,28 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             if ($newPassword!==$confirmPassword) { http_response_code(422); exit('The new password and retyped password do not match.'); }
             if (strlen($newPassword)<10 || !preg_match('/[A-Z]/',$newPassword) || !preg_match('/[a-z]/',$newPassword) || !preg_match('/[0-9]/',$newPassword) || !preg_match('/[^A-Za-z0-9]/',$newPassword)) { http_response_code(422); exit('Password must be at least 10 characters and include uppercase, lowercase, number, and symbol characters.'); }
         }
-        // Build the Creator's permanent upload folder from the saved identity fields.
-        // Optional middle name/suffix and birthdate use explicit fallbacks so the
-        // folder remains deterministic when those profile fields are blank.
-        $birthdayToken=$birthdateValue!==null?str_replace('-','',$birthdateValue):'no_birthday';
-        $folderParts=[
-            $creatorPathToken($lastName),
-            $creatorPathToken($firstName),
-            $creatorPathToken($middleName)?:'no_middle_name',
-            $creatorPathToken($suffix)?:'no_suffix',
-            $birthdayToken
-        ];
-        $creatorFolderName=implode('_',$folderParts);
-        $creatorRoot=__DIR__.'/uploads/creator/'.$creatorFolderName;
-        // Keep folders private to the owning Creator if two people share the same identity string.
-        if (is_dir($creatorRoot)) {
-            $ownerMarker=$creatorRoot.'/.creator-id';
-            if (is_file($ownerMarker) && trim((string)file_get_contents($ownerMarker))!==(string)$creatorId) {
-                $creatorFolderName.='_'. $creatorId;
-                $creatorRoot=__DIR__.'/uploads/creator/'.$creatorFolderName;
-            }
-        }
-        foreach ([$creatorRoot,$creatorRoot.'/avatar',$creatorRoot.'/banner'] as $creatorDirectory) {
-            if (!is_dir($creatorDirectory) && !mkdir($creatorDirectory,0755,true) && !is_dir($creatorDirectory)) {
-                http_response_code(500); exit('Unable to create your personal Creator upload folders.');
-            }
-        }
-        @file_put_contents($creatorRoot.'/.creator-id',(string)$creatorId,LOCK_EX);
-        $nicknameToken=$creatorPathToken($nickname)?:'creator';
         $avatarPath=null; $bannerPath=null;
         foreach (['avatar'=>'avatar_path','banner'=>'banner_path'] as $input=>$column) {
             if (!isset($_FILES[$input]) || (int)$_FILES[$input]['error']===UPLOAD_ERR_NO_FILE) continue;
             if ((int)$_FILES[$input]['error']!==UPLOAD_ERR_OK || (int)$_FILES[$input]['size']>10*1024*1024) { http_response_code(422); exit('Each profile image must be 10 MB or smaller.'); }
             $mime=(new finfo(FILEINFO_MIME_TYPE))->file($_FILES[$input]['tmp_name']); $extensions=['image/jpeg'=>'jpg','image/png'=>'png','image/avif'=>'avif','image/webp'=>'webp'];
             if (!isset($extensions[$mime])) { http_response_code(422); exit('Profile images must be JPEG, JPG, PNG, AVIF, or WebP files.'); }
+            $birthdayToken=$birthdateValue!==null?str_replace('-','',$birthdateValue):'no_birthday';
+            $folderParts=[$creatorPathToken($lastName),$creatorPathToken($firstName),$creatorPathToken($middleName)?:'no_middle_name',$creatorPathToken($suffix)?:'no_suffix',$birthdayToken];
+            $creatorFolderName=implode('_',$folderParts);
+            $creatorRoot=__DIR__.'/uploads/creator/'.$creatorFolderName;
+            if (is_dir($creatorRoot) && is_file($creatorRoot.'/.creator-id') && trim((string)file_get_contents($creatorRoot.'/.creator-id'))!==(string)$creatorId) {
+                $creatorFolderName.='_'.$creatorId;
+                $creatorRoot=__DIR__.'/uploads/creator/'.$creatorFolderName;
+            }
+            $targetDirectory=$creatorRoot.'/'.$input;
+            if (!is_dir($targetDirectory) && !mkdir($targetDirectory,0755,true) && !is_dir($targetDirectory)) { http_response_code(500); exit('Unable to create your Creator photo folder.'); }
+            @file_put_contents($creatorRoot.'/.creator-id',(string)$creatorId,LOCK_EX);
+            $nicknameToken=$creatorPathToken($nickname)?:'creator';
             $filePrefix=$input==='avatar'?'avatar':'banner';
             $filename=$filePrefix.'_'.$nicknameToken.'_'.$birthdayToken.'.'.$extensions[$mime];
-            $targetDirectory=$creatorRoot.'/'.$input;
             $counter=2;
-            while (is_file($targetDirectory.'/'.$filename)) {
-                $filename=$filePrefix.'_'.$nicknameToken.'_'.$birthdayToken.'_'.$counter.'.'.$extensions[$mime];
-                $counter++;
-            }
+            while (is_file($targetDirectory.'/'.$filename)) { $filename=$filePrefix.'_'.$nicknameToken.'_'.$birthdayToken.'_'.$counter.'.'.$extensions[$mime]; $counter++; }
             if (!move_uploaded_file($_FILES[$input]['tmp_name'],$targetDirectory.'/'.$filename)) { http_response_code(500); exit('Unable to save the uploaded profile image.'); }
             $relativePath='uploads/creator/'.$creatorFolderName.'/'.$input.'/'.$filename;
             if ($input==='avatar') $avatarPath=$relativePath; else $bannerPath=$relativePath;
@@ -135,12 +114,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             if ($newImagePath===null || $oldImagePath==='') continue;
             $oldAbsolutePath=realpath(__DIR__.'/'.$oldImagePath);
             $uploadsRoot=realpath(__DIR__.'/uploads/creator');
-            if ($uploadsRoot!==false && $oldAbsolutePath!==false
-                && str_starts_with($oldAbsolutePath,$uploadsRoot.DIRECTORY_SEPARATOR)
-                && basename(dirname($oldAbsolutePath))===$imageType
-                && is_file($oldAbsolutePath)) {
-                @unlink($oldAbsolutePath);
-            }
+            if ($uploadsRoot!==false && $oldAbsolutePath!==false && str_starts_with($oldAbsolutePath,$uploadsRoot.DIRECTORY_SEPARATOR) && basename(dirname($oldAbsolutePath))===$imageType && is_file($oldAbsolutePath)) { @unlink($oldAbsolutePath); }
         }
         $verificationEmailSent=true;
         if($emailChanged){
