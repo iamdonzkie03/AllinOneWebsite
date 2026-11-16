@@ -403,20 +403,27 @@ if(identityUploadForm)identityUploadForm.addEventListener('submit',event=>{
  overlay.classList.add('is-open');overlay.setAttribute('aria-hidden','false');
  const bar=overlay.querySelector('.creator-upload-progress-track span'),value=overlay.querySelector('.creator-upload-progress-value');
  const xhr=new XMLHttpRequest();const uploadEndpoint=identityUploadForm.getAttribute('action')||window.location.pathname;xhr.open('POST',uploadEndpoint,true);xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
- const setProgress=percent=>{const safe=Math.max(0,Math.min(100,Math.round(percent)));bar.style.width=safe+'%';value.textContent=safe+'%';};
- xhr.upload.addEventListener('progress',e=>{if(e.lengthComputable)setProgress(e.loaded/e.total*100);});
+ let displayedProgress=0,progressTimer=null;
+ const setProgress=percent=>{const safe=Math.max(0,Math.min(100,Math.round(percent)));displayedProgress=Math.max(displayedProgress,safe);bar.style.width=displayedProgress+'%';value.textContent=displayedProgress+'%';};
+ const stopProgress=()=>{if(progressTimer!==null){clearInterval(progressTimer);progressTimer=null;}};
+ // Animate for photo uploads and ordinary profile updates alike. Hold below 100%
+ // until the server confirms that the profile has been saved successfully.
+ progressTimer=setInterval(()=>{if(displayedProgress<90)setProgress(displayedProgress+(displayedProgress<35?2:1));},120);
+ xhr.upload.addEventListener('progress',e=>{if(e.lengthComputable)setProgress(Math.min(85,(e.loaded/e.total)*85));});
  xhr.addEventListener('load',()=>{
+  stopProgress();
   if(xhr.status<200||xhr.status>=300){overlay.remove();alert(xhr.responseText||'Unable to save your profile. Please try again.');return;}
   let result;try{result=JSON.parse(xhr.responseText);}catch(error){overlay.remove();alert('The server returned an unexpected response. Please refresh and check your profile.');return;}
   if(!result.success){overlay.remove();alert(result.message||'Unable to save your profile.');return;}
   setProgress(100);
   const messages=Array.isArray(result.messages)?result.messages:[];
-  overlay.querySelector('.creator-upload-progress-dialog').innerHTML='<div class="creator-profile-success-content"><span class="creator-profile-success-icon" aria-hidden="true">✓</span><h3>'+messages.map(message=>String(message).replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]))).join('<br>')+'</h3><button type="button" class="btn" id="creator-profile-result-ok">OK</button></div>';
-  document.getElementById('creator-profile-result-ok').addEventListener('click',()=>{if(result.requires_relogin){window.location.href='login.php';}else{window.location.href='workspace.php?page=my-profile';}});
+  window.setTimeout(()=>{
+   overlay.querySelector('.creator-upload-progress-dialog').innerHTML='<div class="creator-profile-success-content"><span class="creator-profile-success-icon" aria-hidden="true">✓</span><h3>'+messages.map(message=>String(message).replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]))).join('<br>')+'</h3><button type="button" class="btn" id="creator-profile-result-ok">OK</button></div>';
+   document.getElementById('creator-profile-result-ok').addEventListener('click',()=>{if(result.requires_relogin){window.location.href='login.php';}else{window.location.href='workspace.php?page=my-profile';}});
+  },350);
  });
- xhr.addEventListener('error',()=>{overlay.remove();alert('A network error occurred while saving your profile. Please try again.');});
- xhr.addEventListener('abort',()=>{overlay.remove();alert('The profile update was cancelled.');});
- if(!hasPhoto)setProgress(30);
+ xhr.addEventListener('error',()=>{stopProgress();overlay.remove();alert('A network error occurred while saving your profile. Please try again.');});
+ xhr.addEventListener('abort',()=>{stopProgress();overlay.remove();alert('The profile update was cancelled.');});
  xhr.send(formData);
 });
 function resetCreatorIdentityForm(){
