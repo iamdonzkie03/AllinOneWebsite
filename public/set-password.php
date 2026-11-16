@@ -38,8 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             };
             $birthdayToken=!empty($creatorAccount['birthdate'])?str_replace('-','',(string)$creatorAccount['birthdate']):'no_birthday';
             $folderName=implode('_',[$safeToken((string)($creatorAccount['lastname']??'')),$safeToken((string)($creatorAccount['firstname']??'')),$safeToken((string)($creatorAccount['middlename']??''))?:'no_middle_name',$safeToken((string)($creatorAccount['suffix']??''))?:'no_suffix',$birthdayToken]);
-            $creatorRoot=__DIR__.'/uploads/creator/'.$folderName;
-            if (is_dir($creatorRoot) && is_file($creatorRoot.'/.creator-id') && trim((string)file_get_contents($creatorRoot.'/.creator-id'))!==(string)$userId) { $folderName.='_'.$userId; $creatorRoot=__DIR__.'/uploads/creator/'.$folderName; }
+            $creatorRoot=__DIR__.'/creator/'.$folderName;
+            if (is_dir($creatorRoot) && is_file($creatorRoot.'/.creator-id') && trim((string)file_get_contents($creatorRoot.'/.creator-id'))!==(string)$userId) { $folderName.='_'.$userId; $creatorRoot=__DIR__.'/creator/'.$folderName; }
             foreach ([$creatorRoot,$creatorRoot.'/avatar',$creatorRoot.'/banner'] as $directory) {
                 if (!is_dir($directory) && !mkdir($directory,0755,true) && !is_dir($directory)) { error_log('Unable to provision Creator upload directory for user '.$userId.': '.$directory); break; }
             }

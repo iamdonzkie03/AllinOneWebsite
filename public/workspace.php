@@ -78,10 +78,10 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             $birthdayToken=$birthdateValue!==null?str_replace('-','',$birthdateValue):'no_birthday';
             $folderParts=[$creatorPathToken($lastName),$creatorPathToken($firstName),$creatorPathToken($middleName)?:'no_middle_name',$creatorPathToken($suffix)?:'no_suffix',$birthdayToken];
             $creatorFolderName=implode('_',$folderParts);
-            $creatorRoot=__DIR__.'/uploads/creator/'.$creatorFolderName;
+            $creatorRoot=__DIR__.'/creator/'.$creatorFolderName;
             if (is_dir($creatorRoot) && is_file($creatorRoot.'/.creator-id') && trim((string)file_get_contents($creatorRoot.'/.creator-id'))!==(string)$creatorId) {
                 $creatorFolderName.='_'.$creatorId;
-                $creatorRoot=__DIR__.'/uploads/creator/'.$creatorFolderName;
+                $creatorRoot=__DIR__.'/creator/'.$creatorFolderName;
             }
             $targetDirectory=$creatorRoot.'/'.$input;
             if (!is_dir($targetDirectory) && !mkdir($targetDirectory,0755,true) && !is_dir($targetDirectory)) { http_response_code(500); exit('Unable to create your Creator photo folder.'); }
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             $counter=2;
             while (is_file($targetDirectory.'/'.$filename)) { $filename=$filePrefix.'_'.$nicknameToken.'_'.$birthdayToken.'_'.$counter.'.'.$extensions[$mime]; $counter++; }
             if (!move_uploaded_file($_FILES[$input]['tmp_name'],$targetDirectory.'/'.$filename)) { http_response_code(500); exit('Unable to save the uploaded profile image.'); }
-            $relativePath='uploads/creator/'.$creatorFolderName.'/'.$input.'/'.$filename;
+            $relativePath='creator/'.$creatorFolderName.'/'.$input.'/'.$filename;
             if ($input==='avatar') $avatarPath=$relativePath; else $bannerPath=$relativePath;
         }
         $fullName=$lastName.', '.$firstName.($middleName!==''?' '.$middleName:'').($suffix!==''?' '.$suffix:'');
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             [$newImagePath,$oldImagePath]=$replacementPaths;
             if ($newImagePath===null || $oldImagePath==='') continue;
             $oldAbsolutePath=realpath(__DIR__.'/'.$oldImagePath);
-            $uploadsRoot=realpath(__DIR__.'/uploads/creator');
+            $uploadsRoot=realpath(__DIR__.'/creator');
             if ($uploadsRoot!==false && $oldAbsolutePath!==false && str_starts_with($oldAbsolutePath,$uploadsRoot.DIRECTORY_SEPARATOR) && basename(dirname($oldAbsolutePath))===$imageType && is_file($oldAbsolutePath)) { @unlink($oldAbsolutePath); }
         }
         $verificationEmailSent=true;
