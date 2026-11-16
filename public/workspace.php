@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
         $requiresRelogin=$emailChanged || $passwordChanged;
         if(isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH'])==='xmlhttprequest'){
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['success'=>true,'messages'=>$successMessages,'requires_relogin'=>$requiresRelogin]);
+            echo json_encode(['success'=>true,'messages'=>$successMessages,'requires_relogin'=>$requiresRelogin,'requires_email_verification'=>$emailChanged,'email_verification_sent'=>$emailChanged && $verificationEmailSent,'email'=>$email]);
             exit;
         }
         $_SESSION['creator_profile_success']=['messages'=>$successMessages,'requires_relogin'=>$requiresRelogin];
@@ -442,7 +442,7 @@ if(identityUploadForm)identityUploadForm.addEventListener('submit',event=>{
   const messages=Array.isArray(result.messages)?result.messages:[];
   window.setTimeout(()=>{
    overlay.querySelector('.creator-upload-progress-dialog').innerHTML='<div class="creator-profile-success-content"><span class="creator-profile-success-icon" aria-hidden="true">✓</span><h3>'+messages.map(message=>String(message).replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]))).join('<br>')+'</h3><button type="button" class="btn" id="creator-profile-result-ok">OK</button></div>';
-   document.getElementById('creator-profile-result-ok').addEventListener('click',()=>{if(result.requires_relogin){window.location.href='login.php';}else{window.location.href='workspace.php?page=my-profile';}});
+   document.getElementById('creator-profile-result-ok').addEventListener('click',()=>{if(result.requires_email_verification && result.email_verification_sent){window.location.href='logout.php?scope=creator&destination=verify-email&email='+encodeURIComponent(result.email||'');}else if(result.requires_relogin){window.location.href='logout.php?scope=creator&destination=signin';}else{window.location.href='workspace.php?page=my-profile';}});
   },350);
  });
  xhr.addEventListener('error',()=>{stopProgress();overlay.remove();alert('A network error occurred while saving your profile. Please try again.');});
