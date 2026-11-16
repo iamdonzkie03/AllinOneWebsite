@@ -218,6 +218,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
 }
 $currentPublicUser = (isset($_SESSION['user']) && is_array($_SESSION['user'])) ? $_SESSION['user'] : null;
 $isCreatorSignedIn = $currentPublicUser && (string)($currentPublicUser['role'] ?? '') === 'creator';
+if ($isCreatorSignedIn && $creatorPhotoColumn !== '') {
+    // Always read the latest avatar path so changes made in the Creator workspace
+    // are reflected in the public-header account pill on the next page load.
+    $latestCreatorPhotoStmt = $pdo->prepare("SELECT {$creatorPhotoColumn} AS creator_profile_photo FROM users WHERE id=? LIMIT 1");
+    $latestCreatorPhotoStmt->execute([(int)($currentPublicUser['id'] ?? 0)]);
+    $latestCreatorPhoto = $latestCreatorPhotoStmt->fetchColumn();
+    $currentPublicUser['creator_profile_photo'] = is_string($latestCreatorPhoto) ? $latestCreatorPhoto : '';
+    $_SESSION['user']['creator_profile_photo'] = $currentPublicUser['creator_profile_photo'];
+}
 $creatorHeaderNickname = $isCreatorSignedIn ? trim((string)($currentPublicUser['nickname'] ?? '')) : '';
 if ($isCreatorSignedIn && $creatorHeaderNickname === '') $creatorHeaderNickname = trim((string)($currentPublicUser['full_name'] ?? 'Creator'));
 $search = trim((string)($_GET['q'] ?? ''));

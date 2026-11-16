@@ -147,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             }catch(Throwable $mailError){$verificationEmailSent=false;error_log('Creator email-change verification error: '.$mailError->getMessage());}
             if(!$verificationEmailSent){$pdo->prepare('UPDATE email_verification_codes SET used_at=NOW() WHERE user_id=? AND used_at IS NULL')->execute([$creatorId]);}
         }
-        $user['full_name']=$fullName; $user['nickname']=$nickname; $_SESSION['user']=$user;
+        $user['full_name']=$fullName; $user['nickname']=$nickname; if ($avatarPath!==null) $user['creator_profile_photo']=$avatarPath; $_SESSION['user']=$user;
     } elseif ($section==='social') {
         $fields=['facebook_url','x_url','youtube_url','other_social_links'];
         $values=[];
