@@ -564,8 +564,7 @@ $(function(){
 .mega-menu-section .module-grid>.mega-public-panel{position:relative;isolation:isolate;overflow:hidden}
 .mega-menu-section .module-grid>.mega-public-panel .mega-panel-icon-background{
   position:absolute;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;
-  overflow:hidden;pointer-events:none;color:hsl(var(--icon-hue,205) 92% 70%);
-  background:radial-gradient(circle at 50% 35%,hsl(var(--icon-hue,205) 92% 58% / .38),transparent 72%),linear-gradient(145deg,hsl(var(--icon-hue,205) 88% 42% / .48),hsl(var(--icon-hue,205) 72% 18% / .88))
+  overflow:hidden;pointer-events:none;color:hsl(var(--icon-hue,205) 92% 70%);background:transparent
 }
 .mega-menu-section .module-grid>.mega-public-panel .mega-panel-icon-background iconify-icon{
   display:block;width:auto;height:auto;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.25;
