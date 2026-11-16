@@ -288,7 +288,7 @@ $modules = [
 </div></div></section>
 
 <?php $megaSection=$publicSections['mega_menu']??[]; $megaPanels=(array)($megaSection['panels']??[]); ?>
-<section class="section mega-menu-section" id="modules"><div class="wrap"><div class="category-row module-grid"><?php if($megaPanels): foreach($megaPanels as $pn): ?><a class="category module-card mega-public-panel" href="<?=e($pn['url']??'#')?>"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); $publicIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $publicIconHash=0; foreach(str_split($publicIconName) as $publicIconChar){$publicIconHash=(($publicIconHash*31)+ord($publicIconChar)) & 0xFFFFFFFF;} $publicIconHue=$publicIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$publicIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($publicIconName)?>"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><strong><?=e($pn['title']??'')?></strong><?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?><span class="module-link">Explore module ↗</span></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
+<section class="section mega-menu-section" id="modules"><div class="wrap"><div class="category-row module-grid"><?php if($megaPanels): foreach($megaPanels as $pn): ?><a class="category module-card mega-public-panel" href="<?=e($pn['url']??'#')?>"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); $publicIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $publicIconHash=0; foreach(str_split($publicIconName) as $publicIconChar){$publicIconHash=(($publicIconHash*31)+ord($publicIconChar)) & 0xFFFFFFFF;} $publicIconHue=$publicIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$publicIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($publicIconName)?>"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><div class="mega-panel-preview-content"><strong><?=e($pn['title']??'')?></strong><?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?><span class="module-link">Explore module ↗</span></div></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?category=<?=e($module['slug'])?>#latest"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
 
 <section class="section" id="latest"><div class="wrap">
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
@@ -571,15 +571,14 @@ $(function(){
   display:block;width:auto;height:auto;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.42;
   color:currentColor;filter:drop-shadow(0 0 24px currentColor)
 }
-.mega-menu-section .module-grid>.mega-public-panel>.mega-panel-icon-background~strong,
-.mega-menu-section .module-grid>.mega-public-panel>.mega-panel-icon-background~.mega-panel-description,
-.mega-menu-section .module-grid>.mega-public-panel>.mega-panel-icon-background~.module-link{
-  position:relative;z-index:1
+.mega-menu-section .module-grid>.mega-public-panel>.mega-panel-icon-background~.mega-panel-preview-content{
+  position:relative;z-index:1;display:flex;flex:1;flex-direction:column;align-items:flex-start;width:100%;min-height:100%
 }
+.mega-menu-section .module-grid>.mega-public-panel>.mega-panel-preview-content>.module-link{margin-top:auto}
 .mega-menu-section .module-grid>.mega-public-panel:has(>.mega-panel-icon-background){
   background:linear-gradient(145deg,rgba(27,17,37,.72),rgba(10,13,24,.88))
 }
 
-.mega-menu-section .module-grid>.mega-public-panel .mega-panel-description{display:block;margin:8px auto 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:12px;line-height:1.55;font-weight:400;text-align:center;white-space:normal;overflow-wrap:anywhere}
+.mega-menu-section .module-grid>.mega-public-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:9px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
 </style>
 </body></html>

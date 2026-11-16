@@ -769,7 +769,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if($uploadsRoot && $oldReal && is_file($oldReal) && strpos($oldReal,$uploadsRoot.DIRECTORY_SEPARATOR)===0 && !is_link($oldReal)) @unlink($oldReal);
             }
             $sectionsSettings=$saved;
-            $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':($sectionEditorTab==='slideshow'?'slideshow_saved=1':'sections_saved=1');
+            $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':($sectionEditorTab==='slideshow'?'slideshow_saved=1':(!empty($_POST['save_mega_menu_settings'])?'mega_menu_saved=1':'sections_saved=1'));
             $sectionTabParam='&section_tab='.rawurlencode(in_array($sectionEditorTab,['banner','slideshow','mega_menu'],true)?$sectionEditorTab:'banner');
             $panelCreatedTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_created_title']??'',100):'';
             $panelCreatedParam=$panelCreatedTitle!==''?'&panel_created_title='.rawurlencode($panelCreatedTitle):'';
@@ -1008,6 +1008,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['banner_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Banner Settings successfully saved.';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['slideshow_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Slideshow settings successfully saved.';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['sections_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Sections settings successfully saved.';
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['mega_menu_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Mega Menu settings successfully saved.';
 // A successful Footer save is shown only on the redirected GET request.
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
     $message = 'Footer settings successfully updated.';
@@ -2447,7 +2448,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const field = document.getElementById('section-editor-tab');
    const save = document.getElementById('save-section-settings-button');
    if (field) field.value = key;
-   if (save) save.textContent = key === 'banner' ? 'Save Banner Settings' : key === 'slideshow' ? 'Save Slideshow Settings' : 'Save Section Settings';
+   if (save) save.textContent = key === 'banner' ? 'Save Banner Settings' : key === 'slideshow' ? 'Save Slideshow Settings' : 'Save Mega Menu Settings';
    const indicator = nav.querySelector('.section-tab-indicator');
    if (indicator && button.offsetWidth) {
      indicator.style.left = button.offsetLeft + 'px';
@@ -2602,9 +2603,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php foreach($megaPreviewPanels as $pn): ?>
   <a class="category module-card mega-public-panel mega-preview-panel" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>>
    <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??'tabler:laptop'); $previewIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $previewIconHash=0; foreach(str_split($previewIconName) as $previewIconChar){$previewIconHash=(($previewIconHash*31)+ord($previewIconChar)) & 0xFFFFFFFF;} $previewIconHue=$previewIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$previewIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($previewIconName)?>" aria-hidden="true"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?>
-   <strong><?=e($pn['title']??'')?></strong>
+   <div class="mega-panel-preview-content"><strong><?=e($pn['title']??'')?></strong>
    <?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?>
-   <span class="module-link">Explore module ↗</span>
+   <span class="module-link">Explore module ↗</span></div>
   </a>
  <?php endforeach; ?>
  </div></div>
@@ -2628,13 +2629,14 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <?php endforeach; ?>
    <?php if(empty($sectionsSettings['mega_menu']['panels'])): ?><p class="muted slideshow-empty mega-panel-empty">No panel menus have been created yet.</p><?php endif; ?>
   </div>
+  <div class="header-settings-actions mega-menu-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu" name="save_mega_menu_settings" value="1">Save Mega Menu Settings</button></div>
  </section>
  </form>
 <style id="mega-panel-description-styles">
 .mega-menu-preview .mega-preview-panel{cursor:default}
 .mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:9px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
 .mega-menu-preview .mega-preview-panel{position:relative;isolation:isolate;overflow:hidden}
-.mega-menu-preview .mega-preview-panel .mega-panel-icon-background{position:absolute;inset:0;z-index:-1;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;color:hsl(var(--icon-hue,205) 92% 70%);background:radial-gradient(circle at 50% 35%,hsl(var(--icon-hue,205) 92% 58% / .38),transparent 72%),linear-gradient(145deg,hsl(var(--icon-hue,205) 88% 42% / .48),hsl(var(--icon-hue,205) 72% 18% / .88))}
+ .mega-menu-preview .mega-preview-panel .mega-panel-icon-background{position:absolute;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;color:hsl(var(--icon-hue,205) 92% 70%);background:radial-gradient(circle at 50% 35%,hsl(var(--icon-hue,205) 92% 58% / .38),transparent 72%),linear-gradient(145deg,hsl(var(--icon-hue,205) 88% 42% / .48),hsl(var(--icon-hue,205) 72% 18% / .88))}
 .mega-menu-preview .mega-preview-panel .mega-panel-icon-background iconify-icon{display:block;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.42;color:currentColor;filter:drop-shadow(0 0 24px currentColor)}
 .mega-menu-preview .mega-preview-panel .mega-panel-preview-content{position:relative;z-index:1;display:flex;flex:1;flex-direction:column;align-items:flex-start;width:100%;min-height:100%}
 .mega-menu-preview .mega-preview-panel .mega-panel-preview-content>strong{margin-top:0}
@@ -2744,6 +2746,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <div class="gallery-modal-actions mega-panel-modal-actions"><button type="button" class="btn light" id="mega-panel-cancel">Cancel</button><button type="button" class="btn" id="mega-panel-create">Save Menu</button></div>
   </section>
  </div>
+ <div class="account-status-modal slideshow-delete-overlay" id="mega-menu-settings-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-menu-settings-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-menu-settings-success-title">Mega Menu settings successfully saved.</h2><button type="button" class="btn" id="mega-menu-settings-success-ok">OK</button></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-created-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-created-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-created-success-title">The panel menu has been successfully created.</h2><button type="button" class="btn" id="mega-panel-created-success-ok">OK</button></div></div>
   <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
   <section class="gallery-modal slideshow-upload-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-upload-modal-title">
@@ -4026,6 +4029,18 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 
 <script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
 <script>
+// Show the Mega Menu settings confirmation only after its explicit Save Settings action.
+(() => {
+ const params=new URLSearchParams(window.location.search);
+ if(params.get('mega_menu_saved')!=='1'||params.get('section_tab')!=='mega_menu')return;
+ const modal=document.getElementById('mega-menu-settings-success-modal');
+ const ok=document.getElementById('mega-menu-settings-success-ok');
+ if(!modal||!ok)return;
+ params.delete('mega_menu_saved');const query=params.toString();
+ window.history.replaceState({},'',window.location.pathname+(query?'?'+query:'')+window.location.hash);
+ modal.hidden=false;document.body.classList.add('modal-open');
+ ok.addEventListener('click',()=>{modal.hidden=true;document.body.classList.remove('modal-open');});
+})();
 // Show the creation confirmation only on the post-save return to the Mega Menu tab.
 (() => {
  const params=new URLSearchParams(window.location.search);
