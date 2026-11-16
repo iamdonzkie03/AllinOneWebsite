@@ -259,6 +259,13 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.qu
 .creator-profile-modal{display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;padding:20px;background:rgba(5,3,5,.78);backdrop-filter:blur(7px)}
 .creator-profile-modal.is-open{display:flex}
 .creator-profile-modal-dialog{width:min(580px,100%);max-height:min(88vh,850px);overflow:auto;padding:24px;border:1px solid rgba(225,151,170,.25);border-radius:16px;background:#21151c;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+/* Give the detailed Identity and Visual Branding form a larger 75% viewport workspace. */
+#profile-modal-identity .creator-profile-modal-dialog{width:75vw;max-width:1100px;height:75vh;max-height:75vh;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain}
+#profile-modal-identity .creator-profile-modal-dialog form{gap:11px}
+#profile-modal-identity .creator-profile-modal-head{margin-bottom:14px;padding-bottom:10px}
+#profile-modal-identity .creator-password-section{padding:11px;gap:8px}
+@media(max-width:700px){#profile-modal-identity .creator-profile-modal-dialog{width:75vw;padding:16px}#profile-modal-identity .creator-name-fields{grid-template-columns:1fr}}
+
 .creator-profile-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.09)}
 .creator-profile-modal-head h3{margin:0;color:#f6e8ed;font-size:16px}
 .creator-profile-modal-close{border:0;background:transparent;color:#e8cbd4;font-size:26px;line-height:1;cursor:pointer}
