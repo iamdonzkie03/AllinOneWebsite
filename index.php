@@ -172,6 +172,16 @@ $publicHeaderLogoY = max(0, min(100, (int)($publicHeader['logo_position_y'] ?? 5
 $publicHeaderLogoWidth = max(50, min(200, (int)($publicHeader['logo_width'] ?? 200)));
 $publicHeaderLogoHeight = max(30, min(120, (int)($publicHeader['logo_height'] ?? 70)));
 
+// Support profile-photo fields when present in existing installations without
+// requiring a database migration for sites that have not enabled photo uploads.
+$creatorPhotoColumn = '';
+foreach (['profile_photo_path','profile_photo','profile_image','avatar_path','avatar'] as $candidatePhotoColumn) {
+    $photoColumnCheck = $pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=\'users\' AND COLUMN_NAME=?');
+    $photoColumnCheck->execute([$candidatePhotoColumn]);
+    if ((int)$photoColumnCheck->fetchColumn() > 0) { $creatorPhotoColumn = $candidatePhotoColumn; break; }
+}
+$creatorPhotoSelect = $creatorPhotoColumn !== '' ? ', ' . $creatorPhotoColumn . ' AS creator_profile_photo' : ", NULL AS creator_profile_photo";
+
 $loginError = '';
 $showLoginProgress = !empty($_SESSION['login_progress']);
 $loginRedirect = (string)($_SESSION['login_redirect'] ?? 'public/workspace.php');
@@ -186,10 +196,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
         if (str_starts_with($digits, '0063')) $digits = substr($digits, 4);
         elseif (str_starts_with($digits, '63')) $digits = substr($digits, 2);
         if (str_starts_with($digits, '0')) $digits = substr($digits, 1);
-        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status FROM users WHERE mobile_no=? LIMIT 1");
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status{$creatorPhotoSelect} FROM users WHERE mobile_no=? LIMIT 1");
         $stmtLogin->execute(['+63' . $digits]);
     } else {
-        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status FROM users WHERE email=? LIMIT 1");
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status{$creatorPhotoSelect} FROM users WHERE email=? LIMIT 1");
         $stmtLogin->execute([strtolower($loginValue)]);
     }
     $loginUser = $stmtLogin->fetch();
@@ -275,7 +285,22 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="public/assets/css/site.css?v=stories-slider-20261110">
-<style>.module-page-head{padding:54px 0 20px}.module-page-head h1{margin:8px 0 12px;color:#f7eef0;font-size:clamp(30px,4vw,46px)}.module-page-head .muted{max-width:760px;line-height:1.7}.module-page-head .btn{margin-top:12px}.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.nav .navlinks .creator-header-nickname{display:inline-flex;align-items:center;color:var(--gold);font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap}.nav .navlinks a[class^="header-type-link-"]:hover{color:var(--gold)!important}.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}
+<style>.module-page-head{padding:54px 0 20px}.module-page-head h1{margin:8px 0 12px;color:#f7eef0;font-size:clamp(30px,4vw,46px)}.module-page-head .muted{max-width:760px;line-height:1.7}.module-page-head .btn{margin-top:12px}.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.creator-account-menu{position:relative;display:inline-flex;align-items:center}
+.creator-account-trigger{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:4px 12px 4px 5px;border:1px solid rgba(224,82,96,.48);border-radius:999px;background:linear-gradient(135deg,rgba(93,24,42,.94),rgba(35,12,20,.96));color:#fff;cursor:pointer;font:600 12px Ubuntu,sans-serif;box-shadow:0 5px 18px rgba(0,0,0,.22);transition:border-color .2s,background .2s}
+.creator-account-trigger:hover,.creator-account-trigger[aria-expanded="true"]{border-color:#e05260;background:linear-gradient(135deg,rgba(120,29,50,.98),rgba(45,14,25,.98))}
+.creator-account-avatar{width:30px;height:30px;flex:0 0 30px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.35);background:#5b1b2b;color:#fff}
+.creator-account-initials{display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.creator-header-nickname{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f7e8ec}
+.creator-account-chevron{width:13px;height:13px;opacity:.8;transition:transform .2s}
+.creator-account-trigger[aria-expanded="true"] .creator-account-chevron{transform:rotate(180deg)}
+.creator-account-dropdown{position:absolute;right:0;top:calc(100% + 10px);z-index:1200;display:none;min-width:176px;padding:6px;border:1px solid rgba(224,82,96,.34);border-radius:12px;background:linear-gradient(145deg,#281019,#140a0e);box-shadow:0 16px 38px rgba(0,0,0,.48)}
+.creator-account-dropdown.is-open{display:block}
+.creator-account-dropdown a{display:flex;align-items:center;gap:10px;padding:10px 11px;border-radius:8px;color:#f5e9ed;text-decoration:none;font-size:12px;font-weight:500;transition:background .18s,color .18s}
+.creator-account-dropdown a:hover{background:rgba(180,49,73,.2);color:#fff}
+.creator-account-dropdown svg{width:16px;height:16px;flex:0 0 16px;color:#e6a1ad}
+.creator-account-dropdown .creator-menu-signout{color:#ffb5c0}
+.creator-account-dropdown .creator-menu-divider{height:1px;margin:5px 4px;background:rgba(255,255,255,.1)}
+@media(max-width:560px){.creator-account-trigger{gap:6px;padding-right:9px}.creator-header-nickname{max-width:100px}.creator-account-dropdown{right:0}}.nav .navlinks a[class^="header-type-link-"]:hover{color:var(--gold)!important}.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}
 .register-modal{position:fixed;inset:0;z-index:1001;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.82);backdrop-filter:blur(7px)}
 .register-modal.is-open{display:flex}.register-dialog{position:relative;width:min(100%,960px);height:min(94vh,900px);overflow:hidden;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.6)}.register-dialog iframe{display:block;width:100%;height:100%;border:0;background:#100b0e;overflow:hidden}.register-close{position:absolute;right:12px;top:10px;z-index:2;width:38px;height:38px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;text-align:center;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:#241219;color:#fff;font-size:23px;font-family:Arial,sans-serif;cursor:pointer;box-shadow:0 2px 12px #0008;box-sizing:border-box}
 .signin-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.78);backdrop-filter:blur(7px)}
@@ -301,7 +326,20 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <a class="brand" href="index.php" aria-label="Home"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:<?=$publicHeaderLogoWidth?>px;height:<?=$publicHeaderLogoHeight?>px;max-width:100%;object-fit:contain;object-position:center;border-radius:0"><?php endif; ?></a>
 <nav class="navlinks">
 <?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; $headerLinkLabel = $renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label']); $headerLinkUrl = trim((string)($headerLink['url'] ?? '')); ?><?php if ($headerLinkUrl !== ''): ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e($headerLinkUrl)?>"><?=$headerLinkLabel?></a><?php else: ?><span class="header-type-link-<?= (int)$headerLinkIndex ?>"><?=$headerLinkLabel?></span><?php endif; ?><?php endforeach; ?>
-<?php if ($isCreatorSignedIn): ?><span class="creator-header-nickname" aria-label="Signed in as <?=e($creatorHeaderNickname)?>"><?=e($creatorHeaderNickname)?></span><?php else: ?><a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a><?php endif; ?>
+<?php if ($isCreatorSignedIn): ?>
+<?php $creatorPhotoRaw=trim((string)($currentPublicUser['creator_profile_photo']??'')); $creatorPhotoUrl=$creatorPhotoRaw!==''?(preg_match('~^https?://~i',$creatorPhotoRaw)?$creatorPhotoRaw:'public/'.ltrim($creatorPhotoRaw,'/')):''; $creatorInitials=mb_strtoupper(mb_substr($creatorHeaderNickname,0,1,'UTF-8'),'UTF-8'); ?>
+<div class="creator-account-menu" id="creator-account-menu">
+<button type="button" class="creator-account-trigger" id="creator-account-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="creator-account-dropdown">
+<?php if($creatorPhotoUrl!==''): ?><img class="creator-account-avatar" src="<?=e($creatorPhotoUrl)?>" alt="<?=e($creatorHeaderNickname)?> profile photo"><?php else: ?><span class="creator-account-avatar creator-account-initials" aria-hidden="true"><?=e($creatorInitials)?></span><?php endif; ?>
+<span class="creator-header-nickname"><?=e($creatorHeaderNickname)?></span>
+<svg class="creator-account-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+<div class="creator-account-dropdown" id="creator-account-dropdown" role="menu">
+<a href="public/workspace.php" role="menuitem"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M4.8 20c.7-3.4 3.2-5.2 7.2-5.2s6.5 1.8 7.2 5.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Profile</a>
+<div class="creator-menu-divider" role="separator"></div>
+<a class="creator-menu-signout" href="public/logout.php?scope=creator" role="menuitem"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 4H5.8A1.8 1.8 0 0 0 4 5.8v12.4A1.8 1.8 0 0 0 5.8 20H10M14.5 16.5 19 12l-4.5-4.5M19 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Sign out</a>
+</div></div>
+<?php else: ?><a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a><?php endif; ?>
 </nav></div></header>
 <main>
 <?php $publicSections=$sectionsSettings ?? []; $bannerSection=$publicSections['banner']??[]; ?>
@@ -667,4 +705,16 @@ $(function(){
 @media(hover:none){.mega-menu-section .module-grid>.mega-public-panel[data-description]:after{display:none}}
  
 </style>
+<script>
+(function(){
+ const menu=document.getElementById('creator-account-menu');
+ const trigger=document.getElementById('creator-account-trigger');
+ const dropdown=document.getElementById('creator-account-dropdown');
+ if(!menu||!trigger||!dropdown)return;
+ const closeMenu=()=>{dropdown.classList.remove('is-open');trigger.setAttribute('aria-expanded','false');};
+ trigger.addEventListener('click',function(event){event.stopPropagation();const open=!dropdown.classList.contains('is-open');dropdown.classList.toggle('is-open',open);trigger.setAttribute('aria-expanded',open?'true':'false');});
+ document.addEventListener('click',function(event){if(!menu.contains(event.target))closeMenu();});
+ document.addEventListener('keydown',function(event){if(event.key==='Escape'){closeMenu();trigger.focus();}});
+})();
+</script>
 </body></html>
