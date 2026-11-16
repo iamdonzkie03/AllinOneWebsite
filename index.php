@@ -416,7 +416,7 @@ if (!empty($pn['category_id'])) {
 <div class="signin-dialog" role="dialog" aria-modal="true" aria-labelledby="signin-title">
 <button type="button" class="signin-close" id="close-sign-in" aria-label="Close sign in">×</button>
 <div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
-<?php if ((string)($_GET['registered'] ?? '') === '1'): ?><p class="signin-success" role="status">Your email is verified and your password is set. You can now sign in.</p><?php endif; ?>
+<?php if ((string)($_GET['email_verified'] ?? '') === '1'): ?><p class="signin-success" role="status">Your new email address has been verified. Please sign in again.</p><?php elseif ((string)($_GET['registered'] ?? '') === '1'): ?><p class="signin-success" role="status">Your email is verified and your password is set. You can now sign in.</p><?php endif; ?>
 <?php if ($loginError !== ''): ?><p class="signin-error" role="alert"><?=e($loginError)?></p><?php endif; ?>
 <form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(signin_csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
 <fieldset style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600">Sign in using</legend><div class="signin-methods">
