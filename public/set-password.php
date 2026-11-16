@@ -26,31 +26,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ? AND email_verified_at IS NOT NULL');
         $stmt->execute([password_hash($password,PASSWORD_DEFAULT),$userId]);
 
-        // Provision the Creator's own banner/avatar directories only after
-        // email verification and password creation have completed successfully.
-        $creatorStmt=$pdo->prepare("SELECT id,nickname,full_name FROM users WHERE id=? AND role='creator' LIMIT 1");
+        // Provision the identity-based Creator photo folders only after email verification and password creation.
+        $creatorStmt=$pdo->prepare("SELECT id,lastname,firstname,middlename,suffix,nickname,birthdate FROM users WHERE id=? AND role='creator' LIMIT 1");
         $creatorStmt->execute([$userId]);
         $creatorAccount=$creatorStmt->fetch(PDO::FETCH_ASSOC);
         if ($creatorAccount) {
-            $folderLabel=trim((string)($creatorAccount['nickname']??''));
-            if ($folderLabel==='') $folderLabel=trim((string)($creatorAccount['full_name']??'creator'));
-            $ascii=function_exists('iconv')?iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$folderLabel):$folderLabel;
-            $folderSlug=strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/','-',(string)($ascii!==false?$ascii:$folderLabel)),'-'));
-            if ($folderSlug==='') $folderSlug='creator';
-            $creatorBase=__DIR__.'/creator/'.$folderSlug;
-            if (is_dir($creatorBase) && is_file($creatorBase.'/.creator-id') && trim((string)file_get_contents($creatorBase.'/.creator-id'))!==(string)$userId) {
-                $folderSlug.='-'.$userId;
-                $creatorBase=__DIR__.'/creator/'.$folderSlug;
+            $safeToken=static function(string $value): string {
+                $value=trim($value);
+                $ascii=function_exists('iconv')?iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value):$value;
+                return strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/','_', (string)($ascii!==false?$ascii:$value)),'_'));
+            };
+            $birthdayToken=!empty($creatorAccount['birthdate'])?str_replace('-','',(string)$creatorAccount['birthdate']):'no_birthday';
+            $folderName=implode('_',[$safeToken((string)($creatorAccount['lastname']??'')),$safeToken((string)($creatorAccount['firstname']??'')),$safeToken((string)($creatorAccount['middlename']??''))?:'no_middle_name',$safeToken((string)($creatorAccount['suffix']??''))?:'no_suffix',$birthdayToken]);
+            $creatorRoot=__DIR__.'/uploads/creator/'.$folderName;
+            if (is_dir($creatorRoot) && is_file($creatorRoot.'/.creator-id') && trim((string)file_get_contents($creatorRoot.'/.creator-id'))!==(string)$userId) { $folderName.='_'.$userId; $creatorRoot=__DIR__.'/uploads/creator/'.$folderName; }
+            foreach ([$creatorRoot,$creatorRoot.'/avatar',$creatorRoot.'/banner'] as $directory) {
+                if (!is_dir($directory) && !mkdir($directory,0755,true) && !is_dir($directory)) { error_log('Unable to provision Creator upload directory for user '.$userId.': '.$directory); break; }
             }
-            foreach ([$creatorBase,$creatorBase.'/banner',$creatorBase.'/avatar'] as $directory) {
-                if (!is_dir($directory) && !mkdir($directory,0755,true) && !is_dir($directory)) {
-                    error_log('Unable to provision Creator upload directory for user '.$userId.': '.$directory);
-                    break;
-                }
-            }
-            if (is_dir($creatorBase.'/banner') && is_dir($creatorBase.'/avatar')) {
-                @file_put_contents($creatorBase.'/.creator-id',(string)$userId,LOCK_EX);
-            }
+            if (is_dir($creatorRoot.'/avatar') && is_dir($creatorRoot.'/banner')) @file_put_contents($creatorRoot.'/.creator-id',(string)$userId,LOCK_EX);
         }
         unset($_SESSION['password_setup_user_id']);
         session_regenerate_id(true);
