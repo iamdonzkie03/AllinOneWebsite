@@ -2633,6 +2633,13 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 <style id="mega-panel-description-styles">
 .mega-menu-preview .mega-preview-panel{cursor:default}
 .mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:9px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.mega-menu-preview .mega-preview-panel{position:relative;isolation:isolate;overflow:hidden}
+.mega-menu-preview .mega-preview-panel .mega-panel-icon-background{position:absolute;inset:0;z-index:-1;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;color:rgba(255,255,255,.22);background:radial-gradient(circle at 50% 35%,rgba(139,54,104,.28),transparent 68%),linear-gradient(145deg,rgba(36,18,42,.72),rgba(9,12,24,.9))}
+.mega-menu-preview .mega-preview-panel .mega-panel-icon-background iconify-icon{display:block;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.34;filter:drop-shadow(0 0 24px currentColor)}
+.mega-menu-preview .mega-preview-panel .mega-panel-preview-content{position:relative;z-index:1;display:flex;flex:1;flex-direction:column;align-items:flex-start;width:100%;min-height:100%}
+.mega-menu-preview .mega-preview-panel .mega-panel-preview-content>strong{margin-top:0}
+.mega-menu-preview .mega-preview-panel .mega-panel-preview-content .module-link{margin-top:auto}
+.mega-menu-preview .mega-preview-panel:has(.mega-panel-icon-background){background:linear-gradient(145deg,rgba(27,17,37,.72),rgba(10,13,24,.88))}
 </style>
 <style id="mega-panel-modal-styles">
 /* Page Management needs its own copy of the Gallery modal rules:
@@ -3431,10 +3438,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      const card=document.createElement('a');card.className='category module-card mega-public-panel mega-preview-panel';card.href=item.url||'#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
      if(item.description)card.setAttribute('aria-label',(item.title||'Menu panel')+': '+item.description);
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
-     else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(item.symbol||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
-     const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';card.append(title);
-     if(item.description){const description=document.createElement('span');description.className='mega-panel-description';description.textContent=item.description;card.append(description);}
-     const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';card.append(link);
+     else {const symbol=document.createElement('span');symbol.className='mega-panel-icon-background';symbol.setAttribute('aria-hidden','true');const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(item.symbol||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
+     const content=document.createElement('div');content.className='mega-panel-preview-content';
+     const title=document.createElement('strong');title.textContent=item.title||'Untitled panel';content.append(title);
+     if(item.description){const description=document.createElement('span');description.className='mega-panel-description';description.textContent=item.description;content.append(description);}
+     const link=document.createElement('span');link.className='module-link';link.textContent='Explore module ↗';content.append(link);card.append(content);
      megaPreview.append(card);
    });
    if(window.lucide?.createIcons&&window.lucide?.icons)window.lucide.createIcons({icons:window.lucide.icons});
