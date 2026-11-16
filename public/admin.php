@@ -4079,7 +4079,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  params.delete('panel_created_title');
  const cleanQuery=params.toString();
  window.history.replaceState({},'',window.location.pathname+(cleanQuery?'?'+cleanQuery:'')+window.location.hash);
- if(title)title.textContent='The panel menu ('+createdTitle+') has been successfully created.';
+ if(title)title.textContent='The panel menu '+createdTitle+' has been successfully created.';
  modal.hidden=false;
  document.body.classList.add('modal-open');
  ok.addEventListener('click',()=>{
@@ -4249,6 +4249,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 </script>
 <style>
 #mega-panel-created-success-modal[hidden]{display:none!important}
+#mega-panel-created-success-title{color:#e05260!important}
 .mega-panel-record-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:14px}
 .mega-panel-record{min-width:0}
 .mega-panel-record-art{display:flex;align-items:center;justify-content:center;min-height:145px;aspect-ratio:4/3;background:linear-gradient(145deg,rgba(112,48,82,.32),rgba(26,25,39,.82))}
