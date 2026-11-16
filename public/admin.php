@@ -774,7 +774,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if($uploadsRoot && $oldReal && is_file($oldReal) && strpos($oldReal,$uploadsRoot.DIRECTORY_SEPARATOR)===0 && !is_link($oldReal)) @unlink($oldReal);
             }
             $sectionsSettings=$saved;
-            $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':($sectionEditorTab==='slideshow'?'slideshow_saved=1':(!empty($_POST['save_mega_menu_settings'])?'mega_menu_saved=1':'sections_saved=1'));
+            $saveFlag=$sectionEditorTab==='banner'?'banner_saved=1':($sectionEditorTab==='slideshow'?'slideshow_saved=1':(!empty($_POST['panel_delete_action'])?'panel_deleted=1':(!empty($_POST['save_mega_menu_settings'])?'mega_menu_saved=1':'sections_saved=1')));
             $sectionTabParam='&section_tab='.rawurlencode(in_array($sectionEditorTab,['banner','slideshow','mega_menu'],true)?$sectionEditorTab:'banner');
             $panelCreatedTitle=$sectionEditorTab==='mega_menu'?$safeText($_POST['panel_created_title']??'',100):'';
             $panelCreatedParam=$panelCreatedTitle!==''?'&panel_created_title='.rawurlencode($panelCreatedTitle):'';
@@ -2758,6 +2758,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  </div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-menu-settings-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-menu-settings-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-menu-settings-success-title">Mega Menu settings successfully saved.</h2><button type="button" class="btn" id="mega-menu-settings-success-ok">OK</button></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-created-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-created-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-created-success-title">The panel menu has been successfully created.</h2><button type="button" class="btn" id="mega-panel-created-success-ok">OK</button></div></div>
+ <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-delete-confirm-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="mega-panel-delete-confirm-title">Are you sure you want to delete the selected panel/s?</h2><div class="gallery-modal-actions"><button type="button" class="btn light" id="mega-panel-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="mega-panel-delete-confirm">Delete</button></div></div></div>
+ <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-delete-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-delete-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-delete-success-title">The panel/s selected has been successfully deleted.</h2><button type="button" class="btn" id="mega-panel-delete-success-ok">OK</button></div></div>
   <div class="gallery-modal-backdrop slideshow-upload-backdrop" id="slideshow-upload-modal" hidden>
   <section class="gallery-modal slideshow-upload-modal" role="dialog" aria-modal="true" aria-labelledby="slideshow-upload-modal-title">
    <div class="gallery-modal-head"><div><h2 id="slideshow-upload-modal-title">Upload Photos</h2><p class="muted">Select up to 20 photos. Add a Photo Title, Photo Heading and Description for each photo.</p></div></div>
@@ -4266,15 +4268,42 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   requestAnimationFrame(()=>panelTitle.focus());
  });
  document.getElementById('mega-panel-delete-selected')?.addEventListener('click',()=>{
-  const selected=[...megaPanelList.querySelectorAll('.mega-panel-checkbox:checked')];if(!selected.length)return;
-  if(!window.confirm('Delete the selected panel menu(s)? This action cannot be undone.'))return;
-  selected.forEach(box=>box.closest('.mega-panel-record')?.remove());
+  pendingPanelDelete=[...megaPanelList.querySelectorAll('.mega-panel-checkbox:checked')];
+  if(!pendingPanelDelete.length)return;
+  showPanelDeleteModal(deleteConfirmModal);
+ });
+ const deleteConfirmModal=document.getElementById('mega-panel-delete-confirm-modal');
+ const deleteSuccessModal=document.getElementById('mega-panel-delete-success-modal');
+ const showPanelDeleteModal=modal=>{if(!modal)return;if(modal.parentElement!==document.body)document.body.appendChild(modal);modal.hidden=false;modal.style.setProperty('display','flex','important');document.body.classList.add('modal-open');};
+ const hidePanelDeleteModal=modal=>{if(!modal)return;modal.hidden=true;modal.style.setProperty('display','none','important');document.body.classList.remove('modal-open');};
+ let pendingPanelDelete=[];
+ document.getElementById('mega-panel-delete-cancel')?.addEventListener('click',()=>{pendingPanelDelete=[];hidePanelDeleteModal(deleteConfirmModal);});
+ document.getElementById('mega-panel-delete-confirm')?.addEventListener('click',()=>{
+  if(!pendingPanelDelete.length||!panelForm)return;
+  pendingPanelDelete.forEach(box=>box.closest('.mega-panel-record')?.remove());
+  pendingPanelDelete=[];
   if(!megaPanelList.querySelector('.mega-panel-record')){const empty=document.createElement('p');empty.className='muted slideshow-empty mega-panel-empty';empty.textContent='No panel menus have been created yet.';megaPanelList.append(empty);}
   syncMegaPanelSelection();
   const tab=document.getElementById('section-editor-tab');if(tab)tab.value='mega_menu';
-  const saveButton=panelForm?.querySelector('[data-section-save="mega_menu"]');
-  if(panelForm&&saveButton){saveButton.disabled=true;saveButton.textContent='Saving Menu…';panelForm.requestSubmit();}
+  let deleteFlag=panelForm.querySelector('[name="panel_delete_action"]');
+  if(!deleteFlag){deleteFlag=document.createElement('input');deleteFlag.type='hidden';deleteFlag.name='panel_delete_action';deleteFlag.value='1';panelForm.append(deleteFlag);}
+  hidePanelDeleteModal(deleteConfirmModal);
+  const saveButton=panelForm.querySelector('[data-section-save="mega_menu"]');
+  if(saveButton){saveButton.disabled=true;saveButton.textContent='Deleting…';}
+  panelForm.requestSubmit();
  });
+ const deleteParams=new URLSearchParams(window.location.search);
+ if(deleteParams.get('panel_deleted')==='1'&&deleteParams.get('section_tab')==='mega_menu'){
+  deleteParams.delete('panel_deleted');
+  const clean=deleteParams.toString();
+  window.history.replaceState({},'',window.location.pathname+(clean?'?'+clean:'')+window.location.hash);
+  showPanelDeleteModal(deleteSuccessModal);
+  document.getElementById('mega-panel-delete-success-ok')?.addEventListener('click',()=>{
+   hidePanelDeleteModal(deleteSuccessModal);
+   window.location.href='admin.php?section=page-management&tab=sections&section_tab=mega_menu#pm-panel-sections';
+  },{once:true});
+ }
+
  document.getElementById('mega-panel-create')?.addEventListener('click',()=>{
   const title=panelTitle.value.trim();
   if(!title){panelTitle.focus();panelTitle.setCustomValidity('Please enter a panel title.');panelTitle.reportValidity();return;}
