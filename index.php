@@ -335,7 +335,7 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <svg class="creator-account-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
 <div class="creator-account-dropdown" id="creator-account-dropdown" role="menu">
-<a href="public/workspace.php" role="menuitem"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M4.8 20c.7-3.4 3.2-5.2 7.2-5.2s6.5 1.8 7.2 5.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Profile</a>
+<a href="public/workspace.php" role="menuitem"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M4.8 20c.7-3.4 3.2-5.2 7.2-5.2s6.5 1.8 7.2 5.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>My Workspace</a>
 <div class="creator-menu-divider" role="separator"></div>
 <a class="creator-menu-signout" href="public/logout.php?scope=creator" role="menuitem"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 4H5.8A1.8 1.8 0 0 0 4 5.8v12.4A1.8 1.8 0 0 0 5.8 20H10M14.5 16.5 19 12l-4.5-4.5M19 12H9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Sign out</a>
 </div></div>
