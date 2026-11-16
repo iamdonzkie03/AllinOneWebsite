@@ -4029,17 +4029,36 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 
 <script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
 <script>
-// Show the Mega Menu settings confirmation only after its explicit Save Settings action.
+// Show the Mega Menu settings confirmation only on the one-time return
+// from an explicit Save Mega Menu Settings submission.
 (() => {
  const params=new URLSearchParams(window.location.search);
- if(params.get('mega_menu_saved')!=='1'||params.get('section_tab')!=='mega_menu')return;
+ const isMegaMenuSaveReturn=
+  params.get('mega_menu_saved')==='1' &&
+  params.get('section')==='page-management' &&
+  params.get('tab')==='sections' &&
+  params.get('section_tab')==='mega_menu';
+ if(!isMegaMenuSaveReturn)return;
  const modal=document.getElementById('mega-menu-settings-success-modal');
  const ok=document.getElementById('mega-menu-settings-success-ok');
  if(!modal||!ok)return;
- params.delete('mega_menu_saved');const query=params.toString();
+ // Consume the flag before opening the dialog so tab changes, refreshes,
+ // and browser history cannot replay the success message.
+ params.delete('mega_menu_saved');
+ const query=params.toString();
  window.history.replaceState({},'',window.location.pathname+(query?'?'+query:'')+window.location.hash);
- modal.hidden=false;document.body.classList.add('modal-open');
- ok.addEventListener('click',()=>{modal.hidden=true;document.body.classList.remove('modal-open');});
+ // The dialog must not remain inside the initially hidden Page Management
+ // panel; portal it to body so its visibility is independent of tab switching.
+ if(modal.parentElement!==document.body)document.body.appendChild(modal);
+ modal.hidden=false;
+ modal.style.setProperty('display','flex','important');
+ document.body.classList.add('modal-open');
+ const close=()=>{
+  modal.hidden=true;
+  modal.style.setProperty('display','none','important');
+  document.body.classList.remove('modal-open');
+ };
+ ok.addEventListener('click',close,{once:true});
 })();
 // Show the creation confirmation only on the post-save return to the Mega Menu tab.
 (() => {
