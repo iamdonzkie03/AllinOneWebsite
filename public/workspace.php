@@ -181,9 +181,16 @@ $sql.=" ORDER BY c.updated_at DESC";$stmt=$pdo->prepare($sql);$stmt->execute($pa
 <div class="creator-profile-banner"><?php if(!empty($profile['banner_path'])): ?><img src="<?=e((string)$profile['banner_path'])?>" alt="Creator banner"><?php else: ?><span>Banner not uploaded</span><?php endif; ?></div>
 <div class="creator-profile-avatar"><?php if(!empty($profile['avatar_path'])): ?><img src="<?=e((string)$profile['avatar_path'])?>" alt="Creator avatar"><?php else: ?><span><?=e(strtoupper(substr((string)($profile['nickname']??$profile['full_name']??'C'),0,1)))?></span><?php endif; ?></div>
 </div>
-<div class="creator-profile-grid">
-<div><span class="muted">Name</span><strong><?=e((string)($profile['full_name']??'—'))?></strong></div>
-<div><span class="muted">Short Bio</span><strong class="creator-profile-notes"><?=e((string)($profile['short_bio']??'Not added yet'))?></strong></div>
+<div class="creator-profile-grid creator-identity-details">
+<div><span class="muted">Full Name</span><strong><?=e((string)($profile['full_name']??'—'))?></strong></div>
+<div><span class="muted">Nickname</span><strong><?=e((string)($profile['nickname']??'Not added yet'))?></strong></div>
+<div><span class="muted">Email Address</span><strong><?=e((string)($profile['email']??'—'))?></strong><small><?=!empty($profile['email_verified_at'])?'Email verified':'Email not verified'?></small></div>
+<div><span class="muted">Mobile Number</span><strong><?=e((string)($profile['mobile_no']??'Not added yet'))?></strong><small><?=!empty($profile['phone_verified_at'])?'Mobile verified':'Mobile not verified'?></small></div>
+<div><span class="muted">Birthdate</span><strong><?=e($formatProfileDate(isset($profile['birthdate'])?(string)$profile['birthdate']:null))?></strong></div>
+<div><span class="muted">Birthplace</span><strong><?=e((string)($profile['birthplace']??'Not added yet'))?></strong></div>
+<div class="creator-identity-bio"><span class="muted">Short Bio / Credential Notes</span><strong class="creator-profile-notes"><?=e((string)($profile['short_bio']??'Not added yet'))?></strong></div>
+<div><span class="muted">Account Created</span><strong><?=e($formatProfileDate(isset($profile['created_at'])?(string)$profile['created_at']:null,'F j, Y g:i A'))?></strong></div>
+<div><span class="muted">Last Updated</span><strong><?=e($formatProfileDate(isset($profile['updated_at'])?(string)$profile['updated_at']:null,'F j, Y g:i A'))?></strong></div>
 </div></div>
 
 <div class="creator-profile-group creator-profile-card creator-profile-social"><div class="creator-profile-group-heading"><h3>Content &amp; Social Hub</h3><button type="button" class="btn light creator-profile-edit" data-profile-modal="social">Edit</button></div>
