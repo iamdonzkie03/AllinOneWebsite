@@ -371,8 +371,14 @@ creatorImageEditors.forEach(editor=>{
   const file=input.files&&input.files[0];if(!file)return;
   if(!/^image\/(jpeg|png|avif|webp)$/.test(file.type)||file.size>10*1024*1024){input.value='';alert('Choose a JPEG, JPG, PNG, AVIF, or WebP image that is 10 MB or smaller.');return;}
   if(sourceUrl)URL.revokeObjectURL(sourceUrl);sourceUrl=URL.createObjectURL(file);sourceImage=new Image();
-  sourceImage.onload=()=>{preview.classList.add('has-image');controls.zoom.value='1';controls.x.value='50';controls.y.value='50';renderCrop();};
-  sourceImage.onerror=()=>{resetEditor();alert('The selected image could not be loaded.');};sourceImage.src=sourceUrl;
+  sourceImage.onload=()=>{
+   image.src=sourceUrl;
+   preview.classList.add('has-image');
+   controls.zoom.value='1';controls.x.value='50';controls.y.value='50';
+   renderCrop();
+  };
+  sourceImage.onerror=()=>{resetEditor();alert('The selected image could not be loaded.');};
+  sourceImage.src=sourceUrl;
  });
  Object.values(controls).forEach(control=>control.addEventListener('input',renderCrop));
  window.addEventListener('resize',renderCrop);
