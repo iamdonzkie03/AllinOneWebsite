@@ -88,6 +88,25 @@ if (!$taxonomyForeignKeyExists('fk_categories_parent')) {
 if (!$taxonomyForeignKeyExists('fk_content_subcategory')) {
     $pdo->exec('ALTER TABLE content ADD CONSTRAINT fk_content_subcategory FOREIGN KEY (subcategory_id) REFERENCES categories(id) ON DELETE SET NULL');
 }
+// Creator profile presentation fields. Existing installations are upgraded safely.
+$creatorProfileColumns = [
+    'avatar_path' => 'VARCHAR(500) NULL',
+    'banner_path' => 'VARCHAR(500) NULL',
+    'short_bio' => 'VARCHAR(500) NULL',
+    'facebook_url' => 'VARCHAR(500) NULL',
+    'x_url' => 'VARCHAR(500) NULL',
+    'youtube_url' => 'VARCHAR(500) NULL',
+    'other_social_links' => 'LONGTEXT NULL',
+    'affiliate_links' => 'LONGTEXT NULL',
+    'direct_support_url' => 'VARCHAR(500) NULL',
+    'ecommerce_url' => 'VARCHAR(500) NULL',
+];
+foreach ($creatorProfileColumns as $column => $definition) {
+    if (!$taxonomyColumnExists('users', $column)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN {$column} {$definition}");
+    }
+}
+
 $pdo->exec("INSERT INTO categories (name, slug, description, is_active, parent_id) VALUES ('Uncategorized', 'uncategorized', 'Articles that have not been assigned to a specific category.', 1, NULL) ON DUPLICATE KEY UPDATE description=VALUES(description), is_active=1, parent_id=NULL");
 
 function e(?string $value): string {
