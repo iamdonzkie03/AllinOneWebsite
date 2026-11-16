@@ -25,6 +25,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($error === '') {
         $stmt = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ? AND email_verified_at IS NOT NULL');
         $stmt->execute([password_hash($password,PASSWORD_DEFAULT),$userId]);
+
+        // Provision the Creator's own banner/avatar directories only after
+        // email verification and password creation have completed successfully.
+        $creatorStmt=$pdo->prepare("SELECT id,nickname,full_name FROM users WHERE id=? AND role='creator' LIMIT 1");
+        $creatorStmt->execute([$userId]);
+        $creatorAccount=$creatorStmt->fetch(PDO::FETCH_ASSOC);
+        if ($creatorAccount) {
+            $folderLabel=trim((string)($creatorAccount['nickname']??''));
+            if ($folderLabel==='') $folderLabel=trim((string)($creatorAccount['full_name']??'creator'));
+            $ascii=function_exists('iconv')?iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$folderLabel):$folderLabel;
+            $folderSlug=strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/','-',(string)($ascii!==false?$ascii:$folderLabel)),'-'));
+            if ($folderSlug==='') $folderSlug='creator';
+            $creatorBase=__DIR__.'/creator/'.$folderSlug;
+            if (is_dir($creatorBase) && is_file($creatorBase.'/.creator-id') && trim((string)file_get_contents($creatorBase.'/.creator-id'))!==(string)$userId) {
+                $folderSlug.='-'.$userId;
+                $creatorBase=__DIR__.'/creator/'.$folderSlug;
+            }
+            foreach ([$creatorBase,$creatorBase.'/banner',$creatorBase.'/avatar'] as $directory) {
+                if (!is_dir($directory) && !mkdir($directory,0755,true) && !is_dir($directory)) {
+                    error_log('Unable to provision Creator upload directory for user '.$userId.': '.$directory);
+                    break;
+                }
+            }
+            if (is_dir($creatorBase.'/banner') && is_dir($creatorBase.'/avatar')) {
+                @file_put_contents($creatorBase.'/.creator-id',(string)$userId,LOCK_EX);
+            }
+        }
         unset($_SESSION['password_setup_user_id']);
         session_regenerate_id(true);
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Account verified</title></head><body><script>if(window.parent && window.parent !== window){window.parent.location.href="../index.php?signin=1&registered=1";}else{window.location.href="../index.php?signin=1&registered=1";}</script></body></html>';
