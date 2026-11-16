@@ -2600,7 +2600,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   <p class="mega-menu-empty-state">No panel menu created. Click the Add Panel button below to add.</p>
  <?php endif; ?>
  <?php foreach($megaPreviewPanels as $pn): ?>
-  <a class="category module-card mega-public-panel" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>>
+  <a class="category module-card mega-public-panel mega-preview-panel" href="<?=e($pn['url']??'#')?>" tabindex="-1" aria-disabled="true" onclick="return false"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>>
    <?php if(!empty($pn['photo'])): ?><img src="<?=e($pn['photo'])?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??'tabler:laptop'); if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="symbol panel-lucide-icon"><iconify-icon icon="tabler:<?=e(preg_replace('/^tabler:/','',$panelIconName)?:'laptop')?>" aria-hidden="true"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?>
    <strong><?=e($pn['title']??'')?></strong>
    <span class="module-link">Explore module ↗</span>
@@ -3429,7 +3429,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      megaPreview.append(empty);
    }
    cards.forEach(item=>{
-     const card=document.createElement('a');card.className='category module-card mega-public-panel';card.href=item.url||'#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
+     const card=document.createElement('a');card.className='category module-card mega-public-panel mega-preview-panel';card.href=item.url||'#';card.tabIndex=-1;card.setAttribute('aria-disabled','true');
      if(item.description){card.dataset.description=item.description;card.setAttribute('aria-label',(item.title||'Menu panel')+': '+item.description);}
      if(item.image){const img=document.createElement('img');img.className='mega-panel-cover';img.alt='';img.src=item.image;card.append(img);}
      else {const symbol=document.createElement('span');symbol.className='symbol panel-lucide-icon';const glyph=document.createElement('iconify-icon');glyph.setAttribute('icon','tabler:'+String(item.symbol||'tabler:laptop').replace(/^tabler:/,''));glyph.setAttribute('aria-hidden','true');symbol.append(glyph);card.append(symbol);}
