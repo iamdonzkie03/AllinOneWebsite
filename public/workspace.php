@@ -124,6 +124,37 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
         if ($bannerPath!==null) { $sql.=',banner_path=?'; $values[]=$bannerPath; }
         if ($newPassword!=='') { $sql.=',password_hash=?'; $values[]=password_hash($newPassword,PASSWORD_DEFAULT); }
         $sql.=' WHERE id=?'; $values[]=$creatorId; $pdo->prepare($sql)->execute($values);
+        $verificationEmailSent=true;
+        if($emailChanged){
+            $verificationCode=(string)random_int(100000,999999);
+            $pdo->prepare('UPDATE email_verification_codes SET used_at=NOW() WHERE user_id=? AND used_at IS NULL')->execute([$creatorId]);
+            $pdo->prepare('INSERT INTO email_verification_codes(user_id,code_hash,expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 10 MINUTE))')->execute([$creatorId,password_hash($verificationCode,PASSWORD_DEFAULT)]);
+            $mail=$config['mail']??[];
+            $smtpReady=!empty($mail['host'])&&!empty($mail['username'])&&!empty($mail['password'])&&!empty($mail['from']);
+            $subject='Your Z.C. commonplace verification code';
+            $body="Hello {$firstName},\n\nYour six-digit Z.C. commonplace email verification code is: {$verificationCode}\n\nThis code expires in 10 minutes. If you did not request this, you can ignore this email.";
+            try{
+                if($smtpReady && is_file(__DIR__.'/../vendor/autoload.php')){
+                    require_once __DIR__.'/../vendor/autoload.php';
+                    if(class_exists(\\PHPMailer\\PHPMailer\\PHPMailer::class)){
+                        $mailer=new \\PHPMailer\\PHPMailer\\PHPMailer(true);
+                        $mailer->isSMTP();$mailer->Host=(string)$mail['host'];$mailer->SMTPAuth=true;
+                        $mailer->Username=(string)$mail['username'];$mailer->Password=(string)$mail['password'];
+                        $mailer->Port=(int)($mail['port']??587);
+                        $encryption=strtolower((string)($mail['encryption']??'tls'));
+                        if($encryption==='ssl'||$encryption==='smtps')$mailer->SMTPSecure=\\PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_SMTPS;
+                        elseif($encryption==='tls'||$encryption==='starttls')$mailer->SMTPSecure=\\PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_STARTTLS;
+                        $mailer->CharSet='UTF-8';$mailer->setFrom((string)$mail['from'],(string)($mail['from_name']??'Z.C. commonplace'));
+                        $mailer->addAddress($email,$fullName);$mailer->Subject=$subject;$mailer->Body=$body;$verificationEmailSent=$mailer->send();
+                    }else{$verificationEmailSent=false;}
+                }else{
+                    $from=(string)($mail['from']??'');
+                    if($from!==''){$headers="From: ".$from."\\r\\nContent-Type: text/plain; charset=UTF-8";$verificationEmailSent=@mail($email,$subject,$body,$headers);}
+                    else{$verificationEmailSent=false;}
+                }
+            }catch(Throwable $mailError){$verificationEmailSent=false;error_log('Creator email-change verification error: '.$mailError->getMessage());}
+            if(!$verificationEmailSent){$pdo->prepare('UPDATE email_verification_codes SET used_at=NOW() WHERE user_id=? AND used_at IS NULL')->execute([$creatorId]);}
+        }
         $user['full_name']=$fullName; $user['nickname']=$nickname; $_SESSION['user']=$user;
     } elseif ($section==='social') {
         $fields=['facebook_url','x_url','youtube_url','other_social_links'];
@@ -155,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
         }else{
             $successMessages=[];
             if($emailChanged)$successMessages[]='Your email has been successfully changed. Please verify again your email and re-login again.';
+            if($emailChanged && !$verificationEmailSent)$successMessages[]='The verification code could not be emailed. Please contact the site administrator to resend it.';
             if($passwordChanged)$successMessages[]='The password has been successfully changed. You may need to re-login again.';
             if($avatarPath!==null)$successMessages[]='The Avatar photo has been successfully updated.';
             if($bannerPath!==null)$successMessages[]='The Banner photo has been successfully updated.';
