@@ -186,10 +186,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
         if (str_starts_with($digits, '0063')) $digits = substr($digits, 4);
         elseif (str_starts_with($digits, '63')) $digits = substr($digits, 2);
         if (str_starts_with($digits, '0')) $digits = substr($digits, 1);
-        $stmtLogin = $pdo->prepare("SELECT id,full_name,email,password_hash,role,account_status FROM users WHERE mobile_no=? LIMIT 1");
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status FROM users WHERE mobile_no=? LIMIT 1");
         $stmtLogin->execute(['+63' . $digits]);
     } else {
-        $stmtLogin = $pdo->prepare("SELECT id,full_name,email,password_hash,role,account_status FROM users WHERE email=? LIMIT 1");
+        $stmtLogin = $pdo->prepare("SELECT id,full_name,nickname,email,password_hash,role,account_status FROM users WHERE email=? LIMIT 1");
         $stmtLogin->execute([strtolower($loginValue)]);
     }
     $loginUser = $stmtLogin->fetch();
@@ -201,11 +201,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
         unset($loginUser['password_hash']);
         $_SESSION['user'] = $loginUser;
         $_SESSION['login_progress'] = true;
-        $_SESSION['login_redirect'] = ($targetContext === 'admin' ? 'public/admin.php' : 'public/workspace.php');
+        $_SESSION['login_redirect'] = ($targetContext === 'admin' ? 'public/admin.php' : 'index.php?session_context=creator');
         header('Location: index.php?session_context=' . $targetContext);
         exit;
     }
 }
+$currentPublicUser = (isset($_SESSION['user']) && is_array($_SESSION['user'])) ? $_SESSION['user'] : null;
+$isCreatorSignedIn = $currentPublicUser && (string)($currentPublicUser['role'] ?? '') === 'creator';
+$creatorHeaderNickname = $isCreatorSignedIn ? trim((string)($currentPublicUser['nickname'] ?? '')) : '';
+if ($isCreatorSignedIn && $creatorHeaderNickname === '') $creatorHeaderNickname = trim((string)($currentPublicUser['full_name'] ?? 'Creator'));
 $search = trim((string)($_GET['q'] ?? ''));
 $moduleSlug = trim((string)($_GET['module'] ?? ''));
 $moduleView = $moduleSlug !== '';
@@ -271,7 +275,7 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="public/assets/css/site.css?v=stories-slider-20261110">
-<style>.module-page-head{padding:54px 0 20px}.module-page-head h1{margin:8px 0 12px;color:#f7eef0;font-size:clamp(30px,4vw,46px)}.module-page-head .muted{max-width:760px;line-height:1.7}.module-page-head .btn{margin-top:12px}.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.nav .navlinks a[class^="header-type-link-"]:hover{color:var(--gold)!important}.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}
+<style>.module-page-head{padding:54px 0 20px}.module-page-head h1{margin:8px 0 12px;color:#f7eef0;font-size:clamp(30px,4vw,46px)}.module-page-head .muted{max-width:760px;line-height:1.7}.module-page-head .btn{margin-top:12px}.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.nav .navlinks .creator-header-nickname{display:inline-flex;align-items:center;color:var(--gold);font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap}.nav .navlinks a[class^="header-type-link-"]:hover{color:var(--gold)!important}.home-art-photo{background:#16070b!important;padding:0!important}.home-art-photo:before{display:none!important}.home-art-photo:after{display:none!important}.home-art-photo .hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.home-art-photo:before{content:""}
 .register-modal{position:fixed;inset:0;z-index:1001;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.82);backdrop-filter:blur(7px)}
 .register-modal.is-open{display:flex}.register-dialog{position:relative;width:min(100%,960px);height:min(94vh,900px);overflow:hidden;background:#160d11;border:1px solid rgba(190,75,98,.4);border-radius:18px;box-shadow:0 24px 90px rgba(0,0,0,.6)}.register-dialog iframe{display:block;width:100%;height:100%;border:0;background:#100b0e;overflow:hidden}.register-close{position:absolute;right:12px;top:10px;z-index:2;width:38px;height:38px;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;text-align:center;border:1px solid rgba(255,255,255,.18);border-radius:50%;background:#241219;color:#fff;font-size:23px;font-family:Arial,sans-serif;cursor:pointer;box-shadow:0 2px 12px #0008;box-sizing:border-box}
 .signin-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(5,3,5,.78);backdrop-filter:blur(7px)}
@@ -297,7 +301,7 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <a class="brand" href="index.php" aria-label="Home"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:<?=$publicHeaderLogoWidth?>px;height:<?=$publicHeaderLogoHeight?>px;max-width:100%;object-fit:contain;object-position:center;border-radius:0"><?php endif; ?></a>
 <nav class="navlinks">
 <?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; $headerLinkLabel = $renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label']); $headerLinkUrl = trim((string)($headerLink['url'] ?? '')); ?><?php if ($headerLinkUrl !== ''): ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e($headerLinkUrl)?>"><?=$headerLinkLabel?></a><?php else: ?><span class="header-type-link-<?= (int)$headerLinkIndex ?>"><?=$headerLinkLabel?></span><?php endif; ?><?php endforeach; ?>
-<a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a>
+<?php if ($isCreatorSignedIn): ?><span class="creator-header-nickname" aria-label="Signed in as <?=e($creatorHeaderNickname)?>"><?=e($creatorHeaderNickname)?></span><?php else: ?><a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a><?php endif; ?>
 </nav></div></header>
 <main>
 <?php $publicSections=$sectionsSettings ?? []; $bannerSection=$publicSections['banner']??[]; ?>
