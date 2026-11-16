@@ -92,12 +92,6 @@ $sql.=" ORDER BY c.updated_at DESC";$stmt=$pdo->prepare($sql);$stmt->execute($pa
 </div>
 </div>
 
-<div class="creator-profile-group"><h3>Account Information</h3><div class="creator-profile-grid">
-<div><span class="muted">Account Type</span><strong>Creator</strong></div>
-<div><span class="muted">Account Status</span><strong><?=e(ucfirst(str_replace('_',' ',(string)($profile['account_status']??'approved'))))?></strong></div>
-<div><span class="muted">Date Created</span><strong><?=e($formatProfileDate(isset($profile['created_at'])?(string)$profile['created_at']:null,'F j, Y · g:i A'))?></strong></div>
-<div><span class="muted">Last Updated</span><strong><?=e($formatProfileDate(isset($profile['updated_at'])?(string)$profile['updated_at']:null,'F j, Y · g:i A'))?></strong></div>
-</div></div>
 </section>
 <?php endif; ?>
 <?php if($activePage==="page-management"): ?>
