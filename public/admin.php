@@ -3414,7 +3414,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  const megaPanelList=document.getElementById('mega-panel-list');
  const renderMegaPreview=()=>{
    if(!megaPreview||!megaPanelList)return;
-   const cards=[...megaPanelList.querySelectorAll('.section-repeat-card')].map(card=>{
+   const cards=[...megaPanelList.querySelectorAll('.mega-panel-record')].map(card=>{
      const value=name=>card.querySelector('[name="'+name+'[]"]')?.value?.trim()||'';
      const file=card.querySelector('input[type="file"]')?.files?.[0];
      const image=file?URL.createObjectURL(file):(card.dataset.previewImage||'');
