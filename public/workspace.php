@@ -293,5 +293,6 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.qu
 .creator-profile-save-notice{margin:0 0 18px;padding:11px 14px;border:1px solid rgba(91,190,133,.3);border-radius:9px;background:rgba(56,145,96,.12);color:#b7ebc9;font-size:12px}
 body.profile-modal-open{overflow:hidden}
 @media(max-width:620px){.creator-profile-group.creator-profile-card{padding:16px}.creator-profile-modal-dialog{padding:18px}.creator-profile-modal-actions{flex-wrap:wrap}}
+.creator-profile-success-content{display:grid;justify-items:center;gap:12px;padding:18px 8px;text-align:center}.creator-profile-success-content h3{margin:0;color:#f6e8ed;font-size:16px;font-weight:600}.creator-profile-success-icon{display:grid;place-items:center;width:48px;height:48px;border:2px solid #83d6a2;border-radius:50%;color:#a7e4bd;font-size:28px;font-weight:700}
 </style>
 </body></html>
