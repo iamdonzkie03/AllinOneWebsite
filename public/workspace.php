@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             [$newImagePath,$oldImagePath]=$replacementPaths;
             if ($newImagePath===null || $oldImagePath==='') continue;
             $oldAbsolutePath=realpath(__DIR__.'/'.$oldImagePath);
-            $uploadsRoot=realpath(__DIR__.'/creator);
+            $uploadsRoot=realpath(__DIR__.'/creator');
             if ($uploadsRoot!==false && $oldAbsolutePath!==false && str_starts_with($oldAbsolutePath,$uploadsRoot.DIRECTORY_SEPARATOR) && basename(dirname($oldAbsolutePath))===$imageType && is_file($oldAbsolutePath)) { @unlink($oldAbsolutePath); }
         }
         $verificationEmailSent=true;
