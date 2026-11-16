@@ -579,5 +579,35 @@ $(function(){
 }
 
 .mega-menu-section .module-grid>.mega-public-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:9px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
+
+
+/* Synced from Page Management > Sections > Mega Menu Live Preview. */
+/* Keep the public Mega Menu visually identical to the Admin Live Preview. */
+.mega-menu-section{display:block!important;text-align:left!important;padding:0!important;overflow:visible!important}
+.mega-menu-section.section{padding:54px 0 62px!important}
+.mega-menu-section>.wrap{width:min(1200px,calc(100% - 44px));max-width:none;margin-left:auto;margin-right:auto}
+.mega-menu-section .category-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.mega-menu-section .category{position:relative;isolation:isolate;padding:21px 16px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012));border:1px solid rgba(255,255,255,.12);border-radius:16px;min-height:128px;overflow:hidden;transition:transform .22s ease,border-color .22s ease,background .22s ease;color:inherit;text-decoration:none}
+.mega-menu-section .category:after{content:"";position:absolute;z-index:-1;width:90px;height:90px;right:-42px;bottom:-44px;border:1px solid rgba(216,180,119,.2);border-radius:50%;box-shadow:0 0 0 14px rgba(216,180,119,.025)}
+.mega-menu-section .category:hover{transform:translateY(-5px);border-color:rgba(216,180,119,.55);background:linear-gradient(145deg,rgba(105,8,24,.5),rgba(255,255,255,.02))}
+.mega-menu-section .category .symbol{font-size:25px;color:#d8b477}
+.mega-menu-section .module-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.mega-menu-section .module-card{min-height:230px;display:flex;flex-direction:column;align-items:flex-start;padding:22px 18px}
+.mega-menu-section .module-card strong{display:block;margin-top:16px;font-size:14px;font-weight:700;line-height:1.4;min-height:40px;color:#f4e9ec}
+.mega-menu-section .module-link{display:block;margin-top:auto;padding-top:17px;font-size:10px;font-weight:800;letter-spacing:.7px;color:#e05260}
+.mega-menu-section .mega-panel-cover{width:100%;height:110px;object-fit:cover;border-radius:9px;margin-bottom:10px}
+.mega-menu-section .module-grid>.module-card .panel-lucide-icon{width:76px;height:76px;margin:0 auto 14px;color:#7be7ff;background:linear-gradient(145deg,rgba(33,201,255,.28),rgba(125,93,255,.25) 52%,rgba(255,89,174,.2));border:1px solid rgba(133,224,255,.48);border-radius:22px;box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(48,150,255,.22),0 0 22px rgba(116,91,255,.14);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.mega-menu-section .module-grid>.module-card:nth-child(3n+2) .panel-lucide-icon{color:#ff9bd2;background:linear-gradient(145deg,rgba(255,85,173,.3),rgba(151,92,255,.24),rgba(255,186,93,.16));border-color:rgba(255,164,218,.48);box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(224,75,171,.2)}
+.mega-menu-section .module-grid>.module-card:nth-child(3n) .panel-lucide-icon{color:#a8ffbd;background:linear-gradient(145deg,rgba(57,224,154,.28),rgba(42,185,255,.22),rgba(169,255,119,.15));border-color:rgba(160,255,194,.46);box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 12px 30px rgba(49,215,157,.18)}
+.mega-menu-section .module-grid>.module-card .panel-lucide-icon svg,.mega-menu-section .module-grid>.module-card .panel-lucide-icon iconify-icon{width:39px;height:39px;stroke:currentColor;stroke-width:2.15;filter:drop-shadow(0 0 7px currentColor)}
+.mega-menu-section .module-grid>.mega-public-panel{position:relative}
+.mega-menu-section .module-grid>.mega-public-panel[data-description]:after{content:attr(data-description);position:absolute;left:50%;bottom:calc(100% + 12px);z-index:30;width:max-content;max-width:min(320px,82vw);padding:12px 15px;border:1px solid rgba(255,255,255,.22);border-radius:13px;background:rgba(18,13,24,.96);color:#fff;font-size:12px;line-height:1.55;text-align:left;white-space:normal;box-shadow:0 14px 36px rgba(0,0,0,.44),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease;pointer-events:none}
+.mega-menu-section .module-grid>.mega-public-panel[data-description]:before{content:"";position:absolute;left:50%;bottom:calc(100% + 4px);z-index:31;border:7px solid transparent;border-top-color:rgba(18,13,24,.96);opacity:0;visibility:hidden;transition:opacity .18s ease,visibility .18s ease;pointer-events:none}
+.mega-menu-section .module-grid>.mega-public-panel[data-description]:hover:after,.mega-menu-section .module-grid>.mega-public-panel[data-description]:focus-visible:after,.mega-menu-section .module-grid>.mega-public-panel[data-description]:hover:before,.mega-menu-section .module-grid>.mega-public-panel[data-description]:focus-visible:before{opacity:1;visibility:visible;transform:translate(-50%,0)}
+.mega-menu-section .module-grid>.mega-public-panel[data-description]:hover:before,.mega-menu-section .module-grid>.mega-public-panel[data-description]:focus-visible:before{transform:translateX(-50%)}
+@media(max-width:900px){.mega-menu-section .module-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:560px){.mega-menu-section>.wrap{width:calc(100% - 32px)}.mega-menu-section .module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(hover:none){.mega-menu-section .module-grid>.mega-public-panel[data-description]:after{display:none}}
+ 
 </style>
 </body></html>
