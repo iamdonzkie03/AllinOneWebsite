@@ -173,12 +173,6 @@ $activePageTab = (string)($_GET['tab'] ?? 'header');
 if (!in_array($activePageTab, ['header','footer','contents','sections'], true)) $activePageTab = 'header';
 $activeMediaTab = (string)($_GET['media_tab'] ?? 'gallery');
 if (!in_array($activeMediaTab, ['gallery','video'], true)) $activeMediaTab = 'gallery';
-// The Contents tab's View Categories link may retain the Page Management
-// section and identify the category list through its view query parameter.
-// Route that URL to the same Category List renderer as the standalone link.
-if ($section === 'page-management' && $activePageTab === 'contents' && (string)($_GET['view'] ?? '') === 'categories') {
-    $section = 'category-list';
-}
 $allowedSections = ['dashboard', 'settings', 'page-management', 'category-list', 'media-management', 'plugins', 'user-accounts'];
 if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
 
@@ -1335,7 +1329,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <?php foreach($clSubcategories as $sub): if((int)$sub['parent_id']!==(int)$cat['id']) continue; ?><tr><td style="padding-left:28px">↳ <?=e($sub['name'])?></td><td><?=e((string)$sub['description'])?></td><td><a href="admin.php?section=category-list&amp;edit_subcategory=<?=(int)$sub['id']?>">Edit</a> · <form method="post" action="admin-content.php" style="display:inline" onsubmit="return confirm('Delete this subcategory?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_subcategory"><input type="hidden" name="item_id" value="<?=(int)$sub['id']?>"><button type="submit" class="category-link-button">Delete</button></form></td></tr><?php endforeach; ?>
       <?php endforeach; ?></tbody></table></div>
     </section>
-    <style>.category-form-card{padding:17px;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.018)}.category-form-card h3{margin:0 0 12px;color:#f4e9ec;font:600 14px Ubuntu,sans-serif}.category-form{display:grid;gap:10px}.category-form label{display:grid;gap:6px;color:#d9cbd0;font-size:11px}.category-form .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.category-link-button{border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit}.category-assign-menu{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:6px 10px;border:1px solid rgba(240,207,69,.58);border-radius:7px;background:linear-gradient(135deg,rgba(240,207,69,.19),rgba(224,82,96,.12));color:#ffe58a;font:600 11px Ubuntu,sans-serif;line-height:1.2;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 3px 10px rgba(0,0,0,.18);transition:background .18s ease,border-color .18s ease,transform .18s ease}.category-assign-menu:hover{background:linear-gradient(135deg,rgba(240,207,69,.3),rgba(224,82,96,.2));border-color:rgba(255,229,138,.9);color:#fff2bc;transform:translateY(-1px)}</style>
+    <style>.category-form-card{padding:17px;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.018)}.category-form-card h3{margin:0 0 12px;color:#f4e9ec;font:600 14px Ubuntu,sans-serif}.category-form{display:grid;gap:10px}.category-form label{display:grid;gap:6px;color:#d9cbd0;font-size:11px}.category-form .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.category-link-button{border:0;background:none;padding:0;color:#e4a2b1;cursor:pointer;font:inherit}.category-assign-menu{color:#f0cf45;font-weight:600}</style>
     <script>(()=>{const c=document.getElementById('cl-category-form'),s=document.getElementById('cl-subcategory-form');document.getElementById('cl-add-category')?.addEventListener('click',()=>{c.hidden=!c.hidden;s.hidden=true;c.querySelector('input[name="name"]')?.focus()});document.getElementById('cl-add-subcategory')?.addEventListener('click',()=>{s.hidden=!s.hidden;c.hidden=true;s.querySelector('select[name="parent_id"]')?.focus()})})();</script>
   <?php elseif($section==='media-management'):?>
   <style>
