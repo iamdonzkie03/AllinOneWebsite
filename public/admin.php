@@ -4345,7 +4345,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   const symbol=panelIcon.value||'tabler:laptop',descriptionText=panelDescription.value.trim(),url=panelUrl.value;
   if(editingPanelCard){
    const original=editingPanelOriginal||{title:'',description:'',symbol:'',url:''};
-   const changed={title:title!==original.title,description:descriptionText!==original.description,symbol!==original.symbol,url!==original.url};
+   const changed={title:title!==original.title,description:descriptionText!==original.description,symbol:symbol!==original.symbol,url:url!==original.url};
    const changedCount=Object.values(changed).filter(Boolean).length;
    const editType=changedCount>1?'updated':(changed.title?'rename':(changed.description?'description':'updated'));
    const setEditMeta=(name,value)=>{let field=panelForm.querySelector('[name="'+name+'"]');if(!field){field=document.createElement('input');field.type='hidden';field.name=name;panelForm.append(field);}field.value=value;};
