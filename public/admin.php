@@ -2756,7 +2756,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
     <div class="gallery-form-field"><span class="gallery-field-label">Select Icon</span><div class="panel-icon-picker" data-icon-picker><input type="hidden" id="mega-panel-icon" value="tabler:laptop"><button type="button" class="panel-icon-trigger" data-icon-picker-trigger aria-haspopup="dialog" aria-expanded="false"><span class="panel-icon-current"><iconify-icon icon="tabler:laptop" aria-hidden="true"></iconify-icon></span><span class="panel-icon-trigger-label">Choose icon</span><span class="panel-icon-chevron">▾</span></button><div class="panel-icon-popup" data-icon-picker-popup hidden role="dialog" aria-label="Choose an icon"></div></div></div>
     <label class="gallery-form-field">Title<input id="mega-panel-title" type="text" maxlength="100" placeholder="Enter panel title"></label>
     <label class="gallery-form-field">Description<textarea id="mega-panel-description" rows="3" maxlength="400" placeholder="Enter panel description"></textarea></label>
-    <label class="gallery-form-field">Page URL<input id="mega-panel-url" type="text" readonly value="admin.php?category=#latest"><small>Automatically generated from the title.</small></label>
+    <label class="gallery-form-field">Page URL<input id="mega-panel-url" type="text" readonly value="index.php?module="><small>Automatically generated from the title.</small></label>
    </div>
    <div class="gallery-modal-actions mega-panel-modal-actions"><button type="button" class="btn light" id="mega-panel-cancel">Cancel</button><button type="button" class="btn" id="mega-panel-create">Save Menu</button></div>
   </section>
@@ -3475,7 +3475,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      const heading=card?.querySelector('.section-repeat-head strong');
      if(heading)heading.textContent=event.target.value.trim()||'Menu Panel';
      const url=card?.querySelector('[name="panel_url[]"]');
-     if(url)url.value='admin.php?category='+slugify(event.target.value)+'#latest';
+     if(url)url.value='index.php?module='+slugify(event.target.value);
    }
    renderMegaPreview();
  });
@@ -4119,7 +4119,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  let editingPanelCard=null;
  let editingPanelOriginal=null;
  const slugify=value=>value.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
- const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='admin.php?category='+slugify(panelTitle.value)+'#latest';};
+ const updatePanelUrl=()=>{if(panelUrl&&panelTitle)panelUrl.value='index.php?module='+slugify(panelTitle.value);};
  const panelIconAliases={'compact-disc':'disc','taxi':'car-taxi','car':'car','earth':'world'};
  const panelIconPreferred=['laptop','compact-disc','key','lock','car','taxi','earth','disc','disc-2','disc-3','globe','globe-2','smartphone','monitor','printer','camera','video','music','headphones','wifi','bluetooth','mail','phone','tablet','watch','map','map-pin','house','building','store','shopping-cart','credit-card','wallet','briefcase','calendar','clock','alarm-clock','bell','book','book-open','file','folder','image','film','gamepad-2','joystick','lightbulb','plug','battery','zap','cloud','sun','moon','star','heart','shield','shield-check','user','users','settings','wrench','hammer','scissors','package','truck','bus','bike','plane','ship','train','rocket'];
  let panelIconNames=[];let panelIconChoices=[];
@@ -4267,7 +4267,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   editingPanelOriginal={title:card.querySelector('[name="panel_title[]"]')?.value||'',description:card.querySelector('[name="panel_description[]"]')?.value||'',symbol:card.querySelector('[name="panel_symbol[]"]')?.value||'',url:card.querySelector('[name="panel_url[]"]')?.value||''};
   panelTitle.value=card.querySelector('[name="panel_title[]"]')?.value||'';
   panelDescription.value=card.querySelector('[name="panel_description[]"]')?.value||'';
-  panelUrl.value=card.querySelector('[name="panel_url[]"]')?.value||'';
+  panelUrl.value='index.php?module='+slugify(panelTitle.value);
   setPanelIcon(card.querySelector('[name="panel_symbol[]"]')?.value||'tabler:laptop');
   if(panelModalHeading)panelModalHeading.textContent='Edit Panel Menu';
   if(panelSaveButton)panelSaveButton.textContent='Save Changes';
