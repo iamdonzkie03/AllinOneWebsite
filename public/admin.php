@@ -2616,7 +2616,6 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <?php endforeach; ?>
    <?php if(empty($sectionsSettings['mega_menu']['panels'])): ?><p class="muted slideshow-empty mega-panel-empty">No panel menus have been created yet.</p><?php endif; ?>
   </div>
-  <div class="header-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu">Save Mega Menu Settings</button></div>
  </section>
  </form>
 <style id="mega-panel-tooltip-styles">.mega-menu-preview .mega-preview-panel{position:relative;cursor:default}
