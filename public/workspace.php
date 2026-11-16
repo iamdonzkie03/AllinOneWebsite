@@ -5,10 +5,15 @@ $user=require_login();
 if ($user['role']==='system_admin') { header('Location: admin.php'); exit; }
 if ($user['account_status']!=='approved') { session_destroy(); header('Location: login.php'); exit; }
 
+// Refresh the display name from the database because the sign-in session
+// intentionally contains only the fields needed for authentication.
+$creatorNameStmt=$pdo->prepare('SELECT nickname,full_name FROM users WHERE id=? LIMIT 1');
+$creatorNameStmt->execute([(int)$user['id']]);
+$creatorNameData=$creatorNameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 // Give every Creator a private, predictable upload directory. The numeric ID
 // is added only when two Creators normalize to the same folder name.
-$creatorFolderLabel=trim((string)($user['nickname']??''));
-if ($creatorFolderLabel==='') $creatorFolderLabel=trim((string)($user['full_name']??'creator'));
+$creatorFolderLabel=trim((string)($creatorNameData['nickname']??''));
+if ($creatorFolderLabel==='') $creatorFolderLabel=trim((string)($creatorNameData['full_name']??'creator'));
 $creatorFolderSlug=function(string $label): string {
     $ascii=function_exists('iconv')?iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$label):$label;
     $slug=strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/','-',(string)($ascii!==false?$ascii:$label)),'-'));
