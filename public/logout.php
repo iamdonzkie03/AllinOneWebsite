@@ -17,5 +17,11 @@ if (ini_get('session.use_cookies')) {
     ]);
 }
 session_destroy();
-header('Location: ../index.php?signin=1');
+$destination=(string)($_GET['destination']??'signin');
+if($destination==='verify-email'){
+    $email=strtolower(trim((string)($_GET['email']??'')));
+    header('Location: verify-email.php?flow=profile&email='.rawurlencode($email));
+}else{
+    header('Location: ../index.php?signin=1');
+}
 exit;
