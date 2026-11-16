@@ -136,20 +136,20 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_creato
             try{
                 if($smtpReady && is_file(__DIR__.'/../vendor/autoload.php')){
                     require_once __DIR__.'/../vendor/autoload.php';
-                    if(class_exists(\\PHPMailer\\PHPMailer\\PHPMailer::class)){
-                        $mailer=new \\PHPMailer\\PHPMailer\\PHPMailer(true);
+                    if(class_exists(\PHPMailer\PHPMailer\PHPMailer::class)){
+                        $mailer=new \PHPMailer\PHPMailer\PHPMailer(true);
                         $mailer->isSMTP();$mailer->Host=(string)$mail['host'];$mailer->SMTPAuth=true;
                         $mailer->Username=(string)$mail['username'];$mailer->Password=(string)$mail['password'];
                         $mailer->Port=(int)($mail['port']??587);
                         $encryption=strtolower((string)($mail['encryption']??'tls'));
-                        if($encryption==='ssl'||$encryption==='smtps')$mailer->SMTPSecure=\\PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_SMTPS;
-                        elseif($encryption==='tls'||$encryption==='starttls')$mailer->SMTPSecure=\\PHPMailer\\PHPMailer\\PHPMailer::ENCRYPTION_STARTTLS;
+                        if($encryption==='ssl'||$encryption==='smtps')$mailer->SMTPSecure=\PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                        elseif($encryption==='tls'||$encryption==='starttls')$mailer->SMTPSecure=\PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                         $mailer->CharSet='UTF-8';$mailer->setFrom((string)$mail['from'],(string)($mail['from_name']??'Z.C. commonplace'));
                         $mailer->addAddress($email,$fullName);$mailer->Subject=$subject;$mailer->Body=$body;$verificationEmailSent=$mailer->send();
                     }else{$verificationEmailSent=false;}
                 }else{
                     $from=(string)($mail['from']??'');
-                    if($from!==''){$headers="From: ".$from."\\r\\nContent-Type: text/plain; charset=UTF-8";$verificationEmailSent=@mail($email,$subject,$body,$headers);}
+                    if($from!==''){$headers="From: ".$from."\r\nContent-Type: text/plain; charset=UTF-8";$verificationEmailSent=@mail($email,$subject,$body,$headers);}
                     else{$verificationEmailSent=false;}
                 }
             }catch(Throwable $mailError){$verificationEmailSent=false;error_log('Creator email-change verification error: '.$mailError->getMessage());}
