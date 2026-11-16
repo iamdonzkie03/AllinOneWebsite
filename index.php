@@ -209,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
 $search = trim((string)($_GET['q'] ?? ''));
 $moduleSlug = trim((string)($_GET['module'] ?? ''));
 $moduleView = $moduleSlug !== '';
-$category = $moduleView ? $moduleSlug : trim((string)($_GET['category'] ?? ''));
+$category = trim((string)($_GET['category'] ?? ''));
 // Defensive, idempotent upgrade for databases created before optional subcategories
 // were introduced. Keep this immediately before the public query as well as the
 // shared bootstrap migration so older local installations cannot fatal here.
@@ -222,18 +222,7 @@ if (!(int)$subcategoryColumnCheck->fetchColumn()) {
 $sql = "SELECT c.*, cat.name AS category_name, cat.slug AS category_slug, sub.name AS subcategory_name, u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id JOIN users u ON u.id=c.owner_id WHERE c.status='published' AND cat.is_active=1";
 $params = [];
 if ($search !== '') { $sql .= " AND (c.title LIKE ? OR c.excerpt LIKE ? OR c.body LIKE ?)"; $like = "%$search%"; array_push($params,$like,$like,$like); }
-if ($category !== '') { $sql .= " AND cat.slug=?"; $params[] = $category; }
-$showAllStories = $moduleView || (string)($_GET['show_all'] ?? '') === '1';
-$sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC" . ($showAllStories ? "" : " LIMIT 6");
-$stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 $categories=$pdo->query("SELECT id,name,slug,description FROM categories WHERE is_active=1 ORDER BY id")->fetchAll();
-$activeModule = null;
-if ($moduleView) {
-    foreach ($categories as $publicCategory) {
-        if ((string)$publicCategory['slug'] === $moduleSlug) { $activeModule = $publicCategory; break; }
-    }
-    if (!$activeModule) { http_response_code(404); }
-}
 $modules = [
  ['name'=>'Creative Arts and Photography','slug'=>'creative-arts-photography','symbol'=>'✳','description'=>'Photography, visual art, design and local creative voices.'],
  ['name'=>'News Connect','slug'=>'news-connect','symbol'=>'◎','description'=>'Community updates, civic stories and current affairs.'],
@@ -241,6 +230,38 @@ $modules = [
  ['name'=>'Entertainment & Politics','slug'=>'entertainment-politics','symbol'=>'♫','description'=>'Entertainment, public figures, political discussion and analysis.'],
  ['name'=>'History & Culture','slug'=>'history-culture','symbol'=>'⌂','description'=>'Zamboanga heritage, Chavacano identity and living traditions.'],
 ];
+$activeModule = null;
+$moduleCategoryFound = false;
+if ($moduleView) {
+    foreach ($categories as $publicCategory) {
+        if ((string)$publicCategory['slug'] === $moduleSlug) {
+            $activeModule = $publicCategory;
+            $category = (string)$publicCategory['slug'];
+            $moduleCategoryFound = true;
+            break;
+        }
+    }
+    if (!$activeModule) {
+        foreach ($modules as $knownModule) {
+            if ((string)$knownModule['slug'] === $moduleSlug) { $activeModule = $knownModule; break; }
+        }
+    }
+    // Custom panel URLs may use a module slug that is not a category slug.
+    // Keep the module page valid, but do not accidentally show unrelated stories.
+    if (!$activeModule) {
+        $activeModule = ['name'=>ucwords(str_replace(['-','_'], ' ', $moduleSlug)), 'description'=>''];
+    }
+}
+$sql = "SELECT c.*, cat.name AS category_name, cat.slug AS category_slug, sub.name AS subcategory_name, u.full_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id JOIN users u ON u.id=c.owner_id WHERE c.status='published' AND cat.is_active=1";
+$params = [];
+if ($search !== '') { $sql .= " AND (c.title LIKE ? OR c.excerpt LIKE ? OR c.body LIKE ?)"; $like = "%$search%"; array_push($params,$like,$like,$like); }
+if ($moduleView) {
+    if ($moduleCategoryFound) { $sql .= " AND cat.slug=?"; $params[] = $category; }
+    else { $sql .= " AND 1=0"; }
+} elseif ($category !== '') { $sql .= " AND cat.slug=?"; $params[] = $category; }
+$showAllStories = $moduleView || (string)($_GET['show_all'] ?? '') === '1';
+$sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC" . ($showAllStories ? "" : " LIMIT 6");
+$stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 ?>
 <!doctype html>
 <html lang="en">
@@ -329,7 +350,7 @@ if (!empty($pn['category_id'])) {
   <button class="stories-slider-arrow stories-slider-prev" type="button" aria-label="Previous stories" disabled>‹</button>
   <div class="stories-slider-viewport" id="stories-slider-viewport">
     <div class="stories-slider-track">
-      <?php if (!$items): ?><div class="panel empty-state stories-slider-empty"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
+      <?php if (!$items && !$moduleView): ?><div class="panel empty-state stories-slider-empty"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
       <?php foreach($items as $i=>$item): ?><article class="story stories-slider-card"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?php if(!empty($item['cover_photo'])): ?><img src="public/uploads/articles/cover_photos/<?=e(rawurlencode((string)$item['cover_photo']))?>" alt="<?=e($item['title'])?> cover photo"><?php else: ?><?=e(strtoupper($item['category_name']))?><?php endif; ?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?> · <?=e($item['subcategory_name'])?><?php endif; ?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span class="story-actions"><?php if($item['price']!==null): ?><span class="story-price">₱<?=number_format((float)$item['price'],2)?></span><?php endif; ?><a class="story-read-link" href="article.php?id=<?= (int)$item['id'] ?>">Read Story ↗</a></span></div></div></article><?php endforeach; ?>
       <?php if ($items): ?><a class="story stories-slider-card stories-show-all" href="all-stories.php"><span class="show-all-mark">↗</span><strong>Show all stories</strong><span>Explore every published story</span></a><?php endif; ?>
     </div>
@@ -339,7 +360,7 @@ if (!empty($pn['category_id'])) {
 <div class="stories-slider-status" id="stories-slider-status" aria-live="polite">Showing up to 3 stories at a time</div>
 <?php else: ?>
 <div class="cards">
-<?php if (!$items): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
+<?php if (!$items && !$moduleView): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
 <?php foreach($items as $i=>$item): ?><article class="story"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?php if(!empty($item['cover_photo'])): ?><img src="public/uploads/articles/cover_photos/<?=e(rawurlencode((string)$item['cover_photo']))?>" alt="<?=e($item['title'])?> cover photo"><?php else: ?><?=e(strtoupper($item['category_name']))?><?php endif; ?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?> · <?=e($item['subcategory_name'])?><?php endif; ?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span class="story-actions"><?php if($item['price']!==null): ?><span class="story-price">₱<?=number_format((float)$item['price'],2)?></span><?php endif; ?><a class="story-read-link" href="article.php?id=<?= (int)$item['id'] ?>">Read Story ↗</a></span></div></div></article><?php endforeach; ?>
 </div>
 <p class="stories-show-latest"><a class="btn light" href="index.php#latest">Back to featured stories</a></p>
