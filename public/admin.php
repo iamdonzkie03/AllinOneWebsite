@@ -4390,6 +4390,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 #mega-panel-created-success-modal[hidden]{display:none!important}
 #mega-panel-created-success-title{color:inherit!important}
 #mega-panel-created-success-title .mega-panel-created-name{color:#e05260!important}
+#mega-panel-edit-success-title .mega-panel-edit-old-title{color:#e05260!important}
+#mega-panel-edit-success-title .mega-panel-edit-new-title{color:#f0cf45!important}
+#mega-panel-edit-success-title .mega-panel-edit-current-title{color:#e05260!important}
 .mega-panel-record-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:14px}
 .mega-panel-record{min-width:0}
 .mega-panel-record-art{display:flex;align-items:center;justify-content:center;min-height:145px;aspect-ratio:4/3;background:linear-gradient(145deg,rgba(112,48,82,.32),rgba(26,25,39,.82))}
