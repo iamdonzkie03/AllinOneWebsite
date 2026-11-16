@@ -419,17 +419,20 @@ if(identityUploadForm)identityUploadForm.addEventListener('submit',event=>{
  event.preventDefault();
  const formData=new FormData(identityUploadForm),hasPhoto=[...identityUploadForm.querySelectorAll('input[type=file]')].some(input=>input.files.length>0);
  let overlay=document.getElementById('creator-profile-upload-progress');
- if(!overlay){overlay=document.createElement('div');overlay.id='creator-profile-upload-progress';overlay.className='creator-profile-modal is-open';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.innerHTML='<div class="creator-profile-modal-dialog creator-upload-progress-dialog"><h3>Saving your profile</h3><p class="muted">Please wait while your changes are being saved.</p><div class="creator-upload-progress-track"><span></span></div><strong class="creator-upload-progress-value">0%</strong></div>';document.body.appendChild(overlay);}
+ if(!overlay){overlay=document.createElement('div');overlay.id='creator-profile-upload-progress';overlay.className='creator-profile-modal is-open';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.innerHTML='<div class="creator-profile-modal-dialog creator-upload-progress-dialog"><h3>'+(hasPhoto?'Uploading photos and saving your profile':'Saving your profile')+'</h3><p class="muted">'+(hasPhoto?'Please wait while your photos are uploaded and your profile changes are saved.':'Please wait while your profile changes are saved.')+'</p><div class="creator-upload-progress-track"><span></span></div><strong class="creator-upload-progress-value">0%</strong></div>';document.body.appendChild(overlay);}
  overlay.classList.add('is-open');overlay.setAttribute('aria-hidden','false');
  const bar=overlay.querySelector('.creator-upload-progress-track span'),value=overlay.querySelector('.creator-upload-progress-value');
  const xhr=new XMLHttpRequest();const uploadEndpoint=identityUploadForm.getAttribute('action')||window.location.pathname;xhr.open('POST',uploadEndpoint,true);xhr.setRequestHeader('X-Requested-With','XMLHttpRequest');
- let displayedProgress=0,progressTimer=null;
- const setProgress=percent=>{const safe=Math.max(0,Math.min(100,Math.round(percent)));displayedProgress=Math.max(displayedProgress,safe);bar.style.width=displayedProgress+'%';value.textContent=displayedProgress+'%';};
+ let displayedProgress=0,progressTarget=0,progressTimer=null;
+ const setProgress=percent=>{const safe=Math.max(0,Math.min(99,percent));displayedProgress=Math.max(displayedProgress,safe);bar.style.width=displayedProgress.toFixed(1)+'%';value.textContent=Math.floor(displayedProgress)+'%';};
  const stopProgress=()=>{if(progressTimer!==null){clearInterval(progressTimer);progressTimer=null;}};
- // Animate for photo uploads and ordinary profile updates alike. Hold below 100%
- // until the server confirms that the profile has been saved successfully.
- progressTimer=setInterval(()=>{if(displayedProgress<90)setProgress(displayedProgress+(displayedProgress<35?2:1));},120);
- xhr.upload.addEventListener('progress',e=>{if(e.lengthComputable)setProgress(Math.min(85,(e.loaded/e.total)*85));});
+ // Smooth the display so the upload feels like a real transfer instead of jumping
+ // straight to completion. The percentage never reaches 100 until the server confirms.
+ progressTimer=setInterval(()=>{
+  if(progressTarget<90)progressTarget=Math.min(90,progressTarget+(hasPhoto?1.5:2));
+  if(displayedProgress<progressTarget)setProgress(Math.min(progressTarget,displayedProgress+(hasPhoto?1.5:2)));
+ },250);
+ xhr.upload.addEventListener('progress',e=>{if(e.lengthComputable)progressTarget=Math.max(progressTarget,Math.min(88,(e.loaded/e.total)*88));});
  xhr.addEventListener('load',()=>{
   stopProgress();
   if(xhr.status<200||xhr.status>=300){overlay.remove();alert(xhr.responseText||'Unable to save your profile. Please try again.');return;}
