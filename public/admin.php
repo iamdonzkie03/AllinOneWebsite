@@ -2639,7 +2639,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 .mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:9px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
 .mega-menu-preview .mega-preview-panel{position:relative;isolation:isolate;overflow:hidden}
  .mega-menu-preview .mega-preview-panel .mega-panel-icon-background{position:absolute;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;color:hsl(var(--icon-hue,205) 92% 70%);background:radial-gradient(circle at 50% 35%,hsl(var(--icon-hue,205) 92% 58% / .38),transparent 72%),linear-gradient(145deg,hsl(var(--icon-hue,205) 88% 42% / .48),hsl(var(--icon-hue,205) 72% 18% / .88))}
-.mega-menu-preview .mega-preview-panel .mega-panel-icon-background iconify-icon{display:block;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.42;color:currentColor;filter:drop-shadow(0 0 24px currentColor)}
+.mega-menu-preview .mega-preview-panel .mega-panel-icon-background iconify-icon{display:block;font-size:clamp(150px,19vw,250px);line-height:1;opacity:.25;color:currentColor;filter:drop-shadow(0 0 24px currentColor)}
 .mega-menu-preview .mega-preview-panel .mega-panel-preview-content{position:relative;z-index:1;display:flex;flex:1;flex-direction:column;align-items:flex-start;width:100%;min-height:100%}
 .mega-menu-preview .mega-preview-panel .mega-panel-preview-content>strong{margin-top:0}
 .mega-menu-preview .mega-preview-panel .mega-panel-preview-content .module-link{margin-top:auto}
