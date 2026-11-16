@@ -2342,7 +2342,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <?php require __DIR__ . '/../app/content-manager-view.php'; ?>
       </section>
       
-<?php if($message==='Sections settings successfully saved.'): ?><div class="panel" role="status" style="border-color:#3c8b65;color:#c8f2d9;margin-top:14px">✓ Sections settings successfully saved.</div><?php endif; ?>
+<?php if($message==='Sections settings successfully saved.' && (string)($_GET['mega_menu_saved'] ?? '') !== '1' && (string)($_GET['section_tab'] ?? '') !== 'mega_menu'): ?><div class="panel" role="status" style="border-color:#3c8b65;color:#c8f2d9;margin-top:14px">✓ Sections settings successfully saved.</div><?php endif; ?>
       <section class="page-management-tabpanel" id="pm-panel-sections" role="tabpanel" aria-labelledby="pm-tab-sections" hidden>
  <style>
  .section-builder-tabs{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:min(100%,650px);margin:18px 0 22px;padding:5px;border:1px solid #45313a;border-radius:999px;background:linear-gradient(135deg,#100c0f,#1a1117);box-shadow:inset 0 2px 8px #0009,0 8px 22px #0003;overflow:hidden}
