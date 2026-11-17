@@ -1212,15 +1212,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
 </style><style>
 .section-subpanel.forum-panel-view{padding:0!important;overflow:hidden}
-.forum-inline-content{width:100%;padding:24px;box-sizing:border-box}
-.forum-inline-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0 0 22px}
-.forum-inline-eyebrow{color:#d8b477;font-size:10px;letter-spacing:2px;text-transform:uppercase}
-.forum-inline-header h2{font-size:clamp(25px,3vw,36px);margin:7px 0 8px;color:#fff}
-.forum-inline-header p{margin:0;color:#bdaeb4;font-size:13px}
-.forum-inline-panel{border:1px solid rgba(216,180,119,.18);border-radius:14px;background:linear-gradient(145deg,rgba(37,20,29,.9),rgba(17,12,17,.96));overflow:hidden}
+.forum-inline-content{width:100%;padding:20px 24px 24px;box-sizing:border-box}
+.forum-inline-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px;padding:0}
+.forum-inline-header>div{flex:1 1 360px;min-width:0}
+.forum-inline-eyebrow{display:block;color:#d8b477;font-size:10px;letter-spacing:2px;line-height:1.4;text-transform:uppercase;margin:0 0 7px}
+.forum-inline-header h2{font-size:clamp(25px,3vw,36px);line-height:1.18;margin:0 0 7px;color:#fff}
+.forum-inline-header p{margin:0;color:#bdaeb4;font-size:13px;line-height:1.55;max-width:760px}
+.forum-inline-header>.btn{flex:0 0 auto;margin:0;padding:10px 14px;white-space:nowrap}
+.forum-inline-panel{margin:0;border:1px solid rgba(216,180,119,.18);border-radius:14px;background:linear-gradient(145deg,rgba(37,20,29,.9),rgba(17,12,17,.96));overflow:hidden}
 .forum-inline-table-scroll{overflow-x:auto}
 .forum-inline-table{width:100%;border-collapse:collapse;min-width:760px}
-.forum-inline-table th,.forum-inline-table td{padding:13px 15px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px;vertical-align:top}
+.forum-inline-table th,.forum-inline-table td{padding:12px 14px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px;vertical-align:top}
 .forum-inline-table th{color:#d8b477;font-size:11px;text-transform:uppercase;letter-spacing:.7px;background:rgba(255,255,255,.025)}
 .forum-inline-table td{color:#e9dfe3}
 .forum-inline-table td strong{display:block;color:#fff;font-size:13px;margin-bottom:4px}
@@ -1228,8 +1230,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-status{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap}
 .forum-inline-status.published{color:#9ce0b2;background:rgba(46,160,90,.14);border:1px solid rgba(91,202,130,.25)}
 .forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
-.forum-inline-empty{padding:38px 20px;text-align:center;color:#bdaeb4;font-size:13px}
-@media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-header{align-items:flex-start}.forum-inline-table th,.forum-inline-table td{padding:11px}}
+.forum-inline-empty{padding:32px 20px;text-align:center;color:#bdaeb4;font-size:13px}
+@media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-header{align-items:flex-start;gap:14px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
 </style></head><body>
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
 <div class="admin-shell">
