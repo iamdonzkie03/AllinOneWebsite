@@ -220,6 +220,15 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
 
     }
 }
+function adminForumPlainText(string $value): string {
+    // Forum descriptions are saved from a rich-text editor. Convert both real
+    // markup and HTML-escaped markup into readable text for the admin listing.
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = strip_tags($value);
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $value = preg_replace('/[\\s\\p{Z}]+/u', ' ', trim($value)) ?? trim($value);
+    return $value;
+}
 function adminForumDateLabel(?string $value): string {
     if (!$value) return '—';
     $time = strtotime($value);
@@ -2778,9 +2787,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th>Post Title</th><th>Author</th><th>Content Type</th><th>Publication</th><th>Workflow Status</th><th>Last Updated</th></tr></thead>
        <tbody>
-       <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; $forumSearchText=mb_strtolower(implode(' ',[(string)$forumPost['title'],(string)$forumPost['excerpt'],(string)$forumPost['full_name'],(string)$forumPost['role'],(string)$forumPost['content_type'],(string)$forumPost['status'],(string)($forumPost['subcategory_name']??'')])); ?>
+        <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; $forumPostDescription=adminForumPlainText((string)($forumPost['excerpt']??'')); $forumDescriptionPreview=mb_strlen($forumPostDescription)>180?mb_substr($forumPostDescription,0,177).'…':$forumPostDescription; $forumSearchText=mb_strtolower(implode(' ',[(string)$forumPost['title'],$forumPostDescription,(string)$forumPost['full_name'],(string)$forumPost['role'],(string)$forumPost['content_type'],(string)$forumPost['status'],(string)($forumPost['subcategory_name']??'')])); ?>
         <tr data-forum-post-row data-forum-search="<?=e($forumSearchText)?>">
-         <td><strong><?=e((string)$forumPost['title'])?></strong><?php if(trim((string)($forumPost['excerpt']??''))!==''): ?><span class="forum-inline-muted"><?=e((string)$forumPost['excerpt'])?></span><?php endif; ?><?php if(!empty($forumPost['subcategory_name'])): ?><div class="forum-inline-muted">↳ <?=e((string)$forumPost['subcategory_name'])?></div><?php endif; ?></td>
+          <td><strong><?=e((string)$forumPost['title'])?></strong><?php if($forumPostDescription!==''): ?><span class="forum-inline-muted"><?=e($forumDescriptionPreview)?></span><?php endif; ?><?php if(!empty($forumPost['subcategory_name'])): ?><div class="forum-inline-muted">↳ <?=e((string)$forumPost['subcategory_name'])?></div><?php endif; ?></td>
          <td><?=e((string)$forumPost['full_name'])?><div class="forum-inline-muted"><?=e(ucwords(str_replace('_',' ',(string)$forumPost['role'])))?></div></td>
          <td><?=e(ucfirst((string)$forumPost['content_type']))?></td>
          <td><span class="forum-inline-status <?=$forumIsPublished?'published':'unpublished'?>"><?=$forumIsPublished?'Published':'Unpublished'?></span></td>
