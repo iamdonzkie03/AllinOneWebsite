@@ -22,12 +22,14 @@ function sortSlideshowPhotosByUpdatedAt(array $photos): array {
 $admin = require_admin();
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS forum_threads (
- id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, category_id BIGINT UNSIGNED NOT NULL, owner_id BIGINT UNSIGNED NOT NULL,
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, category_id BIGINT UNSIGNED NOT NULL, panel_id VARCHAR(64) NULL, owner_id BIGINT UNSIGNED NOT NULL,
  prefix_group VARCHAR(40) NOT NULL, prefix VARCHAR(60) NOT NULL, title VARCHAR(240) NOT NULL, description LONGTEXT NOT NULL,
  tags_json LONGTEXT NULL, status ENUM('published','unpublished') NOT NULL DEFAULT 'unpublished',
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- INDEX idx_forum_threads_category_status(category_id,status), INDEX idx_forum_threads_owner(owner_id)
+ INDEX idx_forum_threads_category_status(category_id,status), INDEX idx_forum_threads_panel(panel_id), INDEX idx_forum_threads_owner(owner_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$forumPanelIdColumn=$pdo->query("SHOW COLUMNS FROM forum_threads LIKE 'panel_id'")->fetch(PDO::FETCH_ASSOC);
+if(!$forumPanelIdColumn){$pdo->exec("ALTER TABLE forum_threads ADD COLUMN panel_id VARCHAR(64) NULL AFTER category_id, ADD INDEX idx_forum_threads_panel(panel_id)");}
 $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_attachments (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, thread_id BIGINT UNSIGNED NOT NULL, original_name VARCHAR(255) NOT NULL,
  file_path VARCHAR(500) NOT NULL, mime_type VARCHAR(160) NULL, file_size BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -166,6 +168,14 @@ $sectionsSettings=json_decode((string)($sectionsRow['content_json']??''),true);
 if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
 foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
 $sectionsSettings['slideshow']['photos'] = sortSlideshowPhotosByUpdatedAt((array)($sectionsSettings['slideshow']['photos'] ?? []));
+// Give each Forum panel a persistent identity independent of its editable title, URL, or list position.
+$forumPanelIdsChanged=false;
+foreach((array)($sectionsSettings['mega_menu']['panels']??[]) as $panelKey=>$panelValue){
+    if(!is_array($panelValue))continue;
+    $panelId=trim((string)($panelValue['panel_id']??''));
+    if($panelId===''||!preg_match('/^[a-f0-9]{32}$/i',$panelId)){$sectionsSettings['mega_menu']['panels'][$panelKey]['panel_id']=bin2hex(random_bytes(16));$forumPanelIdsChanged=true;}
+}
+if($forumPanelIdsChanged){$panelIdSave=$pdo->prepare('UPDATE site_sections_settings SET content_json=? WHERE id=1');$panelIdSave->execute([json_encode($sectionsSettings,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)]);}
 
 $forumPanelViewIndex = filter_input(INPUT_GET, 'forum_panel', FILTER_VALIDATE_INT);
 $forumPanelViewPanel = null;
@@ -192,17 +202,20 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
     $forumCategoryStmt = $pdo->prepare('SELECT id,name,slug FROM categories WHERE slug=? AND parent_id IS NULL LIMIT 1');
     $forumCategoryStmt->execute([$forumPanelViewSlug]);
     $forumPanelViewCategory = $forumCategoryStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-    if ($forumPanelViewCategory) {
-        $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name
-            FROM content c
-            INNER JOIN users u ON u.id=c.owner_id
-            LEFT JOIN categories sub ON sub.id=c.subcategory_id
-            WHERE c.category_id=? AND u.role IN ('system_admin','creator')
-            ORDER BY COALESCE(c.updated_at,c.created_at) DESC,c.id DESC");
-        $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
-        $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
-        $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,'thread' AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.category_id=? ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
-        $threadStmt->execute([(int)$forumPanelViewCategory['id']]);$forumPanelViewPosts=array_merge($forumPanelViewPosts,$threadStmt->fetchAll(PDO::FETCH_ASSOC));
+    {
+        if($forumPanelViewCategory){
+            $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name
+                FROM content c
+                INNER JOIN users u ON u.id=c.owner_id
+                LEFT JOIN categories sub ON sub.id=c.subcategory_id
+                WHERE c.category_id=? AND u.role IN ('system_admin','creator')
+                ORDER BY COALESCE(c.updated_at,c.created_at) DESC,c.id DESC");
+            $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
+            $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,'thread' AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.panel_id=?".($forumPanelViewCategory?' OR (t.panel_id IS NULL AND t.category_id=?)':'')." ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
+        $threadParams=[(string)($forumPanelViewPanel['panel_id']??'')];if($forumPanelViewCategory)$threadParams[]=(int)$forumPanelViewCategory['id'];
+        $threadStmt->execute($threadParams);$forumPanelViewPosts=array_merge($forumPanelViewPosts,$threadStmt->fetchAll(PDO::FETCH_ASSOC));
         usort($forumPanelViewPosts,static fn($a,$b)=>strcmp((string)($b['updated_at']??$b['created_at']??''),(string)($a['updated_at']??$a['created_at']??'')));
 
     }
@@ -333,15 +346,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create_forum_thread') {
       $section='page-management'; $newPaths=[];
       try {
-        $categoryId=(int)($_POST['forum_category_id']??0); $group=trim((string)($_POST['thread_prefix_group']??'')); $prefix=trim((string)($_POST['thread_prefix']??''));
+        $categoryId=max(0,(int)($_POST['forum_category_id']??0)); $panelId=trim((string)($_POST['forum_panel_id']??'')); $group=trim((string)($_POST['thread_prefix_group']??'')); $prefix=trim((string)($_POST['thread_prefix']??''));
         $title=trim((string)($_POST['thread_title']??'')); $body=trim((string)($_POST['thread_description']??'')); $status=(string)($_POST['thread_status']??'unpublished');
         $prefixes=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];
-        if($categoryId<1)throw new RuntimeException('The Forum category could not be found.');
+        $selectedForumPanel=null;foreach((array)($sectionsSettings['mega_menu']['panels']??[]) as $panelCandidate){if(is_array($panelCandidate)&&hash_equals((string)($panelCandidate['panel_id']??''),$panelId)){$selectedForumPanel=$panelCandidate;break;}}
+        if(!$selectedForumPanel||!preg_match('/^[a-f0-9]{32}$/i',$panelId))throw new RuntimeException('The selected Forum panel could not be found. Please reopen the panel and try again.');
         if($prefix===''||$group===''||!isset($prefixes[$group])||!in_array($prefix,$prefixes[$group],true)){$group='';$prefix='No prefix';}
         if($title===''||mb_strlen($title)>240)throw new RuntimeException('Enter a thread title (maximum 240 characters).');
         if($body==='')throw new RuntimeException('Enter a thread description.');
         if(!in_array($status,['published','unpublished'],true))throw new RuntimeException('Choose Publish or Unpublish.');
-        $q=$pdo->prepare('SELECT id FROM categories WHERE id=? AND parent_id IS NULL LIMIT 1');$q->execute([$categoryId]);if(!$q->fetchColumn())throw new RuntimeException('The Forum category could not be found.');
+        if($categoryId>0){$q=$pdo->prepare('SELECT id FROM categories WHERE id=? AND parent_id IS NULL LIMIT 1');$q->execute([$categoryId]);if(!$q->fetchColumn())$categoryId=0;}
         $body=strip_tags($body,'<p><br><strong><b><em><i><u><s><h2><h3><h4><blockquote><ul><ol><li><a><span><div><table><thead><tbody><tr><th><td><pre><code><hr><figure><img><figcaption>');
         $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\'[^\']*\'|[^\\s>]+)/i','',$body);
         $body=preg_replace('/(href|src)\\s*=\\s*([\'"])\\s*(javascript:|data:text\\/html)[^\'"]*\\2/i','$1="#"',$body);
@@ -360,8 +374,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           if($type==='pdf'&&(new finfo(FILEINFO_MIME_TYPE))->file($tmp)!=='application/pdf')throw new RuntimeException('The PDF '.$name.' is invalid.');
           $accepted[]=['name'=>$name,'tmp'=>$tmp,'size'=>$size,'type'=>$type,'ext'=>$ext,'mime'=>(new finfo(FILEINFO_MIME_TYPE))->file($tmp)?:'application/octet-stream'];
         }
-        $pdo->beginTransaction();$ins=$pdo->prepare('INSERT INTO forum_threads(category_id,owner_id,prefix_group,prefix,title,description,tags_json,status) VALUES(?,?,?,?,?,?,?,?)');
-        $ins->execute([$categoryId,(int)$admin['id'],$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status]);$threadId=(int)$pdo->lastInsertId();
+        $pdo->beginTransaction();$ins=$pdo->prepare('INSERT INTO forum_threads(category_id,panel_id,owner_id,prefix_group,prefix,title,description,tags_json,status) VALUES(?,?,?,?,?,?,?,?,?)');
+        $ins->execute([$categoryId,$panelId,(int)$admin['id'],$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status]);$threadId=(int)$pdo->lastInsertId();
         $dir=__DIR__.'/uploads/forum-threads/'.$threadId;if($accepted&&!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('Unable to create the attachment folder.');
         $att=$pdo->prepare('INSERT INTO forum_thread_attachments(thread_id,original_name,file_path,mime_type,file_size,attachment_type) VALUES(?,?,?,?,?,?)');
         foreach($accepted as $file){$stored='file-'.bin2hex(random_bytes(10)).'.'.$file['ext'];$target=$dir.'/'.$stored;if(!move_uploaded_file($file['tmp'],$target))throw new RuntimeException('Unable to save '.$file['name'].'.');$newPaths[]=$target;$att->execute([$threadId,$file['name'],'uploads/forum-threads/'.$threadId.'/'.$stored,$file['mime'],$file['size'],$file['type']]);}
@@ -858,7 +872,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
                 foreach((array)($_POST['panel_title']??[]) as $k=>$title){
                     $old=$oldPanels[$k]??[];
-                    $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($_POST['panel_existing_photo'][$k]??($old['photo']??''))];
+                    $panel=['panel_id'=>(string)($old['panel_id']??bin2hex(random_bytes(16))),'title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($_POST['panel_existing_photo'][$k]??($old['photo']??''))];
                     if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
                         $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
                         $panel['photo']=$upload($f,'panel');
@@ -2761,8 +2775,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </div>
       <a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a>
      </div>
-     <?php if (!$forumPanelViewCategory): ?>
-     <?php else: ?>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th>Post Title</th><th>Author</th><th>Content Type</th><th>Publication</th><th>Workflow Status</th><th>Last Updated</th></tr></thead>
        <tbody>
@@ -2781,14 +2793,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="forum-inline-empty" id="forum-post-no-results" hidden>No posts match your filter.</div>
       <div class="forum-inline-pagination"><span id="forum-post-page-info" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-prev">Previous</button><span id="forum-post-page-number" class="muted"></span><button type="button" class="btn light" id="forum-post-next">Next</button></div></div>
       <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
-     <?php endif; ?>
     </section>
 
      <?php if ((string)($_GET['post_thread'] ?? '') === '1' && $forumPanelViewIndex !== null): ?>
      <div class="forum-thread-modal" id="forum-thread-modal"><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="thread-modal-title">
       <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title">Post Thread</h3></div></div>
       <div id="forum-thread-form-shell" data-thread-form-shell>
-       <input form="forum-thread-form" type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input form="forum-thread-form" type="hidden" name="action" value="create_forum_thread"><input form="forum-thread-form" type="hidden" name="forum_category_id" value="<?=e((string)($forumPanelViewCategory['id']??''))?>"><input form="forum-thread-form" type="hidden" name="forum_panel_index" value="<?=e((string)$forumPanelViewIndex)?>">
+       <input form="forum-thread-form" type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input form="forum-thread-form" type="hidden" name="action" value="create_forum_thread"><input form="forum-thread-form" type="hidden" name="forum_category_id" value="<?=e((string)($forumPanelViewCategory['id']??''))?>"><input form="forum-thread-form" type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"><input form="forum-thread-form" type="hidden" name="forum_panel_index" value="<?=e((string)$forumPanelViewIndex)?>">
        <div class="forum-thread-form-grid"><label>Select Prefix<select form="forum-thread-form" id="thread-prefix" name="thread_prefix"><option value="">Choose a prefix</option><?php $threadPrefixOptions=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];$threadPrefixColors=['General'=>'#385a78','Downloads'=>'#176b59','Movies'=>'#8a3d4e','Video'=>'#69518d','Genre'=>'#8a642c'];foreach($threadPrefixOptions as $group=>$opts):?><option value="" disabled data-prefix-heading="<?=e($group)?>"><?=e($group)?></option><?php foreach($opts as $opt):?><option value="<?=e($opt)?>" data-group="<?=e($group)?>"><?=e($opt)?></option><?php endforeach;?><?php endforeach;?></select><input form="forum-thread-form" type="hidden" name="thread_prefix_group" id="thread-prefix-group"></label><label>Thread Title<input form="forum-thread-form" name="thread_title" maxlength="240" required placeholder="Enter your thread title"></label></div>
        <div class="forum-thread-editor-label">Description</div><div class="forum-thread-editor-toolbar"><button type="button" data-thread-cmd="bold"><b>B</b></button><button type="button" data-thread-cmd="italic"><i>I</i></button><button type="button" data-thread-cmd="underline"><u>U</u></button><button type="button" data-thread-cmd="insertUnorderedList">• List</button><button type="button" data-thread-cmd="insertOrderedList">1. List</button><button type="button" data-thread-tool="link">Attach Link</button><button type="button" data-thread-tool="photo">Add Photo</button><button type="button" data-thread-tool="table">Add Table</button><button type="button" data-thread-tool="code">Add Code</button><button type="button" data-thread-cmd="insertHorizontalRule">Horizontal Line</button><input type="file" id="thread-editor-photo" accept="image/jpeg,image/png,image/avif,image/webp" hidden></div>
        <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."></div><textarea form="forum-thread-form" name="thread_description" id="thread-description-value" hidden></textarea>
