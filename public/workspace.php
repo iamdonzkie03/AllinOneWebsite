@@ -240,6 +240,8 @@ $postsStmt->execute([(int)$user['id']]);
 $publishedPosts=$postsStmt->fetchAll();
 $activePage=(string)($_GET['page']??'dashboard');
 if (!in_array($activePage,['dashboard','my-profile','page-management'],true)) { $activePage='dashboard'; }
+$pageSection=(string)($_GET['section']??'view-all-articles');
+if (!in_array($pageSection,['create-article','view-all-articles','photo-gallery','videos'],true)) { $pageSection='view-all-articles'; }
 $search=trim((string)($_GET['q']??''));
 $sql="SELECT c.id,c.title,c.status,c.updated_at,cat.name AS category_name,sub.name AS subcategory_name FROM content c JOIN categories cat ON cat.id=c.category_id LEFT JOIN categories sub ON sub.id=c.subcategory_id WHERE c.owner_id=?";
 $params=[$user['id']];
@@ -445,9 +447,54 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.qu
 </script>
 <?php endif; ?>
 <?php if($activePage==="page-management"): ?>
-<section id="page-management" class="creator-page-management"><div class="section-head"><div><div class="eyebrow">Page Management</div><h2>Manage your content</h2><p class="muted">Create, update, search, and manage your drafts and submissions.</p></div></div>
-<form class="searchbar" style="margin:22px 0" method="get"><input type="hidden" name="page" value="page-management"><input name="q" value="<?=e($search)?>" placeholder="Search your content…"><button class="btn">Search</button></form>
-<div class="panel"><table class="table"><thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Updated</th><th>Manage</th></tr></thead><tbody><?php foreach($items as $item):?><tr><td><?=e($item['title'])?></td><td><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?><div class="muted" style="font-size:10px">↳ <?=e($item['subcategory_name'])?></div><?php endif; ?></td><td><span class="status"><?=e(str_replace('_',' ',$item['status']))?></span></td><td><?=e($item['updated_at'])?></td><td><a href="content-edit.php?id=<?=(int)$item['id']?>">Edit</a> · <a href="content-delete.php?id=<?=(int)$item['id']?>">Delete</a></td></tr><?php endforeach;?><?php if(!$items):?><tr><td colspan="5">No content yet. Create your first draft.</td></tr><?php endif;?></tbody></table></div></section>
+<section id="page-management" class="creator-page-management">
+<div class="section-head"><div><div class="eyebrow">Page Management</div><h2>Manage your content</h2><p class="muted">Create and organize your articles and media.</p></div></div>
+<div class="creator-page-management-layout">
+<aside class="creator-pm-sidebar" aria-label="Page Management menu">
+<div class="creator-pm-group<?=in_array($pageSection,['create-article','view-all-articles'],true)?' is-open':''?>" data-pm-group>
+<button type="button" class="creator-pm-group-toggle<?=in_array($pageSection,['create-article','view-all-articles'],true)?' active':''?>" aria-expanded="<?=in_array($pageSection,['create-article','view-all-articles'],true)?'true':'false'?>" aria-controls="creator-pm-articles">
+<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4.5h14v15H5zM8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Article Management</span><span class="creator-pm-chevron" aria-hidden="true">⌄</span>
+</button>
+<div class="creator-pm-submenu" id="creator-pm-articles"<?=in_array($pageSection,['create-article','view-all-articles'],true)?'':' hidden'?>>
+<a href="workspace.php?page=page-management&amp;section=create-article" class="creator-pm-submenu-link<?=$pageSection==='create-article'?' active':''?>"<?=$pageSection==='create-article'?' aria-current="page"':''?>>Create an Article</a>
+<a href="workspace.php?page=page-management&amp;section=view-all-articles" class="creator-pm-submenu-link<?=$pageSection==='view-all-articles'?' active':''?>"<?=$pageSection==='view-all-articles'?' aria-current="page"':''?>>View All Articles</a>
+</div></div>
+<div class="creator-pm-group<?=in_array($pageSection,['photo-gallery','videos'],true)?' is-open':''?>" data-pm-group>
+<button type="button" class="creator-pm-group-toggle<?=in_array($pageSection,['photo-gallery','videos'],true)?' active':''?>" aria-expanded="<?=in_array($pageSection,['photo-gallery','videos'],true)?'true':'false'?>" aria-controls="creator-pm-media">
+<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.7"/><circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/><path d="m5 17 5-4 3 2 3-3 3 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Media</span><span class="creator-pm-chevron" aria-hidden="true">⌄</span>
+</button>
+<div class="creator-pm-submenu" id="creator-pm-media"<?=in_array($pageSection,['photo-gallery','videos'],true)?'':' hidden'?>>
+<a href="workspace.php?page=page-management&amp;section=photo-gallery" class="creator-pm-submenu-link<?=$pageSection==='photo-gallery'?' active':''?>"<?=$pageSection==='photo-gallery'?' aria-current="page"':''?>>Photo Gallery</a>
+<a href="workspace.php?page=page-management&amp;section=videos" class="creator-pm-submenu-link<?=$pageSection==='videos'?' active':''?>"<?=$pageSection==='videos'?' aria-current="page"':''?>>Videos</a>
+</div></div>
+</aside>
+<div class="creator-pm-content">
+<?php if($pageSection==='create-article'): ?>
+<div class="panel creator-pm-placeholder"><div class="eyebrow">Article Management</div><h3>Create an Article</h3><p class="muted">Start creating your article.</p><a class="btn" href="content-edit.php">Open Article Editor</a></div>
+<?php elseif($pageSection==='view-all-articles'): ?>
+<div class="section-head creator-pm-content-head"><div><h3>View All Articles</h3><p class="muted">Your drafts and submitted articles.</p></div><a class="btn" href="content-edit.php">+ Create an Article</a></div>
+<form class="searchbar" style="margin:0 0 18px" method="get"><input type="hidden" name="page" value="page-management"><input type="hidden" name="section" value="view-all-articles"><input name="q" value="<?=e($search)?>" placeholder="Search your articles…"><button class="btn">Search</button></form>
+<div class="panel creator-pm-table"><table class="table"><thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Updated</th><th>Manage</th></tr></thead><tbody><?php foreach($items as $item):?><tr><td><?=e($item['title'])?></td><td><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?><div class="muted" style="font-size:10px">↳ <?=e($item['subcategory_name'])?></div><?php endif; ?></td><td><span class="status"><?=e(str_replace('_',' ',$item['status']))?></span></td><td><?=e($item['updated_at'])?></td><td><a href="content-edit.php?id=<?=(int)$item['id']?>">Edit</a> · <a href="content-delete.php?id=<?=(int)$item['id']?>">Delete</a></td></tr><?php endforeach;?><?php if(!$items):?><tr><td colspan="5">No articles yet. Create your first article.</td></tr><?php endif;?></tbody></table></div>
+<?php elseif($pageSection==='photo-gallery'): ?>
+<div class="panel creator-pm-placeholder"><div class="eyebrow">Media</div><h3>Photo Gallery</h3><p class="muted">Manage your Creator photo gallery.</p></div>
+<?php elseif($pageSection==='videos'): ?>
+<div class="panel creator-pm-placeholder"><div class="eyebrow">Media</div><h3>Videos</h3><p class="muted">Manage your Creator videos.</p></div>
+<?php endif; ?>
+</div></div></section>
+<script>
+document.querySelectorAll('[data-pm-group] .creator-pm-group-toggle').forEach(toggle=>toggle.addEventListener('click',()=>{
+ const group=toggle.closest('[data-pm-group]');
+ const shouldOpen=!group.classList.contains('is-open');
+ document.querySelectorAll('[data-pm-group]').forEach(other=>{
+  const otherToggle=other.querySelector('.creator-pm-group-toggle');
+  const submenu=other.querySelector('.creator-pm-submenu');
+  const open=other===group&&shouldOpen;
+  other.classList.toggle('is-open',open);
+  otherToggle.setAttribute('aria-expanded',open?'true':'false');
+  submenu.hidden=!open;
+ });
+}));
+</script>
 <?php endif; ?>
 </section></main>
 <style>
@@ -491,6 +538,27 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.qu
 .creator-profile-grid.single{grid-template-columns:1fr}
 .creator-profile-notes{font-weight:400!important;line-height:1.65;white-space:normal}
 .creator-page-management{margin-top:32px;scroll-margin-top:18px}
+.creator-page-management-layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:22px;align-items:start;margin-top:24px}
+.creator-pm-sidebar{padding:10px;border:1px solid rgba(224,82,96,.2);border-radius:13px;background:rgba(19,12,16,.82);box-shadow:0 12px 28px rgba(0,0,0,.18)}
+.creator-pm-group+.creator-pm-group{margin-top:7px}
+.creator-pm-group-toggle{width:100%;display:flex;align-items:center;gap:11px;padding:13px 12px;border:1px solid transparent;border-radius:9px;background:transparent;color:#d9c7cd;text-align:left;font:inherit;font-size:13px;font-weight:650;cursor:pointer;transition:background .18s,color .18s,border-color .18s}
+.creator-pm-group-toggle>svg{width:18px;height:18px;flex:0 0 18px;color:#d58a9a}
+.creator-pm-group-toggle:hover,.creator-pm-group-toggle.active{color:#fff;background:rgba(174,48,71,.15);border-color:rgba(196,59,83,.2)}
+.creator-pm-chevron{margin-left:auto;color:#c98795;font-size:17px;line-height:1;transition:transform .18s}
+.creator-pm-group.is-open .creator-pm-chevron{transform:rotate(180deg)}
+.creator-pm-submenu{display:grid;gap:4px;padding:5px 0 5px 29px}
+.creator-pm-submenu[hidden]{display:none}
+.creator-pm-submenu-link{display:block;padding:10px 11px;border-left:2px solid rgba(255,255,255,.1);border-radius:0 7px 7px 0;color:#bdaeb4;text-decoration:none;font-size:12px;transition:background .18s,color .18s,border-color .18s}
+.creator-pm-submenu-link:hover,.creator-pm-submenu-link.active{color:#fff;background:rgba(174,48,71,.13);border-left-color:#c43b53}
+.creator-pm-content{min-width:0}
+.creator-pm-content-head{margin:0 0 17px}
+.creator-pm-content-head h3,.creator-pm-placeholder h3{margin:0 0 5px;color:#f2e3e8;font-size:16px}
+.creator-pm-content-head .muted,.creator-pm-placeholder .muted{margin:0;font-size:12px}
+.creator-pm-table{overflow-x:auto}
+.creator-pm-placeholder{min-height:150px;padding:25px}
+.creator-pm-placeholder .btn{display:inline-flex;margin-top:17px}
+@media(max-width:760px){.creator-page-management-layout{grid-template-columns:1fr;gap:16px}.creator-pm-sidebar{display:grid;grid-template-columns:1fr}.creator-pm-content-head{align-items:flex-start;gap:12px}}
+
 #my-profile{scroll-margin-top:18px}
 @media(max-width:620px){.creator-social-grid,.creator-business-grid{grid-template-columns:1fr}.creator-profile-banner{height:112px}.creator-main-menu-inner{overflow-x:auto;gap:0}.creator-main-menu-link{padding:0 13px;font-size:12px}.creator-profile-grid{grid-template-columns:1fr;gap:13px}.creator-profile-panel{padding:18px}.creator-profile-heading{flex-direction:column}.creator-dashboard-layout{padding-top:22px}}
 
