@@ -457,7 +457,7 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.qu
 </button>
 <div class="creator-pm-submenu" id="creator-pm-contents"<?=in_array($pageSection,['articles','forums'],true)?'':' hidden'?>>
 <a href="workspace.php?page=page-management&amp;section=articles" class="creator-pm-submenu-link<?=$pageSection==='articles'?' active':''?>"<?=$pageSection==='articles'?' aria-current="page"':''?>>Articles</a>
-<a href="workspace.php?page=page-management&amp;section=articles" class="creator-pm-submenu-link<?=$pageSection==='articles'?' active':''?>"<?=$pageSection==='articles'?' aria-current="page"':''?>>Forums</a>
+<a href="workspace.php?page=page-management&amp;section=forums" class="creator-pm-submenu-link<?=$pageSection==='forums'?' active':''?>"<?=$pageSection==='forums'?' aria-current="page"':''?>>Forums</a>
 </div></div>
 <div class="creator-pm-group<?=in_array($pageSection,['photo-gallery','videos'],true)?' is-open':''?>" data-pm-group>
 <button type="button" class="creator-pm-group-toggle<?=in_array($pageSection,['photo-gallery','videos'],true)?' active':''?>" aria-expanded="<?=in_array($pageSection,['photo-gallery','videos'],true)?'true':'false'?>" aria-controls="creator-pm-media">
@@ -470,7 +470,7 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'){document.qu
 </aside>
 <div class="creator-pm-content">
 <?php if($pageSection==='articles'): ?>
-<div class="section-head creator-pm-content-head"><div><h3>Articles</h3><p class="muted">Your drafts and submitted articles.</p></div><a class="btn" href="content-edit.php">+ Articles</a></div>
+<div class="section-head creator-pm-content-head"><div><h3>Articles</h3><p class="muted">Your drafts and submitted articles.</p></div><a class="btn" href="content-edit.php">+ Create an Article</a></div>
 <form class="searchbar" style="margin:0 0 18px" method="get"><input type="hidden" name="page" value="page-management"><input type="hidden" name="section" value="articles"><input name="q" value="<?=e($search)?>" placeholder="Search your articles…"><button class="btn">Search</button></form>
 <div class="panel creator-pm-table"><table class="table"><thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Updated</th><th>Manage</th></tr></thead><tbody><?php foreach($items as $item):?><tr><td><?=e($item['title'])?></td><td><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?><div class="muted" style="font-size:10px">↳ <?=e($item['subcategory_name'])?></div><?php endif; ?></td><td><span class="status"><?=e(str_replace('_',' ',$item['status']))?></span></td><td><?=e($item['updated_at'])?></td><td><a href="content-edit.php?id=<?=(int)$item['id']?>">Edit</a> · <a href="content-delete.php?id=<?=(int)$item['id']?>">Delete</a></td></tr><?php endforeach;?><?php if(!$items):?><tr><td colspan="5">No articles yet. Create your first article.</td></tr><?php endif;?></tbody></table></div>
 <?php elseif($pageSection==='forums'): ?>
