@@ -597,7 +597,7 @@ if ($isCreatorSignedIn) {
  </div>
  <div class="panel public-forum-reply-form">
   <h3>Post a reply</h3>
-  <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="reply"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><label for="public-forum-reply-body">Your reply</label><textarea id="public-forum-reply-body" name="reply_body" rows="5" maxlength="5000" required placeholder="Write your reply…"></textarea><button class="btn primary" type="submit">Post Reply</button></form><?php else: ?><p class="muted">Please <a href="index.php#sign-in-modal">sign in</a> with your contributor account to post a reply or like this discussion.</p><?php endif; ?>
+  <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="reply"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><label for="public-forum-reply-body">Your reply</label><textarea id="public-forum-reply-body" name="reply_body" rows="5" maxlength="5000" required placeholder="Write your reply…"></textarea><button class="btn primary" type="submit">Post Reply</button></form><?php else: ?><p class="muted">Please <a href="index.php#sign-in-modal">sign in</a> with your contributor account to post a reply or like this discussion.</p><?php endif; ?>
  </div>
 </div></section>
 <?php else: ?>
@@ -633,19 +633,6 @@ if ($isCreatorSignedIn) {
 </div></section>
 <?php endif; ?>
 <?php endif; ?>
-   <?php if(!empty($publicForumAttachments[(int)$forumThread['id']])): ?><div class="public-forum-attachments"><?php foreach($publicForumAttachments[(int)$forumThread['id']] as $forumAttachment): $attachmentUrl=$publicForumAttachmentUrl((string)$forumAttachment['file_path']); $attachmentName=(string)$forumAttachment['original_name']; $attachmentType=strtolower((string)$forumAttachment['attachment_type']); $attachmentExt=strtolower(pathinfo($attachmentName,PATHINFO_EXTENSION)); $isForumPhoto=in_array($attachmentType,['photo','image'],true)||in_array($attachmentExt,['jpg','jpeg','png','gif','webp','avif','bmp','tif','tiff'],true); $isForumVideo=in_array($attachmentType,['video'],true)||in_array($attachmentExt,['mp4','webm','mov','mkv','avi','m4v','wmv','flv','mpeg','mpg','3gp','ogv'],true); ?>
-    <?php if($isForumPhoto): ?><a href="<?=e($attachmentUrl)?>" target="_blank" rel="noopener"><img src="<?=e($attachmentUrl)?>" alt="<?=e($attachmentName)?>" loading="lazy"></a>
-    <?php elseif($isForumVideo): ?><video src="<?=e($attachmentUrl)?>" controls preload="metadata"></video>
-    <?php else: ?><a class="public-forum-file" href="<?=e($attachmentUrl)?>" target="_blank" rel="noopener" download><?=e($attachmentName)?></a><?php endif; ?>
-   <?php endforeach; ?></div><?php endif; ?>
-  </div>
-  <div class="public-forum-author"><?=e((string)$forumThread['full_name'])?><small><?=e(ucwords(str_replace('_',' ',(string)$forumThread['role'])))?></small></div>
-  <div class="public-forum-activity"><strong><?=e($updatedTimestamp ? date('M d, Y',$updatedTimestamp) : '—')?></strong><?=($updatedTimestamp && $createdTimestamp && $updatedTimestamp > $createdTimestamp) ? 'Updated' : 'Posted'?></div>
- </article>
- <?php endforeach; ?></div><?php endif; ?>
-</div></section>
-<?php endif; ?>
-
 <section class="section" id="latest"><div class="wrap">
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
 <?php if (!$showAllStories): ?>
