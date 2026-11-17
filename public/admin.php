@@ -2679,7 +2679,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  </section>
  </form>
 <style id="mega-panel-description-styles">
-.mega-panel-record-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.mega-panel-record-actions .btn{flex:1 1 auto;min-width:0;text-align:center;padding:8px 10px;font-size:11px}
+.mega-panel-record-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.mega-panel-record-actions>.btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;flex:1 1 auto;min-width:0;height:26px;min-height:26px;margin:7px 0 2px;padding:6px 12px;line-height:1;font-size:10px;text-align:center;white-space:nowrap}
 .mega-menu-preview .mega-preview-panel{cursor:default}
 .mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:9px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
 .mega-menu-preview .mega-preview-panel{position:relative;isolation:isolate;overflow:hidden}
