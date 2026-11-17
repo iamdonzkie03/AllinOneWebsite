@@ -365,7 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $att=$pdo->prepare('INSERT INTO forum_thread_attachments(thread_id,original_name,file_path,mime_type,file_size,attachment_type) VALUES(?,?,?,?,?,?)');
         foreach($accepted as $file){$stored='file-'.bin2hex(random_bytes(10)).'.'.$file['ext'];$target=$dir.'/'.$stored;if(!move_uploaded_file($file['tmp'],$target))throw new RuntimeException('Unable to save '.$file['name'].'.');$newPaths[]=$target;$att->execute([$threadId,$file['name'],'uploads/forum-threads/'.$threadId.'/'.$stored,$file['mime'],$file['size'],$file['type']]);}
         $pdo->commit();$_SESSION['forum_thread_success']='The thread "'.$title.'" has been successfully '.($status==='published'?'published':'saved as unpublished').'.';session_write_close();
-        header('Location: admin.php?forum_panel='.rawurlencode((string)($_POST['forum_panel_index']??'')),true,303);exit;
+        header('Location: admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.rawurlencode((string)($_POST['forum_panel_index']??'')),true,303);exit;
       }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();foreach($newPaths as $path)if(is_file($path))@unlink($path);$message=$e->getMessage();}
     }
 
@@ -2756,7 +2756,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        <label>Show <select id="forum-post-page-size" aria-label="Posts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label>
        <label class="forum-inline-filter"><span>Filter</span><input id="forum-post-filter" type="search" placeholder="Search post title, author or status..." aria-label="Filter Forum posts"></label>
       </div>
-      <button class="btn" type="button" id="forum-open-thread-modal" onclick="var m=document.getElementById('forum-thread-modal');if(m){document.body.appendChild(m);m.hidden=false;m.style.display='flex';document.body.classList.add('forum-thread-modal-open');}">Post Thread</button>
+      <a class="btn" id="forum-open-thread-modal" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1">Post Thread</a>
      </div>
      <?php if (!$forumPanelViewCategory): ?>
       <div class="forum-inline-empty">This panel is not currently linked to an active category. Edit its panel URL to use the matching category or module slug to display its posts here.</div>
@@ -2782,8 +2782,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      <?php endif; ?>
     </section>
 
-     <div class="forum-thread-modal" id="forum-thread-modal" hidden><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="thread-modal-title">
-      <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title">Post Thread</h3></div><button type="button" class="forum-thread-close" id="forum-close-thread-modal" aria-label="Close" onclick="var m=document.getElementById('forum-thread-modal');if(m){m.hidden=true;m.style.display='none';document.body.classList.remove('forum-thread-modal-open');}">×</button></div>
+     <?php if ((string)($_GET['post_thread'] ?? '') === '1' && $forumPanelViewIndex !== null && $forumPanelViewCategory): ?>
+     <div class="forum-thread-modal" id="forum-thread-modal"><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="thread-modal-title">
+      <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title">Post Thread</h3></div><a class="forum-thread-close" id="forum-close-thread-modal" aria-label="Close" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">×</a></div>
       <form method="post" enctype="multipart/form-data" id="forum-thread-form">
        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="create_forum_thread"><input type="hidden" name="forum_category_id" value="<?=e((string)($forumPanelViewCategory['id']??''))?>"><input type="hidden" name="forum_panel_index" value="<?=e((string)$forumPanelViewIndex)?>">
        <div class="forum-thread-form-grid"><label>Select Prefix<select id="thread-prefix" name="thread_prefix" required><option value="">Choose a prefix</option><?php $threadPrefixOptions=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];foreach($threadPrefixOptions as $group=>$opts):?><optgroup label="<?=e($group)?>"><?php foreach($opts as $opt):?><option value="<?=e($opt)?>" data-group="<?=e($group)?>"><?=e($opt)?></option><?php endforeach;?></optgroup><?php endforeach;?></select><input type="hidden" name="thread_prefix_group" id="thread-prefix-group"></label><label>Thread Title<input name="thread_title" maxlength="240" required placeholder="Enter your thread title"></label></div>
@@ -2791,21 +2792,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."></div><textarea name="thread_description" id="thread-description-value" hidden required></textarea>
        <label class="forum-thread-field">Attach Files<input type="file" name="thread_attachments[]" id="thread-attachments" multiple accept=".jpg,.jpeg,.png,.avif,.webp,.mp4,.webm,.mov,.mkv,.avi,.m4v,.wmv,.flv,.mpeg,.mpg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z"><small>Photos: 20 max, 10 MB each · Video: 1 max, 5 GB · PDFs: 10 max, 40 MB each · Office files: 20 max, 10 MB each · ZIP archives with video: up to 5 GB; other archives: 100 MB. 5 GB uploads also require matching PHP and web-server upload limits.</small><div id="thread-attachment-list" class="forum-thread-attachment-list">No files selected.</div></label>
        <label class="forum-thread-field">Tags<input type="text" id="thread-tags-entry" placeholder="Type a phrase, then a comma"><input type="hidden" name="thread_tags" id="thread-tags-value"><div id="thread-tag-chips" class="forum-thread-tag-chips"></div><small>A tag is created when you type a comma after the phrase.</small></label>
-       <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select name="thread_status"><option value="unpublished">Unpublish</option><option value="published">Publish</option></select></label><div><button type="button" class="btn light" id="forum-cancel-thread" onclick="var m=document.getElementById('forum-thread-modal');if(m){m.hidden=true;m.style.display='none';document.body.classList.remove('forum-thread-modal-open');}">Cancel</button><button type="submit" class="btn">Submit Thread</button></div></div>
+       <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select name="thread_status"><option value="unpublished">Unpublish</option><option value="published">Publish</option></select></label><div><a class="btn light" id="forum-cancel-thread" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">Cancel</a><button type="submit" class="btn">Submit Thread</button></div></div>
       </form></div></div>
+     <?php endif; ?>
     <script>
     (() => {
       const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value'),threadForm=document.getElementById('forum-thread-form');
-      // Keep the overlay directly under <body> so the Forum panel's overflow/stacking context cannot clip it.
-      if(threadModal && threadModal.parentElement!==document.body) document.body.appendChild(threadModal);
-      const hideThread=()=>{if(threadModal){threadModal.hidden=true;document.body.classList.remove('forum-thread-modal-open');}};
-      // Delegate the open action so it continues to work if the Forum panel is re-rendered.
-      document.addEventListener('click',event=>{
-        const openButton=event.target.closest('#forum-open-thread-modal');
-        if(openButton && threadModal){event.preventDefault();threadModal.hidden=false;threadModal.style.display='flex';document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();}
-        if(event.target.closest('#forum-close-thread-modal')||event.target.closest('#forum-cancel-thread'))hideThread();
-      });
-      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal&&!threadModal.hidden)hideThread();});
+      // The Add Article workflow opens its modal through a server-rendered GET state.
+      // Use the same approach here, then move the visible overlay to <body> to avoid clipping.
+      if(threadModal){if(threadModal.parentElement!==document.body)document.body.appendChild(threadModal);document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();}
+      const threadCloseUrl='admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>';
+      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal)window.location.href=threadCloseUrl;});
       document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;const colors={General:'#385a78',Downloads:'#176b59',Movies:'#8a3d4e',Video:'#69518d',Genre:'#8a642c'};e.target.style.backgroundColor=colors[group]||'#100c10';});
       document.querySelectorAll('[data-thread-cmd]').forEach(b=>b.addEventListener('click',()=>{threadEditor.focus();document.execCommand(b.dataset.threadCmd,false,null);}));
       document.querySelector('[data-thread-tool="link"]')?.addEventListener('click',()=>{const url=prompt('Enter link URL (https:// or http://):');if(url&&/^https?:\\/\\//i.test(url)){threadEditor.focus();document.execCommand('createLink',false,url);}});
