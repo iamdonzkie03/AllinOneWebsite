@@ -2756,7 +2756,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        <label>Show <select id="forum-post-page-size" aria-label="Posts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label>
        <label class="forum-inline-filter"><span>Filter</span><input id="forum-post-filter" type="search" placeholder="Search post title, author or status..." aria-label="Filter Forum posts"></label>
       </div>
-      <a class="btn" id="forum-open-thread-modal" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1">Post Thread</a>
+      <a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a>
      </div>
      <?php if (!$forumPanelViewCategory): ?>
       <div class="forum-inline-empty">This panel is not currently linked to an active category. Edit its panel URL to use the matching category or module slug to display its posts here.</div>
@@ -2782,7 +2782,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      <?php endif; ?>
     </section>
 
-     <?php if ((string)($_GET['post_thread'] ?? '') === '1' && $forumPanelViewIndex !== null && $forumPanelViewCategory): ?>
+     <?php if ((string)($_GET['post_thread'] ?? '') === '1' && $forumPanelViewIndex !== null): ?>
      <div class="forum-thread-modal" id="forum-thread-modal"><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="thread-modal-title">
       <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title">Post Thread</h3></div><a class="forum-thread-close" id="forum-close-thread-modal" aria-label="Close" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">×</a></div>
       <form method="post" enctype="multipart/form-data" id="forum-thread-form">
@@ -2792,7 +2792,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."></div><textarea name="thread_description" id="thread-description-value" hidden required></textarea>
        <label class="forum-thread-field">Attach Files<input type="file" name="thread_attachments[]" id="thread-attachments" multiple accept=".jpg,.jpeg,.png,.avif,.webp,.mp4,.webm,.mov,.mkv,.avi,.m4v,.wmv,.flv,.mpeg,.mpg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z"><small>Photos: 20 max, 10 MB each · Video: 1 max, 5 GB · PDFs: 10 max, 40 MB each · Office files: 20 max, 10 MB each · ZIP archives with video: up to 5 GB; other archives: 100 MB. 5 GB uploads also require matching PHP and web-server upload limits.</small><div id="thread-attachment-list" class="forum-thread-attachment-list">No files selected.</div></label>
        <label class="forum-thread-field">Tags<input type="text" id="thread-tags-entry" placeholder="Type a phrase, then a comma"><input type="hidden" name="thread_tags" id="thread-tags-value"><div id="thread-tag-chips" class="forum-thread-tag-chips"></div><small>A tag is created when you type a comma after the phrase.</small></label>
-       <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select name="thread_status"><option value="unpublished">Unpublish</option><option value="published">Publish</option></select></label><div><a class="btn light" id="forum-cancel-thread" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">Cancel</a><button type="submit" class="btn">Submit Thread</button></div></div>
+       <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select name="thread_status"><option value="unpublished">Unpublish</option><option value="published">Publish</option></select></label><div><a class="btn light" id="forum-cancel-thread" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">Cancel</a><?php if ($forumPanelViewCategory): ?><button type="submit" class="btn">Submit Thread</button><?php else: ?><span class="forum-inline-muted">This Forum panel is not linked to an active category. Update its panel URL before posting.</span><?php endif; ?></div></div>
       </form></div></div>
      <?php endif; ?>
     <script>
