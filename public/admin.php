@@ -1219,7 +1219,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-header h2{font-size:clamp(25px,3vw,36px);line-height:1.18;margin:0 0 7px;color:#fff}
 .forum-inline-header p{margin:0;color:#bdaeb4;font-size:13px;line-height:1.55;max-width:760px}
 .forum-inline-header>.btn{flex:0 0 auto;margin:0;padding:10px 14px;white-space:nowrap}
-.forum-inline-panel{margin:0;border:1px solid rgba(216,180,119,.18);border-radius:14px;background:linear-gradient(145deg,rgba(37,20,29,.9),rgba(17,12,17,.96));overflow:hidden}
+.forum-inline-panel{margin:0;padding:15px;border:1px solid rgba(216,180,119,.18);border-radius:14px;background:linear-gradient(145deg,rgba(37,20,29,.9),rgba(17,12,17,.96));overflow:hidden}
 .forum-inline-table-scroll{overflow-x:auto}
 .forum-inline-table{width:100%;border-collapse:collapse;min-width:760px}
 .forum-inline-table th,.forum-inline-table td{padding:12px 14px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px;vertical-align:top}
@@ -1231,7 +1231,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-status.published{color:#9ce0b2;background:rgba(46,160,90,.14);border:1px solid rgba(91,202,130,.25)}
 .forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
 .forum-inline-empty{padding:32px 20px;text-align:center;color:#bdaeb4;font-size:13px}
-@media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-header{align-items:flex-start;gap:14px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
+@media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-panel{padding:12px}.forum-inline-header{align-items:flex-start;gap:14px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
 </style></head><body>
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
 <div class="admin-shell">
