@@ -152,6 +152,12 @@ if(!is_array($sectionsSettings)) $sectionsSettings=$defaultSections;
 foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[];$sectionsSettings[$key]=is_array($stored)?array_replace($defaults,$stored):$defaults;}
 $sectionsSettings['slideshow']['photos'] = sortSlideshowPhotosByUpdatedAt((array)($sectionsSettings['slideshow']['photos'] ?? []));
 
+$forumPanelViewIndex = filter_input(INPUT_GET, 'forum_panel', FILTER_VALIDATE_INT);
+if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($sectionsSettings['mega_menu']['panels'][$forumPanelViewIndex]) || !is_array($sectionsSettings['mega_menu']['panels'][$forumPanelViewIndex])) {
+    $forumPanelViewIndex = null;
+}
+
+
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_gallery_photos (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1167,6 +1173,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-settings-tabs a.active{color:#fff;background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));border-color:rgba(184,50,63,.4)}
 @media(max-width:850px){.admin-shell{grid-template-columns:1fr}.admin-sidebar{position:relative;top:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-subnav{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 8px 0;padding:8px 0 0;border-left:0;border-top:1px solid var(--line)}.admin-main{padding-top:25px}}
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
+</style><style>
+.section-subpanel.forum-panel-view{padding:0!important;overflow:hidden}
+.section-subpanel.forum-panel-view>#forum-content-embed{width:100%;min-height:720px}
 </style></head><body>
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
 <div class="admin-shell">
@@ -2603,7 +2612,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </section>
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-confirm-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-title"><div class="account-status-modal-icon slideshow-delete-warning" aria-hidden="true">!</div><h2 id="slideshow-photo-delete-title">Delete Selected Photo/s?</h2><p class="slideshow-delete-message">Are you sure you want to delete the selected photo/s?</p><div class="slideshow-delete-actions"><button class="btn light" type="button" id="slideshow-photo-delete-cancel">Cancel</button><button class="btn bulk-delete" type="button" id="slideshow-photo-delete-confirm">Delete</button></div></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="slideshow-photo-delete-success-title">Selected photo/s deleted successfully.</h2><button type="button" class="btn" id="slideshow-photo-delete-success-close">OK</button></div></div>
- <section class="section-subpanel" data-section-panel="mega_menu" hidden>
+ <section class="section-subpanel<?= $forumPanelViewIndex !== null ? ' forum-panel-view' : '' ?>" data-section-panel="mega_menu" hidden>
+  <?php if ($forumPanelViewIndex !== null): ?>
+   <iframe id="forum-content-embed" title="Forum panel content" src="admin-forum-content.php?panel=<?=$forumPanelViewIndex?>&amp;embedded=1" style="display:block;width:100%;min-height:720px;height:calc(100vh - 300px);border:0;background:transparent" loading="eager"></iframe>
+  <?php else: ?>
   <?php
 $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 ?>
@@ -2665,7 +2677,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      </div>
      <div class="gallery-photo-title" title="<?=e($pn['title']??'Untitled panel')?>"><?=e($pn['title']??'Untitled panel')?></div>
      <label class="gallery-photo-select"><input type="checkbox" class="mega-panel-checkbox" aria-label="Select panel <?=e($pn['title']??'Panel menu')?>"> Select</label>
-     <div class="mega-panel-record-actions"><a class="btn light mega-panel-view-content" href="admin-forum-content.php?session_context=admin&amp;panel=<?= (int)$panelIndex ?>">View Content</a><button type="button" class="btn light gallery-photo-edit mega-panel-edit">Edit</button></div>
+     <div class="mega-panel-record-actions"><a class="btn light mega-panel-view-content" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?= (int)$panelIndex ?>">View Content</a><button type="button" class="btn light gallery-photo-edit mega-panel-edit">Edit</button></div>
      <input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'tabler:laptop')?>">
      <input type="hidden" name="panel_title[]" value="<?=e($pn['title']??'')?>">
      <input type="hidden" name="panel_description[]" value="<?=e($pn['description']??'')?>">
@@ -2676,6 +2688,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <?php if(empty($sectionsSettings['mega_menu']['panels'])): ?><p class="muted slideshow-empty mega-panel-empty">No panel menus have been created yet.</p><?php endif; ?>
   </div>
   <div class="header-settings-actions mega-menu-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu" name="save_mega_menu_settings" value="1">Save Forum Settings</button></div>
+  <?php endif; ?>
  </section>
  </form>
 <style id="mega-panel-description-styles">
@@ -4405,7 +4418,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    const titleNode=document.createElement('div');titleNode.className='gallery-photo-title';titleNode.title=title;titleNode.textContent=title;
    const selectLabel=document.createElement('label');selectLabel.className='gallery-photo-select';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='mega-panel-checkbox';checkbox.setAttribute('aria-label','Select panel '+title);selectLabel.append(checkbox,document.createTextNode(' Select'));
    const actions=document.createElement('div');actions.className='mega-panel-record-actions';
-   const viewContent=document.createElement('a');viewContent.className='btn light mega-panel-view-content';viewContent.textContent='View Content';viewContent.href='admin-forum-content.php?session_context=admin&panel='+String(megaPanelList.querySelectorAll('.mega-panel-record').length);
+   const viewContent=document.createElement('a');viewContent.className='btn light mega-panel-view-content';viewContent.textContent='View Content';viewContent.href='admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel='+String(megaPanelList.querySelectorAll('.mega-panel-record').length);
    const edit=document.createElement('button');edit.type='button';edit.className='btn light gallery-photo-edit mega-panel-edit';edit.textContent='Edit';
    actions.append(viewContent,edit);
    card.append(art,titleNode,selectLabel,actions,makeHidden('panel_symbol[]',symbol),makeHidden('panel_title[]',title),makeHidden('panel_description[]',descriptionText),makeHidden('panel_url[]',url),makeHidden('panel_existing_photo[]',''));

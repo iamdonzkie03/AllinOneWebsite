@@ -85,7 +85,7 @@ function forumDateLabel(?string $value): string {
 <main class="forum-content-wrap">
 <header class="forum-content-top">
  <div><div class="eyebrow">Forum · Panel Content</div><h1><?=e($panelTitle)?></h1><p>Published and unpublished posts created by the administrator and creators under this panel.</p></div>
- <div class="forum-content-actions"><a class="btn light" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu">← Back to Forum</a></div>
+ <div class="forum-content-actions"><a class="btn light" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu" target="_top">← Back to Forum</a></div>
 </header>
 <section class="forum-content-panel">
 <?php if (!$category): ?>
