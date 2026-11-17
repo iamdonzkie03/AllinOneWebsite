@@ -4418,7 +4418,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    const titleNode=document.createElement('div');titleNode.className='gallery-photo-title';titleNode.title=title;titleNode.textContent=title;
    const selectLabel=document.createElement('label');selectLabel.className='gallery-photo-select';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='mega-panel-checkbox';checkbox.setAttribute('aria-label','Select panel '+title);selectLabel.append(checkbox,document.createTextNode(' Select'));
    const actions=document.createElement('div');actions.className='mega-panel-record-actions';
-   const viewContent=document.createElement('a');viewContent.className='btn light mega-panel-view-content';viewContent.textContent='View Content';viewContent.href='admin-forum-content.php?session_context=admin&panel='+String(megaPanelList.querySelectorAll('.mega-panel-record').length);
+   const viewContent=document.createElement('a');viewContent.className='btn light mega-panel-view-content';viewContent.textContent='View Content';viewContent.href='admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel='+String(megaPanelList.querySelectorAll('.mega-panel-record').length);
    const edit=document.createElement('button');edit.type='button';edit.className='btn light gallery-photo-edit mega-panel-edit';edit.textContent='Edit';
    actions.append(viewContent,edit);
    card.append(art,titleNode,selectLabel,actions,makeHidden('panel_symbol[]',symbol),makeHidden('panel_title[]',title),makeHidden('panel_description[]',descriptionText),makeHidden('panel_url[]',url),makeHidden('panel_existing_photo[]',''));
