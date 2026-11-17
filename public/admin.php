@@ -203,14 +203,16 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
     $forumCategoryStmt->execute([$forumPanelViewSlug]);
     $forumPanelViewCategory = $forumCategoryStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     {
-        $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name
-            FROM content c
-            INNER JOIN users u ON u.id=c.owner_id
-            LEFT JOIN categories sub ON sub.id=c.subcategory_id
-            WHERE c.category_id=? AND u.role IN ('system_admin','creator')
-            ORDER BY COALESCE(c.updated_at,c.created_at) DESC,c.id DESC");
-        $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
-        $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
+        if($forumPanelViewCategory){
+            $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name
+                FROM content c
+                INNER JOIN users u ON u.id=c.owner_id
+                LEFT JOIN categories sub ON sub.id=c.subcategory_id
+                WHERE c.category_id=? AND u.role IN ('system_admin','creator')
+                ORDER BY COALESCE(c.updated_at,c.created_at) DESC,c.id DESC");
+            $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
+            $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
         $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,'thread' AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.panel_id=?".($forumPanelViewCategory?' OR (t.panel_id IS NULL AND t.category_id=?)':'')." ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
         $threadParams=[(string)($forumPanelViewPanel['panel_id']??'')];if($forumPanelViewCategory)$threadParams[]=(int)$forumPanelViewCategory['id'];
         $threadStmt->execute($threadParams);$forumPanelViewPosts=array_merge($forumPanelViewPosts,$threadStmt->fetchAll(PDO::FETCH_ASSOC));
@@ -870,7 +872,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
                 foreach((array)($_POST['panel_title']??[]) as $k=>$title){
                     $old=$oldPanels[$k]??[];
-                    $panel=['title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($_POST['panel_existing_photo'][$k]??($old['photo']??''))];
+                    $panel=['panel_id'=>(string)($old['panel_id']??bin2hex(random_bytes(16))),'title'=>$safeText($title,100),'description'=>$safeText($_POST['panel_description'][$k]??'',400),'url'=>$safeText($_POST['panel_url'][$k]??'',500),'symbol'=>$safeText($_POST['panel_symbol'][$k]??($old['symbol']??'laptop'),60),'photo'=>(string)($_POST['panel_existing_photo'][$k]??($old['photo']??''))];
                     if(isset($_FILES['panel_photo']['error'][$k]) && $_FILES['panel_photo']['error'][$k]===UPLOAD_ERR_OK){
                         $f=['name'=>$_FILES['panel_photo']['name'][$k],'type'=>$_FILES['panel_photo']['type'][$k],'tmp_name'=>$_FILES['panel_photo']['tmp_name'][$k],'error'=>$_FILES['panel_photo']['error'][$k],'size'=>$_FILES['panel_photo']['size'][$k]];
                         $panel['photo']=$upload($f,'panel');
@@ -2773,8 +2775,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </div>
       <a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a>
      </div>
-     <?php if (!$forumPanelViewCategory): ?>
-     <?php else: ?>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th>Post Title</th><th>Author</th><th>Content Type</th><th>Publication</th><th>Workflow Status</th><th>Last Updated</th></tr></thead>
        <tbody>
@@ -2793,7 +2793,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="forum-inline-empty" id="forum-post-no-results" hidden>No posts match your filter.</div>
       <div class="forum-inline-pagination"><span id="forum-post-page-info" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-prev">Previous</button><span id="forum-post-page-number" class="muted"></span><button type="button" class="btn light" id="forum-post-next">Next</button></div></div>
       <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
-     <?php endif; ?>
     </section>
 
      <?php if ((string)($_GET['post_thread'] ?? '') === '1' && $forumPanelViewIndex !== null): ?>
