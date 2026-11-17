@@ -301,30 +301,130 @@ $sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC" . ($showAllStorie
 $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 
 $publicForumThreads = [];
-$publicForumAttachments = [];
+$publicForumDetail = null;
+$publicForumReplies = [];
+$publicForumReplyCount = 0;
+$publicForumViewCount = 0;
+$publicForumLikeCount = 0;
+$publicForumLikedByCurrentUser = false;
+$publicForumLastActivity = null;
+$publicForumNotice = '';
+$publicForumError = '';
+$publicForumThreadId = max(0, (int)($_GET['thread_id'] ?? $_POST['thread_id'] ?? 0));
+$publicForumAvatarUrl = static function(?string $path): string {
+    $path = trim((string)$path);
+    if ($path === '') return '';
+    if (preg_match('~^https?://~i', $path)) return $path;
+    $path = ltrim(preg_replace('~^(?:public/)+~', '', $path), '/');
+    return 'public/' . $path;
+};
 if ($activeForumPanel && $requestedForumPanelId !== '') {
     $forumTableCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_threads'");
     $forumTableCheck->execute();
     if ((int)$forumTableCheck->fetchColumn() > 0) {
-        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.tags_json,t.created_at,t.updated_at,u.full_name,u.role
+        $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_replies (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            thread_id BIGINT UNSIGNED NOT NULL,
+            owner_id BIGINT UNSIGNED NOT NULL,
+            body TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_forum_replies_thread_created(thread_id,created_at),
+            INDEX idx_forum_replies_owner(owner_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_likes (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            thread_id BIGINT UNSIGNED NOT NULL,
+            user_id BIGINT UNSIGNED NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_forum_thread_like(thread_id,user_id),
+            INDEX idx_forum_likes_thread(thread_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_views (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            thread_id BIGINT UNSIGNED NOT NULL,
+            visitor_key CHAR(64) NOT NULL,
+            viewed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_forum_thread_view(thread_id,visitor_key),
+            INDEX idx_forum_views_thread(thread_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $creatorAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['forum_action'] ?? ''), ['reply','like','unlike'], true)) {
+            try {
+                verify_csrf();
+                $postedThreadId = max(0, (int)($_POST['thread_id'] ?? 0));
+                $threadExists = $pdo->prepare("SELECT id FROM forum_threads WHERE id=? AND panel_id=? AND status='published' LIMIT 1");
+                $threadExists->execute([$postedThreadId, $requestedForumPanelId]);
+                if (!$threadExists->fetchColumn()) throw new RuntimeException('This discussion is no longer available.');
+                if (!$isCreatorSignedIn) throw new RuntimeException('Please sign in with your contributor account to reply or like a discussion.');
+                $signedInUserId = (int)($currentPublicUser['id'] ?? 0);
+                if ($signedInUserId < 1) throw new RuntimeException('Please sign in again to continue.');
+                $forumAction = (string)$_POST['forum_action'];
+                if ($forumAction === 'reply') {
+                    $replyBody = trim((string)($_POST['reply_body'] ?? ''));
+                    if ($replyBody === '') throw new RuntimeException('Write your reply before posting.');
+                    if (mb_strlen($replyBody) > 5000) throw new RuntimeException('Your reply must be 5,000 characters or fewer.');
+                    $replyInsert = $pdo->prepare('INSERT INTO forum_thread_replies(thread_id,owner_id,body) VALUES(?,?,?)');
+                    $replyInsert->execute([$postedThreadId,$signedInUserId,$replyBody]);
+                } elseif ($forumAction === 'like') {
+                    $likeInsert = $pdo->prepare('INSERT IGNORE INTO forum_thread_likes(thread_id,user_id) VALUES(?,?)');
+                    $likeInsert->execute([$postedThreadId,$signedInUserId]);
+                } else {
+                    $unlikeDelete = $pdo->prepare('DELETE FROM forum_thread_likes WHERE thread_id=? AND user_id=?');
+                    $unlikeDelete->execute([$postedThreadId,$signedInUserId]);
+                }
+                $redirectQuery = http_build_query(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>$postedThreadId,'session_context'=>'creator']);
+                header('Location: index.php?' . $redirectQuery . '#forum-thread-detail', true, 303);
+                exit;
+            } catch (Throwable $forumActionError) {
+                $publicForumError = $forumActionError->getMessage();
+            }
+        }
+        if ($publicForumThreadId > 0) {
+            $threadStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.created_at,t.updated_at,u.full_name,u.role{$creatorAvatarSelect}
+                FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
+                WHERE t.id=? AND t.panel_id=? AND t.status='published' LIMIT 1");
+            $threadStmt->execute([$publicForumThreadId,$requestedForumPanelId]);
+            $publicForumDetail = $threadStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if ($publicForumDetail) {
+                $visitorKey = hash('sha256', session_id());
+                $viewInsert = $pdo->prepare('INSERT IGNORE INTO forum_thread_views(thread_id,visitor_key) VALUES(?,?)');
+                $viewInsert->execute([$publicForumThreadId,$visitorKey]);
+                $viewCountStmt = $pdo->prepare('SELECT COUNT(*) FROM forum_thread_views WHERE thread_id=?');
+                $viewCountStmt->execute([$publicForumThreadId]);
+                $publicForumViewCount = (int)$viewCountStmt->fetchColumn();
+                $replyCountStmt = $pdo->prepare('SELECT COUNT(*) FROM forum_thread_replies WHERE thread_id=?');
+                $replyCountStmt->execute([$publicForumThreadId]);
+                $publicForumReplyCount = (int)$replyCountStmt->fetchColumn();
+                $likeCountStmt = $pdo->prepare('SELECT COUNT(*) FROM forum_thread_likes WHERE thread_id=?');
+                $likeCountStmt->execute([$publicForumThreadId]);
+                $publicForumLikeCount = (int)$likeCountStmt->fetchColumn();
+                if ($isCreatorSignedIn) {
+                    $likedStmt = $pdo->prepare('SELECT COUNT(*) FROM forum_thread_likes WHERE thread_id=? AND user_id=?');
+                    $likedStmt->execute([$publicForumThreadId,(int)$currentPublicUser['id']]);
+                    $publicForumLikedByCurrentUser = (int)$likedStmt->fetchColumn() > 0;
+                }
+                $replyAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
+                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,u.role{$replyAvatarSelect}
+                    FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id
+                    WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
+                $repliesStmt->execute([$publicForumThreadId]);
+                $publicForumReplies = $repliesStmt->fetchAll(PDO::FETCH_ASSOC);
+                if ($publicForumReplies) $publicForumLastActivity = $publicForumReplies[count($publicForumReplies)-1];
+            }
+        }
+        $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
+        $lastReplyAvatarSql = $creatorPhotoColumn !== '' ? '(SELECT lu.' . $creatorPhotoColumn . ' FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1)' : 'NULL';
+        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,u.role{$publicForumSelectAvatar},
+            (SELECT COUNT(*) FROM forum_thread_replies r WHERE r.thread_id=t.id) AS reply_count,
+            (SELECT COUNT(*) FROM forum_thread_views v WHERE v.thread_id=t.id) AS view_count,
+            (SELECT COUNT(*) FROM forum_thread_likes l WHERE l.thread_id=t.id) AS like_count,
+            (SELECT MAX(lr.created_at) FROM forum_thread_replies lr WHERE lr.thread_id=t.id) AS last_reply_at,
+            {$lastReplyAvatarSql} AS last_reply_avatar
             FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
             WHERE t.panel_id=? AND t.status='published'
             ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
         $publicForumStmt->execute([$requestedForumPanelId]);
         $publicForumThreads = $publicForumStmt->fetchAll(PDO::FETCH_ASSOC);
-        if ($publicForumThreads) {
-            $forumAttachmentTableCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_thread_attachments'");
-            $forumAttachmentTableCheck->execute();
-            if ((int)$forumAttachmentTableCheck->fetchColumn() > 0) {
-                $threadIds = array_map(static fn(array $thread): int => (int)$thread['id'], $publicForumThreads);
-                $placeholders = implode(',', array_fill(0, count($threadIds), '?'));
-                $attachmentStmt = $pdo->prepare("SELECT id,thread_id,original_name,file_path,mime_type,attachment_type FROM forum_thread_attachments WHERE thread_id IN ($placeholders) ORDER BY id");
-                $attachmentStmt->execute($threadIds);
-                foreach ($attachmentStmt->fetchAll(PDO::FETCH_ASSOC) as $attachment) {
-                    $publicForumAttachments[(int)$attachment['thread_id']][] = $attachment;
-                }
-            }
-        }
     }
 }
 $publicForumAttachmentUrl = static function(string $path): string {
@@ -441,6 +541,12 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
     $panelHref = $panelHrefBase . (str_contains($panelHrefBase, '?') ? '&' : '?') . 'forum_panel_id=' . rawurlencode((string)$pn['panel_id']);
     if (isset($panelHrefParts[1])) $panelHref .= '#' . $panelHrefParts[1];
 }
+if ($isCreatorSignedIn) {
+    $panelHrefParts = explode('#', $panelHref, 2);
+    $panelHrefBase = $panelHrefParts[0];
+    $panelHref = $panelHrefBase . (str_contains($panelHrefBase, '?') ? '&' : '?') . 'session_context=creator';
+    if (isset($panelHrefParts[1])) $panelHref .= '#' . $panelHrefParts[1];
+}
 ?><a class="category module-card mega-public-panel" href="<?=e($panelHref)?>"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); $publicIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $publicIconHash=0; foreach(str_split($publicIconName) as $publicIconChar){$publicIconHash=(($publicIconHash*31)+ord($publicIconChar)) & 0xFFFFFFFF;} $publicIconHue=$publicIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$publicIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($publicIconName)?>"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><div class="mega-panel-preview-content"><strong><?=e($pn['title']??'')?></strong><?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?><span class="module-link">Explore module ↗</span></div></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?module=<?=e($module['slug'])?>"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
 <?php endif; ?>
 
@@ -458,32 +564,75 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
   <p class="eyebrow">COMMUNITY FORUM</p>
   <h1><?=e(str_ireplace(' And ', ' and ', (string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum')))?></h1>
   <p class="muted">Skill, imagination, and a camera to express ideas, tell stories, and evoke emotions rather than simply recording a literal copy of reality.</p>
+  <?php if ($publicForumDetail): ?><p><a class="btn light" href="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>">← Back to discussions</a></p><?php endif; ?>
 </div></section>
+<?php if ($publicForumDetail): ?>
+<section class="section public-forum-section" id="forum-thread-detail"><div class="wrap">
+ <?php if($publicForumError!==''): ?><div class="panel public-forum-alert"><?=e($publicForumError)?></div><?php endif; ?>
+ <article class="panel public-forum-detail">
+  <div class="public-forum-detail-author">
+   <?php $detailAvatar=$publicForumAvatarUrl($publicForumDetail['author_avatar']??''); ?>
+   <?php if($detailAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($detailAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback"><?=e(strtoupper(mb_substr((string)$publicForumDetail['full_name'],0,1)))?></span><?php endif; ?>
+   <div><strong><?=e((string)$publicForumDetail['full_name'])?></strong><small><?=e(ucwords(str_replace('_',' ',(string)$publicForumDetail['role'])))?> · <?=e(date('M d, Y · g:i A',strtotime((string)$publicForumDetail['created_at'])))?></small></div>
+  </div>
+  <div class="public-forum-detail-type"><span class="public-forum-content-icon" aria-hidden="true"><?=e((string)($publicForumDetail['prefix_group']??'')==='Video'?'▶':((string)($publicForumDetail['prefix_group']??'')==='Downloads'?'⇩':'▤'))?></span><?=e((string)($publicForumDetail['prefix']?:'No prefix'))?></div>
+  <h2><?=e((string)$publicForumDetail['title'])?></h2>
+  <div class="public-forum-detail-body"><?=$renderBannerRichText((string)$publicForumDetail['description'])?></div>
+  <div class="public-forum-detail-actions">
+   <span><strong><?=number_format($publicForumViewCount)?></strong> views</span>
+   <span><strong><?=number_format($publicForumReplyCount)?></strong> replies</span>
+   <span><strong><?=number_format($publicForumLikeCount)?></strong> likes</span>
+   <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="<?=$publicForumLikedByCurrentUser?'unlike':'like'?>"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><button class="btn light public-forum-like-button" type="submit"><?=$publicForumLikedByCurrentUser?'♥ Liked':'♡ Like'?></button></form><?php else: ?><a class="btn light" href="index.php#sign-in-modal">Sign in to like</a><?php endif; ?>
+  </div>
+ </article>
+ <div class="public-forum-replies">
+  <h3>Replies (<?=number_format($publicForumReplyCount)?>)</h3>
+  <?php if(!$publicForumReplies): ?><p class="muted">No replies yet. Start the conversation.</p><?php endif; ?>
+  <?php foreach($publicForumReplies as $forumReply): $replyAvatar=$publicForumAvatarUrl($forumReply['author_avatar']??''); ?>
+  <article class="public-forum-reply">
+   <?php if($replyAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($replyAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback"><?=e(strtoupper(mb_substr((string)$forumReply['full_name'],0,1)))?></span><?php endif; ?>
+   <div class="public-forum-reply-content"><div class="public-forum-reply-meta"><strong><?=e((string)$forumReply['full_name'])?></strong><time><?=e(date('M d, Y · g:i A',strtotime((string)$forumReply['created_at'])))?></time></div><p><?=nl2br(e((string)$forumReply['body']))?></p></div>
+  </article>
+  <?php endforeach; ?>
+ </div>
+ <div class="panel public-forum-reply-form">
+  <h3>Post a reply</h3>
+  <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="reply"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><label for="public-forum-reply-body">Your reply</label><textarea id="public-forum-reply-body" name="reply_body" rows="5" maxlength="5000" required placeholder="Write your reply…"></textarea><button class="btn primary" type="submit">Post Reply</button></form><?php else: ?><p class="muted">Please <a href="index.php#sign-in-modal">sign in</a> with your contributor account to post a reply or like this discussion.</p><?php endif; ?>
+ </div>
+</div></section>
+<?php else: ?>
 <section class="section public-forum-section" id="community-forum"><div class="wrap">
  <p class="public-forum-count"><?=count($publicForumThreads)?> published <?=count($publicForumThreads)===1?'discussion':'discussions'?></p>
  <?php if (!$publicForumThreads): ?><div class="panel public-forum-empty"><h3>No published discussions yet.</h3><p class="muted">Community discussions posted to this forum panel will appear here once published.</p></div>
  <?php else: ?><div class="public-forum-list">
-  <div class="public-forum-list-head"><span>Topic</span><span>Started by</span><span>Last activity</span></div>
- <?php foreach ($publicForumThreads as $forumThread): $forumTags=json_decode((string)($forumThread['tags_json']??'[]'),true); if(!is_array($forumTags))$forumTags=[]; $createdTimestamp=strtotime((string)$forumThread['created_at']); $updatedTimestamp=strtotime((string)($forumThread['updated_at'] ?: $forumThread['created_at'])); ?>
+  <div class="public-forum-list-head"><span>Topic</span><span>Replies / Views</span><span>Last activity</span></div>
+ <?php foreach ($publicForumThreads as $forumThread):
+   $createdTimestamp=strtotime((string)$forumThread['created_at']);
+   $updatedTimestamp=strtotime((string)($forumThread['updated_at'] ?: $forumThread['created_at']));
+   $authorAvatar=$publicForumAvatarUrl($forumThread['author_avatar']??'');
+   $lastActivityAvatar=$publicForumAvatarUrl(($forumThread['last_reply_avatar']??'')?:($forumThread['author_avatar']??''));
+   $activityTimestamp=strtotime((string)(($forumThread['last_reply_at']??'')?:($forumThread['updated_at']?:$forumThread['created_at'])));
+   $threadHref='index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>(int)$forumThread['id'],'session_context'=>$isCreatorSignedIn?'creator':null],static fn($value)=>$value!==null));
+ ?>
  <article class="public-forum-thread">
   <div class="public-forum-topic">
-   <div class="public-forum-thread-top"><span class="public-forum-prefix"><?=e((string)($forumThread['prefix'] ?: 'No prefix'))?></span><span class="public-forum-date">Started <?=e($createdTimestamp ? date('M d, Y',$createdTimestamp) : '')?></span></div>
-   <h3><?=e((string)$forumThread['title'])?></h3>
-   <div class="public-forum-description"><?=$renderBannerRichText((string)$forumThread['description'])?></div>
-   <?php if($forumTags): ?><div class="public-forum-tags"><?php foreach($forumTags as $forumTag): ?><span><?=e((string)$forumTag)?></span><?php endforeach; ?></div><?php endif; ?>
-   <?php if(!empty($publicForumAttachments[(int)$forumThread['id']])): ?><div class="public-forum-attachments"><?php foreach($publicForumAttachments[(int)$forumThread['id']] as $forumAttachment): $attachmentUrl=$publicForumAttachmentUrl((string)$forumAttachment['file_path']); $attachmentName=(string)$forumAttachment['original_name']; $attachmentType=strtolower((string)$forumAttachment['attachment_type']); $attachmentExt=strtolower(pathinfo($attachmentName,PATHINFO_EXTENSION)); $isForumPhoto=in_array($attachmentType,['photo','image'],true)||in_array($attachmentExt,['jpg','jpeg','png','gif','webp','avif','bmp','tif','tiff'],true); $isForumVideo=in_array($attachmentType,['video'],true)||in_array($attachmentExt,['mp4','webm','mov','mkv','avi','m4v','wmv','flv','mpeg','mpg','3gp','ogv'],true); ?>
-    <?php if($isForumPhoto): ?><a href="<?=e($attachmentUrl)?>" target="_blank" rel="noopener"><img src="<?=e($attachmentUrl)?>" alt="<?=e($attachmentName)?>" loading="lazy"></a>
-    <?php elseif($isForumVideo): ?><video src="<?=e($attachmentUrl)?>" controls preload="metadata"></video>
-    <?php else: ?><a class="public-forum-file" href="<?=e($attachmentUrl)?>" target="_blank" rel="noopener" download><?=e($attachmentName)?></a><?php endif; ?>
-   <?php endforeach; ?></div><?php endif; ?>
+   <div class="public-forum-thread-top">
+    <?php if($authorAvatar!==''): ?><img class="public-forum-avatar public-forum-topic-avatar" src="<?=e($authorAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback public-forum-topic-avatar"><?=e(strtoupper(mb_substr((string)$forumThread['full_name'],0,1)))?></span><?php endif; ?>
+    <span class="public-forum-content-icon" title="<?=e((string)($forumThread['prefix_group']??'General'))?>" aria-label="<?=e((string)($forumThread['prefix_group']??'General'))?>"><?=e((string)($forumThread['prefix_group']??'')==='Video'?'▶':((string)($forumThread['prefix_group']??'')==='Downloads'?'⇩':'▤'))?></span>
+    <span class="public-forum-date">Published <?=e($createdTimestamp ? date('M d, Y',$createdTimestamp) : '')?></span>
+   </div>
+   <h3><a href="<?=e($threadHref)?>"><?=e((string)$forumThread['title'])?></a></h3>
   </div>
-  <div class="public-forum-author"><?=e((string)$forumThread['full_name'])?><small><?=e(ucwords(str_replace('_',' ',(string)$forumThread['role'])))?></small></div>
-  <div class="public-forum-activity"><strong><?=e($updatedTimestamp ? date('M d, Y',$updatedTimestamp) : '—')?></strong><?=($updatedTimestamp && $createdTimestamp && $updatedTimestamp > $createdTimestamp) ? 'Updated' : 'Posted'?></div>
+  <div class="public-forum-stats"><strong><?=number_format((int)$forumThread['reply_count'])?></strong><small>Replies</small><strong><?=number_format((int)$forumThread['view_count'])?></strong><small>Views</small></div>
+  <div class="public-forum-activity">
+   <?php if($lastActivityAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($lastActivityAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback"><?=e(strtoupper(mb_substr((string)$forumThread['full_name'],0,1)))?></span><?php endif; ?>
+   <div><strong><?=e($activityTimestamp ? date('M d, Y',$activityTimestamp) : '—')?></strong><small><?=!empty($forumThread['last_reply_at'])?'Last reply':(($updatedTimestamp && $createdTimestamp && $updatedTimestamp > $createdTimestamp) ? 'Last updated' : 'Published')?></small></div>
+  </div>
  </article>
  <?php endforeach; ?></div><?php endif; ?>
 </div></section>
 <?php endif; ?>
-
+<?php endif; ?>
 <section class="section" id="latest"><div class="wrap">
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
 <?php if (!$showAllStories): ?>
@@ -825,5 +974,53 @@ $(function(){
 .mega-menu-intro-preview{margin:0 auto 26px;text-align:center;max-width:900px}
 .mega-menu-intro-preview .preview-desc{width:100%;max-width:none;margin:0}
 .mega-menu-rich-grid{margin:22px 0 28px}
+</style>
+
+<style>
+.public-forum-list{border:1px solid rgba(255,255,255,.1);border-radius:16px;overflow:hidden;background:rgba(18,15,20,.58)}
+.public-forum-list-head,.public-forum-thread{display:grid;grid-template-columns:minmax(0,1fr) 150px 190px;gap:22px;align-items:center;padding:16px 20px}
+.public-forum-list-head{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c9b9c0;background:rgba(255,255,255,.045)}
+.public-forum-thread{border-top:1px solid rgba(255,255,255,.08);min-height:94px}
+.public-forum-thread:first-of-type{border-top:0}
+.public-forum-thread-top{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.public-forum-avatar{width:34px;height:34px;flex:0 0 34px;object-fit:cover;border-radius:50%;border:1px solid rgba(255,255,255,.2)}
+.public-forum-topic-avatar{width:36px;height:36px;flex-basis:36px}
+.public-forum-avatar-fallback{display:inline-flex;align-items:center;justify-content:center;background:#512735;color:#fff;font-weight:700}
+.public-forum-content-icon{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:8px;background:rgba(188,49,67,.16);color:#f18b98;font-size:15px;font-weight:700}
+.public-forum-date{font-size:11px;color:#bbaeb4}
+.public-forum-topic h3{margin:0;font-size:15px;line-height:1.4}
+.public-forum-topic h3 a{color:#fff;text-decoration:none}
+.public-forum-topic h3 a:hover{color:#ff9ba7;text-decoration:underline}
+.public-forum-stats{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:3px;align-items:baseline}
+.public-forum-stats strong{font-size:14px;font-variant-numeric:tabular-nums}
+.public-forum-stats small{font-size:11px;color:#bbaeb4}
+.public-forum-activity{display:flex;align-items:center;gap:10px;min-width:0}
+.public-forum-activity strong,.public-forum-activity small{display:block}
+.public-forum-activity strong{font-size:12px}
+.public-forum-activity small{font-size:11px;color:#bbaeb4;margin-top:3px}
+.public-forum-detail{padding:24px;max-width:900px;margin:0 auto}
+.public-forum-detail-author{display:flex;align-items:center;gap:12px}
+.public-forum-detail-author strong,.public-forum-detail-author small{display:block}
+.public-forum-detail-author small{font-size:11px;color:#bbaeb4;margin-top:3px}
+.public-forum-detail-type{display:flex;align-items:center;gap:8px;margin-top:22px;color:#cdbdc2;font-size:12px}
+.public-forum-detail h2{font-size:25px;margin:12px 0 18px}
+.public-forum-detail-body{font-size:15px;line-height:1.8;overflow-wrap:anywhere}
+.public-forum-detail-body img{max-width:100%;height:auto;border-radius:10px}
+.public-forum-detail-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.1);padding-top:18px;margin-top:24px;font-size:12px;color:#cdbdc2}
+.public-forum-detail-actions strong{color:#fff}
+.public-forum-detail-actions form{margin:0}
+.public-forum-like-button{padding:8px 14px}
+.public-forum-replies,.public-forum-reply-form{max-width:900px;margin:24px auto 0}
+.public-forum-replies h3,.public-forum-reply-form h3{font-size:17px;margin:0 0 16px}
+.public-forum-reply{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.public-forum-reply-content{flex:1;min-width:0}
+.public-forum-reply-meta{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.public-forum-reply-meta time{color:#bbaeb4;font-size:11px}
+.public-forum-reply-content p{margin:8px 0 0;line-height:1.65;overflow-wrap:anywhere}
+.public-forum-reply-form{padding:22px}
+.public-forum-reply-form label{display:block;margin-bottom:8px;font-size:12px}
+.public-forum-reply-form textarea{display:block;width:100%;min-height:120px;resize:vertical;padding:12px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:rgba(0,0,0,.22);color:#fff;font:inherit;margin-bottom:14px}
+.public-forum-alert{max-width:900px;margin:0 auto 16px;padding:14px;color:#ffb4bd}
+@media(max-width:760px){.public-forum-list-head{display:none}.public-forum-thread{grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:15px}.public-forum-stats{grid-column:1;grid-row:2;display:flex;gap:6px;align-items:center}.public-forum-stats small{margin-right:8px}.public-forum-activity{grid-column:2;grid-row:1/3;flex-direction:column;align-items:flex-end;text-align:right}.public-forum-detail{padding:17px}.public-forum-detail h2{font-size:21px}.public-forum-reply-meta{flex-direction:column;gap:3px}}
 </style>
 </body></html>
