@@ -20,6 +20,21 @@ function sortSlideshowPhotosByUpdatedAt(array $photos): array {
 }
 
 $admin = require_admin();
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS forum_threads (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, category_id BIGINT UNSIGNED NOT NULL, owner_id BIGINT UNSIGNED NOT NULL,
+ prefix_group VARCHAR(40) NOT NULL, prefix VARCHAR(60) NOT NULL, title VARCHAR(240) NOT NULL, description LONGTEXT NOT NULL,
+ tags_json LONGTEXT NULL, status ENUM('published','unpublished') NOT NULL DEFAULT 'unpublished',
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ INDEX idx_forum_threads_category_status(category_id,status), INDEX idx_forum_threads_owner(owner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_attachments (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, thread_id BIGINT UNSIGNED NOT NULL, original_name VARCHAR(255) NOT NULL,
+ file_path VARCHAR(500) NOT NULL, mime_type VARCHAR(160) NULL, file_size BIGINT UNSIGNED NOT NULL DEFAULT 0,
+ attachment_type VARCHAR(30) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ INDEX idx_forum_thread_attachments_thread(thread_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1');
 $nicknameStmt->execute([(int)$admin['id']]);
 $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
@@ -186,6 +201,10 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
             ORDER BY COALESCE(c.updated_at,c.created_at) DESC,c.id DESC");
         $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
         $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,'thread' AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.category_id=? ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
+        $threadStmt->execute([(int)$forumPanelViewCategory['id']]);$forumPanelViewPosts=array_merge($forumPanelViewPosts,$threadStmt->fetchAll(PDO::FETCH_ASSOC));
+        usort($forumPanelViewPosts,static fn($a,$b)=>strcmp((string)($b['updated_at']??$b['created_at']??''),(string)($a['updated_at']??$a['created_at']??'')));
+
     }
 }
 function adminForumDateLabel(?string $value): string {
@@ -310,6 +329,46 @@ function publishHeaderSettingsToGitHub(array $header): string {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'create_forum_thread') {
+      $section='page-management'; $newPaths=[];
+      try {
+        $categoryId=(int)($_POST['forum_category_id']??0); $group=trim((string)($_POST['thread_prefix_group']??'')); $prefix=trim((string)($_POST['thread_prefix']??''));
+        $title=trim((string)($_POST['thread_title']??'')); $body=trim((string)($_POST['thread_description']??'')); $status=(string)($_POST['thread_status']??'unpublished');
+        $prefixes=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];
+        if($categoryId<1||!isset($prefixes[$group])||!in_array($prefix,$prefixes[$group],true))throw new RuntimeException('Choose a valid prefix.');
+        if($title===''||mb_strlen($title)>240)throw new RuntimeException('Enter a thread title (maximum 240 characters).');
+        if($body==='')throw new RuntimeException('Enter a thread description.');
+        if(!in_array($status,['published','unpublished'],true))throw new RuntimeException('Choose Publish or Unpublish.');
+        $q=$pdo->prepare('SELECT id FROM categories WHERE id=? AND parent_id IS NULL LIMIT 1');$q->execute([$categoryId]);if(!$q->fetchColumn())throw new RuntimeException('The Forum category could not be found.');
+        $body=strip_tags($body,'<p><br><strong><b><em><i><u><s><h2><h3><h4><blockquote><ul><ol><li><a><span><div><table><thead><tbody><tr><th><td><pre><code><hr><figure><img><figcaption>');
+        $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\'[^\']*\'|[^\\s>]+)/i','',$body);
+        $body=preg_replace('/(href|src)\\s*=\\s*([\'"])\\s*(javascript:|data:text\\/html)[^\'"]*\\2/i','$1="#"',$body);
+        $tags=[];foreach(explode(',',(string)($_POST['thread_tags']??'')) as $tag){$tag=trim(mb_substr($tag,0,60));if($tag!==''&&!in_array($tag,$tags,true))$tags[]=$tag;}
+        $accepted=[];$counts=['photo'=>0,'video'=>0,'pdf'=>0,'office'=>0,'archive'=>0];
+        $photoExt=['jpg','jpeg','png','avif','webp'];$videoExt=['mp4','webm','mov','mkv','avi','m4v','wmv','flv','mpeg','mpg'];$pdfExt=['pdf'];$officeExt=['doc','docx','xls','xlsx','ppt','pptx'];$archiveExt=['zip','rar','7z'];
+        $files=$_FILES['thread_attachments']??null;
+        if($files&&is_array($files['name']??null))for($i=0;$i<count($files['name']);$i++){
+          $err=(int)$files['error'][$i];if($err===UPLOAD_ERR_NO_FILE)continue;if($err!==UPLOAD_ERR_OK)throw new RuntimeException('An attachment upload failed (PHP error '.$err.'). Check PHP/web-server upload limits.');
+          $name=basename((string)$files['name'][$i]);$tmp=(string)$files['tmp_name'][$i];$size=(int)$files['size'][$i];$ext=strtolower(pathinfo($name,PATHINFO_EXTENSION));if(!$tmp||!is_uploaded_file($tmp))throw new RuntimeException('An attachment upload is invalid.');
+          if(in_array($ext,$photoExt,true))$type='photo';elseif(in_array($ext,$videoExt,true))$type='video';elseif(in_array($ext,$pdfExt,true))$type='pdf';elseif(in_array($ext,$officeExt,true))$type='office';elseif(in_array($ext,$archiveExt,true))$type='archive';else throw new RuntimeException('Unsupported attachment: '.$name);
+          $counts[$type]++;$limits=['photo'=>[20,10*1024*1024],'video'=>[1,5*1024*1024*1024],'pdf'=>[10,40*1024*1024],'office'=>[20,10*1024*1024],'archive'=>[999,100*1024*1024]];
+          if($type==='archive'&&$ext==='zip'&&class_exists('ZipArchive')){$zip=new ZipArchive();if($zip->open($tmp)===true){$containsVideo=false;for($z=0;$z<$zip->numFiles;$z++){$entry=strtolower((string)$zip->getNameIndex($z));$entryExt=strtolower(pathinfo($entry,PATHINFO_EXTENSION));if(in_array($entryExt,$videoExt,true)){$containsVideo=true;break;}}$zip->close();if($containsVideo)$limits['archive'][1]=5*1024*1024*1024;}}
+          if($counts[$type]>$limits[$type][0]||$size>$limits[$type][1])throw new RuntimeException(['photo'=>'Photos: maximum 20 files, 10 MB each.','video'=>'Video: maximum 1 file, 5 GB.','pdf'=>'PDFs: maximum 10 files, 40 MB each.','office'=>'Office files: maximum 20 files, 10 MB each.','archive'=>'Archives containing video are limited to 5 GB; other archives are limited to 100 MB. RAR/7z contents cannot be inspected on this server.'][$type]);
+          if($type==='photo'&&@getimagesize($tmp)===false)throw new RuntimeException('The photo '.$name.' is not a valid image.');
+          if($type==='pdf'&&(new finfo(FILEINFO_MIME_TYPE))->file($tmp)!=='application/pdf')throw new RuntimeException('The PDF '.$name.' is invalid.');
+          $accepted[]=['name'=>$name,'tmp'=>$tmp,'size'=>$size,'type'=>$type,'ext'=>$ext,'mime'=>(new finfo(FILEINFO_MIME_TYPE))->file($tmp)?:'application/octet-stream'];
+        }
+        $pdo->beginTransaction();$ins=$pdo->prepare('INSERT INTO forum_threads(category_id,owner_id,prefix_group,prefix,title,description,tags_json,status) VALUES(?,?,?,?,?,?,?,?)');
+        $ins->execute([$categoryId,(int)$admin['id'],$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status]);$threadId=(int)$pdo->lastInsertId();
+        $dir=__DIR__.'/uploads/forum-threads/'.$threadId;if($accepted&&!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('Unable to create the attachment folder.');
+        $att=$pdo->prepare('INSERT INTO forum_thread_attachments(thread_id,original_name,file_path,mime_type,file_size,attachment_type) VALUES(?,?,?,?,?,?)');
+        foreach($accepted as $file){$stored='file-'.bin2hex(random_bytes(10)).'.'.$file['ext'];$target=$dir.'/'.$stored;if(!move_uploaded_file($file['tmp'],$target))throw new RuntimeException('Unable to save '.$file['name'].'.');$newPaths[]=$target;$att->execute([$threadId,$file['name'],'uploads/forum-threads/'.$threadId.'/'.$stored,$file['mime'],$file['size'],$file['type']]);}
+        $pdo->commit();$_SESSION['forum_thread_success']='The thread "'.$title.'" has been successfully '.($status==='published'?'published':'saved as unpublished').'.';session_write_close();
+        header('Location: admin.php?forum_panel='.rawurlencode((string)($_POST['forum_panel_index']??'')),true,303);exit;
+      }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();foreach($newPaths as $path)if(is_file($path))@unlink($path);$message=$e->getMessage();}
+    }
+
 
 
     if ($action === 'delete_selected_gallery_folders') {
@@ -1212,6 +1271,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
 </style><style>
 .section-subpanel.forum-panel-view{padding:0!important;overflow:hidden}
+
+.forum-thread-modal[hidden]{display:none!important}.forum-thread-modal{position:fixed;inset:0;z-index:10050;background:rgba(5,3,5,.84);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}body.forum-thread-modal-open{overflow:hidden}
+.forum-thread-dialog{width:min(920px,96vw);max-height:92vh;overflow:auto;background:#171015;border:1px solid rgba(216,180,119,.35);border-radius:16px;box-shadow:0 24px 80px #0009;padding:22px;color:#f5e9ed}.forum-thread-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.forum-thread-modal-head h3{margin:0;color:#fff;font-size:22px}.forum-thread-close{border:0;background:none;color:#fff;font-size:30px;cursor:pointer}
+.forum-thread-form-grid select option[data-group="General"]{background:#385a78;color:#fff}.forum-thread-form-grid select option[data-group="Downloads"]{background:#176b59;color:#fff}.forum-thread-form-grid select option[data-group="Movies"]{background:#8a3d4e;color:#fff}.forum-thread-form-grid select option[data-group="Video"]{background:#69518d;color:#fff}.forum-thread-form-grid select option[data-group="Genre"]{background:#8a642c;color:#fff}
+.forum-thread-form-grid{display:grid;grid-template-columns:1fr 2fr;gap:14px}.forum-thread-form-grid label,.forum-thread-field,.forum-thread-status-label{display:flex;flex-direction:column;gap:7px;color:#d8cbd0;font-size:12px;font-weight:600}.forum-thread-form-grid input,.forum-thread-form-grid select,.forum-thread-field>input,.forum-thread-status-label select{box-sizing:border-box;width:100%;min-height:40px;padding:9px 11px;border:1px solid #765665;border-radius:8px;background:#100c10;color:#fff;font:13px Ubuntu,sans-serif}.forum-thread-form-grid select option{background:#20151c;color:#fff}.forum-thread-editor-label{margin:16px 0 7px;color:#d8cbd0;font-size:12px;font-weight:600}.forum-thread-editor-toolbar{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#21171e;border:1px solid #765665;border-bottom:0;border-radius:8px 8px 0 0}.forum-thread-editor-toolbar button{border:1px solid #765665;border-radius:5px;background:#30212a;color:#f5e9ed;padding:6px 9px;font:11px Ubuntu,sans-serif;cursor:pointer}.forum-thread-editor{min-height:190px;max-height:360px;overflow:auto;padding:14px;border:1px solid #765665;border-radius:0 0 8px 8px;background:#100c10;color:#f5e9ed;font-size:13px;line-height:1.6;outline:none}.forum-thread-editor:empty:before{content:attr(data-placeholder);color:#84747c}.forum-thread-editor img{max-width:100%;height:auto}.forum-thread-editor table{border-collapse:collapse;width:100%}.forum-thread-editor td,.forum-thread-editor th{border:1px solid #76616b;padding:7px}.forum-thread-field{margin-top:16px}.forum-thread-field small{font-size:11px;font-weight:400;color:#a99aa1;line-height:1.5}.forum-thread-attachment-list{font-size:11px;color:#d8b477;font-weight:400;overflow-wrap:anywhere}.forum-thread-tag-chips{display:flex;flex-wrap:wrap;gap:6px}.forum-thread-tag{padding:4px 8px;border-radius:99px;background:#4b2437;color:#ffe1ed;font-size:11px}.forum-thread-form-footer{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-top:20px;padding-top:16px;border-top:1px solid #ffffff14}.forum-thread-form-footer>div{display:flex;gap:8px}@media(max-width:650px){.forum-thread-form-grid{grid-template-columns:1fr}.forum-thread-dialog{padding:15px}.forum-thread-form-footer{align-items:stretch;flex-direction:column}}
+
 .forum-inline-content{width:100%;max-width:none;margin:0;padding:20px 24px 24px;box-sizing:border-box}
 .forum-inline-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px;padding:18px 22px}
 .forum-inline-header>div{flex:1 1 360px;min-width:0}
@@ -2691,7 +2756,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        <label>Show <select id="forum-post-page-size" aria-label="Posts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label>
        <label class="forum-inline-filter"><span>Filter</span><input id="forum-post-filter" type="search" placeholder="Search post title, author or status..." aria-label="Filter Forum posts"></label>
       </div>
-      <a class="btn" href="admin.php?section=page-management&amp;tab=contents#pm-panel-contents">+ Create Post</a>
+      <button class="btn" type="button" id="forum-open-thread-modal">Post Thread</button>
      </div>
      <?php if (!$forumPanelViewCategory): ?>
       <div class="forum-inline-empty">This panel is not currently linked to an active category. Edit its panel URL to use the matching category or module slug to display its posts here.</div>
@@ -2716,8 +2781,34 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
      <?php endif; ?>
     </section>
+
+     <div class="forum-thread-modal" id="forum-thread-modal" hidden><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="thread-modal-title">
+      <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title">Post Thread</h3></div><button type="button" class="forum-thread-close" id="forum-close-thread-modal" aria-label="Close">×</button></div>
+      <form method="post" enctype="multipart/form-data" id="forum-thread-form">
+       <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="create_forum_thread"><input type="hidden" name="forum_category_id" value="<?=e((string)($forumPanelViewCategory['id']??''))?>"><input type="hidden" name="forum_panel_index" value="<?=e((string)$forumPanelViewIndex)?>">
+       <div class="forum-thread-form-grid"><label>Select Prefix<select id="thread-prefix" name="thread_prefix" required><option value="">Choose a prefix</option><?php $threadPrefixOptions=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];foreach($threadPrefixOptions as $group=>$opts):?><optgroup label="<?=e($group)?>"><?php foreach($opts as $opt):?><option value="<?=e($opt)?>" data-group="<?=e($group)?>"><?=e($opt)?></option><?php endforeach;?></optgroup><?php endforeach;?></select><input type="hidden" name="thread_prefix_group" id="thread-prefix-group"></label><label>Thread Title<input name="thread_title" maxlength="240" required placeholder="Enter your thread title"></label></div>
+       <div class="forum-thread-editor-label">Description</div><div class="forum-thread-editor-toolbar"><button type="button" data-thread-cmd="bold"><b>B</b></button><button type="button" data-thread-cmd="italic"><i>I</i></button><button type="button" data-thread-cmd="underline"><u>U</u></button><button type="button" data-thread-cmd="insertUnorderedList">• List</button><button type="button" data-thread-cmd="insertOrderedList">1. List</button><button type="button" data-thread-tool="link">Attach Link</button><button type="button" data-thread-tool="photo">Add Photo</button><button type="button" data-thread-tool="table">Add Table</button><button type="button" data-thread-tool="code">Add Code</button><button type="button" data-thread-cmd="insertHorizontalRule">Horizontal Line</button><input type="file" id="thread-editor-photo" accept="image/jpeg,image/png,image/avif,image/webp" hidden></div>
+       <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."></div><textarea name="thread_description" id="thread-description-value" hidden required></textarea>
+       <label class="forum-thread-field">Attach Files<input type="file" name="thread_attachments[]" id="thread-attachments" multiple accept=".jpg,.jpeg,.png,.avif,.webp,.mp4,.webm,.mov,.mkv,.avi,.m4v,.wmv,.flv,.mpeg,.mpg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z"><small>Photos: 20 max, 10 MB each · Video: 1 max, 5 GB · PDFs: 10 max, 40 MB each · Office files: 20 max, 10 MB each · ZIP archives with video: up to 5 GB; other archives: 100 MB. 5 GB uploads also require matching PHP and web-server upload limits.</small><div id="thread-attachment-list" class="forum-thread-attachment-list">No files selected.</div></label>
+       <label class="forum-thread-field">Tags<input type="text" id="thread-tags-entry" placeholder="Type a phrase, then a comma"><input type="hidden" name="thread_tags" id="thread-tags-value"><div id="thread-tag-chips" class="forum-thread-tag-chips"></div><small>A tag is created when you type a comma after the phrase.</small></label>
+       <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select name="thread_status"><option value="unpublished">Unpublish</option><option value="published">Publish</option></select></label><div><button type="button" class="btn light" id="forum-cancel-thread">Cancel</button><button type="submit" class="btn">Submit Thread</button></div></div>
+      </form></div></div>
     <script>
     (() => {
+      const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value'),threadForm=document.getElementById('forum-thread-form');
+      const hideThread=()=>{if(threadModal){threadModal.hidden=true;document.body.classList.remove('forum-thread-modal-open');}};
+      document.getElementById('forum-open-thread-modal')?.addEventListener('click',()=>{threadModal.hidden=false;document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();});
+      document.getElementById('forum-close-thread-modal')?.addEventListener('click',hideThread);document.getElementById('forum-cancel-thread')?.addEventListener('click',hideThread);
+      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal&&!threadModal.hidden)hideThread();});
+      document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;const colors={General:'#385a78',Downloads:'#176b59',Movies:'#8a3d4e',Video:'#69518d',Genre:'#8a642c'};e.target.style.backgroundColor=colors[group]||'#100c10';});
+      document.querySelectorAll('[data-thread-cmd]').forEach(b=>b.addEventListener('click',()=>{threadEditor.focus();document.execCommand(b.dataset.threadCmd,false,null);}));
+      document.querySelector('[data-thread-tool="link"]')?.addEventListener('click',()=>{const url=prompt('Enter link URL (https:// or http://):');if(url&&/^https?:\\/\\//i.test(url)){threadEditor.focus();document.execCommand('createLink',false,url);}});
+      document.querySelector('[data-thread-tool="table"]')?.addEventListener('click',()=>{const r=Math.max(1,Math.min(10,Number(prompt('Rows?','3'))||0)),c=Math.max(1,Math.min(8,Number(prompt('Columns?','3'))||0));if(!r||!c)return;let h='<table><tbody>';for(let y=0;y<r;y++){h+='<tr>';for(let x=0;x<c;x++)h+=y===0?'<th>Heading</th>':'<td>Text</td>';h+='</tr>';}threadEditor.focus();document.execCommand('insertHTML',false,h+'</tbody></table><p><br></p>');});
+      document.querySelector('[data-thread-tool="code"]')?.addEventListener('click',()=>{const code=prompt('Enter code:');if(code!==null){const safe=code.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));threadEditor.focus();document.execCommand('insertHTML',false,'<pre><code>'+safe+'</code></pre>');}});
+      const photoInput=document.getElementById('thread-editor-photo');document.querySelector('[data-thread-tool="photo"]')?.addEventListener('click',()=>photoInput.click());photoInput?.addEventListener('change',()=>{const f=photoInput.files?.[0];if(!f)return;if(f.size>10*1024*1024){alert('Photo must be 10 MB or smaller.');return;}const rd=new FileReader();rd.onload=()=>{threadEditor.focus();document.execCommand('insertHTML',false,'<img src="'+rd.result+'" alt="Thread photo" style="max-width:100%">');};rd.readAsDataURL(f);photoInput.value='';});
+      const tagEntry=document.getElementById('thread-tags-entry'),tagValue=document.getElementById('thread-tags-value'),tagChips=document.getElementById('thread-tag-chips'),tags=[];const renderTags=()=>{tagValue.value=tags.join(',');tagChips.innerHTML='';tags.forEach(t=>{const chip=document.createElement('span');chip.className='forum-thread-tag';chip.textContent=t;tagChips.append(chip);});};tagEntry?.addEventListener('input',()=>{if(tagEntry.value.includes(',')){const bits=tagEntry.value.split(',');bits.slice(0,-1).forEach(v=>{const t=v.trim();if(t&&!tags.includes(t))tags.push(t);});tagEntry.value=bits.at(-1)||'';renderTags();}});
+      document.getElementById('thread-attachments')?.addEventListener('change',e=>{document.getElementById('thread-attachment-list').textContent=[...e.target.files].map(f=>f.name+' ('+(f.size/1048576).toFixed(1)+' MB)').join(' · ')||'No files selected.';});
+      threadForm?.addEventListener('submit',e=>{threadDescription.value=threadEditor.innerHTML.trim();if(!threadDescription.value||threadDescription.value==='<br>'){e.preventDefault();alert('Enter a thread description.');}});
       const table=document.getElementById('forum-post-table');
       if(!table)return;
       const rows=[...table.querySelectorAll('[data-forum-post-row]')];
