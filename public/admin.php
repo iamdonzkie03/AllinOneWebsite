@@ -2786,15 +2786,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      <?php if ((string)($_GET['post_thread'] ?? '') === '1' && $forumPanelViewIndex !== null): ?>
      <div class="forum-thread-modal" id="forum-thread-modal"><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="thread-modal-title">
       <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title">Post Thread</h3></div></div>
-      <form method="post" enctype="multipart/form-data" id="forum-thread-form">
+      <div id="forum-thread-form-shell" data-thread-form-shell>
        <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="create_forum_thread"><input type="hidden" name="forum_category_id" value="<?=e((string)($forumPanelViewCategory['id']??''))?>"><input type="hidden" name="forum_panel_index" value="<?=e((string)$forumPanelViewIndex)?>">
        <div class="forum-thread-form-grid"><label>Select Prefix<select id="thread-prefix" name="thread_prefix"><option value="">Choose a prefix</option><?php $threadPrefixOptions=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];$threadPrefixColors=['General'=>'#385a78','Downloads'=>'#176b59','Movies'=>'#8a3d4e','Video'=>'#69518d','Genre'=>'#8a642c'];foreach($threadPrefixOptions as $group=>$opts):?><option value="" disabled data-prefix-heading="<?=e($group)?>"><?=e($group)?></option><?php foreach($opts as $opt):?><option value="<?=e($opt)?>" data-group="<?=e($group)?>"><?=e($opt)?></option><?php endforeach;?><?php endforeach;?></select><input type="hidden" name="thread_prefix_group" id="thread-prefix-group"></label><label>Thread Title<input name="thread_title" maxlength="240" required placeholder="Enter your thread title"></label></div>
        <div class="forum-thread-editor-label">Description</div><div class="forum-thread-editor-toolbar"><button type="button" data-thread-cmd="bold"><b>B</b></button><button type="button" data-thread-cmd="italic"><i>I</i></button><button type="button" data-thread-cmd="underline"><u>U</u></button><button type="button" data-thread-cmd="insertUnorderedList">• List</button><button type="button" data-thread-cmd="insertOrderedList">1. List</button><button type="button" data-thread-tool="link">Attach Link</button><button type="button" data-thread-tool="photo">Add Photo</button><button type="button" data-thread-tool="table">Add Table</button><button type="button" data-thread-tool="code">Add Code</button><button type="button" data-thread-cmd="insertHorizontalRule">Horizontal Line</button><input type="file" id="thread-editor-photo" accept="image/jpeg,image/png,image/avif,image/webp" hidden></div>
-       <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."></div><textarea name="thread_description" id="thread-description-value" hidden required></textarea>
+       <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."></div><textarea name="thread_description" id="thread-description-value" hidden></textarea>
        <label class="forum-thread-field">Attach Files<input type="file" name="thread_attachments[]" id="thread-attachments" multiple accept=".jpg,.jpeg,.png,.avif,.webp,.mp4,.webm,.mov,.mkv,.avi,.m4v,.wmv,.flv,.mpeg,.mpg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z"><small>Photos: 20 max, 10 MB each · Video: 1 max, 5 GB · PDFs: 10 max, 40 MB each · Office files: 20 max, 10 MB each · ZIP archives with video: up to 5 GB; other archives: 100 MB. 5 GB uploads also require matching PHP and web-server upload limits.</small><div id="thread-attachment-list" class="forum-thread-attachment-list">No files selected.</div></label>
        <label class="forum-thread-field forum-thread-tags-field"><span>Tags:</span><div class="forum-thread-tags-input"><div id="thread-tag-chips" class="forum-thread-tag-chips"></div><input type="text" id="thread-tags-entry" aria-label="Add a tag" placeholder="Type a word or phrase, then a comma"><input type="hidden" name="thread_tags" id="thread-tags-value"></div><small>A tag is created when you type a comma after a word or the phrase.</small></label>
        <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select name="thread_status"><option value="unpublished">Unpublish</option><option value="published">Publish</option></select></label><div><a class="btn light" id="forum-cancel-thread" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">Cancel</a><button type="submit" class="btn">Post</button></div></div>
-      </form></div></div>
+      </div></div></div>
      <?php endif; ?>
      <?php if (isset($_SESSION['forum_thread_success']) && is_array($_SESSION['forum_thread_success'])): $threadPostNotice=$_SESSION['forum_thread_success']; unset($_SESSION['forum_thread_success']); ?>
      <div class="forum-post-result-overlay" id="forum-post-result-overlay" role="presentation">
@@ -2818,10 +2818,20 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const closeResult=()=>{resultOverlay.remove();document.body.classList.remove('forum-thread-modal-open');};
         document.getElementById('forum-post-result-close')?.addEventListener('click',closeResult);
       }
-      const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value'),threadForm=document.getElementById('forum-thread-form');
-      // The Add Article workflow opens its modal through a server-rendered GET state.
-      // Use the same approach here, then move the visible overlay to <body> to avoid clipping.
-      if(threadModal){if(threadModal.parentElement!==document.body)document.body.appendChild(threadModal);document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();}
+      const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value');
+      // Detach the composer from the Sections Settings form before creating its own
+      // real form. Nested forms are invalid HTML and browsers silently ignore the
+      // inner <form>, leaving the Post button with no form to submit.
+      if(threadModal&&threadModal.parentElement!==document.body)document.body.appendChild(threadModal);
+      const threadFormShell=document.getElementById('forum-thread-form-shell');
+      let threadForm=null;
+      if(threadFormShell){
+        threadForm=document.createElement('form');
+        threadForm.method='post';threadForm.enctype='multipart/form-data';threadForm.id='forum-thread-form';
+        while(threadFormShell.firstChild)threadForm.appendChild(threadFormShell.firstChild);
+        threadFormShell.replaceWith(threadForm);
+      }
+      if(threadModal){document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();}
       const threadCloseUrl='admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>';
       document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal)window.location.href=threadCloseUrl;});
       document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;e.target.style.backgroundColor='#100c10';});
