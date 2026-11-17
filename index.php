@@ -50,7 +50,7 @@ $defaultSections = [
  ['title'=>'THE CITY BY THE SEA','heading'=>'Life along the waterfront','description'=>'<p>The sea connects Zamboanga communities and neighboring islands.</p>','photo'=>'https://commons.wikimedia.org/wiki/Special:FilePath/Fort_Pilar_Paseo_Del_Mar_bay_view_sunrise_(NS_Valderosa,_Zamboanga_City;_10-11-2023).jpg?width=1800'],
  ['title'=>'MARITIME TRADITION','heading'=>'The colors of the vinta','description'=>'<p>The vinta is an enduring symbol of regional maritime traditions.</p>','photo'=>'https://commons.wikimedia.org/wiki/Special:FilePath/Vinta_at_Zamboanga_City_Tourism_Office,_Mar_2026.jpg?width=1600'],
  ['title'=>'ARTISANSHIP · LIVING CULTURE','heading'=>'Patterns that carry stories','description'=>'<p>Traditional weaving reflects generations of skill and cultural knowledge.</p>','photo'=>'https://commons.wikimedia.org/wiki/Special:FilePath/Yakan_Weavers.jpg?width=1800']]],
- 'mega_menu'=>['main_title'=>'EXPLORE THE PLATFORM','heading'=>'Five ways to connect','subtitle'=>'A single community space for creativity, information, commerce and cultural memory.','panels'=>[]]
+ 'mega_menu'=>['main_title'=>'EXPLORE THE PLATFORM','heading'=>'Five ways to connect','description'=>'A single community space for creativity, information, commerce and cultural memory.','panels'=>[]]
 ];
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_sections_settings (id TINYINT UNSIGNED NOT NULL PRIMARY KEY,content_json LONGTEXT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $sectionInsert=$pdo->prepare("INSERT IGNORE INTO site_sections_settings (id,content_json) VALUES (1,?)");
@@ -369,8 +369,14 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <button class="slide-arrow slide-prev" type="button" aria-label="Previous slide">‹</button><button class="slide-arrow slide-next" type="button" aria-label="Next slide">›</button><div class="slide-dots" role="group" aria-label="Choose a slide"><?php foreach($slidePhotos as $k=>$ph): if(empty($ph['photo'])) continue; ?><button class="slide-dot<?=$k===0?' is-active':''?>" type="button" aria-label="Slide <?=$k+1?>" aria-pressed="<?=$k===0?'true':'false'?>"></button><?php endforeach; ?></div>
 </div></div></section>
 
-<?php $megaSection=$publicSections['mega_menu']??[]; $megaPanels=(array)($megaSection['panels']??[]); ?>
-<section class="section mega-menu-section" id="modules"><div class="wrap"><div class="category-row module-grid"><?php if($megaPanels): foreach($megaPanels as $pn): ?><?php
+<?php $megaSection=$publicSections['mega_menu']??[]; $megaPanels=(array)($megaSection['panels']??[]); $megaDescription=(string)($megaSection['description']??$megaSection['subtitle']??''); ?>
+<section class="section mega-menu-section" id="modules"><div class="wrap">
+ <div class="mega-menu-intro">
+  <?php if(trim(strip_tags((string)($megaSection['main_title']??'')))!==''): ?><p class="eyebrow"><?=$renderBannerRichText((string)$megaSection['main_title'])?></p><?php endif; ?>
+  <?php if(trim(strip_tags((string)($megaSection['heading']??'')))!==''): ?><h2><?=$renderBannerRichText((string)$megaSection['heading'])?></h2><?php endif; ?>
+  <?php if(trim(strip_tags($megaDescription))!==''): ?><div class="mega-menu-description"><?=$renderBannerRichText($megaDescription)?></div><?php endif; ?>
+ </div>
+ <div class="category-row module-grid"><?php if($megaPanels): foreach($megaPanels as $pn): ?><?php
 $panelHref = (string)($pn['url'] ?? '#');
 if (!empty($pn['category_id'])) {
     foreach ($categories as $publicCategory) {
@@ -726,4 +732,14 @@ $(function(){
  document.addEventListener('keydown',function(event){if(event.key==='Escape'){closeMenu();trigger.focus();}});
 })();
 </script>
+<style id="mega-menu-intro-styles">
+.mega-menu-intro{max-width:900px;margin:0 auto 30px;text-align:center}
+.mega-menu-intro .eyebrow{margin-bottom:10px}
+.mega-menu-intro h2{margin:0 auto 12px}
+.mega-menu-intro .mega-menu-description{max-width:780px;margin:0 auto;color:var(--muted,#cbbfc4);line-height:1.75}
+.mega-menu-intro .mega-menu-description p{margin:0 0 8px}
+.mega-menu-intro-preview{margin:0 auto 26px;text-align:center;max-width:900px}
+.mega-menu-intro-preview .preview-desc{max-width:780px;margin:0 auto}
+.mega-menu-rich-grid{margin:22px 0 28px}
+</style>
 </body></html>

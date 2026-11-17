@@ -750,7 +750,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (count((array)($_POST['panel_title'] ?? [])) > 10) throw new RuntimeException('A maximum of ten (10) panel menus can be created.');
                 if (array_key_exists('mega_main_title', $_POST)) $saved['mega_menu']['main_title']=$cleanHtml((string)$_POST['mega_main_title']);
                 if (array_key_exists('mega_heading', $_POST)) $saved['mega_menu']['heading']=$cleanHtml((string)$_POST['mega_heading']);
-                if (array_key_exists('mega_subtitle', $_POST)) $saved['mega_menu']['subtitle']=$cleanHtml((string)$_POST['mega_subtitle']);
+                if (array_key_exists('mega_description', $_POST)) $saved['mega_menu']['description']=$cleanHtml((string)$_POST['mega_description']);
                 $panels=[];
                 $oldPanels=(array)($sectionsSettings['mega_menu']['panels']??[]);
                 foreach((array)($_POST['panel_title']??[]) as $k=>$title){
@@ -2608,7 +2608,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 ?>
 <section class="section section-preview mega-menu-preview mega-menu-section">
- <div class="wrap"><div class="category-row module-grid" id="mega-menu-live-preview">
+ <div class="wrap">
+ <div class="mega-menu-intro-preview">
+  <div class="preview-kicker" id="mega-preview-title"><?= (string)($sectionsSettings['mega_menu']['main_title'] ?? '') ?></div>
+  <h3 id="mega-preview-heading"><?= (string)($sectionsSettings['mega_menu']['heading'] ?? '') ?></h3>
+  <div class="preview-desc" id="mega-preview-description"><?= (string)($sectionsSettings['mega_menu']['description'] ?? $sectionsSettings['mega_menu']['subtitle'] ?? '') ?></div>
+ </div>
+ <div class="category-row module-grid" id="mega-menu-live-preview">
  <?php if (!$megaPreviewPanels): ?>
   <p class="mega-menu-empty-state">No panel menu created. Click the Add Panel button below to add.</p>
  <?php endif; ?>
@@ -2622,6 +2628,31 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  <?php endforeach; ?>
  </div></div>
 </section>
+  <div class="section-form-grid slideshow-rich-grid mega-menu-rich-grid">
+   <?php foreach(['mega_main_title'=>'Main Title','mega_heading'=>'Heading','mega_description'=>'Description'] as $editorKey=>$editorLabel): $storageKey=$editorKey==='mega_main_title'?'main_title':($editorKey==='mega_heading'?'heading':'description'); $editorValue=(string)($sectionsSettings['mega_menu'][$storageKey]??($storageKey==='description'?($sectionsSettings['mega_menu']['subtitle']??''):'')); ?>
+   <div class="section-field banner-editor-field slideshow-rich-field"><span class="section-field-label"><?=e($editorLabel)?></span>
+    <div class="banner-rich-toolbar content-manager-rich-toolbar" role="toolbar" aria-label="<?=e($editorLabel)?> formatting">
+     <select data-banner-font-family aria-label="Font family"><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+     <select data-banner-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+     <select data-banner-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="bold" title="Bold"><strong>B</strong></button>
+     <button type="button" data-banner-command="italic" title="Italic"><em>I</em></button>
+     <button type="button" data-banner-command="underline" title="Underline"><u>U</u></button>
+     <button type="button" data-banner-action="quotation" title="Quotation marks">“ ”</button>
+     <span class="content-manager-rich-divider"></span>
+     <button type="button" data-banner-command="justifyLeft" title="Align left">≡</button>
+     <button type="button" data-banner-command="justifyCenter" title="Align center">☰</button>
+     <button type="button" data-banner-command="justifyRight" title="Align right">≡</button>
+     <label title="Font color" style="display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px">Color <input type="color" data-banner-color value="#f4e9ed" aria-label="Font color"></label>
+     <button type="button" data-banner-command="undo" title="Undo">↶</button>
+     <button type="button" data-banner-command="redo" title="Redo">↷</button>
+    </div>
+    <div class="banner-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-banner-text="<?=e($editorKey)?>" data-placeholder="Enter <?=e(strtolower($editorLabel))?>..."><?=$editorValue?></div>
+    <input type="hidden" name="<?=e($editorKey)?>" data-banner-html="<?=e($editorKey)?>" value="<?=e($editorValue)?>">
+   </div>
+   <?php endforeach; ?>
+  </div>
   <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards. Maximum of ten (10) panels can be created.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
   <div class="slideshow-photo-list-toolbar gallery-photo-bulk-form mega-panel-bulk-toolbar"><label class="muted"><input type="checkbox" id="mega-panel-select-all"> Select all panels</label><button type="button" class="btn bulk-delete" id="mega-panel-delete-selected" disabled aria-disabled="true">Delete Selected</button></div>
   <div class="slideshow-photo-list mega-panel-record-list" id="mega-panel-list">
@@ -2948,7 +2979,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    }
    window.addEventListener('resize', () => scheduleSectionIndicator(false));
    root.querySelectorAll('[data-preview]').forEach(i=>i.addEventListener('input',()=>{const el=document.getElementById(i.dataset.preview);if(el)el.textContent=i.value}));
- const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description',slide_main_title:'slide-preview-title',slide_heading:'slide-preview-heading',slide_subtitle:'slide-preview-subtitle',mega_main_title:'mega-preview-title',mega_heading:'mega-preview-heading',mega_subtitle:'mega-preview-subtitle'};
+ const bannerPreviewIds={banner_main_title:'banner-preview-title',banner_heading:'banner-preview-heading',banner_description:'banner-preview-description',slide_main_title:'slide-preview-title',slide_heading:'slide-preview-heading',slide_subtitle:'slide-preview-subtitle',mega_main_title:'mega-preview-title',mega_heading:'mega-preview-heading',mega_description:'mega-preview-description'};
  const cleanBannerPreviewHtml=html=>{
    const parsed=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
    const rootNode=parsed.body.firstElementChild;
