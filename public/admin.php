@@ -2656,7 +2656,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
   <div class="section-repeat-head"><div><h3>Panel View Menu</h3><p class="muted">Created panels appear here as visual cards. Maximum of ten (10) panels can be created.</p></div><button type="button" class="btn light" id="add-mega-panel">+ Add Panel</button></div>
   <div class="slideshow-photo-list-toolbar gallery-photo-bulk-form mega-panel-bulk-toolbar"><label class="muted"><input type="checkbox" id="mega-panel-select-all"> Select all panels</label><button type="button" class="btn bulk-delete" id="mega-panel-delete-selected" disabled aria-disabled="true">Delete Selected</button></div>
   <div class="slideshow-photo-list mega-panel-record-list" id="mega-panel-list">
-   <?php foreach((array)($sectionsSettings['mega_menu']['panels']??[]) as $pn): ?>
+   <?php foreach((array)($sectionsSettings['mega_menu']['panels']??[]) as $panelIndex=>$pn): ?>
     <?php $panelRecordSymbol=preg_replace('/^tabler:/','',(string)($pn['symbol']??'laptop'))?:'laptop'; $panelRecordHash=0; foreach(str_split($panelRecordSymbol) as $panelRecordChar){$panelRecordHash=(($panelRecordHash*31)+ord($panelRecordChar)) & 0xFFFFFFFF;} $panelRecordHue=$panelRecordHash%360; ?>
     <article class="gallery-photo-card slideshow-saved-photo mega-panel-record">
      <div class="gallery-photo-image mega-panel-record-art">
@@ -2665,7 +2665,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
      </div>
      <div class="gallery-photo-title" title="<?=e($pn['title']??'Untitled panel')?>"><?=e($pn['title']??'Untitled panel')?></div>
      <label class="gallery-photo-select"><input type="checkbox" class="mega-panel-checkbox" aria-label="Select panel <?=e($pn['title']??'Panel menu')?>"> Select</label>
-     <button type="button" class="btn light gallery-photo-edit mega-panel-edit">Edit</button>
+     <div class="mega-panel-record-actions"><a class="btn light mega-panel-view-content" href="admin-forum-content.php?session_context=admin&amp;panel=<?= (int)$panelIndex ?>">View Content</a><button type="button" class="btn light gallery-photo-edit mega-panel-edit">Edit</button></div>
      <input type="hidden" name="panel_symbol[]" value="<?=e($pn['symbol']??'tabler:laptop')?>">
      <input type="hidden" name="panel_title[]" value="<?=e($pn['title']??'')?>">
      <input type="hidden" name="panel_description[]" value="<?=e($pn['description']??'')?>">
@@ -2679,6 +2679,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  </section>
  </form>
 <style id="mega-panel-description-styles">
+.mega-panel-record-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.mega-panel-record-actions .btn{flex:1 1 auto;min-width:0;text-align:center;padding:8px 10px;font-size:11px}
 .mega-menu-preview .mega-preview-panel{cursor:default}
 .mega-menu-preview .mega-preview-panel .mega-panel-description{display:block;margin:8px 0 12px;max-width:100%;color:rgba(255,255,255,.76);font-size:9px;line-height:1.55;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}
 .mega-menu-preview .mega-preview-panel{position:relative;isolation:isolate;overflow:hidden}
@@ -4403,8 +4404,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    const desc=document.createElement('div');desc.className='gallery-photo-description';desc.textContent=descriptionText||'No description added.';art.append(desc);
    const titleNode=document.createElement('div');titleNode.className='gallery-photo-title';titleNode.title=title;titleNode.textContent=title;
    const selectLabel=document.createElement('label');selectLabel.className='gallery-photo-select';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='mega-panel-checkbox';checkbox.setAttribute('aria-label','Select panel '+title);selectLabel.append(checkbox,document.createTextNode(' Select'));
+   const actions=document.createElement('div');actions.className='mega-panel-record-actions';
+   const viewContent=document.createElement('a');viewContent.className='btn light mega-panel-view-content';viewContent.textContent='View Content';viewContent.href='admin-forum-content.php?session_context=admin&panel='+String(megaPanelList.querySelectorAll('.mega-panel-record').length);
    const edit=document.createElement('button');edit.type='button';edit.className='btn light gallery-photo-edit mega-panel-edit';edit.textContent='Edit';
-   card.append(art,titleNode,selectLabel,edit,makeHidden('panel_symbol[]',symbol),makeHidden('panel_title[]',title),makeHidden('panel_description[]',descriptionText),makeHidden('panel_url[]',url),makeHidden('panel_existing_photo[]',''));
+   actions.append(viewContent,edit);
+   card.append(art,titleNode,selectLabel,actions,makeHidden('panel_symbol[]',symbol),makeHidden('panel_title[]',title),makeHidden('panel_description[]',descriptionText),makeHidden('panel_url[]',url),makeHidden('panel_existing_photo[]',''));
    megaPanelList.append(card);
   }
   syncMegaPanelSelection();
