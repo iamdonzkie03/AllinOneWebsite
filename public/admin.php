@@ -204,7 +204,7 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
     $forumPanelViewCategory = $forumCategoryStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     {
         if($forumPanelViewCategory){
-            $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name
+            $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name,NULL AS tags_json,'content' AS record_type
                 FROM content c
                 INNER JOIN users u ON u.id=c.owner_id
                 LEFT JOIN categories sub ON sub.id=c.subcategory_id
@@ -213,12 +213,26 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
             $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
             $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,'thread' AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.panel_id=?".($forumPanelViewCategory?' OR (t.panel_id IS NULL AND t.category_id=?)':'')." ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
+        $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,t.prefix AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,t.tags_json,'thread' AS record_type,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.panel_id=?".($forumPanelViewCategory?' OR (t.panel_id IS NULL AND t.category_id=?)':'')." ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
         $threadParams=[(string)($forumPanelViewPanel['panel_id']??'')];if($forumPanelViewCategory)$threadParams[]=(int)$forumPanelViewCategory['id'];
         $threadStmt->execute($threadParams);$forumPanelViewPosts=array_merge($forumPanelViewPosts,$threadStmt->fetchAll(PDO::FETCH_ASSOC));
         usort($forumPanelViewPosts,static fn($a,$b)=>strcmp((string)($b['updated_at']??$b['created_at']??''),(string)($a['updated_at']??$a['created_at']??'')));
 
     }
+}
+$forumEditThreadId = filter_input(INPUT_GET, 'edit_thread', FILTER_VALIDATE_INT) ?: 0;
+$forumViewThreadId = filter_input(INPUT_GET, 'view_thread', FILTER_VALIDATE_INT) ?: 0;
+$forumSelectedThread = null;
+if ($forumPanelViewIndex !== null && ($forumEditThreadId > 0 || $forumViewThreadId > 0)) {
+    $selectedId = $forumEditThreadId > 0 ? $forumEditThreadId : $forumViewThreadId;
+    $selectedStmt = $pdo->prepare('SELECT t.*,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.id=? AND t.panel_id=? LIMIT 1');
+    $selectedStmt->execute([$selectedId,(string)($forumPanelViewPanel['panel_id']??'')]);
+    $forumSelectedThread = $selectedStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if (!$forumSelectedThread) { $forumEditThreadId=0; $forumViewThreadId=0; }
+}
+function adminForumTagList(?string $json): array {
+    $tags = json_decode((string)$json, true);
+    return is_array($tags) ? array_values(array_filter(array_map(static fn($tag) => trim((string)$tag), $tags))) : [];
 }
 function adminForumPlainText(string $value): string {
     // Forum descriptions are saved from a rich-text editor. Convert both real
@@ -351,6 +365,32 @@ function publishHeaderSettingsToGitHub(array $header): string {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'update_forum_thread' || $action === 'update_forum_thread_status') {
+      $section='page-management';
+      try {
+        $threadId=max(0,(int)($_POST['thread_id']??0));$panelId=trim((string)($_POST['forum_panel_id']??''));$panelIndex=max(0,(int)($_POST['forum_panel_index']??0));
+        $check=$pdo->prepare('SELECT id FROM forum_threads WHERE id=? AND panel_id=? LIMIT 1');$check->execute([$threadId,$panelId]);if(!$check->fetchColumn())throw new RuntimeException('The selected Forum thread could not be found.');
+        if($action==='update_forum_thread_status'){
+          $status=(string)($_POST['thread_status']??'unpublished');if(!in_array($status,['published','unpublished'],true))throw new RuntimeException('Invalid publication status.');
+          $save=$pdo->prepare('UPDATE forum_threads SET status=? WHERE id=? AND panel_id=?');$save->execute([$status,$threadId,$panelId]);
+          $_SESSION['forum_thread_success']=['status'=>$status,'message'=>'Thread status updated successfully.'];
+        }else{
+          $title=trim((string)($_POST['thread_title']??''));$body=trim((string)($_POST['thread_description']??''));$group=trim((string)($_POST['thread_prefix_group']??''));$prefix=trim((string)($_POST['thread_prefix']??''));$status=(string)($_POST['thread_status']??'unpublished');
+          if($title===''||mb_strlen($title)>240||$body==='')throw new RuntimeException('Enter a thread title and description.');
+          $prefixes=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];
+          if(!isset($prefixes[$group])||!in_array($prefix,$prefixes[$group],true)||!in_array($status,['published','unpublished'],true))throw new RuntimeException('Choose a valid content type and publication status.');
+          $body=strip_tags($body,'<p><br><strong><b><em><i><u><s><h2><h3><h4><blockquote><ul><ol><li><a><span><div><table><thead><tbody><tr><th><td><pre><code><hr><figure><img><figcaption>');
+          $body=preg_replace('/(href|src)\\s*=\\s*([\'"])\\s*(javascript:|data:text\\/html)[^\'"]*\\2/i','$1="#"',$body);
+          $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\\'[^\\']*\\'|[^\\s>]+)/i','',$body);
+          $tags=[];foreach(explode(',',(string)($_POST['thread_tags']??'')) as $tag){$tag=trim(mb_substr($tag,0,60));if($tag!==''&&!in_array($tag,$tags,true))$tags[]=$tag;}
+          $save=$pdo->prepare('UPDATE forum_threads SET prefix_group=?,prefix=?,title=?,description=?,tags_json=?,status=? WHERE id=? AND panel_id=?');
+          $save->execute([$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status,$threadId,$panelId]);
+          $_SESSION['forum_thread_success']=['status'=>$status,'message'=>'Thread updated successfully.'];
+        }
+        header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.rawurlencode((string)$panelIndex),true,303);exit;
+      }catch(Throwable $e){$message=$e->getMessage();}
+    }
 
     if ($action === 'create_forum_thread') {
       $section='page-management'; $newPaths=[];
@@ -1319,7 +1359,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-muted{display:block;color:#a99aa1;font-size:11px}
 .forum-inline-status{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap}
 .forum-inline-status.published{color:#9ce0b2;background:rgba(46,160,90,.14);border:1px solid rgba(91,202,130,.25)}
-.forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
+.forum-status-toggle{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:#e9dfe3;font:600 11px Ubuntu,sans-serif;cursor:pointer;padding:3px}.forum-status-toggle input{position:absolute;opacity:0;width:1px;height:1px}.forum-status-track{width:52px;height:26px;padding:3px;box-sizing:border-box;border-radius:999px;background:#a8323b;border:1px solid #d35a62;transition:background .25s,border-color .25s;display:inline-flex;align-items:center}.forum-status-thumb{width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0008;transition:transform .25s}.forum-status-toggle input:checked+.forum-status-track{background:#16834b;border-color:#35bd78}.forum-status-toggle input:checked+.forum-status-track .forum-status-thumb{transform:translateX(24px)}.forum-status-toggle input:focus-visible+.forum-status-track{outline:2px solid #fff;outline-offset:2px}.forum-inline-actions{display:flex;gap:6px;white-space:nowrap}.forum-inline-actions .btn{padding:6px 10px;font-size:11px}.forum-inline-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.forum-inline-tag{display:inline-flex;padding:2px 7px;border:1px solid #765665;border-radius:999px;color:#d8cbd0;font-size:10px}.forum-thread-view-body{margin-top:16px;padding:14px;border:1px solid #765665;border-radius:8px;background:#100c10;color:#f5e9ed;white-space:pre-wrap;line-height:1.6}.forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
 .forum-inline-empty{padding:32px 20px;text-align:center;color:#bdaeb4;font-size:13px}
 .forum-inline-toolbar,.forum-inline-controls,.forum-inline-pagination,.forum-inline-page-buttons{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .forum-inline-toolbar{justify-content:space-between;margin:0 0 16px}
@@ -2785,16 +2825,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a>
      </div>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
-       <thead><tr><th>Post Title</th><th>Author</th><th>Content Type</th><th>Publication</th><th>Workflow Status</th><th>Last Updated</th></tr></thead>
+       <thead><tr><th>Thread Title</th><th>Author</th><th>Content Type</th><th>Status</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead>
        <tbody>
-        <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; $forumPostDescription=adminForumPlainText((string)($forumPost['excerpt']??'')); $forumDescriptionPreview=mb_strlen($forumPostDescription)>180?mb_substr($forumPostDescription,0,177).'…':$forumPostDescription; $forumSearchText=mb_strtolower(implode(' ',[(string)$forumPost['title'],$forumPostDescription,(string)$forumPost['full_name'],(string)$forumPost['role'],(string)$forumPost['content_type'],(string)$forumPost['status'],(string)($forumPost['subcategory_name']??'')])); ?>
+        <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; $forumPostDescription=adminForumPlainText((string)($forumPost['excerpt']??'')); $forumDescriptionPreview=mb_strlen($forumPostDescription)>180?mb_substr($forumPostDescription,0,177).'…':$forumPostDescription; $forumTags=adminForumTagList($forumPost['tags_json']??null); $forumIsThread=($forumPost['record_type']??'')==='thread'; $forumSearchText=mb_strtolower(implode(' ',[(string)$forumPost['title'],$forumPostDescription,implode(' ',$forumTags),(string)$forumPost['full_name'],(string)$forumPost['role'],(string)$forumPost['content_type'],(string)$forumPost['status'],(string)($forumPost['subcategory_name']??'')])); ?>
         <tr data-forum-post-row data-forum-search="<?=e($forumSearchText)?>">
-          <td><strong><?=e((string)$forumPost['title'])?></strong><?php if($forumPostDescription!==''): ?><span class="forum-inline-muted"><?=e($forumDescriptionPreview)?></span><?php endif; ?><?php if(!empty($forumPost['subcategory_name'])): ?><div class="forum-inline-muted">↳ <?=e((string)$forumPost['subcategory_name'])?></div><?php endif; ?></td>
+          <td><strong><?=e((string)$forumPost['title'])?></strong><?php if($forumPostDescription!==''): ?><span class="forum-inline-muted"><?=e($forumDescriptionPreview)?></span><?php endif; ?><?php if($forumTags): ?><div class="forum-inline-tags"><?php foreach($forumTags as $tag): ?><span class="forum-inline-tag">#<?=e($tag)?></span><?php endforeach; ?></div><?php endif; ?></td>
          <td><?=e((string)$forumPost['full_name'])?><div class="forum-inline-muted"><?=e(ucwords(str_replace('_',' ',(string)$forumPost['role'])))?></div></td>
          <td><?=e(ucfirst((string)$forumPost['content_type']))?></td>
-         <td><span class="forum-inline-status <?=$forumIsPublished?'published':'unpublished'?>"><?=$forumIsPublished?'Published':'Unpublished'?></span></td>
-         <td><?=e(ucwords(str_replace('_',' ',(string)$forumPost['status'])))?></td>
-         <td><?=e(adminForumDateLabel((string)($forumPost['updated_at']??$forumPost['created_at']??'')))?></td>
+         <td><?php if($forumIsThread): ?><form method="post" class="forum-status-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="update_forum_thread_status"><input type="hidden" name="thread_id" value="<?=(int)$forumPost['id']?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="thread_status" value="<?=$forumIsPublished?'unpublished':'published'?>"><label class="forum-status-toggle"><input type="checkbox" <?=$forumIsPublished?'checked':''?> aria-label="Toggle publication status" onchange="this.form.querySelector('[name=thread_status]').value=this.checked?'published':'unpublished';this.form.requestSubmit()"><span class="forum-status-track"><span class="forum-status-thumb"></span></span><span><?=$forumIsPublished?'Published':'Unpublished'?></span></label></form><?php else: ?><span class="forum-inline-status <?=$forumIsPublished?'published':'unpublished'?>"><?=$forumIsPublished?'Published':'Unpublished'?></span><?php endif; ?></td>
+         <td><?=e(adminForumDateLabel((string)($forumPost['created_at']??'')))?></td>
+         <td><?=e(adminForumDateLabel((string)($forumPost['updated_at']??'')))?></td>
+         <td><div class="forum-inline-actions"><?php if($forumIsThread): ?><a class="btn light" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=(int)$forumPanelViewIndex?>&amp;edit_thread=<?=(int)$forumPost['id']?>">Edit</a><a class="btn light" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=(int)$forumPanelViewIndex?>&amp;view_thread=<?=(int)$forumPost['id']?>">View</a><?php else: ?><span class="forum-inline-muted">—</span><?php endif; ?></div></td>
         </tr>
        <?php endforeach; ?>
        </tbody>
@@ -2804,25 +2845,33 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
     </section>
 
-     <?php if ((string)($_GET['post_thread'] ?? '') === '1' && $forumPanelViewIndex !== null): ?>
+     <?php if (((string)($_GET['post_thread'] ?? '') === '1' || $forumEditThreadId > 0) && $forumPanelViewIndex !== null): ?>
      <div class="forum-thread-modal" id="forum-thread-modal"><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="thread-modal-title">
-      <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title">Post Thread</h3></div></div>
+      <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum contribution</span><h3 id="thread-modal-title"><?=$forumEditThreadId>0?'Edit Thread':'Post Thread'?></h3></div></div>
       <div id="forum-thread-form-shell" data-thread-form-shell>
-       <input form="forum-thread-form" type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input form="forum-thread-form" type="hidden" name="action" value="create_forum_thread"><input form="forum-thread-form" type="hidden" name="forum_category_id" value="<?=e((string)($forumPanelViewCategory['id']??''))?>"><input form="forum-thread-form" type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"><input form="forum-thread-form" type="hidden" name="forum_panel_index" value="<?=e((string)$forumPanelViewIndex)?>">
-       <div class="forum-thread-form-grid"><label>Select Prefix<select form="forum-thread-form" id="thread-prefix" name="thread_prefix"><option value="">Choose a prefix</option><?php $threadPrefixOptions=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];$threadPrefixColors=['General'=>'#385a78','Downloads'=>'#176b59','Movies'=>'#8a3d4e','Video'=>'#69518d','Genre'=>'#8a642c'];foreach($threadPrefixOptions as $group=>$opts):?><option value="" disabled data-prefix-heading="<?=e($group)?>"><?=e($group)?></option><?php foreach($opts as $opt):?><option value="<?=e($opt)?>" data-group="<?=e($group)?>"><?=e($opt)?></option><?php endforeach;?><?php endforeach;?></select><input form="forum-thread-form" type="hidden" name="thread_prefix_group" id="thread-prefix-group"></label><label>Thread Title<input form="forum-thread-form" name="thread_title" maxlength="240" required placeholder="Enter your thread title"></label></div>
+       <input form="forum-thread-form" type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input form="forum-thread-form" type="hidden" name="action" value="<?=$forumEditThreadId>0?'update_forum_thread':'create_forum_thread'?>"><input form="forum-thread-form" type="hidden" name="thread_id" value="<?=(int)($forumSelectedThread['id']??0)?>"><input form="forum-thread-form" type="hidden" name="forum_category_id" value="<?=e((string)($forumPanelViewCategory['id']??''))?>"><input form="forum-thread-form" type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"><input form="forum-thread-form" type="hidden" name="forum_panel_index" value="<?=e((string)$forumPanelViewIndex)?>">
+       <div class="forum-thread-form-grid"><label>Select Prefix<select form="forum-thread-form" id="thread-prefix" name="thread_prefix"><option value="">Choose a prefix</option><?php $threadPrefixOptions=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];$threadPrefixColors=['General'=>'#385a78','Downloads'=>'#176b59','Movies'=>'#8a3d4e','Video'=>'#69518d','Genre'=>'#8a642c'];foreach($threadPrefixOptions as $group=>$opts):?><option value="" disabled data-prefix-heading="<?=e($group)?>"><?=e($group)?></option><?php foreach($opts as $opt):?><option value="<?=e($opt)?>" data-group="<?=e($group)?>" <?=((string)($forumSelectedThread['prefix']??'')===$opt)?'selected':''?>><?=e($opt)?></option><?php endforeach;?><?php endforeach;?></select><input form="forum-thread-form" type="hidden" name="thread_prefix_group" id="thread-prefix-group"></label><label>Thread Title<input form="forum-thread-form" name="thread_title" maxlength="240" required placeholder="Enter your thread title" value="<?=e((string)($forumSelectedThread['title']??''))?>"></label></div>
        <div class="forum-thread-editor-label">Description</div><div class="forum-thread-editor-toolbar"><button type="button" data-thread-cmd="bold"><b>B</b></button><button type="button" data-thread-cmd="italic"><i>I</i></button><button type="button" data-thread-cmd="underline"><u>U</u></button><button type="button" data-thread-cmd="insertUnorderedList">• List</button><button type="button" data-thread-cmd="insertOrderedList">1. List</button><button type="button" data-thread-tool="link">Attach Link</button><button type="button" data-thread-tool="photo">Add Photo</button><button type="button" data-thread-tool="table">Add Table</button><button type="button" data-thread-tool="code">Add Code</button><button type="button" data-thread-cmd="insertHorizontalRule">Horizontal Line</button><input type="file" id="thread-editor-photo" accept="image/jpeg,image/png,image/avif,image/webp" hidden></div>
-       <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."></div><textarea form="forum-thread-form" name="thread_description" id="thread-description-value" hidden></textarea>
+       <div id="thread-description-editor" class="forum-thread-editor" contenteditable="true" data-placeholder="Write your thread description..."><?=($forumEditThreadId>0?(string)($forumSelectedThread['description']??''):'')?></div><textarea form="forum-thread-form" name="thread_description" id="thread-description-value" hidden></textarea>
        <label class="forum-thread-field">Attach Files<input form="forum-thread-form" type="file" name="thread_attachments[]" id="thread-attachments" multiple accept=".jpg,.jpeg,.png,.avif,.webp,.mp4,.webm,.mov,.mkv,.avi,.m4v,.wmv,.flv,.mpeg,.mpg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z"><small>Photos: 20 max, 10 MB each · Video: 1 max, 5 GB · PDFs: 10 max, 40 MB each · Office files: 20 max, 10 MB each · ZIP archives with video: up to 5 GB; other archives: 100 MB. 5 GB uploads also require matching PHP and web-server upload limits.</small><div id="thread-attachment-list" class="forum-thread-attachment-list">No files selected.</div></label>
        <label class="forum-thread-field forum-thread-tags-field"><span>Tags:</span><div class="forum-thread-tags-input"><div id="thread-tag-chips" class="forum-thread-tag-chips"></div><input type="text" id="thread-tags-entry" aria-label="Add a tag" placeholder="Type a word or phrase, then a comma"><input form="forum-thread-form" type="hidden" name="thread_tags" id="thread-tags-value"></div><small>A tag is created when you type a comma after a word or the phrase.</small></label>
-       <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select form="forum-thread-form" name="thread_status"><option value="unpublished">Unpublish</option><option value="published">Publish</option></select></label><div><a class="btn light" id="forum-cancel-thread" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">Cancel</a><button form="forum-thread-form" type="submit" class="btn">Post</button></div></div>
+       <div class="forum-thread-form-footer"><label class="forum-thread-status-label">Publication<select form="forum-thread-form" name="thread_status"><option value="unpublished" <?=((string)($forumSelectedThread['status']??'unpublished')==='unpublished')?'selected':''?>>Unpublish</option><option value="published" <?=((string)($forumSelectedThread['status']??'')==='published')?'selected':''?>>Publish</option></select></label><div><a class="btn light" id="forum-cancel-thread" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>">Cancel</a><button form="forum-thread-form" type="submit" class="btn"><?=$forumEditThreadId>0?'Save Changes':'Post'?></button></div></div>
       </div></div></div>
+     <?php endif; ?>
+     <?php if ($forumViewThreadId > 0 && $forumSelectedThread): ?>
+     <div class="forum-thread-modal" id="forum-thread-view-modal"><div class="forum-thread-dialog" role="dialog" aria-modal="true" aria-labelledby="forum-thread-view-title">
+      <div class="forum-thread-modal-head"><div><span class="forum-inline-eyebrow">Forum thread</span><h3 id="forum-thread-view-title"><?=e((string)$forumSelectedThread['title'])?></h3></div></div>
+      <div class="forum-inline-muted">Content Type: <?=e((string)$forumSelectedThread['prefix'])?> · <?=e(ucwords(str_replace('_',' ',(string)$forumSelectedThread['status'])))?> · Created <?=e(adminForumDateLabel((string)$forumSelectedThread['created_at']))?></div>
+      <div class="forum-thread-view-body"><?=e(adminForumPlainText((string)$forumSelectedThread['description']))?></div>
+      <div class="forum-thread-form-footer"><a class="btn light" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=(int)$forumPanelViewIndex?>">Close</a><a class="btn" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=(int)$forumPanelViewIndex?>&amp;edit_thread=<?=(int)$forumSelectedThread['id']?>">Edit Thread</a></div>
+     </div></div>
      <?php endif; ?>
      <?php if (isset($_SESSION['forum_thread_success']) && is_array($_SESSION['forum_thread_success'])): $threadPostNotice=$_SESSION['forum_thread_success']; unset($_SESSION['forum_thread_success']); ?>
      <div class="forum-post-result-overlay" id="forum-post-result-overlay" role="presentation">
       <div class="forum-post-result-dialog" role="dialog" aria-modal="true" aria-labelledby="forum-post-result-title">
        <div class="forum-post-result-mark" aria-hidden="true">✓</div>
        <h3 id="forum-post-result-title">Thread Update</h3>
-       <p><?php if (($threadPostNotice['status']??'')==='published'): ?>The thread <strong class="forum-post-result-thread-title"><?=e((string)($threadPostNotice['title']??''))?></strong> is now published. You may view it in the public website or in this page.<?php else: ?>The thread <strong class="forum-post-result-thread-title"><?=e((string)($threadPostNotice['title']??''))?></strong> is not created. You may published it once you are ready.<?php endif; ?></p>
+       <p><?php if(!empty($threadPostNotice['message'])): ?><?=e((string)$threadPostNotice['message'])?><?php else: ?>The thread <strong class="forum-post-result-thread-title"><?=e((string)($threadPostNotice['title']??''))?></strong> <?=$threadPostNotice['status']==='published'?'is now published.':'is saved as unpublished.'?><?php endif; ?></p>
        <button type="button" class="btn" id="forum-post-result-close">OK</button>
       </div>
      </div>
@@ -2836,23 +2885,23 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         // the composer modal, before displaying it.
         if(resultOverlay.parentElement!==document.body)document.body.appendChild(resultOverlay);
         document.body.classList.add('forum-thread-modal-open');
-        const closeResult=()=>{resultOverlay.remove();document.body.classList.remove('forum-thread-modal-open');};
+        const closeResult=()=>{resultOverlay.remove();if(!document.getElementById('forum-thread-view-modal')&&!document.getElementById('forum-thread-modal'))document.body.classList.remove('forum-thread-modal-open');};
         document.getElementById('forum-post-result-close')?.addEventListener('click',closeResult);
       }
-      const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value'),threadForm=document.getElementById('forum-thread-form');
+      const viewThreadModal=document.getElementById('forum-thread-view-modal');if(viewThreadModal&&viewThreadModal.parentElement!==document.body)document.body.appendChild(viewThreadModal);if(viewThreadModal)document.body.classList.add('forum-thread-modal-open');const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value'),threadForm=document.getElementById('forum-thread-form');
       // The standalone form is outside the Sections Settings form. Composer controls
       // explicitly reference it, avoiding invalid nested forms and runtime rebuilding.
       if(threadModal&&threadModal.parentElement!==document.body)document.body.appendChild(threadModal);
       if(threadModal){document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();}
       const threadCloseUrl='admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>';
-      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal)window.location.href=threadCloseUrl;});
-      document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;e.target.style.backgroundColor='#100c10';});
+      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(threadModal||viewThreadModal))window.location.href=threadCloseUrl;});
+      document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;e.target.style.backgroundColor='#100c10';});if(document.getElementById('thread-prefix')?.value){const selectedPrefix=document.getElementById('thread-prefix').selectedOptions[0];document.getElementById('thread-prefix-group').value=selectedPrefix?.dataset.group||'';}
       document.querySelectorAll('[data-thread-cmd]').forEach(b=>b.addEventListener('click',()=>{threadEditor.focus();document.execCommand(b.dataset.threadCmd,false,null);}));
       document.querySelector('[data-thread-tool="link"]')?.addEventListener('click',()=>{const url=prompt('Enter link URL (https:// or http://):');if(url&&(url.startsWith('https://')||url.startsWith('http://'))){threadEditor.focus();document.execCommand('createLink',false,url);}});
       document.querySelector('[data-thread-tool="table"]')?.addEventListener('click',()=>{const r=Math.max(1,Math.min(10,Number(prompt('Rows?','3'))||0)),c=Math.max(1,Math.min(8,Number(prompt('Columns?','3'))||0));if(!r||!c)return;let h='<table><tbody>';for(let y=0;y<r;y++){h+='<tr>';for(let x=0;x<c;x++)h+=y===0?'<th>Heading</th>':'<td>Text</td>';h+='</tr>';}threadEditor.focus();document.execCommand('insertHTML',false,h+'</tbody></table><p><br></p>');});
       document.querySelector('[data-thread-tool="code"]')?.addEventListener('click',()=>{const code=prompt('Enter code:');if(code!==null){const safe=code.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));threadEditor.focus();document.execCommand('insertHTML',false,'<pre><code>'+safe+'</code></pre>');}});
       const photoInput=document.getElementById('thread-editor-photo');document.querySelector('[data-thread-tool="photo"]')?.addEventListener('click',()=>photoInput.click());photoInput?.addEventListener('change',()=>{const f=photoInput.files?.[0];if(!f)return;if(f.size>10*1024*1024){alert('Photo must be 10 MB or smaller.');return;}const rd=new FileReader();rd.onload=()=>{threadEditor.focus();document.execCommand('insertHTML',false,'<img src="'+rd.result+'" alt="Thread photo" style="max-width:100%">');};rd.readAsDataURL(f);photoInput.value='';});
-      const tagEntry=document.getElementById('thread-tags-entry'),tagValue=document.getElementById('thread-tags-value'),tagChips=document.getElementById('thread-tag-chips'),tagBox=tagChips?.parentElement,tags=[];
+      const tagEntry=document.getElementById('thread-tags-entry'),tagValue=document.getElementById('thread-tags-value'),tagChips=document.getElementById('thread-tag-chips'),tagBox=tagChips?.parentElement,tags=<?=json_encode($forumEditThreadId>0?adminForumTagList($forumSelectedThread['tags_json']??null):[],JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
       const syncTagValue=()=>{if(tagValue)tagValue.value=tags.join(', ');};
       const renderTags=()=>{
         if(!tagChips)return;
