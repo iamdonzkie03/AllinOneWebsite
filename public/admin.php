@@ -230,6 +230,10 @@ if ($forumPanelViewIndex !== null && ($forumEditThreadId > 0 || $forumViewThread
     $forumSelectedThread = $selectedStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if (!$forumSelectedThread) { $forumEditThreadId=0; $forumViewThreadId=0; }
 }
+function adminForumTagList(?string $json): array {
+    $tags = json_decode((string)$json, true);
+    return is_array($tags) ? array_values(array_filter(array_map(static fn($tag) => trim((string)$tag), $tags))) : [];
+}
 function adminForumPlainText(string $value): string {
     // Forum descriptions are saved from a rich-text editor. Convert both real
     // markup and HTML-escaped markup into readable text for the admin listing.
@@ -1354,7 +1358,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-muted{display:block;color:#a99aa1;font-size:11px}
 .forum-inline-status{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap}
 .forum-inline-status.published{color:#9ce0b2;background:rgba(46,160,90,.14);border:1px solid rgba(91,202,130,.25)}
-.forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
+.forum-status-toggle{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:#e9dfe3;font:600 11px Ubuntu,sans-serif;cursor:pointer;padding:3px}.forum-status-toggle input{position:absolute;opacity:0;width:1px;height:1px}.forum-status-track{width:52px;height:26px;padding:3px;box-sizing:border-box;border-radius:999px;background:#a8323b;border:1px solid #d35a62;transition:background .25s,border-color .25s;display:inline-flex;align-items:center}.forum-status-thumb{width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0008;transition:transform .25s}.forum-status-toggle input:checked+.forum-status-track{background:#16834b;border-color:#35bd78}.forum-status-toggle input:checked+.forum-status-track .forum-status-thumb{transform:translateX(24px)}.forum-status-toggle input:focus-visible+.forum-status-track{outline:2px solid #fff;outline-offset:2px}.forum-inline-actions{display:flex;gap:6px;white-space:nowrap}.forum-inline-actions .btn{padding:6px 10px;font-size:11px}.forum-inline-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.forum-inline-tag{display:inline-flex;padding:2px 7px;border:1px solid #765665;border-radius:999px;color:#d8cbd0;font-size:10px}.forum-thread-view-body{margin-top:16px;padding:14px;border:1px solid #765665;border-radius:8px;background:#100c10;color:#f5e9ed;white-space:pre-wrap;line-height:1.6}.forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
 .forum-inline-empty{padding:32px 20px;text-align:center;color:#bdaeb4;font-size:13px}
 .forum-inline-toolbar,.forum-inline-controls,.forum-inline-pagination,.forum-inline-page-buttons{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .forum-inline-toolbar{justify-content:space-between;margin:0 0 16px}
@@ -2880,17 +2884,17 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         // the composer modal, before displaying it.
         if(resultOverlay.parentElement!==document.body)document.body.appendChild(resultOverlay);
         document.body.classList.add('forum-thread-modal-open');
-        const closeResult=()=>{resultOverlay.remove();document.body.classList.remove('forum-thread-modal-open');};
+        const closeResult=()=>{resultOverlay.remove();if(!document.getElementById('forum-thread-view-modal')&&!document.getElementById('forum-thread-modal'))document.body.classList.remove('forum-thread-modal-open');};
         document.getElementById('forum-post-result-close')?.addEventListener('click',closeResult);
       }
-      const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value'),threadForm=document.getElementById('forum-thread-form');
+      const viewThreadModal=document.getElementById('forum-thread-view-modal');if(viewThreadModal&&viewThreadModal.parentElement!==document.body)document.body.appendChild(viewThreadModal);if(viewThreadModal)document.body.classList.add('forum-thread-modal-open');const threadModal=document.getElementById('forum-thread-modal'),threadEditor=document.getElementById('thread-description-editor'),threadDescription=document.getElementById('thread-description-value'),threadForm=document.getElementById('forum-thread-form');
       // The standalone form is outside the Sections Settings form. Composer controls
       // explicitly reference it, avoiding invalid nested forms and runtime rebuilding.
       if(threadModal&&threadModal.parentElement!==document.body)document.body.appendChild(threadModal);
       if(threadModal){document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();}
       const threadCloseUrl='admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>';
       document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal)window.location.href=threadCloseUrl;});
-      document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;e.target.style.backgroundColor='#100c10';});
+      document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;e.target.style.backgroundColor='#100c10';});if(document.getElementById('thread-prefix')?.value){const selectedPrefix=document.getElementById('thread-prefix').selectedOptions[0];document.getElementById('thread-prefix-group').value=selectedPrefix?.dataset.group||'';}
       document.querySelectorAll('[data-thread-cmd]').forEach(b=>b.addEventListener('click',()=>{threadEditor.focus();document.execCommand(b.dataset.threadCmd,false,null);}));
       document.querySelector('[data-thread-tool="link"]')?.addEventListener('click',()=>{const url=prompt('Enter link URL (https:// or http://):');if(url&&(url.startsWith('https://')||url.startsWith('http://'))){threadEditor.focus();document.execCommand('createLink',false,url);}});
       document.querySelector('[data-thread-tool="table"]')?.addEventListener('click',()=>{const r=Math.max(1,Math.min(10,Number(prompt('Rows?','3'))||0)),c=Math.max(1,Math.min(8,Number(prompt('Columns?','3'))||0));if(!r||!c)return;let h='<table><tbody>';for(let y=0;y<r;y++){h+='<tr>';for(let x=0;x<c;x++)h+=y===0?'<th>Heading</th>':'<td>Text</td>';h+='</tr>';}threadEditor.focus();document.execCommand('insertHTML',false,h+'</tbody></table><p><br></p>');});
