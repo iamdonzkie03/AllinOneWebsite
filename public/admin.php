@@ -1231,6 +1231,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-status.published{color:#9ce0b2;background:rgba(46,160,90,.14);border:1px solid rgba(91,202,130,.25)}
 .forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
 .forum-inline-empty{padding:32px 20px;text-align:center;color:#bdaeb4;font-size:13px}
+.forum-inline-toolbar,.forum-inline-controls,.forum-inline-pagination,.forum-inline-page-buttons{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.forum-inline-toolbar{justify-content:space-between;margin:0 0 16px}
+.forum-inline-controls{flex:1 1 420px}
+.forum-inline-controls label{display:flex;align-items:center;gap:7px;color:#bdaeb4;font-size:12px}
+.forum-inline-controls select,.forum-inline-controls input{min-height:36px;padding:7px 10px;border:1px solid rgba(216,180,119,.25);border-radius:7px;background:#171115;color:#f5e9ed;font:12px Ubuntu,sans-serif}
+.forum-inline-filter input{width:min(340px,55vw)}
+.forum-inline-pagination{justify-content:space-between;margin-top:16px;color:#bdaeb4;font-size:12px}
+.forum-inline-page-buttons{gap:8px}
+.forum-inline-page-buttons button:disabled{opacity:.4;cursor:not-allowed}
 @media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-panel{padding:12px}.forum-inline-header{align-items:flex-start;gap:14px;padding:14px 12px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
 </style></head><body>
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
@@ -2677,16 +2686,21 @@ body:has(.admin-shell),body:has(.admin-shell) *{
      <a class="btn light" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu">← Back to Forum</a>
     </header>
     <section class="forum-inline-panel">
+     <div class="forum-inline-toolbar">
+      <div class="forum-inline-controls">
+       <label>Show <select id="forum-post-page-size" aria-label="Posts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label>
+       <label class="forum-inline-filter"><span>Filter</span><input id="forum-post-filter" type="search" placeholder="Search post title, author or status..." aria-label="Filter Forum posts"></label>
+      </div>
+      <a class="btn" href="admin.php?section=page-management&amp;tab=contents#pm-panel-contents">+ Create Post</a>
+     </div>
      <?php if (!$forumPanelViewCategory): ?>
       <div class="forum-inline-empty">This panel is not currently linked to an active category. Edit its panel URL to use the matching category or module slug to display its posts here.</div>
-     <?php elseif (!$forumPanelViewPosts): ?>
-      <div class="forum-inline-empty">No posts have been created under this panel yet.</div>
      <?php else: ?>
-      <div class="forum-inline-table-scroll"><table class="forum-inline-table">
+      <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th>Post Title</th><th>Author</th><th>Content Type</th><th>Publication</th><th>Workflow Status</th><th>Last Updated</th></tr></thead>
        <tbody>
-       <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; ?>
-        <tr>
+       <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; $forumSearchText=mb_strtolower(implode(' ',[(string)$forumPost['title'],(string)$forumPost['excerpt'],(string)$forumPost['full_name'],(string)$forumPost['role'],(string)$forumPost['content_type'],(string)$forumPost['status'],(string)($forumPost['subcategory_name']??'')])); ?>
+        <tr data-forum-post-row data-forum-search="<?=e($forumSearchText)?>">
          <td><strong><?=e((string)$forumPost['title'])?></strong><?php if(trim((string)($forumPost['excerpt']??''))!==''): ?><span class="forum-inline-muted"><?=e((string)$forumPost['excerpt'])?></span><?php endif; ?><?php if(!empty($forumPost['subcategory_name'])): ?><div class="forum-inline-muted">↳ <?=e((string)$forumPost['subcategory_name'])?></div><?php endif; ?></td>
          <td><?=e((string)$forumPost['full_name'])?><div class="forum-inline-muted"><?=e(ucwords(str_replace('_',' ',(string)$forumPost['role'])))?></div></td>
          <td><?=e(ucfirst((string)$forumPost['content_type']))?></td>
@@ -2697,8 +2711,48 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        <?php endforeach; ?>
        </tbody>
       </table></div>
+      <div class="forum-inline-empty" id="forum-post-no-results" hidden>No posts match your filter.</div>
+      <div class="forum-inline-pagination"><span id="forum-post-page-info" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-prev">Previous</button><span id="forum-post-page-number" class="muted"></span><button type="button" class="btn light" id="forum-post-next">Next</button></div></div>
+      <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
      <?php endif; ?>
     </section>
+    <script>
+    (() => {
+      const table=document.getElementById('forum-post-table');
+      if(!table)return;
+      const rows=[...table.querySelectorAll('[data-forum-post-row]')];
+      const filter=document.getElementById('forum-post-filter');
+      const size=document.getElementById('forum-post-page-size');
+      const info=document.getElementById('forum-post-page-info');
+      const pageNumber=document.getElementById('forum-post-page-number');
+      const previous=document.getElementById('forum-post-prev');
+      const next=document.getElementById('forum-post-next');
+      const noResults=document.getElementById('forum-post-no-results');
+      let page=1;
+      const render=()=>{
+        const query=(filter?.value||'').trim().toLocaleLowerCase();
+        const matched=rows.filter(row=>(row.dataset.forumSearch||'').includes(query));
+        const perPage=Math.max(1,Number(size?.value)||10);
+        const pages=Math.max(1,Math.ceil(matched.length/perPage));
+        page=Math.min(page,pages);
+        const start=matched.length?(page-1)*perPage:0;
+        const end=Math.min(start+perPage,matched.length);
+        rows.forEach(row=>row.hidden=true);
+        matched.slice(start,end).forEach(row=>row.hidden=false);
+        if(info)info.textContent=matched.length?'Showing '+(start+1)+' to '+end+' of '+matched.length+' entries':'Showing 0 to 0 of 0 entries';
+        if(pageNumber)pageNumber.textContent='Page '+page+' of '+pages;
+        if(previous)previous.disabled=page<=1||!matched.length;
+        if(next)next.disabled=page>=pages||!matched.length;
+        if(noResults)noResults.hidden=matched.length>0;
+        if(table) table.hidden=matched.length===0;
+      };
+      filter?.addEventListener('input',()=>{page=1;render();});
+      size?.addEventListener('change',()=>{page=1;render();});
+      previous?.addEventListener('click',()=>{page=Math.max(1,page-1);render();});
+      next?.addEventListener('click',()=>{page++;render();});
+      render();
+    })();
+    </script>
    </div>
   <?php else: ?>
   <?php
