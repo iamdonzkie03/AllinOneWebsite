@@ -736,10 +736,10 @@ $(function(){
 .mega-menu-intro{width:100%;max-width:none;margin:0 0 30px;text-align:left}
 .mega-menu-intro .eyebrow{margin:0 0 10px;text-align:left}
 .mega-menu-intro h2{margin:0 0 12px;text-align:left}
-.mega-menu-intro .mega-menu-description{max-width:780px;margin:0;color:var(--muted,#cbbfc4);line-height:1.75;text-align:left}
+.mega-menu-intro .mega-menu-description{width:100%;max-width:none;margin:0;color:var(--muted,#cbbfc4);line-height:1.75;text-align:left}
 .mega-menu-intro .mega-menu-description p{margin:0 0 8px}
 .mega-menu-intro-preview{margin:0 auto 26px;text-align:center;max-width:900px}
-.mega-menu-intro-preview .preview-desc{max-width:780px;margin:0 auto}
+.mega-menu-intro-preview .preview-desc{width:100%;max-width:none;margin:0}
 .mega-menu-rich-grid{margin:22px 0 28px}
 </style>
 </body></html>
