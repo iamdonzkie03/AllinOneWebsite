@@ -2804,7 +2804,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal)window.location.href=threadCloseUrl;});
       document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;const colors={General:'#385a78',Downloads:'#176b59',Movies:'#8a3d4e',Video:'#69518d',Genre:'#8a642c'};e.target.style.backgroundColor=colors[group]||'#100c10';});
       document.querySelectorAll('[data-thread-cmd]').forEach(b=>b.addEventListener('click',()=>{threadEditor.focus();document.execCommand(b.dataset.threadCmd,false,null);}));
-      document.querySelector('[data-thread-tool="link"]')?.addEventListener('click',()=>{const url=prompt('Enter link URL (https:// or http://):');if(url&&/^https?:\\/\\//i.test(url)){threadEditor.focus();document.execCommand('createLink',false,url);}});
+      document.querySelector('[data-thread-tool="link"]')?.addEventListener('click',()=>{const url=prompt('Enter link URL (https:// or http://):');if(url&&(url.startsWith('https://')||url.startsWith('http://'))){threadEditor.focus();document.execCommand('createLink',false,url);}});
       document.querySelector('[data-thread-tool="table"]')?.addEventListener('click',()=>{const r=Math.max(1,Math.min(10,Number(prompt('Rows?','3'))||0)),c=Math.max(1,Math.min(8,Number(prompt('Columns?','3'))||0));if(!r||!c)return;let h='<table><tbody>';for(let y=0;y<r;y++){h+='<tr>';for(let x=0;x<c;x++)h+=y===0?'<th>Heading</th>':'<td>Text</td>';h+='</tr>';}threadEditor.focus();document.execCommand('insertHTML',false,h+'</tbody></table><p><br></p>');});
       document.querySelector('[data-thread-tool="code"]')?.addEventListener('click',()=>{const code=prompt('Enter code:');if(code!==null){const safe=code.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));threadEditor.focus();document.execCommand('insertHTML',false,'<pre><code>'+safe+'</code></pre>');}});
       const photoInput=document.getElementById('thread-editor-photo');document.querySelector('[data-thread-tool="photo"]')?.addEventListener('click',()=>photoInput.click());photoInput?.addEventListener('change',()=>{const f=photoInput.files?.[0];if(!f)return;if(f.size>10*1024*1024){alert('Photo must be 10 MB or smaller.');return;}const rd=new FileReader();rd.onload=()=>{threadEditor.focus();document.execCommand('insertHTML',false,'<img src="'+rd.result+'" alt="Thread photo" style="max-width:100%">');};rd.readAsDataURL(f);photoInput.value='';});
@@ -2813,11 +2813,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       const renderTags=()=>{
         if(!tagChips)return;
         tagChips.replaceChildren();
-        tags.forEach(tag=>{
+        tags.forEach((tag,index)=>{
           const chip=document.createElement('span');chip.className='forum-thread-tag';
           const remove=document.createElement('button');remove.type='button';remove.className='forum-thread-tag-remove';remove.setAttribute('aria-label','Remove tag '+tag);remove.title='Remove '+tag;remove.textContent='×';
-          const text=document.createElement('span');text.textContent=tag;
-          chip.append(remove,text);tagChips.append(chip);
+          const label=document.createElement('span');label.textContent=tag;
+          chip.append(remove,label);tagChips.append(chip);
         });
         syncTagValue();
       };
@@ -2835,19 +2835,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         renderTags();
       };
       if(tagEntry&&tagChips&&tagValue){
+        // The input event fires after the comma is inserted, regardless of keyboard layout or paste.
         tagEntry.addEventListener('input',consumeCommaTags);
-        tagEntry.addEventListener('keyup',consumeCommaTags);
-        tagEntry.addEventListener('change',consumeCommaTags);
-        tagEntry.addEventListener('paste',()=>setTimeout(consumeCommaTags,0));
         tagEntry.addEventListener('keydown',event=>{
-          if(event.key===','||event.code==='Comma'){
-            const current=tagEntry.value;
-            if(current.trim()){
-              event.preventDefault();
-              addTag(current);
-              tagEntry.value='';
-              renderTags();
-            }
+          if(event.key==='Enter'){
+            event.preventDefault();
+            addTag(tagEntry.value);
+            tagEntry.value='';
+            renderTags();
           }
         });
         tagBox?.addEventListener('click',event=>{if(!event.target.closest('.forum-thread-tag-remove'))tagEntry.focus();});
@@ -2859,7 +2854,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           if(index>=0){tags.splice(index,1);renderTags();}
           event.preventDefault();event.stopPropagation();
         });
-        threadForm?.addEventListener('submit',()=>{consumeCommaTags();syncTagValue();});
+        threadForm?.addEventListener('submit',()=>{
+          addTag(tagEntry.value);
+          tagEntry.value='';
+          syncTagValue();
+        });
         renderTags();
       }
       document.getElementById('thread-attachments')?.addEventListener('change',e=>{document.getElementById('thread-attachment-list').textContent=[...e.target.files].map(f=>f.name+' ('+(f.size/1048576).toFixed(1)+' MB)').join(' · ')||'No files selected.';});
