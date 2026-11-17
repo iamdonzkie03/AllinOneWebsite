@@ -2870,7 +2870,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="forum-post-result-dialog" role="dialog" aria-modal="true" aria-labelledby="forum-post-result-title">
        <div class="forum-post-result-mark" aria-hidden="true">✓</div>
        <h3 id="forum-post-result-title">Thread Update</h3>
-       <p><?php if (($threadPostNotice['status']??'')==='published'): ?>The thread <strong class="forum-post-result-thread-title"><?=e((string)($threadPostNotice['title']??''))?></strong> is now published. You may view it in the public website or in this page.<?php else: ?>The thread <strong class="forum-post-result-thread-title"><?=e((string)($threadPostNotice['title']??''))?></strong> is not created. You may published it once you are ready.<?php endif; ?></p>
+       <p><?php if(!empty($threadPostNotice['message'])): ?><?=e((string)$threadPostNotice['message'])?><?php else: ?>The thread <strong class="forum-post-result-thread-title"><?=e((string)($threadPostNotice['title']??''))?></strong> <?=$threadPostNotice['status']==='published'?'is now published.':'is saved as unpublished.'?><?php endif; ?></p>
        <button type="button" class="btn" id="forum-post-result-close">OK</button>
       </div>
      </div>
@@ -2900,7 +2900,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       document.querySelector('[data-thread-tool="table"]')?.addEventListener('click',()=>{const r=Math.max(1,Math.min(10,Number(prompt('Rows?','3'))||0)),c=Math.max(1,Math.min(8,Number(prompt('Columns?','3'))||0));if(!r||!c)return;let h='<table><tbody>';for(let y=0;y<r;y++){h+='<tr>';for(let x=0;x<c;x++)h+=y===0?'<th>Heading</th>':'<td>Text</td>';h+='</tr>';}threadEditor.focus();document.execCommand('insertHTML',false,h+'</tbody></table><p><br></p>');});
       document.querySelector('[data-thread-tool="code"]')?.addEventListener('click',()=>{const code=prompt('Enter code:');if(code!==null){const safe=code.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));threadEditor.focus();document.execCommand('insertHTML',false,'<pre><code>'+safe+'</code></pre>');}});
       const photoInput=document.getElementById('thread-editor-photo');document.querySelector('[data-thread-tool="photo"]')?.addEventListener('click',()=>photoInput.click());photoInput?.addEventListener('change',()=>{const f=photoInput.files?.[0];if(!f)return;if(f.size>10*1024*1024){alert('Photo must be 10 MB or smaller.');return;}const rd=new FileReader();rd.onload=()=>{threadEditor.focus();document.execCommand('insertHTML',false,'<img src="'+rd.result+'" alt="Thread photo" style="max-width:100%">');};rd.readAsDataURL(f);photoInput.value='';});
-      const tagEntry=document.getElementById('thread-tags-entry'),tagValue=document.getElementById('thread-tags-value'),tagChips=document.getElementById('thread-tag-chips'),tagBox=tagChips?.parentElement,tags=[];
+      const tagEntry=document.getElementById('thread-tags-entry'),tagValue=document.getElementById('thread-tags-value'),tagChips=document.getElementById('thread-tag-chips'),tagBox=tagChips?.parentElement,tags=<?=json_encode($forumEditThreadId>0?adminForumTagList($forumSelectedThread['tags_json']??null):[],JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;
       const syncTagValue=()=>{if(tagValue)tagValue.value=tags.join(', ');};
       const renderTags=()=>{
         if(!tagChips)return;
