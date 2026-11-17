@@ -409,25 +409,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\'[^\']*\'|[^\\s>]+)/i','',$body);
         $body=preg_replace('/(href|src)\\s*=\\s*([\'"])\\s*(javascript:|data:text\\/html)[^\'"]*\\2/i','$1="#"',$body);
         $tags=[];foreach(explode(',',(string)($_POST['thread_tags']??'')) as $tag){$tag=trim(mb_substr($tag,0,60));if($tag!==''&&!in_array($tag,$tags,true))$tags[]=$tag;}
-        $accepted=[];$counts=['photo'=>0,'video'=>0,'pdf'=>0,'office'=>0,'archive'=>0];
-        $photoExt=['jpg','jpeg','png','avif','webp'];$videoExt=['mp4','webm','mov','mkv','avi','m4v','wmv','flv','mpeg','mpg'];$pdfExt=['pdf'];$officeExt=['doc','docx','xls','xlsx','ppt','pptx'];$archiveExt=['zip','rar','7z'];
+        $accepted=[];$counts=['photo'=>0,'video'=>0,'archive'=>0,'other'=>0];
+        $photoExt=['jpg','jpeg','png','gif','avif','webp','bmp','tif','tiff'];$videoExt=['mp4','webm','mov','mkv','avi','m4v','wmv','flv','mpeg','mpg','3gp','ogv'];$archiveExt=['zip','rar','7z','tar','gz','tgz','bz2','xz'];
+        $blockedExt=['php','php3','php4','php5','phtml','phar','cgi','pl','py','sh','bash','bat','cmd','com','exe','msi','dll','js','html','htm','shtml','asp','aspx','jsp'];
         $files=$_FILES['thread_attachments']??null;
         if($files&&is_array($files['name']??null))for($i=0;$i<count($files['name']);$i++){
           $err=(int)$files['error'][$i];if($err===UPLOAD_ERR_NO_FILE)continue;if($err!==UPLOAD_ERR_OK)throw new RuntimeException('An attachment upload failed (PHP error '.$err.'). Check PHP/web-server upload limits.');
           $name=basename((string)$files['name'][$i]);$tmp=(string)$files['tmp_name'][$i];$size=(int)$files['size'][$i];$ext=strtolower(pathinfo($name,PATHINFO_EXTENSION));if(!$tmp||!is_uploaded_file($tmp))throw new RuntimeException('An attachment upload is invalid.');
-          if(in_array($ext,$photoExt,true))$type='photo';elseif(in_array($ext,$videoExt,true))$type='video';elseif(in_array($ext,$pdfExt,true))$type='pdf';elseif(in_array($ext,$officeExt,true))$type='office';elseif(in_array($ext,$archiveExt,true))$type='archive';else throw new RuntimeException('Unsupported attachment: '.$name);
-          $counts[$type]++;$limits=['photo'=>[20,10*1024*1024],'video'=>[1,5*1024*1024*1024],'pdf'=>[10,40*1024*1024],'office'=>[20,10*1024*1024],'archive'=>[999,100*1024*1024]];
+          if(in_array($ext,$blockedExt,true))throw new RuntimeException('This file type cannot be uploaded: '.$name);
+          if(in_array($ext,$photoExt,true))$type='photo';elseif(in_array($ext,$videoExt,true))$type='video';elseif(in_array($ext,$archiveExt,true))$type='archive';else $type='other';
+          $counts[$type]++;$limits=['photo'=>[20,10*1024*1024],'video'=>[1,5*1024*1024*1024],'archive'=>[999,100*1024*1024],'other'=>[50,40*1024*1024]];
           if($type==='archive'&&$ext==='zip'&&class_exists('ZipArchive')){$zip=new ZipArchive();if($zip->open($tmp)===true){$containsVideo=false;for($z=0;$z<$zip->numFiles;$z++){$entry=strtolower((string)$zip->getNameIndex($z));$entryExt=strtolower(pathinfo($entry,PATHINFO_EXTENSION));if(in_array($entryExt,$videoExt,true)){$containsVideo=true;break;}}$zip->close();if($containsVideo)$limits['archive'][1]=5*1024*1024*1024;}}
-          if($counts[$type]>$limits[$type][0]||$size>$limits[$type][1])throw new RuntimeException(['photo'=>'Photos: maximum 20 files, 10 MB each.','video'=>'Video: maximum 1 file, 5 GB.','pdf'=>'PDFs: maximum 10 files, 40 MB each.','office'=>'Office files: maximum 20 files, 10 MB each.','archive'=>'Archives containing video are limited to 5 GB; other archives are limited to 100 MB. RAR/7z contents cannot be inspected on this server.'][$type]);
+          if($counts[$type]>$limits[$type][0]||$size>$limits[$type][1])throw new RuntimeException(['photo'=>'Photos: maximum 20 files, 10 MB each.','video'=>'Videos: maximum 1 file, 5 GB.','archive'=>'Compressed files containing video are limited to 5 GB; other compressed files are limited to 100 MB.','other'=>'Other files: maximum 50 files, 40 MB each.'][$type]);
           if($type==='photo'&&@getimagesize($tmp)===false)throw new RuntimeException('The photo '.$name.' is not a valid image.');
-          if($type==='pdf'&&(new finfo(FILEINFO_MIME_TYPE))->file($tmp)!=='application/pdf')throw new RuntimeException('The PDF '.$name.' is invalid.');
-          $accepted[]=['name'=>$name,'tmp'=>$tmp,'size'=>$size,'type'=>$type,'ext'=>$ext,'mime'=>(new finfo(FILEINFO_MIME_TYPE))->file($tmp)?:'application/octet-stream'];
+          $mime=(new finfo(FILEINFO_MIME_TYPE))->file($tmp)?:'application/octet-stream';
+          if($ext==='pdf'&&$mime!=='application/pdf')throw new RuntimeException('The PDF '.$name.' is invalid.');
+          $accepted[]=['name'=>$name,'tmp'=>$tmp,'size'=>$size,'type'=>$type,'ext'=>$ext,'mime'=>$mime];
         }
         $pdo->beginTransaction();$ins=$pdo->prepare('INSERT INTO forum_threads(category_id,panel_id,owner_id,prefix_group,prefix,title,description,tags_json,status) VALUES(?,?,?,?,?,?,?,?,?)');
         $ins->execute([$categoryId,$panelId,(int)$admin['id'],$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status]);$threadId=(int)$pdo->lastInsertId();
-        $dir=__DIR__.'/uploads/forum-threads/'.$threadId;if($accepted&&!is_dir($dir)&&!@mkdir($dir,0755,true))throw new RuntimeException('Unable to create the attachment folder.');
+        $createdStmt=$pdo->prepare('SELECT created_at FROM forum_threads WHERE id=? LIMIT 1');$createdStmt->execute([$threadId]);$createdAt=(string)$createdStmt->fetchColumn();
+        $folderSlug=static function(string $value):string{$value=trim($value);if(function_exists('iconv')){$converted=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$value);if($converted!==false)$value=$converted;}$value=strtolower($value);$value=preg_replace('/[^a-z0-9]+/','-',$value)??'';$value=trim($value,'-');return $value!==''?substr($value,0,80):'untitled';};
+        $forumTitle=(string)($selectedForumPanel['title']??$selectedForumPanel['name']??$selectedForumPanel['label']??'Forum');
+        $authorStmt=$pdo->prepare('SELECT full_name FROM users WHERE id=? LIMIT 1');$authorStmt->execute([(int)$admin['id']]);$authorName=(string)($authorStmt->fetchColumn()?:'Author');
+        $createdFolderDate=$createdAt!==''?date('Y-m-d_H-i-s',strtotime($createdAt)):date('Y-m-d_H-i-s');
+        $folderName='ID'.$threadId.'_'.$folderSlug($authorName).'_'.$createdFolderDate;
+        $relativeBase='uploads/forum-threads/'.$folderSlug($forumTitle).'/'.$folderName;
+        $dir=__DIR__.'/'.$relativeBase;
+        $subfolders=['photo'=>'Photos','video'=>'Videos','archive'=>'Compressed_Files','other'=>'Other_Files'];
+        foreach(array_values($subfolders) as $subfolder){$subdir=$dir.'/'.$subfolder;if(!is_dir($subdir)&&!@mkdir($subdir,0755,true))throw new RuntimeException('Unable to create the attachment folder: '.$subfolder);}
         $att=$pdo->prepare('INSERT INTO forum_thread_attachments(thread_id,original_name,file_path,mime_type,file_size,attachment_type) VALUES(?,?,?,?,?,?)');
-        foreach($accepted as $file){$stored='file-'.bin2hex(random_bytes(10)).'.'.$file['ext'];$target=$dir.'/'.$stored;if(!move_uploaded_file($file['tmp'],$target))throw new RuntimeException('Unable to save '.$file['name'].'.');$newPaths[]=$target;$att->execute([$threadId,$file['name'],'uploads/forum-threads/'.$threadId.'/'.$stored,$file['mime'],$file['size'],$file['type']]);}
+        foreach($accepted as $file){$stored='file-'.bin2hex(random_bytes(10)).($file['ext']!==''?'.'.$file['ext']:'');$target=$dir.'/'.$subfolders[$file['type']].'/'.$stored;if(!move_uploaded_file($file['tmp'],$target))throw new RuntimeException('Unable to save '.$file['name'].'.');$newPaths[]=$target;$att->execute([$threadId,$file['name'],$relativeBase.'/'.$subfolders[$file['type']].'/'.$stored,$file['mime'],$file['size'],$file['type']]);}
         $pdo->commit();$_SESSION['forum_thread_success']=['title'=>$title,'status'=>$status];session_write_close();
         header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.rawurlencode((string)($_POST['forum_panel_index']??'')),true,303);exit;
       }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();foreach($newPaths as $path)if(is_file($path))@unlink($path);$message=$e->getMessage();}
