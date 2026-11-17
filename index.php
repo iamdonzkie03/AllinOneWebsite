@@ -413,10 +413,13 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             }
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
+        $lastReplyAvatarSql = $creatorPhotoColumn !== '' ? '(SELECT lu.' . $creatorPhotoColumn . ' FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1)' : 'NULL';
         $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,u.role{$publicForumSelectAvatar},
             (SELECT COUNT(*) FROM forum_thread_replies r WHERE r.thread_id=t.id) AS reply_count,
             (SELECT COUNT(*) FROM forum_thread_views v WHERE v.thread_id=t.id) AS view_count,
-            (SELECT COUNT(*) FROM forum_thread_likes l WHERE l.thread_id=t.id) AS like_count
+            (SELECT COUNT(*) FROM forum_thread_likes l WHERE l.thread_id=t.id) AS like_count,
+            (SELECT MAX(lr.created_at) FROM forum_thread_replies lr WHERE lr.thread_id=t.id) AS last_reply_at,
+            {$lastReplyAvatarSql} AS last_reply_avatar
             FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
             WHERE t.panel_id=? AND t.status='published'
             ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
@@ -538,6 +541,12 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
     $panelHref = $panelHrefBase . (str_contains($panelHrefBase, '?') ? '&' : '?') . 'forum_panel_id=' . rawurlencode((string)$pn['panel_id']);
     if (isset($panelHrefParts[1])) $panelHref .= '#' . $panelHrefParts[1];
 }
+if ($isCreatorSignedIn) {
+    $panelHrefParts = explode('#', $panelHref, 2);
+    $panelHrefBase = $panelHrefParts[0];
+    $panelHref .= (str_contains($panelHrefBase, '?') ? '&' : '?') . 'session_context=creator';
+    if (isset($panelHrefParts[1])) $panelHref .= '#' . $panelHrefParts[1];
+}
 ?><a class="category module-card mega-public-panel" href="<?=e($panelHref)?>"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); $publicIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $publicIconHash=0; foreach(str_split($publicIconName) as $publicIconChar){$publicIconHash=(($publicIconHash*31)+ord($publicIconChar)) & 0xFFFFFFFF;} $publicIconHue=$publicIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$publicIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($publicIconName)?>"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><div class="mega-panel-preview-content"><strong><?=e($pn['title']??'')?></strong><?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?><span class="module-link">Explore module ↗</span></div></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?module=<?=e($module['slug'])?>"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
 <?php endif; ?>
 
@@ -601,7 +610,9 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
    $createdTimestamp=strtotime((string)$forumThread['created_at']);
    $updatedTimestamp=strtotime((string)($forumThread['updated_at'] ?: $forumThread['created_at']));
    $authorAvatar=$publicForumAvatarUrl($forumThread['author_avatar']??'');
-   $threadHref='index.php?'.http_build_query(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>(int)$forumThread['id']]);
+   $lastActivityAvatar=$publicForumAvatarUrl(($forumThread['last_reply_avatar']??'')?:($forumThread['author_avatar']??''));
+   $activityTimestamp=strtotime((string)(($forumThread['last_reply_at']??'')?:($forumThread['updated_at']?:$forumThread['created_at'])));
+   $threadHref='index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>(int)$forumThread['id'],'session_context'=>$isCreatorSignedIn?'creator':null],static fn($value)=>$value!==null));
  ?>
  <article class="public-forum-thread">
   <div class="public-forum-topic">
@@ -614,8 +625,8 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
   </div>
   <div class="public-forum-stats"><strong><?=number_format((int)$forumThread['reply_count'])?></strong><small>Replies</small><strong><?=number_format((int)$forumThread['view_count'])?></strong><small>Views</small></div>
   <div class="public-forum-activity">
-   <?php if($authorAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($authorAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback"><?=e(strtoupper(mb_substr((string)$forumThread['full_name'],0,1)))?></span><?php endif; ?>
-   <div><strong><?=e($updatedTimestamp ? date('M d, Y',$updatedTimestamp) : '—')?></strong><small><?=($updatedTimestamp && $createdTimestamp && $updatedTimestamp > $createdTimestamp) ? 'Last updated' : 'Published'?></small></div>
+   <?php if($lastActivityAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($lastActivityAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback"><?=e(strtoupper(mb_substr((string)$forumThread['full_name'],0,1)))?></span><?php endif; ?>
+   <div><strong><?=e($activityTimestamp ? date('M d, Y',$activityTimestamp) : '—')?></strong><small><?=!empty($forumThread['last_reply_at'])?'Last reply':(($updatedTimestamp && $createdTimestamp && $updatedTimestamp > $createdTimestamp) ? 'Last updated' : 'Published')?></small></div>
   </div>
  </article>
  <?php endforeach; ?></div><?php endif; ?>
