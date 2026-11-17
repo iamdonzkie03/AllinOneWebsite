@@ -230,8 +230,22 @@ if ($isCreatorSignedIn && $creatorPhotoColumn !== '') {
 $creatorHeaderNickname = $isCreatorSignedIn ? trim((string)($currentPublicUser['nickname'] ?? '')) : '';
 if ($isCreatorSignedIn && $creatorHeaderNickname === '') $creatorHeaderNickname = trim((string)($currentPublicUser['full_name'] ?? 'Creator'));
 $search = trim((string)($_GET['q'] ?? ''));
+$requestedForumPanelId = trim((string)($_GET['forum_panel_id'] ?? ''));
+$activeForumPanel = null;
+if ($requestedForumPanelId !== '' && preg_match('/^[a-f0-9]{32}$/i', $requestedForumPanelId)) {
+    foreach ((array)($sectionsSettings['mega_menu']['panels'] ?? []) as $configuredForumPanel) {
+        if (is_array($configuredForumPanel) && hash_equals(strtolower((string)($configuredForumPanel['panel_id'] ?? '')), strtolower($requestedForumPanelId))) {
+            $activeForumPanel = $configuredForumPanel;
+            $requestedForumPanelId = (string)$configuredForumPanel['panel_id'];
+            break;
+        }
+    }
+}
 $moduleSlug = trim((string)($_GET['module'] ?? ''));
-$moduleView = $moduleSlug !== '';
+if ($activeForumPanel && $moduleSlug === '') {
+    $moduleSlug = trim((string)preg_replace('/[^a-z0-9]+/i', '-', strtolower((string)($activeForumPanel['title'] ?? 'forum'))), '-');
+}
+$moduleView = $moduleSlug !== '' || $activeForumPanel !== null;
 $category = trim((string)($_GET['category'] ?? ''));
 // Defensive, idempotent upgrade for databases created before optional subcategories
 // were introduced. Keep this immediately before the public query as well as the
@@ -285,6 +299,39 @@ if ($moduleView) {
 $showAllStories = $moduleView || (string)($_GET['show_all'] ?? '') === '1';
 $sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC" . ($showAllStories ? "" : " LIMIT 6");
 $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
+
+$publicForumThreads = [];
+$publicForumAttachments = [];
+if ($activeForumPanel && $requestedForumPanelId !== '') {
+    $forumTableCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_threads'");
+    $forumTableCheck->execute();
+    if ((int)$forumTableCheck->fetchColumn() > 0) {
+        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.tags_json,t.created_at,t.updated_at,u.full_name,u.role
+            FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
+            WHERE t.panel_id=? AND t.status='published'
+            ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
+        $publicForumStmt->execute([$requestedForumPanelId]);
+        $publicForumThreads = $publicForumStmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($publicForumThreads) {
+            $forumAttachmentTableCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_thread_attachments'");
+            $forumAttachmentTableCheck->execute();
+            if ((int)$forumAttachmentTableCheck->fetchColumn() > 0) {
+                $threadIds = array_map(static fn(array $thread): int => (int)$thread['id'], $publicForumThreads);
+                $placeholders = implode(',', array_fill(0, count($threadIds), '?'));
+                $attachmentStmt = $pdo->prepare("SELECT id,thread_id,original_name,file_path,mime_type,attachment_type FROM forum_thread_attachments WHERE thread_id IN ($placeholders) ORDER BY id");
+                $attachmentStmt->execute($threadIds);
+                foreach ($attachmentStmt->fetchAll(PDO::FETCH_ASSOC) as $attachment) {
+                    $publicForumAttachments[(int)$attachment['thread_id']][] = $attachment;
+                }
+            }
+        }
+    }
+}
+$publicForumAttachmentUrl = static function(string $path): string {
+    $path = trim($path);
+    if (preg_match('~^https?://~i', $path)) return $path;
+    return 'public/' . ltrim(preg_replace('~^(?:public/)+~', '', $path), '/');
+};
 ?>
 <!doctype html>
 <html lang="en">
@@ -294,7 +341,7 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 <title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="public/assets/css/site.css?v=stories-slider-20261110">
-<style>.module-page-head{padding:54px 0 20px}.module-page-head h1{margin:8px 0 12px;color:#f7eef0;font-size:clamp(30px,4vw,46px)}.module-page-head .muted{max-width:760px;line-height:1.7}.module-page-head .btn{margin-top:12px}.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.creator-account-menu{position:relative;display:inline-flex;align-items:center}
+<style>.public-forum-section{padding-top:8px}.public-forum-heading{margin:0 0 24px}.public-forum-heading h2{margin:6px 0 8px;color:#f7eef0;font-size:clamp(26px,3vw,36px)}.public-forum-count{margin:10px 0 0;color:#d79aa5;font-size:12px;font-weight:700}.public-forum-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.public-forum-thread{min-width:0;padding:22px;border:1px solid rgba(190,75,98,.25);border-radius:15px;background:linear-gradient(145deg,rgba(35,17,25,.94),rgba(17,12,16,.96));box-shadow:0 12px 32px rgba(0,0,0,.18)}.public-forum-thread-top,.public-forum-thread-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.public-forum-prefix{display:inline-flex;padding:5px 9px;border-radius:999px;background:rgba(177,55,78,.17);color:#f0b7c1;font-size:10px;font-weight:800;letter-spacing:.5px}.public-forum-date,.public-forum-thread-footer{color:#b9aab0;font-size:11px}.public-forum-thread h3{margin:13px 0 10px;color:#fff;font-size:19px;line-height:1.35}.public-forum-description{color:#ded3d8;font-size:13px;line-height:1.75;overflow-wrap:anywhere}.public-forum-description p{margin:0 0 8px}.public-forum-description img{max-width:100%;height:auto}.public-forum-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}.public-forum-tags span{padding:4px 8px;border:1px solid rgba(255,255,255,.12);border-radius:999px;color:#d9c5cc;font-size:10px}.public-forum-attachments{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.public-forum-attachments img,.public-forum-attachments video{width:min(100%,190px);height:130px;object-fit:cover;border-radius:9px;background:#080808}.public-forum-file{display:flex;align-items:center;max-width:220px;min-height:70px;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:8px;color:#f1c4cc;font-size:11px;overflow-wrap:anywhere}.public-forum-thread-footer{margin-top:17px;padding-top:12px;border-top:1px solid rgba(255,255,255,.09)}.public-forum-empty{padding:25px;border:1px solid rgba(190,75,98,.22);border-radius:13px;background:rgba(30,15,22,.8)}.public-forum-empty h3{margin:0 0 8px;color:#fff}.public-forum-empty p{margin:0}@media(max-width:720px){.public-forum-list{grid-template-columns:1fr}}.module-page-head{padding:54px 0 20px}.module-page-head h1{margin:8px 0 12px;color:#f7eef0;font-size:clamp(30px,4vw,46px)}.module-page-head .muted{max-width:760px;line-height:1.7}.module-page-head .btn{margin-top:12px}.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.creator-account-menu{position:relative;display:inline-flex;align-items:center}
 .creator-account-trigger{display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:4px 12px 4px 5px;border:1px solid rgba(224,82,96,.48);border-radius:999px;background:linear-gradient(135deg,rgba(93,24,42,.94),rgba(35,12,20,.96));color:#fff;cursor:pointer;font:600 12px Ubuntu,sans-serif;box-shadow:0 5px 18px rgba(0,0,0,.22);transition:border-color .2s,background .2s}
 .creator-account-trigger:hover,.creator-account-trigger[aria-expanded="true"]{border-color:#e05260;background:linear-gradient(135deg,rgba(120,29,50,.98),rgba(45,14,25,.98))}
 .creator-account-avatar{width:30px;height:30px;flex:0 0 30px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.35);background:#5b1b2b;color:#fff}
@@ -388,6 +435,12 @@ if (!empty($pn['category_id'])) {
 } elseif (preg_match('/(?:^|[?&])category=([^&#]+)/', $panelHref, $panelCategoryMatch)) {
     $panelHref = '?module=' . rawurlencode(rawurldecode($panelCategoryMatch[1]));
 }
+if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['panel_id'])) {
+    $panelHrefParts = explode('#', $panelHref, 2);
+    $panelHrefBase = $panelHrefParts[0];
+    $panelHref .= (str_contains($panelHrefBase, '?') ? '&' : '?') . 'forum_panel_id=' . rawurlencode((string)$pn['panel_id']);
+    if (isset($panelHrefParts[1])) $panelHref .= '#' . $panelHrefParts[1];
+}
 ?><a class="category module-card mega-public-panel" href="<?=e($panelHref)?>"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); $publicIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $publicIconHash=0; foreach(str_split($publicIconName) as $publicIconChar){$publicIconHash=(($publicIconHash*31)+ord($publicIconChar)) & 0xFFFFFFFF;} $publicIconHue=$publicIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$publicIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($publicIconName)?>"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><div class="mega-panel-preview-content"><strong><?=e($pn['title']??'')?></strong><?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?><span class="module-link">Explore module ↗</span></div></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?module=<?=e($module['slug'])?>"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
 <?php endif; ?>
 
@@ -397,6 +450,28 @@ if (!empty($pn['category_id'])) {
   <h1><?=e((string)($activeModule['name'] ?? 'Module not found'))?></h1>
   <?php if ($activeModule && trim((string)$activeModule['description']) !== ''): ?><p class="muted"><?=e((string)$activeModule['description'])?></p><?php endif; ?>
   <p><a class="btn light" href="index.php#modules">← Back to Explore modules</a></p>
+</div></section>
+<?php endif; ?>
+
+<?php if ($activeForumPanel): ?>
+<section class="section public-forum-section" id="community-forum"><div class="wrap">
+ <div class="public-forum-heading"><div class="eyebrow">COMMUNITY FORUM</div><h2><?=e((string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum'))?></h2><?php if(!empty($activeForumPanel['description'])): ?><p class="muted"><?=e((string)$activeForumPanel['description'])?></p><?php endif; ?><p class="public-forum-count"><?=count($publicForumThreads)?> published <?=count($publicForumThreads)===1?'discussion':'discussions'?></p></div>
+ <?php if (!$publicForumThreads): ?><div class="panel public-forum-empty"><h3>No published discussions yet.</h3><p class="muted">Community discussions posted to this forum panel will appear here once published.</p></div>
+ <?php else: ?><div class="public-forum-list">
+ <?php foreach ($publicForumThreads as $forumThread): $forumTags=json_decode((string)($forumThread['tags_json']??'[]'),true); if(!is_array($forumTags))$forumTags=[]; ?>
+ <article class="public-forum-thread">
+  <div class="public-forum-thread-top"><span class="public-forum-prefix"><?=e((string)($forumThread['prefix'] ?: 'No prefix'))?></span><span class="public-forum-date"><?=e(date('M d, Y',strtotime((string)$forumThread['created_at'])))?></span></div>
+  <h3><?=e((string)$forumThread['title'])?></h3>
+  <div class="public-forum-description"><?=$renderBannerRichText((string)$forumThread['description'])?></div>
+  <?php if($forumTags): ?><div class="public-forum-tags"><?php foreach($forumTags as $forumTag): ?><span><?=e((string)$forumTag)?></span><?php endforeach; ?></div><?php endif; ?>
+  <?php if(!empty($publicForumAttachments[(int)$forumThread['id']])): ?><div class="public-forum-attachments"><?php foreach($publicForumAttachments[(int)$forumThread['id']] as $forumAttachment): $attachmentUrl=$publicForumAttachmentUrl((string)$forumAttachment['file_path']); $attachmentName=(string)$forumAttachment['original_name']; $attachmentType=strtolower((string)$forumAttachment['attachment_type']); $attachmentExt=strtolower(pathinfo($attachmentName,PATHINFO_EXTENSION)); $isForumPhoto=in_array($attachmentType,['photo','image'],true)||in_array($attachmentExt,['jpg','jpeg','png','gif','webp','avif','bmp','tif','tiff'],true); $isForumVideo=in_array($attachmentType,['video'],true)||in_array($attachmentExt,['mp4','webm','mov','mkv','avi','m4v','wmv','flv','mpeg','mpg','3gp','ogv'],true); ?>
+   <?php if($isForumPhoto): ?><a href="<?=e($attachmentUrl)?>" target="_blank" rel="noopener"><img src="<?=e($attachmentUrl)?>" alt="<?=e($attachmentName)?>" loading="lazy"></a>
+   <?php elseif($isForumVideo): ?><video src="<?=e($attachmentUrl)?>" controls preload="metadata"></video>
+   <?php else: ?><a class="public-forum-file" href="<?=e($attachmentUrl)?>" target="_blank" rel="noopener" download><?=e($attachmentName)?></a><?php endif; ?>
+  <?php endforeach; ?></div><?php endif; ?>
+  <div class="public-forum-thread-footer"><span>Posted by <strong><?=e((string)$forumThread['full_name'])?></strong></span><span><?=e(ucwords(str_replace('_',' ',(string)$forumThread['role'])))?></span></div>
+ </article>
+ <?php endforeach; ?></div><?php endif; ?>
 </div></section>
 <?php endif; ?>
 
