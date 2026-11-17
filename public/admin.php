@@ -153,8 +153,45 @@ foreach($defaultSections as $key=>$defaults){$stored=$sectionsSettings[$key]??[]
 $sectionsSettings['slideshow']['photos'] = sortSlideshowPhotosByUpdatedAt((array)($sectionsSettings['slideshow']['photos'] ?? []));
 
 $forumPanelViewIndex = filter_input(INPUT_GET, 'forum_panel', FILTER_VALIDATE_INT);
+$forumPanelViewPanel = null;
+$forumPanelViewCategory = null;
+$forumPanelViewPosts = [];
 if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($sectionsSettings['mega_menu']['panels'][$forumPanelViewIndex]) || !is_array($sectionsSettings['mega_menu']['panels'][$forumPanelViewIndex])) {
     $forumPanelViewIndex = null;
+} else {
+    $forumPanelViewPanel = $sectionsSettings['mega_menu']['panels'][$forumPanelViewIndex];
+    $forumPanelViewTitle = trim((string)($forumPanelViewPanel['title'] ?? '')) ?: 'Untitled panel';
+    $forumPanelViewUrl = trim((string)($forumPanelViewPanel['url'] ?? ''));
+    $forumPanelViewQuery = [];
+    parse_str((string)(parse_url($forumPanelViewUrl, PHP_URL_QUERY) ?: ''), $forumPanelViewQuery);
+    $forumPanelViewSlug = '';
+    foreach (['module', 'category'] as $forumQueryKey) {
+        if (!empty($forumPanelViewQuery[$forumQueryKey]) && is_string($forumPanelViewQuery[$forumQueryKey])) {
+            $forumPanelViewSlug = trim($forumPanelViewQuery[$forumQueryKey]);
+            break;
+        }
+    }
+    if ($forumPanelViewSlug === '') {
+        $forumPanelViewSlug = trim((string)preg_replace('/[^a-z0-9]+/i', '-', strtolower($forumPanelViewTitle)), '-');
+    }
+    $forumCategoryStmt = $pdo->prepare('SELECT id,name,slug FROM categories WHERE slug=? AND parent_id IS NULL LIMIT 1');
+    $forumCategoryStmt->execute([$forumPanelViewSlug]);
+    $forumPanelViewCategory = $forumCategoryStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if ($forumPanelViewCategory) {
+        $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name
+            FROM content c
+            INNER JOIN users u ON u.id=c.owner_id
+            LEFT JOIN categories sub ON sub.id=c.subcategory_id
+            WHERE c.category_id=? AND u.role IN ('system_admin','creator')
+            ORDER BY COALESCE(c.updated_at,c.created_at) DESC,c.id DESC");
+        $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
+        $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+function adminForumDateLabel(?string $value): string {
+    if (!$value) return '—';
+    $time = strtotime($value);
+    return $time ? date('F d, Y · g:i A', $time) : '—';
 }
 
 
@@ -1175,7 +1212,24 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
 </style><style>
 .section-subpanel.forum-panel-view{padding:0!important;overflow:hidden}
-.section-subpanel.forum-panel-view>#forum-content-embed{width:100%;min-height:720px}
+.forum-inline-content{width:100%;padding:24px;box-sizing:border-box}
+.forum-inline-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0 0 22px}
+.forum-inline-eyebrow{color:#d8b477;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.forum-inline-header h2{font-size:clamp(25px,3vw,36px);margin:7px 0 8px;color:#fff}
+.forum-inline-header p{margin:0;color:#bdaeb4;font-size:13px}
+.forum-inline-panel{border:1px solid rgba(216,180,119,.18);border-radius:14px;background:linear-gradient(145deg,rgba(37,20,29,.9),rgba(17,12,17,.96));overflow:hidden}
+.forum-inline-table-scroll{overflow-x:auto}
+.forum-inline-table{width:100%;border-collapse:collapse;min-width:760px}
+.forum-inline-table th,.forum-inline-table td{padding:13px 15px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:12px;vertical-align:top}
+.forum-inline-table th{color:#d8b477;font-size:11px;text-transform:uppercase;letter-spacing:.7px;background:rgba(255,255,255,.025)}
+.forum-inline-table td{color:#e9dfe3}
+.forum-inline-table td strong{display:block;color:#fff;font-size:13px;margin-bottom:4px}
+.forum-inline-muted{display:block;color:#a99aa1;font-size:11px}
+.forum-inline-status{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap}
+.forum-inline-status.published{color:#9ce0b2;background:rgba(46,160,90,.14);border:1px solid rgba(91,202,130,.25)}
+.forum-inline-status.unpublished{color:#f2c77e;background:rgba(190,129,44,.13);border:1px solid rgba(216,180,119,.25)}
+.forum-inline-empty{padding:38px 20px;text-align:center;color:#bdaeb4;font-size:13px}
+@media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-header{align-items:flex-start}.forum-inline-table th,.forum-inline-table td{padding:11px}}
 </style></head><body>
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
 <div class="admin-shell">
@@ -2614,7 +2668,36 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  <div class="account-status-modal slideshow-delete-overlay" id="slideshow-photo-delete-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="slideshow-photo-delete-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="slideshow-photo-delete-success-title">Selected photo/s deleted successfully.</h2><button type="button" class="btn" id="slideshow-photo-delete-success-close">OK</button></div></div>
  <section class="section-subpanel<?= $forumPanelViewIndex !== null ? ' forum-panel-view' : '' ?>" data-section-panel="mega_menu" hidden>
   <?php if ($forumPanelViewIndex !== null): ?>
-   <iframe id="forum-content-embed" title="Forum panel content" src="admin-forum-content.php?panel=<?=$forumPanelViewIndex?>&amp;embedded=1" style="display:block;width:100%;min-height:720px;height:calc(100vh - 300px);border:0;background:transparent" loading="eager"></iframe>
+   <?php $forumPanelTitle = trim((string)($forumPanelViewPanel['title'] ?? '')) ?: 'Untitled panel'; ?>
+   <div class="forum-inline-content">
+    <header class="forum-inline-header">
+     <div><div class="forum-inline-eyebrow">Forum · Panel Content</div><h2><?=e($forumPanelTitle)?></h2><p>Published and unpublished posts created by the administrator and creators under this panel.</p></div>
+     <a class="btn light" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu">← Back to Forum</a>
+    </header>
+    <section class="forum-inline-panel">
+     <?php if (!$forumPanelViewCategory): ?>
+      <div class="forum-inline-empty">This panel is not currently linked to an active category. Edit its panel URL to use the matching category or module slug to display its posts here.</div>
+     <?php elseif (!$forumPanelViewPosts): ?>
+      <div class="forum-inline-empty">No posts have been created under this panel yet.</div>
+     <?php else: ?>
+      <div class="forum-inline-table-scroll"><table class="forum-inline-table">
+       <thead><tr><th>Post Title</th><th>Author</th><th>Content Type</th><th>Publication</th><th>Workflow Status</th><th>Last Updated</th></tr></thead>
+       <tbody>
+       <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; ?>
+        <tr>
+         <td><strong><?=e((string)$forumPost['title'])?></strong><?php if(trim((string)($forumPost['excerpt']??''))!==''): ?><span class="forum-inline-muted"><?=e((string)$forumPost['excerpt'])?></span><?php endif; ?><?php if(!empty($forumPost['subcategory_name'])): ?><div class="forum-inline-muted">↳ <?=e((string)$forumPost['subcategory_name'])?></div><?php endif; ?></td>
+         <td><?=e((string)$forumPost['full_name'])?><div class="forum-inline-muted"><?=e(ucwords(str_replace('_',' ',(string)$forumPost['role'])))?></div></td>
+         <td><?=e(ucfirst((string)$forumPost['content_type']))?></td>
+         <td><span class="forum-inline-status <?=$forumIsPublished?'published':'unpublished'?>"><?=$forumIsPublished?'Published':'Unpublished'?></span></td>
+         <td><?=e(ucwords(str_replace('_',' ',(string)$forumPost['status'])))?></td>
+         <td><?=e(adminForumDateLabel((string)($forumPost['updated_at']??$forumPost['created_at']??'')))?></td>
+        </tr>
+       <?php endforeach; ?>
+       </tbody>
+      </table></div>
+     <?php endif; ?>
+    </section>
+   </div>
   <?php else: ?>
   <?php
 $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
