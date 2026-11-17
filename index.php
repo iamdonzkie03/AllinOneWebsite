@@ -444,7 +444,7 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
 ?><a class="category module-card mega-public-panel" href="<?=e($panelHref)?>"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); $publicIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $publicIconHash=0; foreach(str_split($publicIconName) as $publicIconChar){$publicIconHash=(($publicIconHash*31)+ord($publicIconChar)) & 0xFFFFFFFF;} $publicIconHue=$publicIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$publicIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($publicIconName)?>"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><div class="mega-panel-preview-content"><strong><?=e($pn['title']??'')?></strong><?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?><span class="module-link">Explore module ↗</span></div></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?module=<?=e($module['slug'])?>"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
 <?php endif; ?>
 
-<?php if ($moduleView): ?>
+<?php if ($moduleView && !$activeForumPanel): ?>
 <section class="section module-page-head"><div class="wrap">
   <p class="eyebrow">EXPLORE THE MODULE</p>
   <h1><?=e((string)($activeModule['name'] ?? 'Module not found'))?></h1>
@@ -454,8 +454,13 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
 <?php endif; ?>
 
 <?php if ($activeForumPanel): ?>
+<section class="section module-page-head public-forum-page-head"><div class="wrap">
+  <p class="eyebrow">COMMUNITY FORUM</p>
+  <h1><?=e(str_ireplace(' And ', ' and ', (string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum')))?></h1>
+  <p class="muted">Skill, imagination, and a camera to express ideas, tell stories, and evoke emotions rather than simply recording a literal copy of reality.</p>
+</div></section>
 <section class="section public-forum-section" id="community-forum"><div class="wrap">
- <div class="public-forum-heading"><div class="eyebrow">COMMUNITY FORUM</div><h2><?=e((string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum'))?></h2><?php if(!empty($activeForumPanel['description'])): ?><p class="muted"><?=e((string)$activeForumPanel['description'])?></p><?php endif; ?><p class="public-forum-count"><?=count($publicForumThreads)?> published <?=count($publicForumThreads)===1?'discussion':'discussions'?></p></div>
+ <p class="public-forum-count"><?=count($publicForumThreads)?> published <?=count($publicForumThreads)===1?'discussion':'discussions'?></p>
  <?php if (!$publicForumThreads): ?><div class="panel public-forum-empty"><h3>No published discussions yet.</h3><p class="muted">Community discussions posted to this forum panel will appear here once published.</p></div>
  <?php else: ?><div class="public-forum-list">
   <div class="public-forum-list-head"><span>Topic</span><span>Started by</span><span>Last activity</span></div>
