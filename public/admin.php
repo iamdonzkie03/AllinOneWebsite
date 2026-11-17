@@ -366,7 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $att=$pdo->prepare('INSERT INTO forum_thread_attachments(thread_id,original_name,file_path,mime_type,file_size,attachment_type) VALUES(?,?,?,?,?,?)');
         foreach($accepted as $file){$stored='file-'.bin2hex(random_bytes(10)).'.'.$file['ext'];$target=$dir.'/'.$stored;if(!move_uploaded_file($file['tmp'],$target))throw new RuntimeException('Unable to save '.$file['name'].'.');$newPaths[]=$target;$att->execute([$threadId,$file['name'],'uploads/forum-threads/'.$threadId.'/'.$stored,$file['mime'],$file['size'],$file['type']]);}
         $pdo->commit();$_SESSION['forum_thread_success']=['title'=>$title,'status'=>$status];session_write_close();
-        header('Location: admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.rawurlencode((string)($_POST['forum_panel_index']??'')),true,303);exit;
+        header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.rawurlencode((string)($_POST['forum_panel_index']??'')),true,303);exit;
       }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();foreach($newPaths as $path)if(is_file($path))@unlink($path);$message=$e->getMessage();}
     }
 
@@ -2810,6 +2810,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     (() => {
       const resultOverlay=document.getElementById('forum-post-result-overlay');
       if(resultOverlay){
+        // This result overlay is rendered inside the Forum panel, whose overflow
+        // clipping can hide fixed-position children. Move it to <body>, just like
+        // the composer modal, before displaying it.
+        if(resultOverlay.parentElement!==document.body)document.body.appendChild(resultOverlay);
         document.body.classList.add('forum-thread-modal-open');
         const closeResult=()=>{resultOverlay.remove();document.body.classList.remove('forum-thread-modal-open');};
         document.getElementById('forum-post-result-close')?.addEventListener('click',closeResult);
