@@ -204,7 +204,7 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
     $forumPanelViewCategory = $forumCategoryStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     {
         if($forumPanelViewCategory){
-            $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name
+            $forumPostsStmt = $pdo->prepare("SELECT c.id,c.title,c.excerpt,c.content_type,c.status,c.created_at,c.updated_at,c.published_at,u.full_name,u.role,sub.name AS subcategory_name,NULL AS tags_json,'content' AS record_type
                 FROM content c
                 INNER JOIN users u ON u.id=c.owner_id
                 LEFT JOIN categories sub ON sub.id=c.subcategory_id
@@ -213,12 +213,22 @@ if ($forumPanelViewIndex === false || $forumPanelViewIndex === null || !isset($s
             $forumPostsStmt->execute([(int)$forumPanelViewCategory['id']]);
             $forumPanelViewPosts = $forumPostsStmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,'thread' AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.panel_id=?".($forumPanelViewCategory?' OR (t.panel_id IS NULL AND t.category_id=?)':'')." ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
+        $threadStmt=$pdo->prepare("SELECT t.id,t.title,t.description AS excerpt,t.prefix AS content_type,t.status,t.created_at,t.updated_at,t.prefix AS subcategory_name,t.tags_json,'thread' AS record_type,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.panel_id=?".($forumPanelViewCategory?' OR (t.panel_id IS NULL AND t.category_id=?)':'')." ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
         $threadParams=[(string)($forumPanelViewPanel['panel_id']??'')];if($forumPanelViewCategory)$threadParams[]=(int)$forumPanelViewCategory['id'];
         $threadStmt->execute($threadParams);$forumPanelViewPosts=array_merge($forumPanelViewPosts,$threadStmt->fetchAll(PDO::FETCH_ASSOC));
         usort($forumPanelViewPosts,static fn($a,$b)=>strcmp((string)($b['updated_at']??$b['created_at']??''),(string)($a['updated_at']??$a['created_at']??'')));
 
     }
+}
+$forumEditThreadId = filter_input(INPUT_GET, 'edit_thread', FILTER_VALIDATE_INT) ?: 0;
+$forumViewThreadId = filter_input(INPUT_GET, 'view_thread', FILTER_VALIDATE_INT) ?: 0;
+$forumSelectedThread = null;
+if ($forumPanelViewIndex !== null && ($forumEditThreadId > 0 || $forumViewThreadId > 0)) {
+    $selectedId = $forumEditThreadId > 0 ? $forumEditThreadId : $forumViewThreadId;
+    $selectedStmt = $pdo->prepare('SELECT t.*,u.full_name,u.role FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.id=? AND t.panel_id=? LIMIT 1');
+    $selectedStmt->execute([$selectedId,(string)($forumPanelViewPanel['panel_id']??'')]);
+    $forumSelectedThread = $selectedStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if (!$forumSelectedThread) { $forumEditThreadId=0; $forumViewThreadId=0; }
 }
 function adminForumPlainText(string $value): string {
     // Forum descriptions are saved from a rich-text editor. Convert both real
@@ -351,6 +361,31 @@ function publishHeaderSettingsToGitHub(array $header): string {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'update_forum_thread' || $action === 'update_forum_thread_status') {
+      $section='page-management';
+      try {
+        $threadId=max(0,(int)($_POST['thread_id']??0));$panelId=trim((string)($_POST['forum_panel_id']??''));$panelIndex=max(0,(int)($_POST['forum_panel_index']??0));
+        $check=$pdo->prepare('SELECT id FROM forum_threads WHERE id=? AND panel_id=? LIMIT 1');$check->execute([$threadId,$panelId]);if(!$check->fetchColumn())throw new RuntimeException('The selected Forum thread could not be found.');
+        if($action==='update_forum_thread_status'){
+          $status=(string)($_POST['thread_status']??'unpublished');if(!in_array($status,['published','unpublished'],true))throw new RuntimeException('Invalid publication status.');
+          $save=$pdo->prepare('UPDATE forum_threads SET status=? WHERE id=? AND panel_id=?');$save->execute([$status,$threadId,$panelId]);
+          $_SESSION['forum_thread_success']=['status'=>$status,'message'=>'Thread status updated successfully.'];
+        }else{
+          $title=trim((string)($_POST['thread_title']??''));$body=trim((string)($_POST['thread_description']??''));$group=trim((string)($_POST['thread_prefix_group']??''));$prefix=trim((string)($_POST['thread_prefix']??''));$status=(string)($_POST['thread_status']??'unpublished');
+          if($title===''||mb_strlen($title)>240||$body==='')throw new RuntimeException('Enter a thread title and description.');
+          $prefixes=['General'=>['Shared','Tips','Tutorial','Info','Dead Link','Granted','Get','Request'],'Downloads'=>['Google Drive','Mediafire','Mega','TeraBox','Direct Link'],'Movies'=>['Hollywood','Pinoy','Asian','Netflix','Subbed','Dubbed','Collection'],'Video'=>['HD','HDRip','WebRip','CamRip','BluRay','HDCam','Web-DL','DVDRip','HDTS','HDTC'],'Genre'=>['Animation','Adventure','Action','Biography','Comedy','Crime','Documentary','Drama','Family','Fantasy','History','Horror','Musical','Romance','Sci-Fi','Sports','Short-Film','Thriller','War','Western','Mystery','Suspense','Concert','Reality TV','Fashion Show']];
+          if(!isset($prefixes[$group])||!in_array($prefix,$prefixes[$group],true)||!in_array($status,['published','unpublished'],true))throw new RuntimeException('Choose a valid content type and publication status.');
+          $body=strip_tags($body,'<p><br><strong><b><em><i><u><s><h2><h3><h4><blockquote><ul><ol><li><a><span><div><table><thead><tbody><tr><th><td><pre><code><hr><figure><img><figcaption>');
+          $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\\'[^\\']*\\'|[^\\s>]+)/i','',$body);
+          $tags=[];foreach(explode(',',(string)($_POST['thread_tags']??'')) as $tag){$tag=trim(mb_substr($tag,0,60));if($tag!==''&&!in_array($tag,$tags,true))$tags[]=$tag;}
+          $save=$pdo->prepare('UPDATE forum_threads SET prefix_group=?,prefix=?,title=?,description=?,tags_json=?,status=? WHERE id=? AND panel_id=?');
+          $save->execute([$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status,$threadId,$panelId]);
+          $_SESSION['forum_thread_success']=['status'=>$status,'message'=>'Thread updated successfully.'];
+        }
+        header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.rawurlencode((string)$panelIndex),true,303);exit;
+      }catch(Throwable $e){$message=$e->getMessage();}
+    }
 
     if ($action === 'create_forum_thread') {
       $section='page-management'; $newPaths=[];
