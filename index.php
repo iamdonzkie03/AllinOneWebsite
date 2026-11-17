@@ -544,7 +544,7 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
 if ($isCreatorSignedIn) {
     $panelHrefParts = explode('#', $panelHref, 2);
     $panelHrefBase = $panelHrefParts[0];
-    $panelHref .= (str_contains($panelHrefBase, '?') ? '&' : '?') . 'session_context=creator';
+    $panelHref = $panelHrefBase . (str_contains($panelHrefBase, '?') ? '&' : '?') . 'session_context=creator';
     if (isset($panelHrefParts[1])) $panelHref .= '#' . $panelHrefParts[1];
 }
 ?><a class="category module-card mega-public-panel" href="<?=e($panelHref)?>"<?php if(!empty($pn['description'])): ?> data-description="<?=e($pn['description'])?>" aria-label="<?=e(($pn['title']??'Menu panel').': '.($pn['description']??''))?>"<?php endif; ?>><?php if(!empty($pn['photo'])): ?><img src="<?=e($sectionImageSrc((string)$pn['photo']))?>" alt="" class="mega-panel-cover"><?php else: ?><?php $panelIconName=(string)($pn['symbol']??''); $publicIconName=preg_replace('/^tabler:/','',$panelIconName)?:'laptop'; $publicIconHash=0; foreach(str_split($publicIconName) as $publicIconChar){$publicIconHash=(($publicIconHash*31)+ord($publicIconChar)) & 0xFFFFFFFF;} $publicIconHue=$publicIconHash%360; if(preg_match('/^(?:tabler:)?[a-z0-9-]{1,60}$/', $panelIconName)): ?><span class="mega-panel-icon-background" style="--icon-hue:<?=$publicIconHue?>" aria-hidden="true"><iconify-icon icon="tabler:<?=e($publicIconName)?>"></iconify-icon></span><?php else: ?><span class="symbol"><?=e($panelIconName!==''?$panelIconName:'✳')?></span><?php endif; ?><?php endif; ?><div class="mega-panel-preview-content"><strong><?=e($pn['title']??'')?></strong><?php if(!empty($pn['description'])): ?><span class="mega-panel-description"><?=e($pn['description'])?></span><?php endif; ?><span class="module-link">Explore module ↗</span></div></a><?php endforeach; else: foreach($modules as $module): ?><a class="category module-card" href="?module=<?=e($module['slug'])?>"><span class="symbol"><?=e($module['symbol'])?></span><strong><?=e($module['name'])?></strong><span class="module-description"><?=e($module['description'])?></span><span class="module-link">Explore module ↗</span></a><?php endforeach; endif; ?></div></div></section>
@@ -564,7 +564,7 @@ if ($isCreatorSignedIn) {
   <p class="eyebrow">COMMUNITY FORUM</p>
   <h1><?=e(str_ireplace(' And ', ' and ', (string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum')))?></h1>
   <p class="muted">Skill, imagination, and a camera to express ideas, tell stories, and evoke emotions rather than simply recording a literal copy of reality.</p>
-  <?php if ($publicForumDetail): ?><p><a class="btn light" href="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>">← Back to discussions</a></p><?php endif; ?>
+  <?php if ($publicForumDetail): ?><p><a class="btn light" href="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>">← Back to discussions</a></p><?php endif; ?>
 </div></section>
 <?php if ($publicForumDetail): ?>
 <section class="section public-forum-section" id="forum-thread-detail"><div class="wrap">
@@ -582,7 +582,7 @@ if ($isCreatorSignedIn) {
    <span><strong><?=number_format($publicForumViewCount)?></strong> views</span>
    <span><strong><?=number_format($publicForumReplyCount)?></strong> replies</span>
    <span><strong><?=number_format($publicForumLikeCount)?></strong> likes</span>
-   <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="<?=$publicForumLikedByCurrentUser?'unlike':'like'?>"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><button class="btn light public-forum-like-button" type="submit"><?=$publicForumLikedByCurrentUser?'♥ Liked':'♡ Like'?></button></form><?php else: ?><a class="btn light" href="index.php#sign-in-modal">Sign in to like</a><?php endif; ?>
+   <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="<?=$publicForumLikedByCurrentUser?'unlike':'like'?>"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><button class="btn light public-forum-like-button" type="submit"><?=$publicForumLikedByCurrentUser?'♥ Liked':'♡ Like'?></button></form><?php else: ?><a class="btn light" href="index.php#sign-in-modal">Sign in to like</a><?php endif; ?>
   </div>
  </article>
  <div class="public-forum-replies">
