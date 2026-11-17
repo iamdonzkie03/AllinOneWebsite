@@ -382,7 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           if(!isset($prefixes[$group])||!in_array($prefix,$prefixes[$group],true)||!in_array($status,['published','unpublished'],true))throw new RuntimeException('Choose a valid content type and publication status.');
           $body=strip_tags($body,'<p><br><strong><b><em><i><u><s><h2><h3><h4><blockquote><ul><ol><li><a><span><div><table><thead><tbody><tr><th><td><pre><code><hr><figure><img><figcaption>');
           $body=preg_replace('/(href|src)\\s*=\\s*([\'"])\\s*(javascript:|data:text\\/html)[^\'"]*\\2/i','$1="#"',$body);
-          $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\\'[^\\']*\\'|[^\\s>]+)/i','',$body);
+          $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\'[^\']*\'|[^\\s>]+)/i','',$body);
           $tags=[];foreach(explode(',',(string)($_POST['thread_tags']??'')) as $tag){$tag=trim(mb_substr($tag,0,60));if($tag!==''&&!in_array($tag,$tags,true))$tags[]=$tag;}
           $save=$pdo->prepare('UPDATE forum_threads SET prefix_group=?,prefix=?,title=?,description=?,tags_json=?,status=? WHERE id=? AND panel_id=?');
           $save->execute([$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status,$threadId,$panelId]);
