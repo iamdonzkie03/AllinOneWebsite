@@ -456,7 +456,7 @@ if (!empty($pn['panel_id']) && preg_match('/^[a-f0-9]{32}$/i', (string)$pn['pane
 <?php if ($activeForumPanel): ?>
 <section class="section module-page-head public-forum-page-head"><div class="wrap">
   <p class="eyebrow">COMMUNITY FORUM</p>
-  <h1><?=e((string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum'))?></h1>
+  <h1><?=e(str_ireplace(' And ', ' and ', (string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum')))?></h1>
   <p class="muted">Skill, imagination, and a camera to express ideas, tell stories, and evoke emotions rather than simply recording a literal copy of reality.</p>
 </div></section>
 <section class="section public-forum-section" id="community-forum"><div class="wrap">
