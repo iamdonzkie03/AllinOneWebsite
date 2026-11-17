@@ -405,6 +405,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if(!in_array($status,['published','unpublished'],true))throw new RuntimeException('Choose Publish or Unpublish.');
         if($categoryId>0){$q=$pdo->prepare('SELECT id FROM categories WHERE id=? AND parent_id IS NULL LIMIT 1');$q->execute([$categoryId]);if(!$q->fetchColumn())$categoryId=0;}
         $body=strip_tags($body,'<p><br><strong><b><em><i><u><s><h2><h3><h4><blockquote><ul><ol><li><a><span><div><table><thead><tbody><tr><th><td><pre><code><hr><figure><img><figcaption>');
+          $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\\'[^\\']*\\'|[^\\s>]+)/i','',$body);
+          $body=preg_replace('/(href|src)\\s*=\\s*([\\'"])\\s*(javascript:|data:text\\/html)[^\\'"]*\\2/i','$1="#"',$body);
         $body=preg_replace('/\\s+on[a-z]+\\s*=\\s*("[^"]*"|\'[^\']*\'|[^\\s>]+)/i','',$body);
         $body=preg_replace('/(href|src)\\s*=\\s*([\'"])\\s*(javascript:|data:text\\/html)[^\'"]*\\2/i','$1="#"',$body);
         $tags=[];foreach(explode(',',(string)($_POST['thread_tags']??'')) as $tag){$tag=trim(mb_substr($tag,0,60));if($tag!==''&&!in_array($tag,$tags,true))$tags[]=$tag;}
@@ -2893,7 +2895,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(threadModal&&threadModal.parentElement!==document.body)document.body.appendChild(threadModal);
       if(threadModal){document.body.classList.add('forum-thread-modal-open');document.getElementById('thread-prefix')?.focus();}
       const threadCloseUrl='admin.php?section=page-management&tab=sections&section_tab=mega_menu&forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>';
-      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&threadModal)window.location.href=threadCloseUrl;});
+      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(threadModal||viewThreadModal))window.location.href=threadCloseUrl;});
       document.getElementById('thread-prefix')?.addEventListener('change',e=>{const option=e.target.selectedOptions[0],group=option?.dataset.group||'';document.getElementById('thread-prefix-group').value=group;e.target.style.backgroundColor='#100c10';});if(document.getElementById('thread-prefix')?.value){const selectedPrefix=document.getElementById('thread-prefix').selectedOptions[0];document.getElementById('thread-prefix-group').value=selectedPrefix?.dataset.group||'';}
       document.querySelectorAll('[data-thread-cmd]').forEach(b=>b.addEventListener('click',()=>{threadEditor.focus();document.execCommand(b.dataset.threadCmd,false,null);}));
       document.querySelector('[data-thread-tool="link"]')?.addEventListener('click',()=>{const url=prompt('Enter link URL (https:// or http://):');if(url&&(url.startsWith('https://')||url.startsWith('http://'))){threadEditor.focus();document.execCommand('createLink',false,url);}});
