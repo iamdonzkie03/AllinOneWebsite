@@ -1018,7 +1018,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['banner_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Banner Settings successfully saved.';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['slideshow_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Slideshow settings successfully saved.';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['sections_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections') $message='Sections settings successfully saved.';
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['mega_menu_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections' && (string)($_GET['section_tab'] ?? '') === 'mega_menu') $message='Mega Menu settings successfully saved.';
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['mega_menu_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections' && (string)($_GET['section_tab'] ?? '') === 'mega_menu') $message='Forum settings successfully saved.';
 // A successful Footer save is shown only on the redirected GET request.
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
     $message = 'Footer settings successfully updated.';
@@ -1308,7 +1308,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       $clEditCategory=null; $clEditSubcategory=null;
       if(!empty($_GET['edit_category'])){$q=$pdo->prepare("SELECT id,name,description FROM categories WHERE id=? AND parent_id IS NULL AND slug<>'uncategorized'");$q->execute([(int)$_GET['edit_category']]);$clEditCategory=$q->fetch()?:null;}
       if(!empty($_GET['edit_subcategory'])){$q=$pdo->prepare("SELECT id,name,description,parent_id FROM categories WHERE id=? AND parent_id IS NOT NULL");$q->execute([(int)$_GET['edit_subcategory']]);$clEditSubcategory=$q->fetch()?:null;}
-      $clMessages=['category_assigned_menu'=>'Category successfully assigned as a Mega Menu panel.','category_already_menu'=>'This category is already assigned as a Mega Menu panel.','mega_menu_full'=>'The Mega Menu already contains the maximum of ten (10) panels.','category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.','subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.','category_in_use'=>'This category or subcategory is assigned to existing content. Reassign or remove that content before deleting it.','category_locked'=>'This category cannot be changed or deleted.','category_invalid'=>'Choose a valid parent category.','subcategory_invalid'=>'The selected subcategory does not belong to the selected category.','subcategory_missing'=>'The subcategory could not be found.','duplicate_or_database_error'=>'The change could not be saved. Check that the category or subcategory name is not already in use.'];
+      $clMessages=['category_assigned_menu'=>'Category successfully assigned as a Forum panel.','category_already_menu'=>'This category is already assigned as a Forum panel.','mega_menu_full'=>'The Forum already contains the maximum of ten (10) panels.','category_created'=>'Category created successfully.','category_updated'=>'Category updated successfully.','category_deleted'=>'Category deleted successfully.','subcategory_created'=>'Subcategory created successfully.','subcategory_updated'=>'Subcategory updated successfully.','subcategory_deleted'=>'Subcategory deleted successfully.','category_in_use'=>'This category or subcategory is assigned to existing content. Reassign or remove that content before deleting it.','category_locked'=>'This category cannot be changed or deleted.','category_invalid'=>'Choose a valid parent category.','subcategory_invalid'=>'The selected subcategory does not belong to the selected category.','subcategory_missing'=>'The subcategory could not be found.','duplicate_or_database_error'=>'The change could not be saved. Check that the category or subcategory name is not already in use.'];
       $clNotice=$clMessages[(string)($_GET['notice']??'')]??'';
     ?>
     <div class="admin-topline"><div><div class="eyebrow">Page Management</div><h1 class="admin-heading">Category List</h1><p class="muted">Manage categories and their subcategories.</p></div><a class="btn light" href="admin.php?section=page-management&amp;tab=contents">← Back to Contents</a></div>
@@ -2436,7 +2436,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  
  <nav class="section-builder-tabs" data-active="banner" aria-label="Homepage section editor" data-initial-tab="<?=e(in_array((string)($_GET['section_tab']??'banner'),['banner','slideshow','mega_menu'],true)?(string)($_GET['section_tab']??'banner'):'banner')?>">
   <span class="section-tab-indicator" aria-hidden="true"></span>
-  <button type="button" data-section-tab="banner" aria-selected="true" role="tab" onclick="window.activateSectionBuilderTab(this)">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab" onclick="window.activateSectionBuilderTab(this)">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab" onclick="window.activateSectionBuilderTab(this)">Mega Menu</button>
+  <button type="button" data-section-tab="banner" aria-selected="true" role="tab" onclick="window.activateSectionBuilderTab(this)">Banner</button><button type="button" data-section-tab="slideshow" aria-selected="false" role="tab" onclick="window.activateSectionBuilderTab(this)">Slideshow</button><button type="button" data-section-tab="mega_menu" aria-selected="false" role="tab" onclick="window.activateSectionBuilderTab(this)">Forum</button>
  </nav>
  <script>
  // Keep section-tab activation on each button itself. This does not depend on
@@ -2460,7 +2460,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
    const field = document.getElementById('section-editor-tab');
    const save = document.getElementById('save-section-settings-button');
    if (field) field.value = key;
-   if (save) save.textContent = key === 'banner' ? 'Save Banner Settings' : key === 'slideshow' ? 'Save Slideshow Settings' : 'Save Mega Menu Settings';
+   if (save) save.textContent = key === 'banner' ? 'Save Banner Settings' : key === 'slideshow' ? 'Save Slideshow Settings' : 'Save Forum Settings';
    const indicator = nav.querySelector('.section-tab-indicator');
    if (indicator && button.offsetWidth) {
      indicator.style.left = button.offsetLeft + 'px';
@@ -2675,7 +2675,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <?php endforeach; ?>
    <?php if(empty($sectionsSettings['mega_menu']['panels'])): ?><p class="muted slideshow-empty mega-panel-empty">No panel menus have been created yet.</p><?php endif; ?>
   </div>
-  <div class="header-settings-actions mega-menu-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu" name="save_mega_menu_settings" value="1">Save Mega Menu Settings</button></div>
+  <div class="header-settings-actions mega-menu-settings-actions"><button type="submit" class="btn section-save-button" data-section-save="mega_menu" name="save_mega_menu_settings" value="1">Save Forum Settings</button></div>
  </section>
  </form>
 <style id="mega-panel-description-styles">
@@ -2792,7 +2792,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    <div class="gallery-modal-actions mega-panel-modal-actions"><button type="button" class="btn light" id="mega-panel-cancel">Cancel</button><button type="button" class="btn" id="mega-panel-create">Save Menu</button></div>
   </section>
  </div>
- <div class="account-status-modal slideshow-delete-overlay" id="mega-menu-settings-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-menu-settings-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-menu-settings-success-title">Mega Menu settings successfully saved.</h2><button type="button" class="btn" id="mega-menu-settings-success-ok">OK</button></div></div>
+ <div class="account-status-modal slideshow-delete-overlay" id="mega-menu-settings-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-menu-settings-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-menu-settings-success-title">Forum settings successfully saved.</h2><button type="button" class="btn" id="mega-menu-settings-success-ok">OK</button></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-created-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-created-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-created-success-title">The panel menu has been successfully created.</h2><button type="button" class="btn" id="mega-panel-created-success-ok">OK</button></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-edit-success-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-edit-success-title"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="mega-panel-edit-success-title">The panel menu has been successfully updated.</h2><button type="button" class="btn" id="mega-panel-edit-success-ok">OK</button></div></div>
  <div class="account-status-modal slideshow-delete-overlay" id="mega-panel-delete-confirm-modal" hidden><div class="account-status-modal-card slideshow-delete-card" role="dialog" aria-modal="true" aria-labelledby="mega-panel-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="mega-panel-delete-confirm-title">Are you sure you want to delete the selected panel/s?</h2><div class="gallery-modal-actions"><button type="button" class="btn light" id="mega-panel-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="mega-panel-delete-confirm">Delete</button></div></div></div>
@@ -4078,8 +4078,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
 
 <script src="https://unpkg.com/lucide@latest"></script><script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
 <script>
-// Show the Mega Menu settings confirmation only on the one-time return
-// from an explicit Save Mega Menu Settings submission.
+// Show the Forum settings confirmation only on the one-time return
+// from an explicit Save Forum Settings submission.
 (() => {
  const params=new URLSearchParams(window.location.search);
  const isMegaMenuSaveReturn=
@@ -4109,7 +4109,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
  };
  ok.addEventListener('click',close,{once:true});
 })();
-// Show the creation confirmation only on the post-save return to the Mega Menu tab.
+// Show the creation confirmation only on the post-save return to the Forum tab.
 (() => {
  const params=new URLSearchParams(window.location.search);
  const createdTitle=params.get('panel_created_title');
