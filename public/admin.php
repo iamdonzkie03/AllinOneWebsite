@@ -1212,7 +1212,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
 </style><style>
 .section-subpanel.forum-panel-view{padding:0!important;overflow:hidden}
-.forum-inline-content{width:auto;margin:15px;padding:20px 24px 24px;box-sizing:border-box}
+.forum-inline-content{width:100%;max-width:none;margin:0;padding:20px 24px 24px;box-sizing:border-box}
 .forum-inline-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px;padding:18px 22px}
 .forum-inline-header>div{flex:1 1 360px;min-width:0}
 .forum-inline-eyebrow{display:block;color:#d8b477;font-size:10px;letter-spacing:2px;line-height:1.4;text-transform:uppercase;margin:0 0 7px}
