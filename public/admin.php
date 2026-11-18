@@ -374,7 +374,24 @@ function publishHeaderSettingsToGitHub(array $header): string {
 }
 
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// PHP discards all POST fields and files when the request exceeds post_max_size.
+$postMaxSizeText=trim((string)ini_get('post_max_size'));
+$postMaxSizeBytes=0;
+if($postMaxSizeText!=='' && $postMaxSizeText!=='0'){
+    $postMaxNumber=(float)$postMaxSizeText;
+    $postMaxUnit=strtolower(substr($postMaxSizeText,-1));
+    $postMaxMultiplier=match($postMaxUnit){'g'=>1024**3,'m'=>1024**2,'k'=>1024,default=>1};
+    $postMaxSizeBytes=(int)($postMaxNumber*$postMaxMultiplier);
+}
+$requestContentLength=(int)($_SERVER['CONTENT_LENGTH']??0);
+$requestBodyTooLarge=($_SERVER['REQUEST_METHOD']??'')==='POST' && $postMaxSizeBytes>0 && $requestContentLength>$postMaxSizeBytes;
+if($requestBodyTooLarge){
+    $actualMiB=round($requestContentLength/1024/1024,1);
+    $limitMiB=round($postMaxSizeBytes/1024/1024,1);
+    $message='The uploaded request is '.$actualMiB.' MiB, which exceeds the PHP post_max_size limit of '.$limitMiB.' MiB. PHP discarded the submitted form, so the Forum thread and attachments were not received. Increase post_max_size and upload_max_filesize in the active Laragon php.ini, ensure the web server allows the same request size, then restart Laragon and try again.';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
 
