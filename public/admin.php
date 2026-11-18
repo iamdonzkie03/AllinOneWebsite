@@ -472,9 +472,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
               $cat=$pdo->prepare('SELECT id FROM categories WHERE slug=? AND parent_id IS NULL LIMIT 1');$cat->execute([$slug]);$categoryId=(int)$cat->fetchColumn();
               if($categoryId>0){$marks=implode(',',array_fill(0,count($contentIds),'?'));$q=$pdo->prepare("DELETE FROM content WHERE category_id=? AND id IN ($marks) AND owner_id IN (SELECT id FROM users WHERE role IN ('system_admin','creator'))");$q->execute(array_merge([$categoryId],$contentIds));$deleted+=$q->rowCount();}
             }
-            $pdo->commit();foreach(array_unique($paths) as $path)if(is_file($path))@unlink($path);
-            $_SESSION['forum_bulk_delete_count']=$deleted;
-            header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.$panelIndex.'&forum_deleted=1&forum_deleted_count='.$deleted.'#pm-panel-sections',true,303);exit;
+            if($deleted<1){$pdo->rollBack();$message='No selected Forum posts were found to delete. Refresh the Forum list and try again.';}
+            else {
+              $pdo->commit();foreach(array_unique($paths) as $path)if(is_file($path))@unlink($path);
+              $_SESSION['forum_bulk_delete_count']=$deleted;
+              header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.$panelIndex.'&forum_deleted=1&forum_deleted_count='.$deleted.'#pm-panel-sections',true,303);exit;
+            }
           } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Forum bulk delete failed: '.$e->getMessage());$message='The selected Forum posts could not be deleted. Please try again.';}
         }
       }
@@ -3012,7 +3015,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </div>
       <div class="forum-inline-actions"><button class="btn bulk-delete" type="button" id="forum-delete-selected" disabled aria-disabled="true">Delete Selected</button><a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a></div>
      </div>
-     <form method="post" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"></form>
+     <form method="post" action="admin.php" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"><div id="forum-post-bulk-selected-inputs" hidden></div></form>
       <div class="forum-inline-pagination forum-inline-pagination-top"><span id="forum-post-page-info-top" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-first-top">First</button><button type="button" class="btn light" id="forum-post-prev-top">Previous</button><span id="forum-post-page-number-top" class="forum-inline-page-numbers"></span><button type="button" class="btn light" id="forum-post-next-top">Next</button><button type="button" class="btn light" id="forum-post-last-top">Last</button></div></div>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th><input type="checkbox" id="forum-post-select-all" aria-label="Select all Forum posts"></th><th>Thread Title</th><th>Author</th><th>Content Type</th><th>Status</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead>
@@ -3200,7 +3203,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       table.addEventListener('change',event=>{if(event.target.matches('.forum-post-select'))syncSelection();});
       deleteButton?.addEventListener('click',()=>{const selected=checks().filter(box=>box.checked).length;if(selected>0&&confirmModal){const totalLabel=document.getElementById('forum-delete-selected-total');if(totalLabel)totalLabel.textContent=selected+' '+(selected===1?'post':'posts')+' to delete.';confirmModal.hidden=false;confirmModal.style.display='flex';}});
       document.getElementById('forum-delete-cancel')?.addEventListener('click',()=>{confirmModal.hidden=true;confirmModal.style.display='none';});
-      document.getElementById('forum-delete-confirm')?.addEventListener('click',()=>bulkForm?.requestSubmit());
+      document.getElementById('forum-delete-confirm')?.addEventListener('click',()=>{if(!bulkForm)return;const chosen=checks().filter(box=>box.checked);if(!chosen.length){confirmModal.hidden=true;confirmModal.style.display='none';syncSelection();return;}const payload=document.getElementById('forum-post-bulk-selected-inputs');if(!payload)return;payload.replaceChildren();chosen.forEach(box=>{const input=document.createElement('input');input.type='hidden';input.name='selected_forum_posts[]';input.value=box.value;payload.append(input);});const submit=document.createElement('input');submit.type='hidden';submit.name='forum_bulk_delete_submit';submit.value='1';payload.append(submit);const confirmButton=document.getElementById('forum-delete-confirm');if(confirmButton){confirmButton.disabled=true;confirmButton.textContent='Deleting…';}bulkForm.requestSubmit();});
       confirmModal?.addEventListener('click',event=>{if(event.target===confirmModal)event.preventDefault();});
       render();
     })();
