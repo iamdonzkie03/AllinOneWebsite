@@ -426,7 +426,8 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             (SELECT COUNT(*) FROM forum_thread_likes l WHERE l.thread_id=t.id) AS like_count,
             (SELECT MAX(lr.created_at) FROM forum_thread_replies lr WHERE lr.thread_id=t.id) AS last_reply_at,
             {$lastReplyAvatarSql} AS last_reply_avatar,
-            (SELECT lu.nickname FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_nickname
+            (SELECT lu.nickname FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_nickname,
+            (SELECT lu.full_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_full_name
             FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
             WHERE t.panel_id=? AND t.status='published'
             ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
@@ -675,7 +676,7 @@ if ($isCreatorSignedIn) {
    $authorAvatar=$publicForumAvatarUrl($forumThread['author_avatar']??'');
    $lastActivityAvatar=$publicForumAvatarUrl(($forumThread['last_reply_avatar']??'')?:($forumThread['author_avatar']??''));
     $authorNickname=trim((string)($forumThread['nickname']??'')) ?: (string)$forumThread['full_name'];
-    $lastActivityNickname=trim((string)($forumThread['last_reply_nickname']??'')) ?: (!empty($forumThread['last_reply_at']) ? 'Forum member' : $authorNickname);
+    $lastActivityNickname=trim((string)($forumThread['last_reply_nickname']??'')) ?: (trim((string)($forumThread['last_reply_full_name']??'')) ?: $authorNickname);
    $activityTimestamp=strtotime((string)(($forumThread['last_reply_at']??'')?:($forumThread['updated_at']?:$forumThread['created_at'])));
    $threadHref='index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>(int)$forumThread['id'],'session_context'=>$isCreatorSignedIn?'creator':null],static fn($value)=>$value!==null));
  ?>
