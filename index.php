@@ -1247,10 +1247,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   selected.forEach(file=>{
    const index=photoFiles.length;photoFiles.push(file);
    const url=URL.createObjectURL(file);photoUrls.push(url);
-   const frame=document.createElement('div');frame.style.cssText='display:inline-block;resize:both;overflow:auto;width:320px;height:220px;max-width:100%;min-width:80px;min-height:60px;vertical-align:middle;';frame.setAttribute('role','group');frame.setAttribute('aria-label','Resizable reply photo');
+   const frame=document.createElement('div');frame.style.cssText='display:inline-block;resize:both;overflow:auto;width:320px;height:220px;max-width:100%;min-width:80px;min-height:60px;vertical-align:middle;';frame.setAttribute('role','group');frame.setAttribute('aria-label','Resizable reply photo');frame.setAttribute('contenteditable','false');
    const img=document.createElement('img');img.src=url;img.alt='Reply photo';img.dataset.replyPhotoIndex=String(index);img.style.cssText='display:block;width:100%;height:100%;object-fit:contain;';frame.appendChild(img);
    const range=savedRange||document.createRange();range.deleteContents();range.insertNode(frame);
-   range.setStartAfter(frame);range.collapse(true);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);savedRange=range.cloneRange();
+   const paragraph=document.createElement('p');paragraph.appendChild(document.createElement('br'));frame.parentNode.insertBefore(paragraph,frame.nextSibling);
+   const caret=document.createRange();caret.setStart(paragraph,0);caret.collapse(true);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(caret);savedRange=caret.cloneRange();
   });
   syncPhotoInput();
   editor.focus();
