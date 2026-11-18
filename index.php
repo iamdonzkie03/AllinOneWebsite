@@ -303,7 +303,7 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 $publicForumThreads = [];
 $publicForumTotalThreads = 0;
 $publicForumPageSize = (int)($_GET['forum_per_page'] ?? 20);
-if (!in_array($publicForumPageSize, [20, 30, 50, 100], true)) $publicForumPageSize = 20;
+if (!in_array($publicForumPageSize, [20, 30, 50, 75, 100], true)) $publicForumPageSize = 20;
 $publicForumSearch = trim((string)($_GET['forum_search'] ?? ''));
 if (mb_strlen($publicForumSearch) > 120) $publicForumSearch = mb_substr($publicForumSearch, 0, 120);
 $publicForumPage = max(1, (int)($_GET['forum_page'] ?? 1));
@@ -800,19 +800,22 @@ if ($isCreatorSignedIn) {
 </div></section>
 <?php else: ?>
 <style>
-.public-forum-list-controls{display:flex;align-items:end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0 0 18px}
-.public-forum-search-form{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:min(100%,320px)}
+.public-forum-list-controls{display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,1.4fr) minmax(260px,1fr);align-items:center;gap:18px;margin:0 0 20px}
+.public-forum-search-form{display:contents}
+.public-forum-filter-control{grid-column:1;display:flex;align-items:center;gap:9px;justify-self:start}
+.public-forum-search-control{grid-column:2;display:flex;flex-direction:column;gap:6px;width:100%;max-width:520px;justify-self:center}
 .public-forum-search-label{font-size:12px;font-weight:700;color:#f1dce1}
-.public-forum-search-form input[type=search]{flex:1;min-width:220px;max-width:520px;padding:11px 13px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff;font:inherit}
-.public-forum-page-size-label{font-size:12px;color:#d9b9c0}
+.public-forum-search-form input[type=search]{width:100%;min-width:0;padding:11px 13px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff;font:inherit}
+.public-forum-page-size-label{font-size:12px;color:#d9b9c0;white-space:nowrap}
 .public-forum-search-form select{padding:10px 12px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff}
-.public-forum-list-controls .public-forum-count{margin:0;white-space:nowrap}
-.public-forum-pagination{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin:24px 0 4px}
-.public-forum-pagination a,.public-forum-pagination span{padding:9px 13px;border:1px solid rgba(215,154,165,.3);border-radius:7px;color:#f5e9ec;text-decoration:none;font-size:12px}
+.public-forum-pagination{grid-column:3;display:flex;justify-content:flex-end;align-items:center;gap:7px;flex-wrap:wrap;justify-self:end}
+.public-forum-pagination a,.public-forum-pagination span{padding:9px 11px;border:1px solid rgba(215,154,165,.3);border-radius:7px;color:#f5e9ec;text-decoration:none;font-size:12px;white-space:nowrap}
 .public-forum-pagination a:hover{background:#4b1827;border-color:#a34b60}
 .public-forum-pagination a[aria-disabled=true]{opacity:.4;pointer-events:none}
 .public-forum-pagination span{background:#2a151c;color:#e9b5c0}
-@media(max-width:640px){.public-forum-list-controls{align-items:stretch}.public-forum-search-form{display:grid;grid-template-columns:1fr auto}.public-forum-search-label{grid-column:1/-1}.public-forum-search-form input[type=search]{grid-column:1/-1;max-width:none}.public-forum-list-controls .public-forum-count{white-space:normal}}
+.public-forum-count{grid-column:3;text-align:right;margin:5px 0 0;color:#d9b9c0;font-size:11px}
+@media(max-width:900px){.public-forum-list-controls{grid-template-columns:1fr 1fr}.public-forum-filter-control{grid-column:1}.public-forum-search-control{grid-column:1/-1;grid-row:1;max-width:none}.public-forum-pagination{grid-column:2;grid-row:2}.public-forum-count{grid-column:2;grid-row:3}}
+@media(max-width:560px){.public-forum-list-controls{grid-template-columns:1fr;gap:12px}.public-forum-filter-control,.public-forum-search-control,.public-forum-pagination,.public-forum-count{grid-column:1;grid-row:auto;justify-self:stretch}.public-forum-pagination{justify-content:flex-start}.public-forum-count{text-align:left}}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
@@ -827,12 +830,24 @@ document.addEventListener('DOMContentLoaded',function(){
   <form id="public-forum-search-form" class="public-forum-search-form" method="get" action="index.php">
    <input type="hidden" name="forum_panel_id" value="<?=e($requestedForumPanelId)?>">
    <?php if($isCreatorSignedIn): ?><input type="hidden" name="session_context" value="creator"><?php endif; ?>
-   <label class="public-forum-search-label" for="public-forum-search">Search discussions</label>
-   <input type="search" id="public-forum-search" name="forum_search" value="<?=e($publicForumSearch)?>" placeholder="Search by title, content, or author…" autocomplete="off">
-   <label class="public-forum-page-size-label" for="public-forum-page-size">Show</label>
-   <select id="public-forum-page-size" name="forum_per_page"><?php foreach([20,30,50,100] as $pageSizeOption): ?><option value="<?=$pageSizeOption?>"<?=$publicForumPageSize===$pageSizeOption?' selected':''?>><?=$pageSizeOption?></option><?php endforeach; ?></select>
    <input type="hidden" name="forum_page" value="1">
+   <div class="public-forum-filter-control">
+    <label class="public-forum-page-size-label" for="public-forum-page-size">Show</label>
+    <select id="public-forum-page-size" name="forum_per_page"><?php foreach([20,30,50,75,100] as $pageSizeOption): ?><option value="<?=$pageSizeOption?>"<?=$publicForumPageSize===$pageSizeOption?' selected':''?>><?=$pageSizeOption?></option><?php endforeach; ?></select>
+   </div>
+   <div class="public-forum-search-control">
+    <label class="public-forum-search-label" for="public-forum-search">Search discussions</label>
+    <input type="search" id="public-forum-search" name="forum_search" value="<?=e($publicForumSearch)?>" placeholder="Search by title, content, or author…" autocomplete="off">
+   </div>
   </form>
+  <?php $forumPageUrl=static function(int $page)use($requestedForumPanelId,$isCreatorSignedIn,$publicForumSearch,$publicForumPageSize):string{return 'index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'session_context'=>$isCreatorSignedIn?'creator':null,'forum_search'=>$publicForumSearch!==''?$publicForumSearch:null,'forum_per_page'=>$publicForumPageSize,'forum_page'=>$page],static fn($value)=>$value!==null));}; ?>
+  <nav class="public-forum-pagination" aria-label="Forum thread pages">
+   <a href="<?=e($forumPageUrl(1))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>First</a>
+   <a href="<?=e($forumPageUrl(max(1,$publicForumPage-1)))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>Previous</a>
+   <span>Page <?=number_format($publicForumPage)?> of <?=number_format($publicForumTotalPages)?></span>
+   <a href="<?=e($forumPageUrl(min($publicForumTotalPages,$publicForumPage+1)))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Next</a>
+   <a href="<?=e($forumPageUrl($publicForumTotalPages))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Last</a>
+  </nav>
   <p class="public-forum-count" aria-live="polite">Showing <?=number_format($publicForumTotalThreads ? min($publicForumPageSize,$publicForumTotalThreads-(($publicForumPage-1)*$publicForumPageSize)) : 0)?> of <?=number_format($publicForumTotalThreads)?> published <?= $publicForumTotalThreads===1?'discussion':'discussions'?></p>
  </div>
  <?php if (!$publicForumThreads): ?><div class="panel public-forum-empty"><h3>No published discussions yet.</h3><p class="muted">Community discussions posted to this forum panel will appear here once published.</p></div>
@@ -867,16 +882,6 @@ document.addEventListener('DOMContentLoaded',function(){
   </div>
  </article>
  <?php endforeach; ?></div>
-<?php if($publicForumTotalPages>1): ?>
-<?php $forumPageUrl=static function(int $page)use($requestedForumPanelId,$isCreatorSignedIn,$publicForumSearch,$publicForumPageSize):string{return 'index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'session_context'=>$isCreatorSignedIn?'creator':null,'forum_search'=>$publicForumSearch!==''?$publicForumSearch:null,'forum_per_page'=>$publicForumPageSize,'forum_page'=>$page],static fn($value)=>$value!==null));}; ?>
-<nav class="public-forum-pagination" aria-label="Forum thread pages">
- <a href="<?=e($forumPageUrl(1))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>First</a>
- <a href="<?=e($forumPageUrl(max(1,$publicForumPage-1)))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>Previous</a>
- <span>Page <?=number_format($publicForumPage)?> of <?=number_format($publicForumTotalPages)?></span>
- <a href="<?=e($forumPageUrl(min($publicForumTotalPages,$publicForumPage+1)))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Next</a>
- <a href="<?=e($forumPageUrl($publicForumTotalPages))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Last</a>
-</nav>
-<?php endif; ?>
 <?php endif; ?>
 </div></section>
 <?php endif; ?>
