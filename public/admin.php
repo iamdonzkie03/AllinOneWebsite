@@ -3196,7 +3196,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       });
       selectAll?.addEventListener('change',()=>{rows.filter(row=>!row.hidden).forEach(row=>{const box=row.querySelector('.forum-post-select');if(box)box.checked=selectAll.checked;});syncSelection();});
       table.addEventListener('change',event=>{if(event.target.matches('.forum-post-select'))syncSelection();});
-      deleteButton?.addEventListener('click',()=>{const selected=checks().filter(box=>box.checked).length;if(selected>0&&confirmModal){const totalLabel=document.getElementById('forum-delete-selected-total');if(totalLabel)totalLabel.textContent=selected+' '+(selected===1?'post':'posts');confirmModal.hidden=false;confirmModal.style.display='flex';}});
+      deleteButton?.addEventListener('click',()=>{const selected=checks().filter(box=>box.checked).length;if(selected>0&&confirmModal){const totalLabel=document.getElementById('forum-delete-selected-total');if(totalLabel)totalLabel.textContent=selected+' '+(selected===1?'post':'posts')+' to delete.';confirmModal.hidden=false;confirmModal.style.display='flex';}});
       document.getElementById('forum-delete-cancel')?.addEventListener('click',()=>{confirmModal.hidden=true;confirmModal.style.display='none';});
       document.getElementById('forum-delete-confirm')?.addEventListener('click',()=>bulkForm?.requestSubmit());
       confirmModal?.addEventListener('click',event=>{if(event.target===confirmModal)event.preventDefault();});
