@@ -880,6 +880,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <?php endif; ?>
 </div></section>
 <?php endif; ?>
+<?php endif; ?>
 <section class="section" id="latest"><div class="wrap">
 <?php if($category || $search): ?><p><a class="btn light" href="index.php#latest">Clear filters</a></p><?php endif; ?>
 <?php if (!$showAllStories): ?>
