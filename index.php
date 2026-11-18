@@ -458,7 +458,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                     $publicForumLikedByCurrentUser = (int)$likedStmt->fetchColumn() > 0;
                 }
                 $replyAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
-                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$replyAvatarSelect}
+                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect}
                     FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id
                     WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
                 $repliesStmt->execute([$publicForumThreadId]);
@@ -468,7 +468,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
         $lastReplyAvatarSql = $creatorPhotoColumn !== '' ? '(SELECT lu.' . $creatorPhotoColumn . ' FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1)' : 'NULL';
-        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$publicForumSelectAvatar},
+        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$publicForumSelectAvatar},
             (SELECT COUNT(*) FROM forum_thread_replies r WHERE r.thread_id=t.id) AS reply_count,
             (SELECT COUNT(*) FROM forum_thread_views v WHERE v.thread_id=t.id) AS view_count,
             (SELECT COUNT(*) FROM forum_thread_likes l WHERE l.thread_id=t.id) AS like_count,
