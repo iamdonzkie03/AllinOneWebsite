@@ -328,10 +328,15 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             thread_id BIGINT UNSIGNED NOT NULL,
             owner_id BIGINT UNSIGNED NOT NULL,
             body TEXT NOT NULL,
+            parent_reply_id BIGINT UNSIGNED NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_forum_replies_thread_created(thread_id,created_at),
+            INDEX idx_forum_replies_parent(parent_reply_id),
             INDEX idx_forum_replies_owner(owner_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $replyParentColumn=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_thread_replies' AND COLUMN_NAME='parent_reply_id'");
+        $replyParentColumn->execute();
+        if(!(int)$replyParentColumn->fetchColumn())$pdo->exec("ALTER TABLE forum_thread_replies ADD COLUMN parent_reply_id BIGINT UNSIGNED NULL, ADD INDEX idx_forum_replies_parent(parent_reply_id)");
         $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_likes (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             thread_id BIGINT UNSIGNED NOT NULL,
@@ -339,6 +344,29 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uq_forum_thread_like(thread_id,user_id),
             INDEX idx_forum_likes_thread(thread_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS forum_reply_likes (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            reply_id BIGINT UNSIGNED NOT NULL,
+            user_id BIGINT UNSIGNED NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_forum_reply_like(reply_id,user_id),
+            INDEX idx_forum_reply_likes_reply(reply_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS forum_reports (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            target_type ENUM('thread','reply') NOT NULL,
+            target_id BIGINT UNSIGNED NOT NULL,
+            thread_id BIGINT UNSIGNED NOT NULL,
+            reporter_id BIGINT UNSIGNED NOT NULL,
+            reason VARCHAR(40) NOT NULL,
+            details TEXT NULL,
+            status ENUM('pending','reviewed','dismissed','actioned') NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at TIMESTAMP NULL DEFAULT NULL,
+            UNIQUE KEY uq_forum_report_once(target_type,target_id,reporter_id),
+            INDEX idx_forum_reports_status_created(status,created_at),
+            INDEX idx_forum_reports_thread(thread_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_views (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -397,36 +425,40 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             }
             return trim(preg_replace('/[,.]+/', '', $legacy) ?? $legacy);
         };
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['forum_action'] ?? ''), ['reply','like','unlike'], true)) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['forum_action'] ?? ''), ['reply','like','unlike','reply_like','reply_unlike','report_thread','report_reply'], true)) {
             try {
                 verify_csrf();
-                $postedThreadId = max(0, (int)($_POST['thread_id'] ?? 0));
-                $threadExists = $pdo->prepare("SELECT id FROM forum_threads WHERE id=? AND panel_id=? AND status='published' LIMIT 1");
-                $threadExists->execute([$postedThreadId, $requestedForumPanelId]);
-                if (!$threadExists->fetchColumn()) throw new RuntimeException('This discussion is no longer available.');
-                if (!$isCreatorSignedIn) throw new RuntimeException('Please sign in with your contributor account to reply or like a discussion.');
-                $signedInUserId = (int)($currentPublicUser['id'] ?? 0);
-                if ($signedInUserId < 1) throw new RuntimeException('Please sign in again to continue.');
-                $forumAction = (string)$_POST['forum_action'];
-                if ($forumAction === 'reply') {
-                    $replyBody = trim((string)($_POST['reply_body'] ?? ''));
-                    if ($replyBody === '') throw new RuntimeException('Write your reply before posting.');
-                    if (mb_strlen($replyBody) > 5000) throw new RuntimeException('Your reply must be 5,000 characters or fewer.');
-                    $replyInsert = $pdo->prepare('INSERT INTO forum_thread_replies(thread_id,owner_id,body) VALUES(?,?,?)');
-                    $replyInsert->execute([$postedThreadId,$signedInUserId,$replyBody]);
-                } elseif ($forumAction === 'like') {
-                    $likeInsert = $pdo->prepare('INSERT IGNORE INTO forum_thread_likes(thread_id,user_id) VALUES(?,?)');
-                    $likeInsert->execute([$postedThreadId,$signedInUserId]);
-                } else {
-                    $unlikeDelete = $pdo->prepare('DELETE FROM forum_thread_likes WHERE thread_id=? AND user_id=?');
-                    $unlikeDelete->execute([$postedThreadId,$signedInUserId]);
+                $postedThreadId=max(0,(int)($_POST['thread_id']??0));
+                $threadExists=$pdo->prepare("SELECT id FROM forum_threads WHERE id=? AND panel_id=? AND status='published' LIMIT 1");
+                $threadExists->execute([$postedThreadId,$requestedForumPanelId]);
+                if(!$threadExists->fetchColumn()) throw new RuntimeException('This discussion is no longer available.');
+                if(!$isCreatorSignedIn) throw new RuntimeException('Please sign in with your contributor account to continue.');
+                $signedInUserId=(int)($currentPublicUser['id']??0);
+                if($signedInUserId<1) throw new RuntimeException('Please sign in again to continue.');
+                $forumAction=(string)$_POST['forum_action'];
+                if($forumAction==='reply'){
+                    $replyBody=trim((string)($_POST['reply_body']??''));$parentReplyId=max(0,(int)($_POST['parent_reply_id']??0));
+                    if($replyBody==='')throw new RuntimeException('Write your reply before posting.');
+                    if(mb_strlen($replyBody)>5000)throw new RuntimeException('Your reply must be 5,000 characters or fewer.');
+                    if($parentReplyId>0){$check=$pdo->prepare('SELECT id FROM forum_thread_replies WHERE id=? AND thread_id=? LIMIT 1');$check->execute([$parentReplyId,$postedThreadId]);if(!$check->fetchColumn())throw new RuntimeException('The reply you are responding to is no longer available.');$stmt=$pdo->prepare('INSERT INTO forum_thread_replies(thread_id,owner_id,parent_reply_id,body) VALUES(?,?,?,?)');$stmt->execute([$postedThreadId,$signedInUserId,$parentReplyId,$replyBody]);}
+                    else{$stmt=$pdo->prepare('INSERT INTO forum_thread_replies(thread_id,owner_id,body) VALUES(?,?,?)');$stmt->execute([$postedThreadId,$signedInUserId,$replyBody]);}
+                }elseif($forumAction==='like'){$stmt=$pdo->prepare('INSERT IGNORE INTO forum_thread_likes(thread_id,user_id) VALUES(?,?)');$stmt->execute([$postedThreadId,$signedInUserId]);}
+                elseif($forumAction==='unlike'){$stmt=$pdo->prepare('DELETE FROM forum_thread_likes WHERE thread_id=? AND user_id=?');$stmt->execute([$postedThreadId,$signedInUserId]);}
+                elseif(in_array($forumAction,['reply_like','reply_unlike'],true)){
+                    $targetReplyId=max(0,(int)($_POST['reply_id']??0));$check=$pdo->prepare('SELECT id FROM forum_thread_replies WHERE id=? AND thread_id=? LIMIT 1');$check->execute([$targetReplyId,$postedThreadId]);if(!$check->fetchColumn())throw new RuntimeException('This reply is no longer available.');
+                    if($forumAction==='reply_like'){$stmt=$pdo->prepare('INSERT IGNORE INTO forum_reply_likes(reply_id,user_id) VALUES(?,?)');$stmt->execute([$targetReplyId,$signedInUserId]);}
+                    else{$stmt=$pdo->prepare('DELETE FROM forum_reply_likes WHERE reply_id=? AND user_id=?');$stmt->execute([$targetReplyId,$signedInUserId]);}
+                }else{
+                    $targetType=$forumAction==='report_thread'?'thread':'reply';$targetId=$targetType==='thread'?$postedThreadId:max(0,(int)($_POST['reply_id']??0));
+                    if($targetType==='reply'){$check=$pdo->prepare('SELECT id FROM forum_thread_replies WHERE id=? AND thread_id=? LIMIT 1');$check->execute([$targetId,$postedThreadId]);if(!$check->fetchColumn())throw new RuntimeException('This reply is no longer available.');}
+                    $reason=(string)($_POST['report_reason']??'');if(!in_array($reason,['malicious','unverified','community_rules','terms_of_service','other'],true))throw new RuntimeException('Choose a valid reason for this report.');
+                    $details=trim((string)($_POST['report_details']??''));if(mb_strlen($details)>2000)throw new RuntimeException('Additional details must be 2,000 characters or fewer.');
+                    $stmt=$pdo->prepare('INSERT IGNORE INTO forum_reports(target_type,target_id,thread_id,reporter_id,reason,details) VALUES(?,?,?,?,?,?)');$stmt->execute([$targetType,$targetId,$postedThreadId,$signedInUserId,$reason,$details!==''?$details:null]);
+                    if(!$stmt->rowCount())throw new RuntimeException('You have already reported this item. Your existing report is available for moderator review.');
+                    $publicForumNotice='Thank you. Your report has been submitted for moderator review.';
                 }
-                $redirectQuery = http_build_query(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>$postedThreadId,'session_context'=>'creator']);
-                header('Location: index.php?' . $redirectQuery . '#forum-thread-detail', true, 303);
-                exit;
-            } catch (Throwable $forumActionError) {
-                $publicForumError = $forumActionError->getMessage();
-            }
+                if(!in_array($forumAction,['report_thread','report_reply'],true)){$url='index.php?'.http_build_query(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>$postedThreadId,'session_context'=>'creator']);header('Location: '.$url.'#forum-thread-detail',true,303);exit;}
+            }catch(Throwable $forumActionError){$publicForumError=$forumActionError->getMessage();}
         }
         if ($publicForumThreadId > 0) {
             $threadStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.created_at,t.updated_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$creatorAvatarSelect}
@@ -458,12 +490,14 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                     $publicForumLikedByCurrentUser = (int)$likedStmt->fetchColumn() > 0;
                 }
                 $replyAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
-                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect}
-                    FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id
-                    WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
-                $repliesStmt->execute([$publicForumThreadId]);
-                $publicForumReplies = $repliesStmt->fetchAll(PDO::FETCH_ASSOC);
-                if ($publicForumReplies) $publicForumLastActivity = $publicForumReplies[count($publicForumReplies)-1];
+                $repliesStmt=$pdo->prepare("SELECT r.id,r.parent_reply_id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect},
+                    (SELECT COUNT(*) FROM forum_reply_likes rl WHERE rl.reply_id=r.id) AS reply_like_count,
+                    (SELECT COUNT(*) FROM forum_reply_likes rl WHERE rl.reply_id=r.id AND rl.user_id=?) AS liked_by_current_user
+                    FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
+                $repliesStmt->execute([$isCreatorSignedIn?(int)$currentPublicUser['id']:0,$publicForumThreadId]);$publicForumReplies=$repliesStmt->fetchAll(PDO::FETCH_ASSOC);
+                $replyRowsByParent=[];foreach($publicForumReplies as $row)$replyRowsByParent[(int)($row['parent_reply_id']??0)][]=$row;
+                $publicForumRepliesFlat=[];$flattenForumReplies=static function(int $parentId,int $depth=0)use(&$flattenForumReplies,&$publicForumRepliesFlat,$replyRowsByParent):void{foreach($replyRowsByParent[$parentId]??[] as $row){$row['_depth']=$depth;$publicForumRepliesFlat[]=$row;$flattenForumReplies((int)$row['id'],$depth+1);}};
+                $flattenForumReplies(0);if($publicForumReplies)$publicForumLastActivity=$publicForumReplies[count($publicForumReplies)-1];
             }
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
