@@ -1490,7 +1490,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-pagination{justify-content:space-between;margin-top:16px;color:#bdaeb4;font-size:12px}
 .forum-inline-page-buttons{gap:8px}
 .forum-inline-page-buttons button:disabled{opacity:.4;cursor:not-allowed}
-.forum-inline-page-numbers{display:flex;align-items:center;gap:5px}.forum-inline-page-number{min-width:30px;padding:7px 9px!important;text-align:center}.forum-inline-page-number.is-active{background:linear-gradient(135deg,#8f243b,#bd344b);border-color:#d45a70;color:#fff}
+.forum-inline-page-numbers{display:flex;align-items:center;gap:5px}.forum-inline-pagination-top{margin:0 0 14px;padding:0 0 12px;border-bottom:1px solid rgba(255,255,255,.07)}.forum-inline-page-number{min-width:30px;padding:7px 9px!important;text-align:center}.forum-inline-page-number.is-active{background:linear-gradient(135deg,#8f243b,#bd344b);border-color:#d45a70;color:#fff}
 .forum-delete-modal{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px}.forum-delete-modal[hidden]{display:none!important}.forum-delete-modal>section{width:min(440px,100%);padding:26px;border:1px solid rgba(216,180,119,.3);border-radius:14px;background:#171115;color:#f5e9ed;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.55)}.forum-delete-warning{display:grid;place-items:center;width:44px;height:44px;margin:0 auto 12px;border-radius:50%;background:rgba(190,45,65,.2);color:#ff9ba9;font-size:25px;font-weight:700}.forum-delete-modal>section>div:last-child{display:flex;justify-content:center;gap:10px;margin-top:22px}
 .forum-inline-table th:first-child,.forum-inline-table td:first-child{width:38px;text-align:center}
 @media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-panel{padding:12px}.forum-inline-header{align-items:flex-start;gap:14px;padding:14px 12px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
@@ -2948,6 +2948,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="forum-inline-actions"><button class="btn bulk-delete" type="button" id="forum-delete-selected" disabled aria-disabled="true">Delete Selected</button><a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a></div>
      </div>
      <form method="post" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"></form>
+      <div class="forum-inline-pagination forum-inline-pagination-top"><span id="forum-post-page-info-top" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-first-top">First</button><button type="button" class="btn light" id="forum-post-prev-top">Previous</button><span id="forum-post-page-number-top" class="forum-inline-page-numbers"></span><button type="button" class="btn light" id="forum-post-next-top">Next</button><button type="button" class="btn light" id="forum-post-last-top">Last</button></div></div>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th><input type="checkbox" id="forum-post-select-all" aria-label="Select all Forum posts"></th><th>Thread Title</th><th>Author</th><th>Content Type</th><th>Status</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead>
        <tbody>
@@ -2967,7 +2968,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </table></div>
       <div class="forum-inline-empty" id="forum-post-no-results" hidden>No posts match your filter.</div>
       <div class="forum-inline-pagination"><span id="forum-post-page-info" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-first">First</button><button type="button" class="btn light" id="forum-post-prev">Previous</button><span id="forum-post-page-number" class="forum-inline-page-numbers"></span><button type="button" class="btn light" id="forum-post-next">Next</button><button type="button" class="btn light" id="forum-post-last">Last</button></div></div>
-      <div class="forum-delete-modal" id="forum-delete-confirm-modal" hidden><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-confirm-title"><div class="forum-delete-warning">!</div><h3 id="forum-delete-confirm-title">Delete Selected Forum Posts?</h3><p>Are you sure you want to delete the selected Forum posts? This action cannot be undone.</p><div><button type="button" class="btn light" id="forum-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="forum-delete-confirm">Delete</button></div></section></div>
+      <div class="forum-delete-modal" id="forum-delete-confirm-modal" hidden><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-confirm-title"><div class="forum-delete-warning">!</div><h3 id="forum-delete-confirm-title">Delete Selected Forum Posts?</h3><p id="forum-delete-selected-count">The selected Forum posts will be permanently deleted. This action cannot be undone.</p><div><button type="button" class="btn light" id="forum-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="forum-delete-confirm">Delete</button></div></section></div>
+      <?php if(isset($_SESSION['forum_bulk_delete_count'])): $forumDeletedCount=(int)$_SESSION['forum_bulk_delete_count']; unset($_SESSION['forum_bulk_delete_count']); ?>
+      <div class="forum-delete-modal" id="forum-delete-success-modal"><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-success-title"><div class="forum-delete-warning" style="background:rgba(46,160,90,.16);color:#9ce0b2">✓</div><h3 id="forum-delete-success-title">Deletion completed</h3><p><?= $forumDeletedCount ?> Forum post<?= $forumDeletedCount===1?'':'s' ?> successfully deleted.</p><div><button type="button" class="btn" id="forum-delete-success-close">OK</button></div></section></div>
+      <script>document.getElementById('forum-delete-success-close')?.addEventListener('click',()=>{document.getElementById('forum-delete-success-modal')?.remove();});</script>
+      <?php endif; ?>
       <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
     </section>
 
@@ -3087,27 +3092,43 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       if(!table)return;
       const rows=[...table.querySelectorAll('[data-forum-post-row]')];
       const filter=document.getElementById('forum-post-filter'),size=document.getElementById('forum-post-page-size');
-      const info=document.getElementById('forum-post-page-info');
-      const previous=document.getElementById('forum-post-prev'),next=document.getElementById('forum-post-next');
-      const first=document.getElementById('forum-post-first'),last=document.getElementById('forum-post-last');
-      const numbers=document.getElementById('forum-post-page-number'),noResults=document.getElementById('forum-post-no-results');
+      const noResults=document.getElementById('forum-post-no-results');
       const selectAll=document.getElementById('forum-post-select-all'),deleteButton=document.getElementById('forum-delete-selected');
       const confirmModal=document.getElementById('forum-delete-confirm-modal'),bulkForm=document.getElementById('forum-post-bulk-form');
+      const selectedCountLabel=document.getElementById('forum-delete-selected-count');
       let page=1;
       const checks=()=>rows.map(row=>row.querySelector('.forum-post-select')).filter(Boolean);
-      const syncSelection=()=>{const visible=rows.filter(row=>!row.hidden).map(row=>row.querySelector('.forum-post-select')).filter(Boolean);const selected=checks().filter(box=>box.checked).length;if(deleteButton){deleteButton.disabled=!selected;deleteButton.setAttribute('aria-disabled',String(!selected));}if(selectAll){selectAll.checked=visible.length>0&&visible.every(box=>box.checked);selectAll.indeterminate=visible.some(box=>box.checked)&&!selectAll.checked;selectAll.disabled=!visible.length;}};
+      const bars=['','-top'];
+      const syncSelection=()=>{
+        const visible=rows.filter(row=>!row.hidden).map(row=>row.querySelector('.forum-post-select')).filter(Boolean);
+        const selected=checks().filter(box=>box.checked).length;
+        if(deleteButton){deleteButton.disabled=!selected;deleteButton.setAttribute('aria-disabled',String(!selected));}
+        if(selectAll){selectAll.checked=visible.length>0&&visible.every(box=>box.checked);selectAll.indeterminate=visible.some(box=>box.checked)&&!selectAll.checked;selectAll.disabled=!visible.length;}
+        if(selectedCountLabel)selectedCountLabel.textContent=selected+' post'+(selected===1?'':'s')+' selected.';
+      };
       const render=()=>{
         const query=(filter?.value||'').trim().toLocaleLowerCase(),matched=rows.filter(row=>(row.dataset.forumSearch||'').includes(query));
-        const perPage=Math.max(1,Number(size?.value)||10),pages=Math.max(1,Math.ceil(matched.length/perPage));page=Math.min(page,pages);
-        const start=matched.length?(page-1)*perPage:0,end=Math.min(start+perPage,matched.length);rows.forEach(row=>row.hidden=true);matched.slice(start,end).forEach(row=>row.hidden=false);
-        if(info)info.textContent=matched.length?'Showing '+(start+1)+' to '+end+' of '+matched.length+' entries':'Showing 0 to 0 of 0 entries';
-        if(numbers){numbers.replaceChildren();const items=[];for(let n=1;n<=pages;n++){if(n===1||n===pages||Math.abs(n-page)<=1)items.push(n);else if(items[items.length-1]!=='…')items.push('…');}items.forEach(n=>{if(n==='…'){const gap=document.createElement('span');gap.textContent='…';numbers.append(gap);return;}const b=document.createElement('button');b.type='button';b.className='btn light forum-inline-page-number'+(n===page?' is-active':'');b.textContent=String(n);b.setAttribute('aria-current',n===page?'page':'false');b.addEventListener('click',()=>{page=n;render();});numbers.append(b);});}
-        if(previous)previous.disabled=page<=1||!matched.length;if(first)first.disabled=page<=1||!matched.length;if(next)next.disabled=page>=pages||!matched.length;if(last)last.disabled=page>=pages||!matched.length;
+        const perPage=Math.max(1,Number(size?.value)||10),pages=Math.max(1,Math.ceil(matched.length/perPage));
+        page=Math.min(page,pages);
+        const start=matched.length?(page-1)*perPage:0,end=Math.min(start+perPage,matched.length);
+        rows.forEach(row=>row.hidden=true);matched.slice(start,end).forEach(row=>row.hidden=false);
+        bars.forEach(suffix=>{
+          const info=document.getElementById('forum-post-page-info'+suffix),numbers=document.getElementById('forum-post-page-number'+suffix);
+          if(info)info.textContent=matched.length?'Showing '+(start+1)+' to '+end+' of '+matched.length+' entries':'Showing 0 to 0 of 0 entries';
+          if(numbers){numbers.replaceChildren();const items=[];for(let n=1;n<=pages;n++){if(n===1||n===pages||Math.abs(n-page)<=1)items.push(n);else if(items[items.length-1]!=='…')items.push('…');}
+            items.forEach(n=>{if(n==='…'){const gap=document.createElement('span');gap.textContent='…';numbers.append(gap);return;}
+              const b=document.createElement('button');b.type='button';b.className='btn light forum-inline-page-number'+(n===page?' is-active':'');b.textContent=String(n);b.setAttribute('aria-current',n===page?'page':'false');b.addEventListener('click',()=>{page=n;render();});numbers.append(b);});}
+          ['first','prev','next','last'].forEach(action=>{const b=document.getElementById('forum-post-'+action+suffix);if(b)b.disabled=!matched.length||(action==='first'||action==='prev'?page<=1:page>=pages);});
+        });
         if(noResults)noResults.hidden=matched.length>0;table.hidden=matched.length===0;syncSelection();
       };
       filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});
-      previous?.addEventListener('click',()=>{page=Math.max(1,page-1);render();});first?.addEventListener('click',()=>{page=1;render();});next?.addEventListener('click',()=>{page++;render();});
-      last?.addEventListener('click',()=>{const q=(filter?.value||'').trim().toLocaleLowerCase(),count=rows.filter(row=>(row.dataset.forumSearch||'').includes(q)).length;page=Math.max(1,Math.ceil(count/(Number(size?.value)||10)));render();});
+      bars.forEach(suffix=>{
+        document.getElementById('forum-post-prev'+suffix)?.addEventListener('click',()=>{page=Math.max(1,page-1);render();});
+        document.getElementById('forum-post-first'+suffix)?.addEventListener('click',()=>{page=1;render();});
+        document.getElementById('forum-post-next'+suffix)?.addEventListener('click',()=>{page++;render();});
+        document.getElementById('forum-post-last'+suffix)?.addEventListener('click',()=>{const q=(filter?.value||'').trim().toLocaleLowerCase(),count=rows.filter(row=>(row.dataset.forumSearch||'').includes(q)).length;page=Math.max(1,Math.ceil(count/(Number(size?.value)||10)));render();});
+      });
       selectAll?.addEventListener('change',()=>{rows.filter(row=>!row.hidden).forEach(row=>{const box=row.querySelector('.forum-post-select');if(box)box.checked=selectAll.checked;});syncSelection();});
       table.addEventListener('change',event=>{if(event.target.matches('.forum-post-select'))syncSelection();});
       deleteButton?.addEventListener('click',()=>{if(checks().some(box=>box.checked)&&confirmModal){confirmModal.hidden=false;confirmModal.style.display='flex';}});
