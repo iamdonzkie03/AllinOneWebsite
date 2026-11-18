@@ -175,7 +175,7 @@ $publicHeaderLogoHeight = max(30, min(120, (int)($publicHeader['logo_height'] ??
 // Support profile-photo fields when present in existing installations without
 // requiring a database migration for sites that have not enabled photo uploads.
 $creatorPhotoColumn = '';
-foreach (['profile_photo_path','profile_photo','profile_image','avatar_path','avatar'] as $candidatePhotoColumn) {
+foreach (['avatar_path','profile_photo_path','profile_photo','profile_image','avatar'] as $candidatePhotoColumn) {
     $photoColumnCheck = $pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=\'users\' AND COLUMN_NAME=?');
     $photoColumnCheck->execute([$candidatePhotoColumn]);
     if ((int)$photoColumnCheck->fetchColumn() > 0) { $creatorPhotoColumn = $candidatePhotoColumn; break; }
@@ -619,6 +619,7 @@ if ($isCreatorSignedIn) {
    <div class="public-forum-thread-top">
     <?php if($authorAvatar!==''): ?><img class="public-forum-avatar public-forum-topic-avatar" src="<?=e($authorAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback public-forum-topic-avatar"><?=e(strtoupper(mb_substr((string)$forumThread['full_name'],0,1)))?></span><?php endif; ?>
     <span class="public-forum-content-icon" title="<?=e((string)($forumThread['prefix_group']??'General'))?>" aria-label="<?=e((string)($forumThread['prefix_group']??'General'))?>"><?=e((string)($forumThread['prefix_group']??'')==='Video'?'▶':((string)($forumThread['prefix_group']??'')==='Downloads'?'⇩':'▤'))?></span>
+    <span class="public-forum-prefix-subcategory"><?=e((string)($forumThread['prefix']??'')!=='' && (string)$forumThread['prefix']!=='No prefix' ? (string)$forumThread['prefix'] : (string)($forumThread['prefix_group']??'General'))?></span>
     <span class="public-forum-date">Published <?=e($createdTimestamp ? date('M d, Y',$createdTimestamp) : '')?></span>
    </div>
    <h3><a href="<?=e($threadHref)?>"><?=e((string)$forumThread['title'])?></a></h3>
@@ -987,7 +988,7 @@ $(function(){
 .public-forum-topic-avatar{width:36px;height:36px;flex-basis:36px}
 .public-forum-avatar-fallback{display:inline-flex;align-items:center;justify-content:center;background:#512735;color:#fff;font-weight:700}
 .public-forum-content-icon{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:8px;background:rgba(188,49,67,.16);color:#f18b98;font-size:15px;font-weight:700}
-.public-forum-date{font-size:11px;color:#bbaeb4}
+.public-forum-date{font-size:11px;color:#bbaeb4}.public-forum-prefix-subcategory{font-size:11px;font-weight:600;color:#f0c3cd;padding:4px 8px;border-radius:6px;background:rgba(188,49,67,.12)}
 .public-forum-topic h3{margin:0;font-size:15px;line-height:1.4}
 .public-forum-topic h3 a{color:#fff;text-decoration:none}
 .public-forum-topic h3 a:hover{color:#ff9ba7;text-decoration:underline}
