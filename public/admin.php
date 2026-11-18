@@ -1541,6 +1541,25 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-table th:first-child,.forum-inline-table td:first-child{width:38px;text-align:center}
 @media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-panel{padding:12px}.forum-inline-header{align-items:flex-start;gap:14px;padding:14px 12px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
 </style></head><body>
+      <?php if(isset($_SESSION['forum_bulk_delete_count'])): $forumDeletedCount=(int)$_SESSION['forum_bulk_delete_count']; unset($_SESSION['forum_bulk_delete_count']); ?>
+      <?php
+        $forumNumberWords=static function(int $number): string {
+          $ones=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+          $tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+          $convert=function(int $n) use (&$convert,$ones,$tens): string {
+            if($n<20)return $ones[$n];
+            if($n<100)return $tens[intdiv($n,10)].($n%10?' '.$ones[$n%10]:'');
+            if($n<1000)return $ones[intdiv($n,100)].' Hundred'.($n%100?' '.$convert($n%100):'');
+            foreach([1000000=>'Million',1000=>'Thousand'] as $unit=>$label)if($n>=$unit)return $convert(intdiv($n,$unit)).' '.$label.($n%$unit?' '.$convert($n%$unit):'');
+            return (string)$n;
+          };
+          return $convert(max(0,$number));
+        };
+      ?>
+      <div class="forum-delete-modal" id="forum-delete-success-modal" style="display:flex!important;visibility:visible!important;opacity:1!important;z-index:2147483000"><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-success-title"><div class="forum-delete-warning" style="background:rgba(46,160,90,.16);color:#9ce0b2">✓</div><h3 id="forum-delete-success-title">Deletion completed</h3><p><?php if($forumDeletedCount===1): ?>One (1) Forum Post has been successfully deleted.<?php else: ?><?=e($forumNumberWords($forumDeletedCount))?> (<?=number_format($forumDeletedCount)?>) Forum Posts have been successfully deleted.<?php endif; ?></p><div><button type="button" class="btn" id="forum-delete-success-close">OK</button></div></section></div>
+      <script>document.getElementById('forum-delete-success-close')?.addEventListener('click',()=>{document.getElementById('forum-delete-success-modal')?.remove();});</script>
+      <?php endif; ?>
+
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
 <div class="admin-shell">
 <aside class="admin-sidebar">
@@ -5051,22 +5070,5 @@ document.addEventListener('click',event=>{
 });
 </script>
 
-      <?php if(isset($_SESSION['forum_bulk_delete_count'])): $forumDeletedCount=(int)$_SESSION['forum_bulk_delete_count']; unset($_SESSION['forum_bulk_delete_count']); ?>
-      <?php
-        $forumNumberWords=static function(int $number): string {
-          $ones=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
-          $tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-          $convert=function(int $n) use (&$convert,$ones,$tens): string {
-            if($n<20)return $ones[$n];
-            if($n<100)return $tens[intdiv($n,10)].($n%10?' '.$ones[$n%10]:'');
-            if($n<1000)return $ones[intdiv($n,100)].' Hundred'.($n%100?' '.$convert($n%100):'');
-            foreach([1000000=>'Million',1000=>'Thousand'] as $unit=>$label)if($n>=$unit)return $convert(intdiv($n,$unit)).' '.$label.($n%$unit?' '.$convert($n%$unit):'');
-            return (string)$n;
-          };
-          return $convert(max(0,$number));
-        };
-      ?>
-      <div class="forum-delete-modal" id="forum-delete-success-modal" style="display:flex;z-index:20000"><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-success-title"><div class="forum-delete-warning" style="background:rgba(46,160,90,.16);color:#9ce0b2">✓</div><h3 id="forum-delete-success-title">Deletion completed</h3><p><?php if($forumDeletedCount===1): ?>One (1) Forum Post has been successfully deleted.<?php else: ?><?=e($forumNumberWords($forumDeletedCount))?> (<?=number_format($forumDeletedCount)?>) Forum Posts have been successfully deleted.<?php endif; ?></p><div><button type="button" class="btn" id="forum-delete-success-close">OK</button></div></section></div>
-      <script>document.getElementById('forum-delete-success-close')?.addEventListener('click',()=>{document.getElementById('forum-delete-success-modal')?.remove();});</script>
-      <?php endif; ?>
+
 </body></html>
