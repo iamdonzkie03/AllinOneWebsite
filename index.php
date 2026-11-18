@@ -349,6 +349,20 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             INDEX idx_forum_views_thread(thread_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $creatorAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
+        $publicForumDisplayName = static function(array $user): string {
+            $parts = [];
+            foreach (['first_name', 'last_name', 'name_suffix'] as $field) {
+                $value = trim((string)($user[$field] ?? ''));
+                if ($value !== '') $parts[] = $value;
+            }
+            if ($parts) return implode(' ', $parts);
+            $legacy = trim((string)($user['full_name'] ?? ''));
+            if (str_contains($legacy, ',')) {
+                [$last, $first] = array_pad(explode(',', $legacy, 2), 2, '');
+                return trim(trim($first) . ' ' . trim($last));
+            }
+            return $legacy;
+        };
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['forum_action'] ?? ''), ['reply','like','unlike'], true)) {
             try {
                 verify_csrf();
@@ -381,7 +395,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             }
         }
         if ($publicForumThreadId > 0) {
-            $threadStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.created_at,t.updated_at,u.full_name,u.nickname,u.role{$creatorAvatarSelect}
+            $threadStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.created_at,t.updated_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$creatorAvatarSelect}
                 FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
                 WHERE t.id=? AND t.panel_id=? AND t.status='published' LIMIT 1");
             $threadStmt->execute([$publicForumThreadId,$requestedForumPanelId]);
@@ -410,7 +424,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                     $publicForumLikedByCurrentUser = (int)$likedStmt->fetchColumn() > 0;
                 }
                 $replyAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
-                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,u.nickname,u.role{$replyAvatarSelect}
+                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$replyAvatarSelect}
                     FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id
                     WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
                 $repliesStmt->execute([$publicForumThreadId]);
@@ -420,14 +434,17 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
         $lastReplyAvatarSql = $creatorPhotoColumn !== '' ? '(SELECT lu.' . $creatorPhotoColumn . ' FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1)' : 'NULL';
-        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,u.nickname,u.role{$publicForumSelectAvatar},
+        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$publicForumSelectAvatar},
             (SELECT COUNT(*) FROM forum_thread_replies r WHERE r.thread_id=t.id) AS reply_count,
             (SELECT COUNT(*) FROM forum_thread_views v WHERE v.thread_id=t.id) AS view_count,
             (SELECT COUNT(*) FROM forum_thread_likes l WHERE l.thread_id=t.id) AS like_count,
             (SELECT MAX(lr.created_at) FROM forum_thread_replies lr WHERE lr.thread_id=t.id) AS last_reply_at,
             {$lastReplyAvatarSql} AS last_reply_avatar,
             (SELECT lu.nickname FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_nickname,
-            (SELECT lu.full_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_full_name
+            (SELECT lu.full_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_full_name,
+            (SELECT lu.first_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_first_name,
+            (SELECT lu.last_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_last_name,
+            (SELECT lu.name_suffix FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_name_suffix
             FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
             WHERE t.panel_id=? AND t.status='published'
             ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
@@ -614,7 +631,7 @@ if ($isCreatorSignedIn) {
    <?php $detailAvatar=$publicForumAvatarUrl($publicForumDetail['author_avatar']??''); ?>
    <?php $detailNickname=trim((string)($publicForumDetail['nickname']??'')) ?: (string)$publicForumDetail['full_name']; ?>
     <?php if($detailAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($detailAvatar)?>" alt="<?=e($detailNickname)?>" title="<?=e($detailNickname)?>"><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback" title="<?=e($detailNickname)?>" aria-label="<?=e($detailNickname)?>"><?=e(strtoupper(mb_substr((string)$publicForumDetail['full_name'],0,1)))?></span><?php endif; ?>
-   <div><strong><?=e((string)$publicForumDetail['full_name'])?></strong><small><?=e(ucwords(str_replace('_',' ',(string)$publicForumDetail['role'])))?> · <?=e(date('M d, Y · g:i A',strtotime((string)$publicForumDetail['created_at'])))?></small></div>
+   <div><strong><?=e($publicForumDisplayName($publicForumDetail))?></strong><small><?=e(ucwords(str_replace('_',' ',(string)$publicForumDetail['role'])))?> · <?=e(date('F d, Y',strtotime((string)$publicForumDetail['created_at'])))?></small></div>
   </div>
   <?php $detailPrefixGroup=(string)($publicForumDetail['prefix_group']??''); $detailPrefixName=(string)($publicForumDetail['prefix']?:'No prefix'); $detailPrefixStyle=$publicForumPrefixPresentation($detailPrefixGroup,$detailPrefixName); ?>
   <div class="public-forum-detail-type"><?php if($detailPrefixStyle['icon']!==''): ?><span class="public-forum-prefix-icon" aria-hidden="true"><?=e($detailPrefixStyle['icon'])?></span><?php endif; ?><span class="public-forum-prefix-badge <?=e($detailPrefixStyle['class'])?>"><?=e($detailPrefixName)?></span></div>
@@ -655,7 +672,7 @@ if ($isCreatorSignedIn) {
   <article class="public-forum-reply">
    <?php $replyNickname=trim((string)($forumReply['nickname']??'')) ?: (string)$forumReply['full_name']; ?>
     <?php if($replyAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($replyAvatar)?>" alt="<?=e($replyNickname)?>" title="<?=e($replyNickname)?>"><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback" title="<?=e($replyNickname)?>" aria-label="<?=e($replyNickname)?>"><?=e(strtoupper(mb_substr((string)$forumReply['full_name'],0,1)))?></span><?php endif; ?>
-   <div class="public-forum-reply-content"><div class="public-forum-reply-meta"><strong><?=e((string)$forumReply['full_name'])?></strong><time><?=e(date('M d, Y · g:i A',strtotime((string)$forumReply['created_at'])))?></time></div><p><?=nl2br(e((string)$forumReply['body']))?></p></div>
+   <div class="public-forum-reply-content"><div class="public-forum-reply-meta"><strong><?=e($publicForumDisplayName($forumReply))?></strong><time><?=e(date('F d, Y',strtotime((string)$forumReply['created_at'])))?></time></div><p><?=nl2br(e((string)$forumReply['body']))?></p></div>
   </article>
   <?php endforeach; ?>
  </div>
@@ -675,8 +692,10 @@ if ($isCreatorSignedIn) {
    $updatedTimestamp=strtotime((string)($forumThread['updated_at'] ?: $forumThread['created_at']));
    $authorAvatar=$publicForumAvatarUrl($forumThread['author_avatar']??'');
    $lastActivityAvatar=$publicForumAvatarUrl(($forumThread['last_reply_avatar']??'')?:($forumThread['author_avatar']??''));
-    $authorNickname=trim((string)($forumThread['nickname']??'')) ?: (string)$forumThread['full_name'];
-    $lastActivityNickname=trim((string)($forumThread['last_reply_nickname']??'')) ?: (trim((string)($forumThread['last_reply_full_name']??'')) ?: $authorNickname);
+    $authorDisplayName=$publicForumDisplayName($forumThread);
+     $authorNickname=trim((string)($forumThread['nickname']??'')) ?: $authorDisplayName;
+    $lastActivityDisplayName=trim(implode(' ', array_filter([trim((string)($forumThread['last_reply_first_name']??'')),trim((string)($forumThread['last_reply_last_name']??'')),trim((string)($forumThread['last_reply_name_suffix']??''))]))) ?: (trim((string)($forumThread['last_reply_full_name']??'')) ?: $authorDisplayName);
+     $lastActivityNickname=trim((string)($forumThread['last_reply_nickname']??'')) ?: $lastActivityDisplayName;
    $activityTimestamp=strtotime((string)(($forumThread['last_reply_at']??'')?:($forumThread['updated_at']?:$forumThread['created_at'])));
    $threadHref='index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>(int)$forumThread['id'],'session_context'=>$isCreatorSignedIn?'creator':null],static fn($value)=>$value!==null));
  ?>
