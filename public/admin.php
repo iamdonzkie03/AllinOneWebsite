@@ -415,8 +415,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
               $q=$pdo->prepare("SELECT id FROM forum_threads WHERE panel_id=? AND id IN ($marks)");$q->execute(array_merge([$panelId],$threadIds));$valid=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
               if($valid){
                 $marks=implode(',',array_fill(0,count($valid),'?'));
+                // Collect thread attachments and reply-editor photos before deleting their database records.
                 $files=$pdo->prepare("SELECT file_path FROM forum_thread_attachments WHERE thread_id IN ($marks)");$files->execute($valid);
-                foreach($files->fetchAll(PDO::FETCH_COLUMN) as $relative){$relative=str_replace('\\\\','/',(string)$relative);if(str_starts_with($relative,'uploads/forum-threads/')){$path=__DIR__.'/'.$relative;$base=realpath(__DIR__.'/uploads/forum-threads');$real=realpath($path);if($base&&$real&&str_starts_with($real,$base.DIRECTORY_SEPARATOR)&&is_file($real))$paths[]=$real;}}
+                foreach($files->fetchAll(PDO::FETCH_COLUMN) as $relative){
+                  $relative=str_replace('\\\\','/',(string)$relative);
+                  if(str_starts_with($relative,'uploads/forum-threads/')){
+                    $base=realpath(__DIR__.'/uploads/forum-threads');$real=realpath(__DIR__.'/'.$relative);
+                    if($base&&$real&&str_starts_with($real,$base.DIRECTORY_SEPARATOR)&&is_file($real))$paths[]=$real;
+                  }
+                }
+                $replyIds=[];
+                $replyBodies=[];
+                $repliesTableCheck=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_thread_replies'");
+                $repliesTableCheck->execute();
+                if((int)$repliesTableCheck->fetchColumn()>0){
+                  $replyQuery=$pdo->prepare("SELECT id,body FROM forum_thread_replies WHERE thread_id IN ($marks)");
+                  $replyQuery->execute($valid);
+                  foreach($replyQuery->fetchAll(PDO::FETCH_ASSOC) as $replyRow){
+                    $replyIds[]=(int)$replyRow['id'];$replyBodies[]=(string)$replyRow['body'];
+                  }
+                }
+                foreach($replyBodies as $replyBody){
+                  if(preg_match_all('~public/uploads/forum_replies/([A-Za-z0-9._-]+)~',$replyBody,$photoMatches)){
+                    foreach($photoMatches[1] as $photoName){
+                      $photoPath=realpath(__DIR__.'/public/uploads/forum_replies/'.$photoName);
+                      $photoBase=realpath(__DIR__.'/public/uploads/forum_replies');
+                      if($photoBase&&$photoPath&&str_starts_with($photoPath,$photoBase.DIRECTORY_SEPARATOR)&&is_file($photoPath))$paths[]=$photoPath;
+                    }
+                  }
+                }
+                // Remove reactions, reports, views, and reply records explicitly; no foreign-key cascade is assumed.
+                $relatedDeletes=[
+                  ['forum_thread_likes','thread_id'],
+                  ['forum_reports','thread_id'],
+                  ['forum_thread_views','thread_id'],
+                ];
+                foreach($relatedDeletes as [$tableName,$columnName]){
+                  $tableCheck=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?");
+                  $tableCheck->execute([$tableName]);
+                  if((int)$tableCheck->fetchColumn()>0)$pdo->prepare("DELETE FROM `$tableName` WHERE `$columnName` IN ($marks)")->execute($valid);
+                }
+                if($replyIds){
+                  $replyMarks=implode(',',array_fill(0,count($replyIds),'?'));
+                  $tableCheck=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_reply_likes'");
+                  $tableCheck->execute();
+                  if((int)$tableCheck->fetchColumn()>0)$pdo->prepare("DELETE FROM forum_reply_likes WHERE reply_id IN ($replyMarks)")->execute($replyIds);
+                  $pdo->prepare("DELETE FROM forum_thread_replies WHERE id IN ($replyMarks)")->execute($replyIds);
+                }
                 $pdo->prepare("DELETE FROM forum_thread_attachments WHERE thread_id IN ($marks)")->execute($valid);
                 $pdo->prepare("DELETE FROM forum_threads WHERE panel_id=? AND id IN ($marks)")->execute(array_merge([$panelId],$valid));$deleted+=count($valid);
               }
