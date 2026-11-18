@@ -395,6 +395,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
 
+    if ($action === 'delete_selected_forum_posts') {
+      $section='page-management';
+      $panelIndex=max(0,(int)($_POST['forum_panel_index']??0));
+      $panelId=trim((string)($_POST['forum_panel_id']??''));
+      $panel=(array)($sectionsSettings['mega_menu']['panels'][$panelIndex]??[]);
+      if(!$panel || !hash_equals((string)($panel['panel_id']??''),$panelId)) { $message='The selected Forum panel could not be verified.'; }
+      else {
+        $selected=array_values(array_unique(array_filter((array)($_POST['selected_forum_posts']??[]),'is_string')));
+        $threadIds=[];$contentIds=[];
+        foreach($selected as $value){if(preg_match('/^thread:(\d+)$/',$value,$m))$threadIds[]=(int)$m[1];elseif(preg_match('/^content:(\d+)$/',$value,$m))$contentIds[]=(int)$m[1];}
+        $threadIds=array_values(array_unique(array_filter($threadIds,static fn($v)=>$v>0)));$contentIds=array_values(array_unique(array_filter($contentIds,static fn($v)=>$v>0)));
+        if(!$threadIds&&!$contentIds)$message='Select at least one Forum post to delete.';
+        else {
+          try {
+            $pdo->beginTransaction();$deleted=0;$paths=[];
+            if($threadIds){
+              $marks=implode(',',array_fill(0,count($threadIds),'?'));
+              $q=$pdo->prepare("SELECT id FROM forum_threads WHERE panel_id=? AND id IN ($marks)");$q->execute(array_merge([$panelId],$threadIds));$valid=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
+              if($valid){
+                $marks=implode(',',array_fill(0,count($valid),'?'));
+                $files=$pdo->prepare("SELECT file_path FROM forum_thread_attachments WHERE thread_id IN ($marks)");$files->execute($valid);
+                foreach($files->fetchAll(PDO::FETCH_COLUMN) as $relative){$relative=str_replace('\\\\','/',(string)$relative);if(str_starts_with($relative,'uploads/forum-threads/')){$path=__DIR__.'/'.$relative;$base=realpath(__DIR__.'/uploads/forum-threads');$real=realpath($path);if($base&&$real&&str_starts_with($real,$base.DIRECTORY_SEPARATOR)&&is_file($real))$paths[]=$real;}}
+                $pdo->prepare("DELETE FROM forum_thread_attachments WHERE thread_id IN ($marks)")->execute($valid);
+                $pdo->prepare("DELETE FROM forum_threads WHERE panel_id=? AND id IN ($marks)")->execute(array_merge([$panelId],$valid));$deleted+=count($valid);
+              }
+            }
+            if($contentIds){
+              $url=(string)($panel['url']??'');$query=[];parse_str((string)(parse_url($url,PHP_URL_QUERY)?:''),$query);
+              $slug=trim((string)($query['module']??$query['category']??''));if($slug==='')$slug=trim((string)preg_replace('/[^a-z0-9]+/i','-',strtolower((string)($panel['title']??''))),'-');
+              $cat=$pdo->prepare('SELECT id FROM categories WHERE slug=? AND parent_id IS NULL LIMIT 1');$cat->execute([$slug]);$categoryId=(int)$cat->fetchColumn();
+              if($categoryId>0){$marks=implode(',',array_fill(0,count($contentIds),'?'));$q=$pdo->prepare("DELETE FROM content WHERE category_id=? AND id IN ($marks) AND owner_id IN (SELECT id FROM users WHERE role IN ('system_admin','creator'))");$q->execute(array_merge([$categoryId],$contentIds));$deleted+=$q->rowCount();}
+            }
+            $pdo->commit();foreach(array_unique($paths) as $path)if(is_file($path))@unlink($path);
+            $_SESSION['forum_bulk_delete_count']=$deleted;
+            header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.$panelIndex.'&forum_deleted=1#pm-panel-sections',true,303);exit;
+          } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Forum bulk delete failed: '.$e->getMessage());$message='The selected Forum posts could not be deleted. Please try again.';}
+        }
+      }
+    }
+
     if ($action === 'update_forum_thread' || $action === 'update_forum_thread_status') {
       $section='page-management';$newPaths=[];$oldPathsToDelete=[];
       try {
@@ -1450,6 +1490,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-pagination{justify-content:space-between;margin-top:16px;color:#bdaeb4;font-size:12px}
 .forum-inline-page-buttons{gap:8px}
 .forum-inline-page-buttons button:disabled{opacity:.4;cursor:not-allowed}
+.forum-inline-page-numbers{display:flex;align-items:center;gap:5px}.forum-inline-page-number{min-width:30px;padding:7px 9px!important;text-align:center}.forum-inline-page-number.is-active{background:linear-gradient(135deg,#8f243b,#bd344b);border-color:#d45a70;color:#fff}
+.forum-delete-modal{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px}.forum-delete-modal[hidden]{display:none!important}.forum-delete-modal>section{width:min(440px,100%);padding:26px;border:1px solid rgba(216,180,119,.3);border-radius:14px;background:#171115;color:#f5e9ed;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.55)}.forum-delete-warning{display:grid;place-items:center;width:44px;height:44px;margin:0 auto 12px;border-radius:50%;background:rgba(190,45,65,.2);color:#ff9ba9;font-size:25px;font-weight:700}.forum-delete-modal>section>div:last-child{display:flex;justify-content:center;gap:10px;margin-top:22px}
+.forum-inline-table th:first-child,.forum-inline-table td:first-child{width:38px;text-align:center}
 @media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-panel{padding:12px}.forum-inline-header{align-items:flex-start;gap:14px;padding:14px 12px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
 </style></head><body>
 <header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
@@ -2902,13 +2945,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        <label>Show <select id="forum-post-page-size" aria-label="Posts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label>
        <label class="forum-inline-filter"><span>Filter</span><input id="forum-post-filter" type="search" placeholder="Search post title, author or status..." aria-label="Filter Forum posts"></label>
       </div>
-      <a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a>
+      <div class="forum-inline-actions"><button class="btn bulk-delete" type="button" id="forum-delete-selected" disabled aria-disabled="true">Delete Selected</button><a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a></div>
      </div>
+     <form method="post" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"></form>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
-       <thead><tr><th>Thread Title</th><th>Author</th><th>Content Type</th><th>Status</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead>
+       <thead><tr><th><input type="checkbox" id="forum-post-select-all" aria-label="Select all Forum posts"></th><th>Thread Title</th><th>Author</th><th>Content Type</th><th>Status</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead>
        <tbody>
         <?php foreach ($forumPanelViewPosts as $forumPost): $forumIsPublished=(string)$forumPost['status']==='published'; $forumPostDescription=adminForumPlainText((string)($forumPost['excerpt']??'')); $forumDescriptionPreview=mb_strlen($forumPostDescription)>180?mb_substr($forumPostDescription,0,177).'…':$forumPostDescription; $forumTags=adminForumTagList($forumPost['tags_json']??null); $forumIsThread=($forumPost['record_type']??'')==='thread'; $forumSearchText=mb_strtolower(implode(' ',[(string)$forumPost['title'],$forumPostDescription,implode(' ',$forumTags),(string)$forumPost['full_name'],(string)$forumPost['role'],(string)$forumPost['content_type'],(string)$forumPost['status'],(string)($forumPost['subcategory_name']??'')])); ?>
         <tr data-forum-post-row data-forum-search="<?=e($forumSearchText)?>">
+          <td><input type="checkbox" class="forum-post-select" form="forum-post-bulk-form" name="selected_forum_posts[]" value="<?=($forumIsThread?'thread:':'content:').(int)$forumPost['id']?>" aria-label="Select Forum post"></td>
           <td><strong><?=e((string)$forumPost['title'])?></strong><?php if($forumPostDescription!==''): ?><span class="forum-inline-muted"><?=e($forumDescriptionPreview)?></span><?php endif; ?><?php if($forumTags): ?><div class="forum-inline-tags"><?php foreach($forumTags as $tag): ?><span class="forum-inline-tag">#<?=e($tag)?></span><?php endforeach; ?></div><?php endif; ?></td>
          <td><?=e((string)$forumPost['full_name'])?><div class="forum-inline-muted"><?=e(ucwords(str_replace('_',' ',(string)$forumPost['role'])))?></div></td>
          <td><?=e(ucfirst((string)$forumPost['content_type']))?></td>
@@ -2921,7 +2966,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
        </tbody>
       </table></div>
       <div class="forum-inline-empty" id="forum-post-no-results" hidden>No posts match your filter.</div>
-      <div class="forum-inline-pagination"><span id="forum-post-page-info" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-prev">Previous</button><span id="forum-post-page-number" class="muted"></span><button type="button" class="btn light" id="forum-post-next">Next</button></div></div>
+      <div class="forum-inline-pagination"><span id="forum-post-page-info" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-first">First</button><button type="button" class="btn light" id="forum-post-prev">Previous</button><span id="forum-post-page-number" class="forum-inline-page-numbers"></span><button type="button" class="btn light" id="forum-post-next">Next</button><button type="button" class="btn light" id="forum-post-last">Last</button></div></div>
+      <div class="forum-delete-modal" id="forum-delete-confirm-modal" hidden><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-confirm-title"><div class="forum-delete-warning">!</div><h3 id="forum-delete-confirm-title">Delete Selected Forum Posts?</h3><p>Are you sure you want to delete the selected Forum posts? This action cannot be undone.</p><div><button type="button" class="btn light" id="forum-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="forum-delete-confirm">Delete</button></div></section></div>
       <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
     </section>
 
@@ -3040,35 +3086,34 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       const table=document.getElementById('forum-post-table');
       if(!table)return;
       const rows=[...table.querySelectorAll('[data-forum-post-row]')];
-      const filter=document.getElementById('forum-post-filter');
-      const size=document.getElementById('forum-post-page-size');
+      const filter=document.getElementById('forum-post-filter'),size=document.getElementById('forum-post-page-size');
       const info=document.getElementById('forum-post-page-info');
-      const pageNumber=document.getElementById('forum-post-page-number');
-      const previous=document.getElementById('forum-post-prev');
-      const next=document.getElementById('forum-post-next');
-      const noResults=document.getElementById('forum-post-no-results');
+      const previous=document.getElementById('forum-post-prev'),next=document.getElementById('forum-post-next');
+      const first=document.getElementById('forum-post-first'),last=document.getElementById('forum-post-last');
+      const numbers=document.getElementById('forum-post-page-number'),noResults=document.getElementById('forum-post-no-results');
+      const selectAll=document.getElementById('forum-post-select-all'),deleteButton=document.getElementById('forum-delete-selected');
+      const confirmModal=document.getElementById('forum-delete-confirm-modal'),bulkForm=document.getElementById('forum-post-bulk-form');
       let page=1;
+      const checks=()=>rows.map(row=>row.querySelector('.forum-post-select')).filter(Boolean);
+      const syncSelection=()=>{const visible=rows.filter(row=>!row.hidden).map(row=>row.querySelector('.forum-post-select')).filter(Boolean);const selected=checks().filter(box=>box.checked).length;if(deleteButton){deleteButton.disabled=!selected;deleteButton.setAttribute('aria-disabled',String(!selected));}if(selectAll){selectAll.checked=visible.length>0&&visible.every(box=>box.checked);selectAll.indeterminate=visible.some(box=>box.checked)&&!selectAll.checked;selectAll.disabled=!visible.length;}};
       const render=()=>{
-        const query=(filter?.value||'').trim().toLocaleLowerCase();
-        const matched=rows.filter(row=>(row.dataset.forumSearch||'').includes(query));
-        const perPage=Math.max(1,Number(size?.value)||10);
-        const pages=Math.max(1,Math.ceil(matched.length/perPage));
-        page=Math.min(page,pages);
-        const start=matched.length?(page-1)*perPage:0;
-        const end=Math.min(start+perPage,matched.length);
-        rows.forEach(row=>row.hidden=true);
-        matched.slice(start,end).forEach(row=>row.hidden=false);
+        const query=(filter?.value||'').trim().toLocaleLowerCase(),matched=rows.filter(row=>(row.dataset.forumSearch||'').includes(query));
+        const perPage=Math.max(1,Number(size?.value)||10),pages=Math.max(1,Math.ceil(matched.length/perPage));page=Math.min(page,pages);
+        const start=matched.length?(page-1)*perPage:0,end=Math.min(start+perPage,matched.length);rows.forEach(row=>row.hidden=true);matched.slice(start,end).forEach(row=>row.hidden=false);
         if(info)info.textContent=matched.length?'Showing '+(start+1)+' to '+end+' of '+matched.length+' entries':'Showing 0 to 0 of 0 entries';
-        if(pageNumber)pageNumber.textContent='Page '+page+' of '+pages;
-        if(previous)previous.disabled=page<=1||!matched.length;
-        if(next)next.disabled=page>=pages||!matched.length;
-        if(noResults)noResults.hidden=matched.length>0;
-        if(table) table.hidden=matched.length===0;
+        if(numbers){numbers.replaceChildren();const items=[];for(let n=1;n<=pages;n++){if(n===1||n===pages||Math.abs(n-page)<=1)items.push(n);else if(items[items.length-1]!=='…')items.push('…');}items.forEach(n=>{if(n==='…'){const gap=document.createElement('span');gap.textContent='…';numbers.append(gap);return;}const b=document.createElement('button');b.type='button';b.className='btn light forum-inline-page-number'+(n===page?' is-active':'');b.textContent=String(n);b.setAttribute('aria-current',n===page?'page':'false');b.addEventListener('click',()=>{page=n;render();});numbers.append(b);});}
+        if(previous)previous.disabled=page<=1||!matched.length;if(first)first.disabled=page<=1||!matched.length;if(next)next.disabled=page>=pages||!matched.length;if(last)last.disabled=page>=pages||!matched.length;
+        if(noResults)noResults.hidden=matched.length>0;table.hidden=matched.length===0;syncSelection();
       };
-      filter?.addEventListener('input',()=>{page=1;render();});
-      size?.addEventListener('change',()=>{page=1;render();});
-      previous?.addEventListener('click',()=>{page=Math.max(1,page-1);render();});
-      next?.addEventListener('click',()=>{page++;render();});
+      filter?.addEventListener('input',()=>{page=1;render();});size?.addEventListener('change',()=>{page=1;render();});
+      previous?.addEventListener('click',()=>{page=Math.max(1,page-1);render();});first?.addEventListener('click',()=>{page=1;render();});next?.addEventListener('click',()=>{page++;render();});
+      last?.addEventListener('click',()=>{const q=(filter?.value||'').trim().toLocaleLowerCase(),count=rows.filter(row=>(row.dataset.forumSearch||'').includes(q)).length;page=Math.max(1,Math.ceil(count/(Number(size?.value)||10)));render();});
+      selectAll?.addEventListener('change',()=>{rows.filter(row=>!row.hidden).forEach(row=>{const box=row.querySelector('.forum-post-select');if(box)box.checked=selectAll.checked;});syncSelection();});
+      table.addEventListener('change',event=>{if(event.target.matches('.forum-post-select'))syncSelection();});
+      deleteButton?.addEventListener('click',()=>{if(checks().some(box=>box.checked)&&confirmModal){confirmModal.hidden=false;confirmModal.style.display='flex';}});
+      document.getElementById('forum-delete-cancel')?.addEventListener('click',()=>{confirmModal.hidden=true;confirmModal.style.display='none';});
+      document.getElementById('forum-delete-confirm')?.addEventListener('click',()=>bulkForm?.requestSubmit());
+      confirmModal?.addEventListener('click',event=>{if(event.target===confirmModal)event.preventDefault();});
       render();
     })();
     </script>
