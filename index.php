@@ -348,6 +348,35 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             UNIQUE KEY uq_forum_thread_view(thread_id,visitor_key),
             INDEX idx_forum_views_thread(thread_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Read Creator identity from whichever user-column convention this database uses.
+        // Older installations use firstname/lastname/suffix; newer profile pages use
+        // first_name/last_name/name_suffix. Prefer populated values, not merely existing columns.
+        $publicForumUserColumns = [];
+        $publicForumColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME=?");
+        foreach (['first_name','firstname','last_name','lastname','name_suffix','suffix'] as $columnName) {
+            $publicForumColumnCheck->execute([$columnName]);
+            $publicForumUserColumns[$columnName] = (int)$publicForumColumnCheck->fetchColumn() > 0;
+        }
+        $publicForumIdentitySql = static function(string $tableAlias, string $identityField) use ($publicForumUserColumns): string {
+            $candidates = [
+                'first_name' => ['first_name','firstname'],
+                'last_name' => ['last_name','lastname'],
+                'name_suffix' => ['name_suffix','suffix'],
+            ][$identityField] ?? [];
+            $parts = [];
+            foreach ($candidates as $columnName) {
+                if (!empty($publicForumUserColumns[$columnName])) {
+                    $parts[] = "NULLIF(TRIM({$tableAlias}.{$columnName}), '')";
+                }
+            }
+            return $parts ? 'COALESCE(' . implode(',', $parts) . ')' : 'NULL';
+        };
+        $forumFirstNameU = $publicForumIdentitySql('u', 'first_name');
+        $forumLastNameU = $publicForumIdentitySql('u', 'last_name');
+        $forumSuffixU = $publicForumIdentitySql('u', 'name_suffix');
+        $forumFirstNameLu = $publicForumIdentitySql('lu', 'first_name');
+        $forumLastNameLu = $publicForumIdentitySql('lu', 'last_name');
+        $forumSuffixLu = $publicForumIdentitySql('lu', 'name_suffix');
         $creatorAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
         $publicForumDisplayName = static function(array $user): string {
             $first = trim((string)($user['first_name'] ?? ''));
@@ -400,7 +429,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             }
         }
         if ($publicForumThreadId > 0) {
-            $threadStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.created_at,t.updated_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$creatorAvatarSelect}
+            $threadStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.created_at,t.updated_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$creatorAvatarSelect}
                 FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
                 WHERE t.id=? AND t.panel_id=? AND t.status='published' LIMIT 1");
             $threadStmt->execute([$publicForumThreadId,$requestedForumPanelId]);
@@ -429,7 +458,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                     $publicForumLikedByCurrentUser = (int)$likedStmt->fetchColumn() > 0;
                 }
                 $replyAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
-                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$replyAvatarSelect}
+                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect}
                     FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id
                     WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
                 $repliesStmt->execute([$publicForumThreadId]);
@@ -439,7 +468,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
         $lastReplyAvatarSql = $creatorPhotoColumn !== '' ? '(SELECT lu.' . $creatorPhotoColumn . ' FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1)' : 'NULL';
-        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,u.first_name,u.last_name,u.name_suffix,u.nickname,u.role{$publicForumSelectAvatar},
+        $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$publicForumSelectAvatar},
             (SELECT COUNT(*) FROM forum_thread_replies r WHERE r.thread_id=t.id) AS reply_count,
             (SELECT COUNT(*) FROM forum_thread_views v WHERE v.thread_id=t.id) AS view_count,
             (SELECT COUNT(*) FROM forum_thread_likes l WHERE l.thread_id=t.id) AS like_count,
@@ -447,9 +476,9 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             {$lastReplyAvatarSql} AS last_reply_avatar,
             (SELECT lu.nickname FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_nickname,
             (SELECT lu.full_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_full_name,
-            (SELECT lu.first_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_first_name,
-            (SELECT lu.last_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_last_name,
-            (SELECT lu.name_suffix FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_name_suffix
+            (SELECT {$forumFirstNameLu} FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_first_name,
+            (SELECT {$forumLastNameLu} FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_last_name,
+            (SELECT {$forumSuffixLu} FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_name_suffix
             FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
             WHERE t.panel_id=? AND t.status='published'
             ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
