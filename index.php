@@ -301,6 +301,13 @@ $sql .= " ORDER BY COALESCE(c.published_at,c.created_at) DESC" . ($showAllStorie
 $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 
 $publicForumThreads = [];
+$publicForumTotalThreads = 0;
+$publicForumPageSize = (int)($_GET['forum_per_page'] ?? 20);
+if (!in_array($publicForumPageSize, [20, 30, 50, 100], true)) $publicForumPageSize = 20;
+$publicForumSearch = trim((string)($_GET['forum_search'] ?? ''));
+if (mb_strlen($publicForumSearch) > 120) $publicForumSearch = mb_substr($publicForumSearch, 0, 120);
+$publicForumPage = max(1, (int)($_GET['forum_page'] ?? 1));
+$publicForumTotalPages = 1;
 $publicForumDetail = null;
 $publicForumReplies = [];
 $publicForumAttachments = [];
@@ -533,6 +540,19 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
         $lastReplyAvatarSql = $creatorPhotoColumn !== '' ? '(SELECT lu.' . $creatorPhotoColumn . ' FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1)' : 'NULL';
+        $forumListWhere = " FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id WHERE t.panel_id=? AND t.status='published'";
+        $forumListParams = [$requestedForumPanelId];
+        if ($publicForumSearch !== '') {
+            $forumSearchLike = '%' . $publicForumSearch . '%';
+            $forumListWhere .= " AND (t.title LIKE ? OR t.description LIKE ? OR u.full_name LIKE ? OR u.nickname LIKE ? OR CONCAT_WS(' ',{$forumFirstNameU},{$forumLastNameU},{$forumSuffixU}) LIKE ?)";
+            array_push($forumListParams, $forumSearchLike, $forumSearchLike, $forumSearchLike, $forumSearchLike, $forumSearchLike);
+        }
+        $forumCountStmt = $pdo->prepare("SELECT COUNT(*)" . $forumListWhere);
+        $forumCountStmt->execute($forumListParams);
+        $publicForumTotalThreads = (int)$forumCountStmt->fetchColumn();
+        $publicForumTotalPages = max(1, (int)ceil($publicForumTotalThreads / $publicForumPageSize));
+        $publicForumPage = min($publicForumPage, $publicForumTotalPages);
+        $forumOffset = ($publicForumPage - 1) * $publicForumPageSize;
         $publicForumStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.created_at,t.updated_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$publicForumSelectAvatar},
             (SELECT COUNT(*) FROM forum_thread_replies r WHERE r.thread_id=t.id) AS reply_count,
             (SELECT COUNT(*) FROM forum_thread_views v WHERE v.thread_id=t.id) AS view_count,
@@ -543,11 +563,9 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             (SELECT lu.full_name FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_full_name,
             (SELECT {$forumFirstNameLu} FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_first_name,
             (SELECT {$forumLastNameLu} FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_last_name,
-            (SELECT {$forumSuffixLu} FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_name_suffix
-            FROM forum_threads t INNER JOIN users u ON u.id=t.owner_id
-            WHERE t.panel_id=? AND t.status='published'
-            ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC");
-        $publicForumStmt->execute([$requestedForumPanelId]);
+            (SELECT {$forumSuffixLu} FROM forum_thread_replies lr INNER JOIN users lu ON lu.id=lr.owner_id WHERE lr.thread_id=t.id ORDER BY lr.created_at DESC,lr.id DESC LIMIT 1) AS last_reply_name_suffix" . $forumListWhere . "
+            ORDER BY COALESCE(t.updated_at,t.created_at) DESC,t.id DESC LIMIT " . (int)$publicForumPageSize . " OFFSET " . (int)$forumOffset);
+        $publicForumStmt->execute($forumListParams);
         $publicForumThreads = $publicForumStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
@@ -781,8 +799,42 @@ if ($isCreatorSignedIn) {
  </div>
 </div></section>
 <?php else: ?>
+<style>
+.public-forum-list-controls{display:flex;align-items:end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0 0 18px}
+.public-forum-search-form{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:min(100%,320px)}
+.public-forum-search-label{font-size:12px;font-weight:700;color:#f1dce1}
+.public-forum-search-form input[type=search]{flex:1;min-width:220px;max-width:520px;padding:11px 13px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff;font:inherit}
+.public-forum-page-size-label{font-size:12px;color:#d9b9c0}
+.public-forum-search-form select{padding:10px 12px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff}
+.public-forum-list-controls .public-forum-count{margin:0;white-space:nowrap}
+.public-forum-pagination{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin:24px 0 4px}
+.public-forum-pagination a,.public-forum-pagination span{padding:9px 13px;border:1px solid rgba(215,154,165,.3);border-radius:7px;color:#f5e9ec;text-decoration:none;font-size:12px}
+.public-forum-pagination a:hover{background:#4b1827;border-color:#a34b60}
+.public-forum-pagination a[aria-disabled=true]{opacity:.4;pointer-events:none}
+.public-forum-pagination span{background:#2a151c;color:#e9b5c0}
+@media(max-width:640px){.public-forum-list-controls{align-items:stretch}.public-forum-search-form{display:grid;grid-template-columns:1fr auto}.public-forum-search-label{grid-column:1/-1}.public-forum-search-form input[type=search]{grid-column:1/-1;max-width:none}.public-forum-list-controls .public-forum-count{white-space:normal}}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+ const form=document.getElementById('public-forum-search-form');if(!form)return;
+ const search=form.querySelector('input[name="forum_search"]'),size=form.querySelector('select[name="forum_per_page"]');let timer=null;
+ if(search)search.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(function(){form.querySelector('input[name="forum_page"]').value='1';form.requestSubmit();},350);});
+ if(size)size.addEventListener('change',function(){form.querySelector('input[name="forum_page"]').value='1';form.requestSubmit();});
+});
+</script>
 <section class="section public-forum-section" id="community-forum"><div class="wrap">
- <p class="public-forum-count"><?=count($publicForumThreads)?> published <?=count($publicForumThreads)===1?'discussion':'discussions'?></p>
+ <div class="public-forum-list-controls">
+  <form id="public-forum-search-form" class="public-forum-search-form" method="get" action="index.php">
+   <input type="hidden" name="forum_panel_id" value="<?=e($requestedForumPanelId)?>">
+   <?php if($isCreatorSignedIn): ?><input type="hidden" name="session_context" value="creator"><?php endif; ?>
+   <label class="public-forum-search-label" for="public-forum-search">Search discussions</label>
+   <input type="search" id="public-forum-search" name="forum_search" value="<?=e($publicForumSearch)?>" placeholder="Search by title, content, or author…" autocomplete="off">
+   <label class="public-forum-page-size-label" for="public-forum-page-size">Show</label>
+   <select id="public-forum-page-size" name="forum_per_page"><?php foreach([20,30,50,100] as $pageSizeOption): ?><option value="<?=$pageSizeOption?>"<?=$publicForumPageSize===$pageSizeOption?' selected':''?>><?=$pageSizeOption?></option><?php endforeach; ?></select>
+   <input type="hidden" name="forum_page" value="1">
+  </form>
+  <p class="public-forum-count" aria-live="polite">Showing <?=number_format($publicForumTotalThreads ? min($publicForumPageSize,$publicForumTotalThreads-(($publicForumPage-1)*$publicForumPageSize)) : 0)?> of <?=number_format($publicForumTotalThreads)?> published <?= $publicForumTotalThreads===1?'discussion':'discussions'?></p>
+ </div>
  <?php if (!$publicForumThreads): ?><div class="panel public-forum-empty"><h3>No published discussions yet.</h3><p class="muted">Community discussions posted to this forum panel will appear here once published.</p></div>
  <?php else: ?><div class="public-forum-list">
   <div class="public-forum-list-head"><span>Topic</span><span>Replies / Views</span><span>Last activity</span></div>
@@ -814,7 +866,18 @@ if ($isCreatorSignedIn) {
    <div><strong><?=e($activityTimestamp ? date('F d, Y',$activityTimestamp) : '—')?></strong><small><?=!empty($forumThread['last_reply_at'])?'Last reply':(($updatedTimestamp && $createdTimestamp && $updatedTimestamp > $createdTimestamp) ? 'Last updated' : 'Published')?></small></div>
   </div>
  </article>
- <?php endforeach; ?></div><?php endif; ?>
+ <?php endforeach; ?></div>
+<?php if($publicForumTotalPages>1): ?>
+<?php $forumPageUrl=static function(int $page)use($requestedForumPanelId,$isCreatorSignedIn,$publicForumSearch,$publicForumPageSize):string{return 'index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'session_context'=>$isCreatorSignedIn?'creator':null,'forum_search'=>$publicForumSearch!==''?$publicForumSearch:null,'forum_per_page'=>$publicForumPageSize,'forum_page'=>$page],static fn($value)=>$value!==null));}; ?>
+<nav class="public-forum-pagination" aria-label="Forum thread pages">
+ <a href="<?=e($forumPageUrl(1))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>First</a>
+ <a href="<?=e($forumPageUrl(max(1,$publicForumPage-1)))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>Previous</a>
+ <span>Page <?=number_format($publicForumPage)?> of <?=number_format($publicForumTotalPages)?></span>
+ <a href="<?=e($forumPageUrl(min($publicForumTotalPages,$publicForumPage+1)))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Next</a>
+ <a href="<?=e($forumPageUrl($publicForumTotalPages))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Last</a>
+</nav>
+<?php endif; ?>
+<?php endif; ?>
 </div></section>
 <?php endif; ?>
 <?php endif; ?>
@@ -838,7 +901,7 @@ if ($isCreatorSignedIn) {
 <?php if (!$items && !$moduleView): ?><div class="panel empty-state" style="grid-column:1/-1"><span class="empty-mark">✳</span><h3>Good stories start with a community.</h3><p class="muted">There are no published posts matching this view yet. Approved creators can prepare drafts in their personal space and submit them for review.</p><a class="btn" href="#create-account-modal" data-open-create-account>Join as a contributor</a></div><?php endif; ?>
 <?php foreach($items as $i=>$item): ?><article class="story"><div class="story-img <?= $i%3===0?'art':($i%3===1?'home':'news') ?>"><?php if(!empty($item['cover_photo'])): ?><img src="public/uploads/articles/cover_photos/<?=e(rawurlencode((string)$item['cover_photo']))?>" alt="<?=e($item['title'])?> cover photo"><?php else: ?><?=e(strtoupper($item['category_name']))?><?php endif; ?></div><div class="story-body"><div class="tag"><?=e($item['category_name'])?><?php if(!empty($item['subcategory_name'])): ?> · <?=e($item['subcategory_name'])?><?php endif; ?></div><h3><?=e($item['title'])?></h3><p><?=e($item['excerpt'] ?? '')?></p><div class="story-foot"><span>By <?=e($item['full_name'])?></span><span class="story-actions"><?php if($item['price']!==null): ?><span class="story-price">₱<?=number_format((float)$item['price'],2)?></span><?php endif; ?><a class="story-read-link" href="article.php?id=<?= (int)$item['id'] ?>">Read Story ↗</a></span></div></div></article><?php endforeach; ?>
 </div>
-<p class="stories-show-latest"><a class="btn light" href="index.php#latest">Back to featured stories</a></p>
+
 <?php endif; ?></div></section>
 
 </main>
