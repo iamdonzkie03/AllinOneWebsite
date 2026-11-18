@@ -350,18 +350,23 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $creatorAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
         $publicForumDisplayName = static function(array $user): string {
-            $parts = [];
-            foreach (['first_name', 'last_name', 'name_suffix'] as $field) {
-                $value = trim((string)($user[$field] ?? ''));
-                if ($value !== '') $parts[] = $value;
+            $first = trim((string)($user['first_name'] ?? ''));
+            $last = trim((string)($user['last_name'] ?? ''));
+            $suffix = trim((string)($user['name_suffix'] ?? ''));
+            $suffix = trim($suffix, " \\t\\n\\r\\0\\x0B.,");
+            if ($first !== '' || $last !== '') {
+                return trim(implode(' ', array_filter([$first, $last, $suffix], static fn($part) => $part !== '')));
             }
-            if ($parts) return implode(' ', $parts);
             $legacy = trim((string)($user['full_name'] ?? ''));
             if (str_contains($legacy, ',')) {
-                [$last, $first] = array_pad(explode(',', $legacy, 2), 2, '');
-                return trim(trim($first) . ' ' . trim($last));
+                [$legacyLast, $legacyGiven] = array_pad(explode(',', $legacy, 2), 2, '');
+                $givenParts = preg_split('/\\s+/', trim($legacyGiven)) ?: [];
+                $first = (string)($givenParts[0] ?? '');
+                $possibleSuffix = trim((string)end($givenParts), " \\t\\n\\r\\0\\x0B.,");
+                if (in_array(strtolower($possibleSuffix), ['jr', 'sr', 'ii', 'iii', 'iv', 'v'], true)) $suffix = $possibleSuffix;
+                return trim(implode(' ', array_filter([$first, trim($legacyLast, " \\t\\n\\r\\0\\x0B.,") , $suffix], static fn($part) => $part !== '')));
             }
-            return $legacy;
+            return trim(preg_replace('/[,.]+/', '', $legacy) ?? $legacy);
         };
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['forum_action'] ?? ''), ['reply','like','unlike'], true)) {
             try {
@@ -629,7 +634,7 @@ if ($isCreatorSignedIn) {
  <article class="panel public-forum-detail">
   <div class="public-forum-detail-author">
    <?php $detailAvatar=$publicForumAvatarUrl($publicForumDetail['author_avatar']??''); ?>
-   <?php $detailNickname=trim((string)($publicForumDetail['nickname']??'')) ?: (string)$publicForumDetail['full_name']; ?>
+   <?php $detailNickname=trim((string)($publicForumDetail['nickname']??'')) ?: $publicForumDisplayName($publicForumDetail); ?>
     <?php if($detailAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($detailAvatar)?>" alt="<?=e($detailNickname)?>" title="<?=e($detailNickname)?>"><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback" title="<?=e($detailNickname)?>" aria-label="<?=e($detailNickname)?>"><?=e(strtoupper(mb_substr((string)$publicForumDetail['full_name'],0,1)))?></span><?php endif; ?>
    <div><strong><?=e($publicForumDisplayName($publicForumDetail))?></strong><small><?=e(ucwords(str_replace('_',' ',(string)$publicForumDetail['role'])))?> · <?=e(date('F d, Y',strtotime((string)$publicForumDetail['created_at'])))?></small></div>
   </div>
@@ -670,7 +675,7 @@ if ($isCreatorSignedIn) {
   <?php if(!$publicForumReplies): ?><p class="muted">No replies yet. Start the conversation.</p><?php endif; ?>
   <?php foreach($publicForumReplies as $forumReply): $replyAvatar=$publicForumAvatarUrl($forumReply['author_avatar']??''); ?>
   <article class="public-forum-reply">
-   <?php $replyNickname=trim((string)($forumReply['nickname']??'')) ?: (string)$forumReply['full_name']; ?>
+   <?php $replyNickname=trim((string)($forumReply['nickname']??'')) ?: $publicForumDisplayName($forumReply); ?>
     <?php if($replyAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($replyAvatar)?>" alt="<?=e($replyNickname)?>" title="<?=e($replyNickname)?>"><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback" title="<?=e($replyNickname)?>" aria-label="<?=e($replyNickname)?>"><?=e(strtoupper(mb_substr((string)$forumReply['full_name'],0,1)))?></span><?php endif; ?>
    <div class="public-forum-reply-content"><div class="public-forum-reply-meta"><strong><?=e($publicForumDisplayName($forumReply))?></strong><time><?=e(date('F d, Y',strtotime((string)$forumReply['created_at'])))?></time></div><p><?=nl2br(e((string)$forumReply['body']))?></p></div>
   </article>
@@ -694,7 +699,7 @@ if ($isCreatorSignedIn) {
    $lastActivityAvatar=$publicForumAvatarUrl(($forumThread['last_reply_avatar']??'')?:($forumThread['author_avatar']??''));
     $authorDisplayName=$publicForumDisplayName($forumThread);
      $authorNickname=trim((string)($forumThread['nickname']??'')) ?: $authorDisplayName;
-    $lastActivityDisplayName=trim(implode(' ', array_filter([trim((string)($forumThread['last_reply_first_name']??'')),trim((string)($forumThread['last_reply_last_name']??'')),trim((string)($forumThread['last_reply_name_suffix']??''))]))) ?: (trim((string)($forumThread['last_reply_full_name']??'')) ?: $authorDisplayName);
+    $lastActivityDisplayName=$publicForumDisplayName(['first_name'=>$forumThread['last_reply_first_name']??'','last_name'=>$forumThread['last_reply_last_name']??'','name_suffix'=>$forumThread['last_reply_name_suffix']??'','full_name'=>$forumThread['last_reply_full_name']??'']) ?: $authorDisplayName;
      $lastActivityNickname=trim((string)($forumThread['last_reply_nickname']??'')) ?: $lastActivityDisplayName;
    $activityTimestamp=strtotime((string)(($forumThread['last_reply_at']??'')?:($forumThread['updated_at']?:$forumThread['created_at'])));
    $threadHref='index.php?'.http_build_query(array_filter(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>(int)$forumThread['id'],'session_context'=>$isCreatorSignedIn?'creator':null],static fn($value)=>$value!==null));
