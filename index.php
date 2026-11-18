@@ -803,9 +803,12 @@ if ($isCreatorSignedIn) {
 .public-forum-list-controls{display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,1.4fr) minmax(260px,1fr);align-items:center;gap:18px;margin:0 0 20px}
 .public-forum-search-form{display:contents}
 .public-forum-filter-control{grid-column:1;display:flex;align-items:center;gap:9px;justify-self:start}
-.public-forum-search-control{grid-column:2;display:flex;flex-direction:column;gap:6px;width:100%;max-width:520px;justify-self:center}
-.public-forum-search-label{font-size:12px;font-weight:700;color:#f1dce1}
-.public-forum-search-form input[type=search]{width:100%;min-width:0;padding:11px 13px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff;font:inherit}
+.public-forum-search-control{grid-column:2;display:flex;flex-direction:row;align-items:center;gap:10px;width:100%;max-width:620px;justify-self:center}
+.public-forum-search-label{font-size:12px;font-weight:700;color:#f1dce1;white-space:nowrap}
+.public-forum-search-form input[type=search]{flex:1;width:100%;min-width:0;padding:11px 13px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff;font:inherit}
+.public-forum-pagination .forum-page-number{min-width:34px;text-align:center}
+.public-forum-pagination .forum-page-number[aria-current=page]{background:#6b2639;border-color:#b65b70;color:#fff;font-weight:700}
+.public-forum-pagination .forum-page-ellipsis{border:0;background:transparent;padding-left:2px;padding-right:2px}
 .public-forum-page-size-label{font-size:12px;color:#d9b9c0;white-space:nowrap}
 .public-forum-search-form select{padding:10px 12px;border:1px solid rgba(215,154,165,.35);border-radius:8px;background:#171114;color:#fff}
 .public-forum-pagination{grid-column:3;display:flex;justify-content:flex-end;align-items:center;gap:7px;flex-wrap:wrap;justify-self:end}
@@ -844,7 +847,25 @@ document.addEventListener('DOMContentLoaded',function(){
   <nav class="public-forum-pagination" aria-label="Forum thread pages">
    <a href="<?=e($forumPageUrl(1))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>First</a>
    <a href="<?=e($forumPageUrl(max(1,$publicForumPage-1)))?>"<?=$publicForumPage<=1?' aria-disabled="true" tabindex="-1"':''?>>Previous</a>
-   <span>Page <?=number_format($publicForumPage)?> of <?=number_format($publicForumTotalPages)?></span>
+   <?php
+    $forumPageWindowStart = max(1, $publicForumPage - 2);
+    $forumPageWindowEnd = min($publicForumTotalPages, $publicForumPage + 2);
+    if ($forumPageWindowStart > 1) {
+        echo '<a class="forum-page-number" href="' . e($forumPageUrl(1)) . '">1</a>';
+        if ($forumPageWindowStart > 2) echo '<span class="forum-page-ellipsis" aria-hidden="true">…</span>';
+    }
+    for ($forumPageNumber = $forumPageWindowStart; $forumPageNumber <= $forumPageWindowEnd; $forumPageNumber++) {
+        if ($forumPageNumber === $publicForumPage) {
+            echo '<span class="forum-page-number" aria-current="page">' . number_format($forumPageNumber) . '</span>';
+        } else {
+            echo '<a class="forum-page-number" href="' . e($forumPageUrl($forumPageNumber)) . '">' . number_format($forumPageNumber) . '</a>';
+        }
+    }
+    if ($forumPageWindowEnd < $publicForumTotalPages) {
+        if ($forumPageWindowEnd < $publicForumTotalPages - 1) echo '<span class="forum-page-ellipsis" aria-hidden="true">…</span>';
+        echo '<a class="forum-page-number" href="' . e($forumPageUrl($publicForumTotalPages)) . '">' . number_format($publicForumTotalPages) . '</a>';
+    }
+   ?>
    <a href="<?=e($forumPageUrl(min($publicForumTotalPages,$publicForumPage+1)))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Next</a>
    <a href="<?=e($forumPageUrl($publicForumTotalPages))?>"<?=$publicForumPage>=$publicForumTotalPages?' aria-disabled="true" tabindex="-1"':''?>>Last</a>
   </nav>
