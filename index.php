@@ -521,7 +521,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                 $repliesStmt=$pdo->prepare("SELECT r.id,r.parent_reply_id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect},
                     (SELECT COUNT(*) FROM forum_reply_likes rl WHERE rl.reply_id=r.id) AS reply_like_count,
                     (SELECT reaction FROM forum_reply_likes rl WHERE rl.reply_id=r.id AND rl.user_id=? LIMIT 1) AS current_reaction
-                    FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
+                    FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id WHERE r.thread_id=? ORDER BY r.created_at DESC,r.id DESC");
                 $repliesStmt->execute([$isCreatorSignedIn?(int)$currentPublicUser['id']:0,$publicForumThreadId]);$publicForumReplies=$repliesStmt->fetchAll(PDO::FETCH_ASSOC);
                 if($publicForumReplies){
                     $replyIds=array_map(static fn($row)=>(int)$row['id'],$publicForumReplies);
@@ -535,7 +535,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                 }
                 $replyRowsByParent=[];foreach($publicForumReplies as $row)$replyRowsByParent[(int)($row['parent_reply_id']??0)][]=$row;
                 $publicForumRepliesFlat=[];$flattenForumReplies=static function(int $parentId,int $depth=0)use(&$flattenForumReplies,&$publicForumRepliesFlat,$replyRowsByParent):void{foreach($replyRowsByParent[$parentId]??[] as $row){$row['_depth']=$depth;$publicForumRepliesFlat[]=$row;$flattenForumReplies((int)$row['id'],$depth+1);}};
-                $flattenForumReplies(0);if($publicForumReplies)$publicForumLastActivity=$publicForumReplies[count($publicForumReplies)-1];
+                $flattenForumReplies(0);if($publicForumReplies)$publicForumLastActivity=$publicForumReplies[0];
             }
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
