@@ -353,15 +353,15 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
         // first_name/last_name/name_suffix. Prefer populated values, not merely existing columns.
         $publicForumUserColumns = [];
         $publicForumColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME=?");
-        foreach (['first_name','firstname','last_name','lastname','name_suffix','suffix'] as $columnName) {
+        foreach (['firstname','first_name','lastname','last_name','suffix','name_suffix'] as $columnName) {
             $publicForumColumnCheck->execute([$columnName]);
             $publicForumUserColumns[$columnName] = (int)$publicForumColumnCheck->fetchColumn() > 0;
         }
         $publicForumIdentitySql = static function(string $tableAlias, string $identityField) use ($publicForumUserColumns): string {
             $candidates = [
-                'first_name' => ['first_name','firstname'],
-                'last_name' => ['last_name','lastname'],
-                'name_suffix' => ['name_suffix','suffix'],
+                'first_name' => ['firstname','first_name'],
+                'last_name' => ['lastname','last_name'],
+                'name_suffix' => ['suffix','name_suffix'],
             ][$identityField] ?? [];
             $parts = [];
             foreach ($candidates as $columnName) {
