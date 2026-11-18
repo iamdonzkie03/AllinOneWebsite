@@ -474,7 +474,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             }
             $pdo->commit();foreach(array_unique($paths) as $path)if(is_file($path))@unlink($path);
             $_SESSION['forum_bulk_delete_count']=$deleted;
-            header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.$panelIndex.'&forum_deleted=1#pm-panel-sections',true,303);exit;
+            header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.$panelIndex.'&forum_deleted=1&forum_deleted_count='.$deleted.'#pm-panel-sections',true,303);exit;
           } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Forum bulk delete failed: '.$e->getMessage());$message='The selected Forum posts could not be deleted. Please try again.';}
         }
       }
@@ -1541,7 +1541,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-table th:first-child,.forum-inline-table td:first-child{width:38px;text-align:center}
 @media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-panel{padding:12px}.forum-inline-header{align-items:flex-start;gap:14px;padding:14px 12px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
 </style></head><body>
-      <?php if(isset($_SESSION['forum_bulk_delete_count'])): $forumDeletedCount=(int)$_SESSION['forum_bulk_delete_count']; unset($_SESSION['forum_bulk_delete_count']); ?>
+      <?php $forumDeletedCount=isset($_GET['forum_deleted_count'])?max(0,(int)$_GET['forum_deleted_count']):(int)($_SESSION['forum_bulk_delete_count']??0); if($forumDeletedCount>0): unset($_SESSION['forum_bulk_delete_count']); ?>
       <?php
         $forumNumberWords=static function(int $number): string {
           $ones=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
