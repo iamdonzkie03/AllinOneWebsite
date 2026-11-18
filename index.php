@@ -732,7 +732,8 @@ if ($isCreatorSignedIn) {
 <section class="section module-page-head public-forum-page-head"><div class="wrap">
   <p class="eyebrow">COMMUNITY FORUM</p>
   <h1><?=e(str_ireplace(' And ', ' and ', (string)($activeForumPanel['title'] ?? $activeModule['name'] ?? 'Forum')))?></h1>
-  <p class="muted">Skill, imagination, and a camera to express ideas, tell stories, and evoke emotions rather than simply recording a literal copy of reality.</p>
+  <?php $publicForumPanelSubtext = trim((string)($activeForumPanel['description'] ?? '')); ?>
+  <?php if ($publicForumPanelSubtext !== ''): ?><p class="muted"><?=e($publicForumPanelSubtext)?></p><?php endif; ?>
   <?php if(count($publicForumTabs)>1): ?><nav class="public-forum-tabs" aria-label="Other Community Forums">
    <?php foreach($publicForumTabs as $forumTab): $forumTabId=(string)$forumTab['panel_id']; $forumTabHref='index.php?'.http_build_query(array_filter(['forum_panel_id'=>$forumTabId,'session_context'=>$isCreatorSignedIn?'creator':null],static fn($value)=>$value!==null)); ?>
     <a class="public-forum-tab<?=$forumTabId===$requestedForumPanelId?' is-active':''?>" href="<?=e($forumTabHref)?>"<?=$forumTabId===$requestedForumPanelId?' aria-current="page"':''?>><?=e((string)($forumTab['title']??'Forum'))?></a>
