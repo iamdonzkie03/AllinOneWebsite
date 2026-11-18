@@ -382,7 +382,7 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             $first = trim((string)($user['first_name'] ?? ''));
             $last = trim((string)($user['last_name'] ?? ''));
             $suffix = trim((string)($user['name_suffix'] ?? ''));
-            $suffix = trim($suffix, " \\t\\n\\r\\0\\x0B.,");
+            $suffix = trim($suffix, " \t\n\r\0\x0B.,");
             if ($first !== '' || $last !== '') {
                 return trim(implode(' ', array_filter([$first, $last, $suffix], static fn($part) => $part !== '')));
             }
