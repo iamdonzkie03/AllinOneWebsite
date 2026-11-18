@@ -1196,5 +1196,4 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 </script>
 <?php endif; ?>
-</style>
 </body></html>
