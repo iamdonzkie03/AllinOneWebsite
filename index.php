@@ -618,11 +618,10 @@ if ($isCreatorSignedIn) {
   <div class="public-forum-topic">
    <div class="public-forum-thread-top">
     <?php if($authorAvatar!==''): ?><img class="public-forum-avatar public-forum-topic-avatar" src="<?=e($authorAvatar)?>" alt=""><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback public-forum-topic-avatar"><?=e(strtoupper(mb_substr((string)$forumThread['full_name'],0,1)))?></span><?php endif; ?>
-    <span class="public-forum-content-icon" title="<?=e((string)($forumThread['prefix_group']??'General'))?>" aria-label="<?=e((string)($forumThread['prefix_group']??'General'))?>"><?=e((string)($forumThread['prefix_group']??'')==='Video'?'▶':((string)($forumThread['prefix_group']??'')==='Downloads'?'⇩':'▤'))?></span>
     <span class="public-forum-prefix-subcategory"><?=e((string)($forumThread['prefix']??'')!=='' && (string)$forumThread['prefix']!=='No prefix' ? (string)$forumThread['prefix'] : (string)($forumThread['prefix_group']??'General'))?></span>
-    <span class="public-forum-date">Published <?=e($createdTimestamp ? date('M d, Y',$createdTimestamp) : '')?></span>
    </div>
    <h3><a href="<?=e($threadHref)?>"><?=e((string)$forumThread['title'])?></a></h3>
+   <div class="public-forum-date">Published on <?=e($createdTimestamp ? date('F d, Y',$createdTimestamp) : '')?></div>
   </div>
   <div class="public-forum-stats"><strong><?=number_format((int)$forumThread['reply_count'])?></strong><small>Replies</small><strong><?=number_format((int)$forumThread['view_count'])?></strong><small>Views</small></div>
   <div class="public-forum-activity">
