@@ -328,10 +328,15 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             thread_id BIGINT UNSIGNED NOT NULL,
             owner_id BIGINT UNSIGNED NOT NULL,
             body TEXT NOT NULL,
+            parent_reply_id BIGINT UNSIGNED NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_forum_replies_thread_created(thread_id,created_at),
+            INDEX idx_forum_replies_parent(parent_reply_id),
             INDEX idx_forum_replies_owner(owner_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $replyParentColumn=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_thread_replies' AND COLUMN_NAME='parent_reply_id'");
+        $replyParentColumn->execute();
+        if(!(int)$replyParentColumn->fetchColumn())$pdo->exec("ALTER TABLE forum_thread_replies ADD COLUMN parent_reply_id BIGINT UNSIGNED NULL, ADD INDEX idx_forum_replies_parent(parent_reply_id)");
         $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_likes (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             thread_id BIGINT UNSIGNED NOT NULL,
@@ -339,6 +344,29 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uq_forum_thread_like(thread_id,user_id),
             INDEX idx_forum_likes_thread(thread_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS forum_reply_likes (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            reply_id BIGINT UNSIGNED NOT NULL,
+            user_id BIGINT UNSIGNED NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_forum_reply_like(reply_id,user_id),
+            INDEX idx_forum_reply_likes_reply(reply_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS forum_reports (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            target_type ENUM('thread','reply') NOT NULL,
+            target_id BIGINT UNSIGNED NOT NULL,
+            thread_id BIGINT UNSIGNED NOT NULL,
+            reporter_id BIGINT UNSIGNED NOT NULL,
+            reason VARCHAR(40) NOT NULL,
+            details TEXT NULL,
+            status ENUM('pending','reviewed','dismissed','actioned') NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at TIMESTAMP NULL DEFAULT NULL,
+            UNIQUE KEY uq_forum_report_once(target_type,target_id,reporter_id),
+            INDEX idx_forum_reports_status_created(status,created_at),
+            INDEX idx_forum_reports_thread(thread_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_views (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -397,36 +425,40 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             }
             return trim(preg_replace('/[,.]+/', '', $legacy) ?? $legacy);
         };
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['forum_action'] ?? ''), ['reply','like','unlike'], true)) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array((string)($_POST['forum_action'] ?? ''), ['reply','like','unlike','reply_like','reply_unlike','report_thread','report_reply'], true)) {
             try {
                 verify_csrf();
-                $postedThreadId = max(0, (int)($_POST['thread_id'] ?? 0));
-                $threadExists = $pdo->prepare("SELECT id FROM forum_threads WHERE id=? AND panel_id=? AND status='published' LIMIT 1");
-                $threadExists->execute([$postedThreadId, $requestedForumPanelId]);
-                if (!$threadExists->fetchColumn()) throw new RuntimeException('This discussion is no longer available.');
-                if (!$isCreatorSignedIn) throw new RuntimeException('Please sign in with your contributor account to reply or like a discussion.');
-                $signedInUserId = (int)($currentPublicUser['id'] ?? 0);
-                if ($signedInUserId < 1) throw new RuntimeException('Please sign in again to continue.');
-                $forumAction = (string)$_POST['forum_action'];
-                if ($forumAction === 'reply') {
-                    $replyBody = trim((string)($_POST['reply_body'] ?? ''));
-                    if ($replyBody === '') throw new RuntimeException('Write your reply before posting.');
-                    if (mb_strlen($replyBody) > 5000) throw new RuntimeException('Your reply must be 5,000 characters or fewer.');
-                    $replyInsert = $pdo->prepare('INSERT INTO forum_thread_replies(thread_id,owner_id,body) VALUES(?,?,?)');
-                    $replyInsert->execute([$postedThreadId,$signedInUserId,$replyBody]);
-                } elseif ($forumAction === 'like') {
-                    $likeInsert = $pdo->prepare('INSERT IGNORE INTO forum_thread_likes(thread_id,user_id) VALUES(?,?)');
-                    $likeInsert->execute([$postedThreadId,$signedInUserId]);
-                } else {
-                    $unlikeDelete = $pdo->prepare('DELETE FROM forum_thread_likes WHERE thread_id=? AND user_id=?');
-                    $unlikeDelete->execute([$postedThreadId,$signedInUserId]);
+                $postedThreadId=max(0,(int)($_POST['thread_id']??0));
+                $threadExists=$pdo->prepare("SELECT id FROM forum_threads WHERE id=? AND panel_id=? AND status='published' LIMIT 1");
+                $threadExists->execute([$postedThreadId,$requestedForumPanelId]);
+                if(!$threadExists->fetchColumn()) throw new RuntimeException('This discussion is no longer available.');
+                if(!$isCreatorSignedIn) throw new RuntimeException('Please sign in with your contributor account to continue.');
+                $signedInUserId=(int)($currentPublicUser['id']??0);
+                if($signedInUserId<1) throw new RuntimeException('Please sign in again to continue.');
+                $forumAction=(string)$_POST['forum_action'];
+                if($forumAction==='reply'){
+                    $replyBody=trim((string)($_POST['reply_body']??''));$parentReplyId=max(0,(int)($_POST['parent_reply_id']??0));
+                    if($replyBody==='')throw new RuntimeException('Write your reply before posting.');
+                    if(mb_strlen($replyBody)>5000)throw new RuntimeException('Your reply must be 5,000 characters or fewer.');
+                    if($parentReplyId>0){$check=$pdo->prepare('SELECT id FROM forum_thread_replies WHERE id=? AND thread_id=? LIMIT 1');$check->execute([$parentReplyId,$postedThreadId]);if(!$check->fetchColumn())throw new RuntimeException('The reply you are responding to is no longer available.');$stmt=$pdo->prepare('INSERT INTO forum_thread_replies(thread_id,owner_id,parent_reply_id,body) VALUES(?,?,?,?)');$stmt->execute([$postedThreadId,$signedInUserId,$parentReplyId,$replyBody]);}
+                    else{$stmt=$pdo->prepare('INSERT INTO forum_thread_replies(thread_id,owner_id,body) VALUES(?,?,?)');$stmt->execute([$postedThreadId,$signedInUserId,$replyBody]);}
+                }elseif($forumAction==='like'){$stmt=$pdo->prepare('INSERT IGNORE INTO forum_thread_likes(thread_id,user_id) VALUES(?,?)');$stmt->execute([$postedThreadId,$signedInUserId]);}
+                elseif($forumAction==='unlike'){$stmt=$pdo->prepare('DELETE FROM forum_thread_likes WHERE thread_id=? AND user_id=?');$stmt->execute([$postedThreadId,$signedInUserId]);}
+                elseif(in_array($forumAction,['reply_like','reply_unlike'],true)){
+                    $targetReplyId=max(0,(int)($_POST['reply_id']??0));$check=$pdo->prepare('SELECT id FROM forum_thread_replies WHERE id=? AND thread_id=? LIMIT 1');$check->execute([$targetReplyId,$postedThreadId]);if(!$check->fetchColumn())throw new RuntimeException('This reply is no longer available.');
+                    if($forumAction==='reply_like'){$stmt=$pdo->prepare('INSERT IGNORE INTO forum_reply_likes(reply_id,user_id) VALUES(?,?)');$stmt->execute([$targetReplyId,$signedInUserId]);}
+                    else{$stmt=$pdo->prepare('DELETE FROM forum_reply_likes WHERE reply_id=? AND user_id=?');$stmt->execute([$targetReplyId,$signedInUserId]);}
+                }else{
+                    $targetType=$forumAction==='report_thread'?'thread':'reply';$targetId=$targetType==='thread'?$postedThreadId:max(0,(int)($_POST['reply_id']??0));
+                    if($targetType==='reply'){$check=$pdo->prepare('SELECT id FROM forum_thread_replies WHERE id=? AND thread_id=? LIMIT 1');$check->execute([$targetId,$postedThreadId]);if(!$check->fetchColumn())throw new RuntimeException('This reply is no longer available.');}
+                    $reason=(string)($_POST['report_reason']??'');if(!in_array($reason,['malicious','unverified','community_rules','terms_of_service','other'],true))throw new RuntimeException('Choose a valid reason for this report.');
+                    $details=trim((string)($_POST['report_details']??''));if(mb_strlen($details)>2000)throw new RuntimeException('Additional details must be 2,000 characters or fewer.');
+                    $stmt=$pdo->prepare('INSERT IGNORE INTO forum_reports(target_type,target_id,thread_id,reporter_id,reason,details) VALUES(?,?,?,?,?,?)');$stmt->execute([$targetType,$targetId,$postedThreadId,$signedInUserId,$reason,$details!==''?$details:null]);
+                    if(!$stmt->rowCount())throw new RuntimeException('You have already reported this item. Your existing report is available for moderator review.');
+                    $publicForumNotice='Thank you. Your report has been submitted for moderator review.';
                 }
-                $redirectQuery = http_build_query(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>$postedThreadId,'session_context'=>'creator']);
-                header('Location: index.php?' . $redirectQuery . '#forum-thread-detail', true, 303);
-                exit;
-            } catch (Throwable $forumActionError) {
-                $publicForumError = $forumActionError->getMessage();
-            }
+                if(!in_array($forumAction,['report_thread','report_reply'],true)){$url='index.php?'.http_build_query(['forum_panel_id'=>$requestedForumPanelId,'thread_id'=>$postedThreadId,'session_context'=>'creator']);header('Location: '.$url.'#forum-thread-detail',true,303);exit;}
+            }catch(Throwable $forumActionError){$publicForumError=$forumActionError->getMessage();}
         }
         if ($publicForumThreadId > 0) {
             $threadStmt = $pdo->prepare("SELECT t.id,t.prefix_group,t.prefix,t.title,t.description,t.created_at,t.updated_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$creatorAvatarSelect}
@@ -458,12 +490,14 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                     $publicForumLikedByCurrentUser = (int)$likedStmt->fetchColumn() > 0;
                 }
                 $replyAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
-                $repliesStmt = $pdo->prepare("SELECT r.id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect}
-                    FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id
-                    WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
-                $repliesStmt->execute([$publicForumThreadId]);
-                $publicForumReplies = $repliesStmt->fetchAll(PDO::FETCH_ASSOC);
-                if ($publicForumReplies) $publicForumLastActivity = $publicForumReplies[count($publicForumReplies)-1];
+                $repliesStmt=$pdo->prepare("SELECT r.id,r.parent_reply_id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect},
+                    (SELECT COUNT(*) FROM forum_reply_likes rl WHERE rl.reply_id=r.id) AS reply_like_count,
+                    (SELECT COUNT(*) FROM forum_reply_likes rl WHERE rl.reply_id=r.id AND rl.user_id=?) AS liked_by_current_user
+                    FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
+                $repliesStmt->execute([$isCreatorSignedIn?(int)$currentPublicUser['id']:0,$publicForumThreadId]);$publicForumReplies=$repliesStmt->fetchAll(PDO::FETCH_ASSOC);
+                $replyRowsByParent=[];foreach($publicForumReplies as $row)$replyRowsByParent[(int)($row['parent_reply_id']??0)][]=$row;
+                $publicForumRepliesFlat=[];$flattenForumReplies=static function(int $parentId,int $depth=0)use(&$flattenForumReplies,&$publicForumRepliesFlat,$replyRowsByParent):void{foreach($replyRowsByParent[$parentId]??[] as $row){$row['_depth']=$depth;$publicForumRepliesFlat[]=$row;$flattenForumReplies((int)$row['id'],$depth+1);}};
+                $flattenForumReplies(0);if($publicForumReplies)$publicForumLastActivity=$publicForumReplies[count($publicForumReplies)-1];
             }
         }
         $publicForumSelectAvatar = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
@@ -694,25 +728,25 @@ if ($isCreatorSignedIn) {
   <?php endif; ?>
   <div class="public-forum-detail-actions">
    <span><strong><?=number_format($publicForumViewCount)?></strong> views</span>
-   <span><strong><?=number_format($publicForumReplyCount)?></strong> replies</span>
+   <span><strong><?=number_format($publicForumReplyCount)?></strong> replies (including sub-replies)</span>
    <span><strong><?=number_format($publicForumLikeCount)?></strong> likes</span>
-   <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="<?=$publicForumLikedByCurrentUser?'unlike':'like'?>"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><button class="btn light public-forum-like-button" type="submit"><?=$publicForumLikedByCurrentUser?'♥ Liked':'♡ Like'?></button></form><?php else: ?><a class="btn light" href="index.php#sign-in-modal">Sign in to like</a><?php endif; ?>
+   <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?>&amp;session_context=creator#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="<?=$publicForumLikedByCurrentUser?'unlike':'like'?>"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><button class="btn light public-forum-like-button" type="submit"><?=$publicForumLikedByCurrentUser?'♥ Liked':'♡ Like'?></button></form><details class="public-forum-report"><summary>⚑ Report thread</summary><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?>&amp;session_context=creator#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="report_thread"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><label>Reason<select name="report_reason" required><option value="">Select a reason</option><option value="malicious">Malicious or harmful content</option><option value="unverified">Unverified or misleading information</option><option value="community_rules">Violates community rules</option><option value="terms_of_service">Violates Terms of Service</option><option value="other">Other concern</option></select></label><textarea name="report_details" maxlength="2000" rows="3" placeholder="Additional details (optional)"></textarea><button class="btn light" type="submit">Submit report</button></form></details><?php else: ?><a class="btn light" href="index.php#sign-in-modal">Sign in to like</a><a class="btn light" href="index.php#sign-in-modal">Sign in to report</a><?php endif; ?>
   </div>
  </article>
  <div class="public-forum-replies">
   <h3>Replies (<?=number_format($publicForumReplyCount)?>)</h3>
   <?php if(!$publicForumReplies): ?><p class="muted">No replies yet. Start the conversation.</p><?php endif; ?>
-  <?php foreach($publicForumReplies as $forumReply): $replyAvatar=$publicForumAvatarUrl($forumReply['author_avatar']??''); ?>
-  <article class="public-forum-reply">
+  <?php foreach($publicForumRepliesFlat as $forumReply): $replyAvatar=$publicForumAvatarUrl($forumReply['author_avatar']??''); $replyDepth=(int)($forumReply['_depth']??0); ?>
+  <article class="public-forum-reply" style="--reply-depth:<?=min($replyDepth,4)?>">
    <?php $replyNickname=trim((string)($forumReply['nickname']??'')) ?: $publicForumDisplayName($forumReply); ?>
     <?php if($replyAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($replyAvatar)?>" alt="<?=e($replyNickname)?>" title="<?=e($replyNickname)?>"><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback" title="<?=e($replyNickname)?>" aria-label="<?=e($replyNickname)?>"><?=e(strtoupper(mb_substr(trim((string)($forumReply['first_name']??'')) ?: (string)$forumReply['full_name'],0,1)))?></span><?php endif; ?>
-   <div class="public-forum-reply-content"><div class="public-forum-reply-meta"><strong><?=e($publicForumDisplayName($forumReply))?></strong><time><?=e(date('F d, Y',strtotime((string)$forumReply['created_at'])))?></time></div><p><?=nl2br(e((string)$forumReply['body']))?></p></div>
+   <div class="public-forum-reply-content"><div class="public-forum-reply-meta"><strong><?=e($publicForumDisplayName($forumReply))?></strong><time><?=e(date('F d, Y',strtotime((string)$forumReply['created_at'])))?></time></div><p><?=nl2br(e((string)$forumReply['body']))?></p><div class="public-forum-reply-actions"><?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?>&amp;session_context=creator#forum-replies"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="<?=$forumReply['liked_by_current_user']?'reply_unlike':'reply_like'?>"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><input type="hidden" name="reply_id" value="<?=(int)$forumReply['id']?>"><button class="public-forum-action-link" type="submit"><?=$forumReply['liked_by_current_user']?'♥ Liked':'♡ Like'?> · <?=number_format((int)$forumReply['reply_like_count'])?></button></form><button type="button" class="public-forum-action-link" data-reply-to="<?=(int)$forumReply['id']?>" data-reply-author="<?=e($publicForumDisplayName($forumReply))?>">Reply</button><button type="button" class="public-forum-action-link" data-quote-reply="<?=(int)$forumReply['id']?>" data-quote-author="<?=e($publicForumDisplayName($forumReply))?>" data-quote-body="<?=e((string)$forumReply['body'])?>">Quote</button><details class="public-forum-report public-forum-reply-report"><summary>⚑ Report</summary><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?>&amp;session_context=creator#forum-replies"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="report_reply"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><input type="hidden" name="reply_id" value="<?=(int)$forumReply['id']?>"><label>Reason<select name="report_reason" required><option value="">Select a reason</option><option value="malicious">Malicious or harmful content</option><option value="unverified">Unverified or misleading information</option><option value="community_rules">Violates community rules</option><option value="terms_of_service">Violates Terms of Service</option><option value="other">Other concern</option></select></label><textarea name="report_details" maxlength="2000" rows="2" placeholder="Additional details (optional)"></textarea><button type="submit" class="btn light">Submit report</button></form></details><?php else: ?><a class="public-forum-action-link" href="index.php#sign-in-modal">Sign in to Like, Reply, Quote or Report</a><?php endif; ?></div></div>
   </article>
   <?php endforeach; ?>
  </div>
- <div class="panel public-forum-reply-form">
-  <h3>Post a reply</h3>
-  <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="reply"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><label for="public-forum-reply-body">Your reply</label><textarea id="public-forum-reply-body" name="reply_body" rows="5" maxlength="5000" required placeholder="Write your reply…"></textarea><button class="btn primary" type="submit">Post Reply</button></form><?php else: ?><p class="muted">Please <a href="index.php#sign-in-modal">sign in</a> with your contributor account to post a reply or like this discussion.</p><?php endif; ?>
+ <div class="panel public-forum-reply-form" id="public-forum-reply-composer">
+  <h3 id="public-forum-reply-heading">Post a reply</h3><?php if($publicForumNotice!==''): ?><p class="public-forum-notice"><?=e($publicForumNotice)?></p><?php endif; ?>
+  <?php if($isCreatorSignedIn): ?><form method="post" action="index.php?forum_panel_id=<?=e(rawurlencode($requestedForumPanelId))?>&amp;thread_id=<?=$publicForumThreadId?><?= $isCreatorSignedIn ? '&amp;session_context=creator' : '' ?>#forum-thread-detail"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="forum_action" value="reply"><input type="hidden" name="thread_id" value="<?=$publicForumThreadId?>"><input type="hidden" name="parent_reply_id" id="public-forum-parent-reply-id" value="0"><label for="public-forum-reply-body">Your reply</label><textarea id="public-forum-reply-body" name="reply_body" rows="5" maxlength="5000" required placeholder="Write your reply…"></textarea><button class="btn primary" type="submit">Post Reply</button></form><?php else: ?><p class="muted">Please <a href="index.php#sign-in-modal">sign in</a> with your contributor account to post a reply or like this discussion.</p><?php endif; ?>
  </div>
 </div></section>
 <?php else: ?>
@@ -1150,7 +1184,16 @@ $(function(){
 .public-forum-reply-form{padding:22px}
 .public-forum-reply-form label{display:block;margin-bottom:8px;font-size:12px}
 .public-forum-reply-form textarea{display:block;width:100%;min-height:120px;resize:vertical;padding:12px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:rgba(0,0,0,.22);color:#fff;font:inherit;margin-bottom:14px}
-.public-forum-alert{max-width:900px;margin:0 auto 16px;padding:14px;color:#ffb4bd}
+.public-forum-alert{max-width:900px;margin:0 auto 16px;padding:14px;color:#ffb4bd}.public-forum-report{font-size:12px;color:#f0cbd1}.public-forum-report summary{cursor:pointer;list-style:none;padding:7px 10px;border:1px solid rgba(255,255,255,.16);border-radius:8px}.public-forum-report form{display:grid;gap:8px;min-width:230px;padding:12px;margin-top:8px;background:#24171d;border:1px solid rgba(255,255,255,.14);border-radius:10px}.public-forum-report label{display:grid;gap:5px}.public-forum-report select,.public-forum-report textarea{width:100%;padding:8px;background:#120d10;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:7px;font:inherit}.public-forum-reply{margin-left:calc(min(var(--reply-depth,0),4)*28px);padding-left:12px;border-left:2px solid rgba(202,102,122,.22)}.public-forum-reply-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}.public-forum-reply-actions form{margin:0}.public-forum-action-link{border:0;padding:0;background:none;color:#e9a5b1;font:inherit;font-size:11px;cursor:pointer}.public-forum-reply-report summary{padding:0;border:0}.public-forum-notice{color:#a9e3b8;font-size:13px}
 @media(max-width:760px){.public-forum-list-head{display:none}.public-forum-thread{grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:15px}.public-forum-stats{grid-column:1;grid-row:2;display:flex;gap:6px;align-items:center}.public-forum-stats small{margin-right:8px}.public-forum-activity{grid-column:2;grid-row:1/3;flex-direction:column;align-items:flex-end;text-align:right}.public-forum-detail{padding:17px}.public-forum-detail h2{font-size:21px}.public-forum-reply-meta{flex-direction:column;gap:3px}}
 </style>
+<?php if($activeForumPanel && $publicForumThreadId>0 && $publicForumDetail && $isCreatorSignedIn): ?>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+ const composer=document.getElementById('public-forum-reply-composer'),textarea=document.getElementById('public-forum-reply-body'),parent=document.getElementById('public-forum-parent-reply-id'),heading=document.getElementById('public-forum-reply-heading');
+ document.querySelectorAll('[data-reply-to]').forEach(button=>button.addEventListener('click',()=>{parent.value=button.dataset.replyTo;heading.textContent='Replying to '+button.dataset.replyAuthor;composer.scrollIntoView({behavior:'smooth',block:'center'});textarea.focus();}));
+ document.querySelectorAll('[data-quote-reply]').forEach(button=>button.addEventListener('click',()=>{parent.value=button.dataset.quoteReply;heading.textContent='Quoting '+button.dataset.quoteAuthor;const q='> '+button.dataset.quoteAuthor+' wrote:\n> '+button.dataset.quoteBody.replace(/\n/g,'\n> ')+'\n\n';textarea.value=q+textarea.value;composer.scrollIntoView({behavior:'smooth',block:'center'});textarea.focus();textarea.setSelectionRange(textarea.value.length,textarea.value.length);}));
+});
+</script>
+<?php endif; ?>
 </body></html>
