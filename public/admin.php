@@ -3013,9 +3013,23 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </table></div>
       <div class="forum-inline-empty" id="forum-post-no-results" hidden>No posts match your filter.</div>
       <div class="forum-inline-pagination"><span id="forum-post-page-info" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-first">First</button><button type="button" class="btn light" id="forum-post-prev">Previous</button><span id="forum-post-page-number" class="forum-inline-page-numbers"></span><button type="button" class="btn light" id="forum-post-next">Next</button><button type="button" class="btn light" id="forum-post-last">Last</button></div></div>
-      <div class="forum-delete-modal" id="forum-delete-confirm-modal" hidden><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-confirm-title"><div class="forum-delete-warning">!</div><h3 id="forum-delete-confirm-title">Delete Selected Forum Posts?</h3><p id="forum-delete-selected-count">The selected Forum posts will be permanently deleted. This action cannot be undone.</p><div><button type="button" class="btn light" id="forum-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="forum-delete-confirm">Delete</button></div></section></div>
+      <div class="forum-delete-modal" id="forum-delete-confirm-modal" hidden><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-confirm-title"><div class="forum-delete-warning">!</div><h3 id="forum-delete-confirm-title">Delete Selected Forum Post/s?</h3><p id="forum-delete-selected-count">Are you sure you want to delete the selected forum post/s? Deleting this post/s will also delete all components linked to it, including page views, replies, likes, photos, and other relevant attachments. Click the Delete button if you wish to continue. <strong><span id="forum-delete-selected-total">0</span> posts to delete.</strong></p><div><button type="button" class="btn light" id="forum-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="forum-delete-confirm">Delete</button></div></section></div>
       <?php if(isset($_SESSION['forum_bulk_delete_count'])): $forumDeletedCount=(int)$_SESSION['forum_bulk_delete_count']; unset($_SESSION['forum_bulk_delete_count']); ?>
-      <div class="forum-delete-modal" id="forum-delete-success-modal"><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-success-title"><div class="forum-delete-warning" style="background:rgba(46,160,90,.16);color:#9ce0b2">✓</div><h3 id="forum-delete-success-title">Deletion completed</h3><p><?= $forumDeletedCount ?> Forum post<?= $forumDeletedCount===1?'':'s' ?> successfully deleted.</p><div><button type="button" class="btn" id="forum-delete-success-close">OK</button></div></section></div>
+      <?php
+        $forumNumberWords=static function(int $number): string {
+          $ones=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+          $tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+          $convert=function(int $n) use (&$convert,$ones,$tens): string {
+            if($n<20)return $ones[$n];
+            if($n<100)return $tens[intdiv($n,10)].($n%10?' '.$ones[$n%10]:'');
+            if($n<1000)return $ones[intdiv($n,100)].' Hundred'.($n%100?' '.$convert($n%100):'');
+            foreach([1000000=>'Million',1000=>'Thousand'] as $unit=>$label)if($n>=$unit)return $convert(intdiv($n,$unit)).' '.$label.($n%$unit?' '.$convert($n%$unit):'');
+            return (string)$n;
+          };
+          return $convert(max(0,$number));
+        };
+      ?>
+      <div class="forum-delete-modal" id="forum-delete-success-modal"><section role="dialog" aria-modal="true" aria-labelledby="forum-delete-success-title"><div class="forum-delete-warning" style="background:rgba(46,160,90,.16);color:#9ce0b2">✓</div><h3 id="forum-delete-success-title">Deletion completed</h3><p><?php if($forumDeletedCount===1): ?>One (1) Forum Post has been successfully deleted.<?php else: ?><?=e($forumNumberWords($forumDeletedCount))?> (<?=number_format($forumDeletedCount)?>) Forum Posts have been successfully deleted.<?php endif; ?></p><div><button type="button" class="btn" id="forum-delete-success-close">OK</button></div></section></div>
       <script>document.getElementById('forum-delete-success-close')?.addEventListener('click',()=>{document.getElementById('forum-delete-success-modal')?.remove();});</script>
       <?php endif; ?>
       <?php if (!$forumPanelViewPosts): ?><div class="forum-inline-empty" id="forum-post-empty">No posts have been created under this panel yet.</div><?php endif; ?>
@@ -3149,7 +3163,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         const selected=checks().filter(box=>box.checked).length;
         if(deleteButton){deleteButton.disabled=!selected;deleteButton.setAttribute('aria-disabled',String(!selected));}
         if(selectAll){selectAll.checked=visible.length>0&&visible.every(box=>box.checked);selectAll.indeterminate=visible.some(box=>box.checked)&&!selectAll.checked;selectAll.disabled=!visible.length;}
-        if(selectedCountLabel)selectedCountLabel.textContent=selected+' post'+(selected===1?'':'s')+' selected.';
+        if(selectedCountLabel){
+          const totalLabel=document.getElementById('forum-delete-selected-total');
+          const noun=selected===1?'post':'posts';
+          selectedCountLabel.firstChild.textContent='Are you sure you want to delete the selected forum post/s? Deleting this post/s will also delete all components linked to it, including page views, replies, likes, photos, and other relevant attachments. Click the Delete button if you wish to continue. ';
+          if(totalLabel)totalLabel.textContent=selected+' '+noun;
+        }
       };
       const render=()=>{
         const query=(filter?.value||'').trim().toLocaleLowerCase(),matched=rows.filter(row=>(row.dataset.forumSearch||'').includes(query));
@@ -3176,7 +3195,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       });
       selectAll?.addEventListener('change',()=>{rows.filter(row=>!row.hidden).forEach(row=>{const box=row.querySelector('.forum-post-select');if(box)box.checked=selectAll.checked;});syncSelection();});
       table.addEventListener('change',event=>{if(event.target.matches('.forum-post-select'))syncSelection();});
-      deleteButton?.addEventListener('click',()=>{if(checks().some(box=>box.checked)&&confirmModal){confirmModal.hidden=false;confirmModal.style.display='flex';}});
+      deleteButton?.addEventListener('click',()=>{const selected=checks().filter(box=>box.checked).length;if(selected>0&&confirmModal){const totalLabel=document.getElementById('forum-delete-selected-total');if(totalLabel)totalLabel.textContent=selected+' '+(selected===1?'post':'posts');confirmModal.hidden=false;confirmModal.style.display='flex';}});
       document.getElementById('forum-delete-cancel')?.addEventListener('click',()=>{confirmModal.hidden=true;confirmModal.style.display='none';});
       document.getElementById('forum-delete-confirm')?.addEventListener('click',()=>bulkForm?.requestSubmit());
       confirmModal?.addEventListener('click',event=>{if(event.target===confirmModal)event.preventDefault();});
