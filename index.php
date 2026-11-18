@@ -308,6 +308,8 @@ $publicForumReplyCount = 0;
 $publicForumViewCount = 0;
 $publicForumLikeCount = 0;
 $publicForumLikedByCurrentUser = false;
+$publicForumThreadReactionCounts = [];
+$publicForumCurrentReaction = '';
 $publicForumLastActivity = null;
 $publicForumNotice = '';
 $publicForumError = '';
@@ -499,17 +501,31 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
                 $likeCountStmt = $pdo->prepare('SELECT COUNT(*) FROM forum_thread_likes WHERE thread_id=?');
                 $likeCountStmt->execute([$publicForumThreadId]);
                 $publicForumLikeCount = (int)$likeCountStmt->fetchColumn();
+                $threadReactionStmt=$pdo->prepare('SELECT reaction,COUNT(*) AS reaction_count FROM forum_thread_likes WHERE thread_id=? GROUP BY reaction');
+                $threadReactionStmt->execute([$publicForumThreadId]);
+                foreach($threadReactionStmt->fetchAll(PDO::FETCH_ASSOC) as $reactionRow)$publicForumThreadReactionCounts[(string)$reactionRow['reaction']]=(int)$reactionRow['reaction_count'];
                 if ($isCreatorSignedIn) {
-                    $likedStmt = $pdo->prepare('SELECT COUNT(*) FROM forum_thread_likes WHERE thread_id=? AND user_id=?');
-                    $likedStmt->execute([$publicForumThreadId,(int)$currentPublicUser['id']]);
-                    $publicForumLikedByCurrentUser = (int)$likedStmt->fetchColumn() > 0;
+                    $currentReactionStmt=$pdo->prepare('SELECT reaction FROM forum_thread_likes WHERE thread_id=? AND user_id=? LIMIT 1');
+                    $currentReactionStmt->execute([$publicForumThreadId,(int)$currentPublicUser['id']]);
+                    $publicForumCurrentReaction=(string)($currentReactionStmt->fetchColumn()?:'');
+                    $publicForumLikedByCurrentUser=$publicForumCurrentReaction!=='';
                 }
                 $replyAvatarSelect = $creatorPhotoColumn !== '' ? ', u.' . $creatorPhotoColumn . ' AS author_avatar' : ', NULL AS author_avatar';
                 $repliesStmt=$pdo->prepare("SELECT r.id,r.parent_reply_id,r.body,r.created_at,u.full_name,{$forumFirstNameU} AS first_name,{$forumLastNameU} AS last_name,{$forumSuffixU} AS name_suffix,u.nickname,u.role{$replyAvatarSelect},
                     (SELECT COUNT(*) FROM forum_reply_likes rl WHERE rl.reply_id=r.id) AS reply_like_count,
-                    (SELECT COUNT(*) FROM forum_reply_likes rl WHERE rl.reply_id=r.id AND rl.user_id=?) AS liked_by_current_user
+                    (SELECT reaction FROM forum_reply_likes rl WHERE rl.reply_id=r.id AND rl.user_id=? LIMIT 1) AS current_reaction
                     FROM forum_thread_replies r INNER JOIN users u ON u.id=r.owner_id WHERE r.thread_id=? ORDER BY r.created_at ASC,r.id ASC");
                 $repliesStmt->execute([$isCreatorSignedIn?(int)$currentPublicUser['id']:0,$publicForumThreadId]);$publicForumReplies=$repliesStmt->fetchAll(PDO::FETCH_ASSOC);
+                if($publicForumReplies){
+                    $replyIds=array_map(static fn($row)=>(int)$row['id'],$publicForumReplies);
+                    $replyPlaceholders=implode(',',array_fill(0,count($replyIds),'?'));
+                    $reactionCountsStmt=$pdo->prepare("SELECT reply_id,reaction,COUNT(*) AS reaction_count FROM forum_reply_likes WHERE reply_id IN ({$replyPlaceholders}) GROUP BY reply_id,reaction");
+                    $reactionCountsStmt->execute($replyIds);
+                    $replyReactionCounts=[];
+                    foreach($reactionCountsStmt->fetchAll(PDO::FETCH_ASSOC) as $reactionRow)$replyReactionCounts[(int)$reactionRow['reply_id']][(string)$reactionRow['reaction']]=(int)$reactionRow['reaction_count'];
+                    foreach($publicForumReplies as &$replyRow)$replyRow['reaction_counts']=$replyReactionCounts[(int)$replyRow['id']]??[];
+                    unset($replyRow);
+                }
                 $replyRowsByParent=[];foreach($publicForumReplies as $row)$replyRowsByParent[(int)($row['parent_reply_id']??0)][]=$row;
                 $publicForumRepliesFlat=[];$flattenForumReplies=static function(int $parentId,int $depth=0)use(&$flattenForumReplies,&$publicForumRepliesFlat,$replyRowsByParent):void{foreach($replyRowsByParent[$parentId]??[] as $row){$row['_depth']=$depth;$publicForumRepliesFlat[]=$row;$flattenForumReplies((int)$row['id'],$depth+1);}};
                 $flattenForumReplies(0);if($publicForumReplies)$publicForumLastActivity=$publicForumReplies[count($publicForumReplies)-1];
