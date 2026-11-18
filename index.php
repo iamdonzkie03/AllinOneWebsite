@@ -303,6 +303,7 @@ $stmt=$pdo->prepare($sql); $stmt->execute($params); $items=$stmt->fetchAll();
 $publicForumThreads = [];
 $publicForumDetail = null;
 $publicForumReplies = [];
+$publicForumAttachments = [];
 $publicForumReplyCount = 0;
 $publicForumViewCount = 0;
 $publicForumLikeCount = 0;
@@ -386,6 +387,11 @@ if ($activeForumPanel && $requestedForumPanelId !== '') {
             $threadStmt->execute([$publicForumThreadId,$requestedForumPanelId]);
             $publicForumDetail = $threadStmt->fetch(PDO::FETCH_ASSOC) ?: null;
             if ($publicForumDetail) {
+                if ($isCreatorSignedIn) {
+                    $attachmentStmt = $pdo->prepare('SELECT id,original_name,file_path,mime_type,file_size,attachment_type,created_at FROM forum_thread_attachments WHERE thread_id=? ORDER BY id ASC');
+                    $attachmentStmt->execute([$publicForumThreadId]);
+                    $publicForumAttachments = $attachmentStmt->fetchAll(PDO::FETCH_ASSOC);
+                }
                 $visitorKey = hash('sha256', session_id());
                 $viewInsert = $pdo->prepare('INSERT IGNORE INTO forum_thread_views(thread_id,visitor_key) VALUES(?,?)');
                 $viewInsert->execute([$publicForumThreadId,$visitorKey]);
@@ -578,6 +584,27 @@ if ($isCreatorSignedIn) {
   <div class="public-forum-detail-type"><span class="public-forum-content-icon" aria-hidden="true"><?=e((string)($publicForumDetail['prefix_group']??'')==='Video'?'▶':((string)($publicForumDetail['prefix_group']??'')==='Downloads'?'⇩':'▤'))?></span><?=e((string)($publicForumDetail['prefix']?:'No prefix'))?></div>
   <h2><?=e((string)$publicForumDetail['title'])?></h2>
   <div class="public-forum-detail-body"><?=$renderBannerRichText((string)$publicForumDetail['description'])?></div>
+  <?php if ($isCreatorSignedIn && $publicForumAttachments): ?>
+  <section class="public-forum-attachments" aria-label="Thread attachments">
+   <h3>Uploaded Files</h3>
+   <div class="public-forum-attachment-list">
+    <?php foreach ($publicForumAttachments as $forumAttachment):
+     $attachmentHref = $publicForumAttachmentUrl((string)$forumAttachment['file_path']);
+     $attachmentName = trim((string)$forumAttachment['original_name']) ?: basename((string)$forumAttachment['file_path']);
+     $attachmentBytes = (int)$forumAttachment['file_size'];
+     $attachmentSize = $attachmentBytes >= 1073741824 ? number_format($attachmentBytes / 1073741824, 2) . ' GB' : ($attachmentBytes >= 1048576 ? number_format($attachmentBytes / 1048576, 2) . ' MB' : ($attachmentBytes >= 1024 ? number_format($attachmentBytes / 1024, 1) . ' KB' : $attachmentBytes . ' B'));
+    ?>
+    <a class="public-forum-attachment" href="<?=e($attachmentHref)?>" target="_blank" rel="noopener noreferrer">
+     <span class="public-forum-attachment-icon" aria-hidden="true">↧</span>
+     <span class="public-forum-attachment-info"><strong><?=e($attachmentName)?></strong><small><?=e(ucfirst((string)$forumAttachment['attachment_type']))?> · <?=e($attachmentSize)?></small></span>
+     <span class="public-forum-attachment-open">Open file ↗</span>
+    </a>
+    <?php endforeach; ?>
+   </div>
+  </section>
+  <?php elseif (!$isCreatorSignedIn): ?>
+  <p class="public-forum-attachments-locked"><a href="index.php#sign-in-modal">Sign in</a> with your contributor account to view this thread's uploaded files.</p>
+  <?php endif; ?>
   <div class="public-forum-detail-actions">
    <span><strong><?=number_format($publicForumViewCount)?></strong> views</span>
    <span><strong><?=number_format($publicForumReplyCount)?></strong> replies</span>
@@ -1004,7 +1031,7 @@ $(function(){
 .public-forum-detail-author small{font-size:11px;color:#bbaeb4;margin-top:3px}
 .public-forum-detail-type{display:flex;align-items:center;gap:8px;margin-top:22px;color:#cdbdc2;font-size:12px}
 .public-forum-detail h2{font-size:25px;margin:12px 0 18px}
-.public-forum-detail-body{font-size:15px;line-height:1.8;overflow-wrap:anywhere}
+.public-forum-detail-body{font-size:15px;line-height:1.8;overflow-wrap:anywhere}.public-forum-attachments{margin:22px 0 8px;padding-top:18px;border-top:1px solid rgba(255,255,255,.1)}.public-forum-attachments h3{margin:0 0 12px;color:#f7eef0;font-size:15px}.public-forum-attachment-list{display:grid;gap:9px}.public-forum-attachment{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.035);color:inherit;text-decoration:none;transition:border-color .2s,background .2s}.public-forum-attachment:hover{border-color:rgba(215,154,165,.55);background:rgba(255,255,255,.07)}.public-forum-attachment-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:10px;background:rgba(150,35,58,.22);color:#f0a6b3;font-size:20px}.public-forum-attachment-info{display:grid;gap:3px;min-width:0;flex:1}.public-forum-attachment-info strong{overflow-wrap:anywhere;color:#f7eef0;font-size:13px}.public-forum-attachment-info small,.public-forum-attachment-open{color:#cbbfc4;font-size:11px}.public-forum-attachment-open{white-space:nowrap}.public-forum-attachments-locked{margin:18px 0 8px;padding:12px 14px;border:1px dashed rgba(215,154,165,.35);border-radius:10px;color:#cbbfc4;font-size:13px}.public-forum-attachments-locked a{color:#f0a6b3;font-weight:700}
 .public-forum-detail-body img{max-width:100%;height:auto;border-radius:10px}
 .public-forum-detail-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.1);padding-top:18px;margin-top:24px;font-size:12px;color:#cdbdc2}
 .public-forum-detail-actions strong{color:#fff}
