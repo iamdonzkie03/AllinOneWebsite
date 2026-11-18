@@ -1236,12 +1236,12 @@ document.addEventListener('DOMContentLoaded',()=>{
  const photoInput=document.getElementById('reply-photo-input');
  const photoFiles=[];let photoUrls=[];
  document.querySelector('[data-reply-tool="photo"]')?.addEventListener('mousedown',save);
- document.querySelector('[data-reply-tool="photo"]')?.addEventListener('click',()=>{if(photoInput){photoInput.value='';photoInput.click();}});
+ document.querySelector('[data-reply-tool="photo"]')?.addEventListener('click',()=>photoInput?.click());
  photoInput?.addEventListener('change',()=>{
   const allowed=new Set(['image/jpeg','image/png','image/avif','image/webp']);
   const selected=Array.from(photoInput.files||[]);
-  if(photoFiles.length+selected.length>5){alert('You may attach up to five photos per reply.');photoInput.value='';return;}
-  if(selected.some(file=>!allowed.has(file.type)||file.size<1||file.size>8*1024*1024)){alert('Choose JPEG, JPG, PNG, AVIF, or WEBP photos, up to 8 MB each.');photoInput.value='';return;}
+  const syncPhotoInput=()=>{if(window.DataTransfer){const transfer=new DataTransfer();photoFiles.forEach(file=>transfer.items.add(file));photoInput.files=transfer.files;}};\n  if(photoFiles.length+selected.length>5){alert('You may attach up to five photos per reply.');syncPhotoInput();return;}
+  if(selected.some(file=>!allowed.has(file.type)||file.size<1||file.size>8*1024*1024)){alert('Choose JPEG, JPG, PNG, AVIF, or WEBP photos, up to 8 MB each.');syncPhotoInput();return;}
   restore();
   selected.forEach(file=>{
    const index=photoFiles.length;photoFiles.push(file);
@@ -1251,7 +1251,7 @@ document.addEventListener('DOMContentLoaded',()=>{
    const spacer=document.createElement('span');spacer.appendChild(document.createTextNode('\\u200B'));img.after(spacer);
    range.setStartAfter(spacer);range.collapse(true);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);savedRange=range.cloneRange();
   });
-  if(window.DataTransfer){const transfer=new DataTransfer();photoFiles.forEach(file=>transfer.items.add(file));photoInput.files=transfer.files;}
+  syncPhotoInput();
   editor.focus();
  });
  document.querySelector('[data-reply-tool="table"]')?.addEventListener('mousedown',e=>e.preventDefault());document.querySelector('[data-reply-tool="table"]')?.addEventListener('click',()=>{const rows=Math.min(10,Math.max(1,Number(prompt('Number of rows?','3')||0))),cols=Math.min(8,Math.max(1,Number(prompt('Number of columns?','3')||0)));if(!rows||!cols)return;let h='<table><tbody>';for(let r=0;r<rows;r++){h+='<tr>';for(let c=0;c<cols;c++)h+=r===0?'<th>Heading</th>':'<td>Text</td>';h+='</tr>';}h+='</tbody></table><p><br></p>';restore();document.execCommand('insertHTML',false,h);save();});
