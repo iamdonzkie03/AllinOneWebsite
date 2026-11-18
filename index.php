@@ -705,7 +705,7 @@ if ($isCreatorSignedIn) {
   <?php foreach($publicForumReplies as $forumReply): $replyAvatar=$publicForumAvatarUrl($forumReply['author_avatar']??''); ?>
   <article class="public-forum-reply">
    <?php $replyNickname=trim((string)($forumReply['nickname']??'')) ?: $publicForumDisplayName($forumReply); ?>
-    <?php if($replyAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($replyAvatar)?>" alt="<?=e($replyNickname)?>" title="<?=e($replyNickname)?>"><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback" title="<?=e($replyNickname)?>" aria-label="<?=e($replyNickname)?>"><?=e(strtoupper(mb_substr((string)$forumReply['full_name'],0,1)))?></span><?php endif; ?>
+    <?php if($replyAvatar!==''): ?><img class="public-forum-avatar" src="<?=e($replyAvatar)?>" alt="<?=e($replyNickname)?>" title="<?=e($replyNickname)?>"><?php else: ?><span class="public-forum-avatar public-forum-avatar-fallback" title="<?=e($replyNickname)?>" aria-label="<?=e($replyNickname)?>"><?=e(strtoupper(mb_substr(trim((string)($forumReply['first_name']??'')) ?: (string)$forumReply['full_name'],0,1)))?></span><?php endif; ?>
    <div class="public-forum-reply-content"><div class="public-forum-reply-meta"><strong><?=e($publicForumDisplayName($forumReply))?></strong><time><?=e(date('F d, Y',strtotime((string)$forumReply['created_at'])))?></time></div><p><?=nl2br(e((string)$forumReply['body']))?></p></div>
   </article>
   <?php endforeach; ?>
@@ -1143,8 +1143,9 @@ $(function(){
 .public-forum-replies h3,.public-forum-reply-form h3{font-size:17px;margin:0 0 16px}
 .public-forum-reply{display:flex;gap:12px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)}
 .public-forum-reply-content{flex:1;min-width:0}
-.public-forum-reply-meta{display:flex;justify-content:space-between;gap:12px;font-size:12px}
-.public-forum-reply-meta time{color:#bbaeb4;font-size:11px}
+.public-forum-reply-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px}
+.public-forum-reply-meta strong{display:block;flex:1 1 220px;min-width:0;max-width:none;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;word-break:normal;line-height:1.5}
+.public-forum-reply-meta time{flex:0 0 auto;color:#bbaeb4;font-size:11px}
 .public-forum-reply-content p{margin:8px 0 0;line-height:1.65;overflow-wrap:anywhere}
 .public-forum-reply-form{padding:22px}
 .public-forum-reply-form label{display:block;margin-bottom:8px;font-size:12px}
