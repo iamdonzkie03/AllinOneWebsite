@@ -848,6 +848,15 @@ if ($isCreatorSignedIn) {
     hideRegisterModal();
     showSignInModal();
   });
+
+  // Open the same Sign In overlay from Forum prompts and any other sign-in links.
+  document.addEventListener('click', event => {
+    const signInLink = event.target.closest('a[href*="#sign-in-modal"]');
+    if (!signInLink) return;
+    event.preventDefault();
+    hideRegisterModal();
+    showSignInModal();
+  });
   closeButton.addEventListener('click', hideSignInModal);
   // Keep the sign-in modal open when the user clicks its backdrop.
   document.addEventListener('keydown', event => {
