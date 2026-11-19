@@ -2995,33 +2995,88 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               const imageInput=document.getElementById('header-link-page-image');
               if(!form||!editor||!hidden)return;
               let savedRange=null;
-              const remember=()=>{const selection=window.getSelection();if(selection?.rangeCount&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))savedRange=selection.getRangeAt(0).cloneRange();};
-              const restore=()=>{editor.focus();if(savedRange&&editor.contains(savedRange.commonAncestorContainer)){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(savedRange);return selection.getRangeAt(0);}return null;};
-              const insertNode=node=>{const restored=restore(),range=restored||document.createRange();if(!restored){range.selectNodeContents(editor);range.collapse(false);}range.deleteContents();range.insertNode(node);const selection=window.getSelection(),caret=document.createRange();caret.setStartAfter(node);caret.collapse(true);selection.removeAllRanges();selection.addRange(caret);remember();};
+              let history=[editor.innerHTML],historyIndex=0,historyTimer=null;
+              const commitHistory=()=>{
+                if(historyTimer){clearTimeout(historyTimer);historyTimer=null;}
+                const html=editor.innerHTML;
+                if(history[historyIndex]===html)return;
+                history=history.slice(0,historyIndex+1);history.push(html);historyIndex=history.length-1;
+              };
+              const scheduleHistory=()=>{
+                if(historyTimer)clearTimeout(historyTimer);
+                historyTimer=setTimeout(commitHistory,350);
+              };
+              const moveHistory=direction=>{
+                commitHistory();const next=historyIndex+direction;
+                if(next<0||next>=history.length)return;
+                historyIndex=next;editor.innerHTML=history[historyIndex];savedRange=null;
+                hidden.value=editor.innerHTML;
+                editor.focus({preventScroll:true});
+              };
+              const remember=()=>{
+                const selection=window.getSelection();
+                if(selection?.rangeCount&&!selection.isCollapsed&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))savedRange=selection.getRangeAt(0).cloneRange();
+              };
+              const restore=()=>{
+                editor.focus({preventScroll:true});
+                if(savedRange&&editor.contains(savedRange.commonAncestorContainer)){
+                  const selection=window.getSelection();selection.removeAllRanges();selection.addRange(savedRange.cloneRange());return selection.getRangeAt(0);
+                }
+                return null;
+              };
+              document.addEventListener('selectionchange',()=>{
+                const selection=window.getSelection();
+                if(selection&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))remember();
+              });
+              const insertNode=node=>{
+                const range=restore()||document.createRange();
+                if(!savedRange){range.selectNodeContents(editor);range.collapse(false);}
+                range.deleteContents();range.insertNode(node);
+                const selection=window.getSelection(),caret=document.createRange();caret.setStartAfter(node);caret.collapse(true);
+                selection.removeAllRanges();selection.addRange(caret);remember();
+                editor.dispatchEvent(new Event('input',{bubbles:true}));
+              };
+              const wrapStyle=(property,value)=>{
+                const range=restore();if(!range||range.collapsed)return;
+                const span=document.createElement('span');span.style[property]=value;
+                try{range.surroundContents(span);}catch(error){span.append(range.extractContents());range.insertNode(span);}
+                const selection=window.getSelection(),next=document.createRange();next.selectNodeContents(span);
+                selection.removeAllRanges();selection.addRange(next);remember();
+                editor.dispatchEvent(new Event('input',{bubbles:true}));
+              };
               editor.addEventListener('keyup',remember);editor.addEventListener('mouseup',remember);editor.addEventListener('touchend',remember);
-              form.querySelectorAll('[data-page-command]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
-              form.querySelectorAll('[data-page-command]').forEach(button=>button.addEventListener('click',()=>{
-                editor.focus();const command=button.dataset.pageCommand;
-                if(command==='undo'||command==='redo'){document.execCommand(command,false,null);return;}
-                document.execCommand(command,false,null);
-              }));
-              const wrapStyle=(property,value)=>{const range=restore();if(!range||range.collapsed)return;const span=document.createElement('span');span.style[property]=value;try{range.surroundContents(span);}catch(error){span.append(range.extractContents());range.insertNode(span);}editor.dispatchEvent(new Event('input',{bubbles:true}));remember();};
+              form.querySelectorAll('[data-page-command]').forEach(button=>{
+                button.addEventListener('pointerdown',event=>event.preventDefault());
+                button.addEventListener('mousedown',event=>event.preventDefault());
+                button.addEventListener('click',()=>{
+                  const command=button.dataset.pageCommand;
+                  if(command==='undo'){moveHistory(-1);return;}
+                  if(command==='redo'){moveHistory(1);return;}
+                  restore();document.execCommand(command,false,null);
+                  editor.dispatchEvent(new Event('input',{bubbles:true}));
+                });
+              });
               form.querySelector('[data-page-font-family]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontFamily',event.target.value);event.target.value='';});
               form.querySelector('[data-page-font-size]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontSize',event.target.value+'px');event.target.value='';});
               form.querySelector('[data-page-font-weight]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontWeight',event.target.value);event.target.value='';});
               form.querySelector('[data-page-color]')?.addEventListener('input',event=>wrapStyle('color',event.target.value));
+              form.querySelector('[data-page-action="quotation"]')?.addEventListener('pointerdown',event=>event.preventDefault());
               form.querySelector('[data-page-action="quotation"]')?.addEventListener('mousedown',event=>event.preventDefault());
               form.querySelector('[data-page-action="quotation"]')?.addEventListener('click',()=>{
-                const range=restore()||document.createRange();const open=document.createTextNode('“'),close=document.createTextNode('”');
+                const range=restore()||document.createRange();if(!savedRange){range.selectNodeContents(editor);range.collapse(false);}
+                const open=document.createTextNode('“'),close=document.createTextNode('”');
                 if(range.collapsed){range.insertNode(close);range.insertNode(open);range.setStartAfter(open);range.collapse(true);}
                 else{const selected=range.extractContents();range.insertNode(close);range.insertNode(selected);range.insertNode(open);range.setStartAfter(close);range.collapse(true);}
-                const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);editor.dispatchEvent(new Event('input',{bubbles:true}));remember();
+                const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);remember();
+                editor.dispatchEvent(new Event('input',{bubbles:true}));
               });
+              form.querySelector('[data-page-action="link"]')?.addEventListener('pointerdown',event=>event.preventDefault());
               form.querySelector('[data-page-action="link"]')?.addEventListener('mousedown',event=>event.preventDefault());
               form.querySelector('[data-page-action="link"]')?.addEventListener('click',()=>{
                 const url=prompt('Enter the link URL (https://, http://, or mailto:):');
                 if(url&&/^(https?:\/\/|mailto:)/i.test(url.trim())){restore();document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input',{bubbles:true}));remember();}
               });
+              form.querySelector('[data-page-action="image"]')?.addEventListener('pointerdown',event=>event.preventDefault());
               form.querySelector('[data-page-action="image"]')?.addEventListener('mousedown',event=>event.preventDefault());
               form.querySelector('[data-page-action="image"]')?.addEventListener('click',()=>imageInput?.click());
               imageInput?.addEventListener('change',async()=>{
@@ -3032,18 +3087,20 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                   const response=await fetch('admin-content.php?session_context=admin',{method:'POST',body:data,credentials:'same-origin'});
                   const result=await response.json();if(!response.ok||!result.url)throw new Error(result.message||'The image could not be uploaded.');
                   const figure=document.createElement('figure'),img=document.createElement('img'),caption=document.createElement('figcaption');
-                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);editor.dispatchEvent(new Event('input',{bubbles:true}));
+                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);
                 }catch(error){alert(error.message||'Image upload failed.');}
                 imageInput.value='';
               });
+              form.querySelector('[data-page-action="table"]')?.addEventListener('pointerdown',event=>event.preventDefault());
               form.querySelector('[data-page-action="table"]')?.addEventListener('mousedown',event=>event.preventDefault());
               form.querySelector('[data-page-action="table"]')?.addEventListener('click',()=>{
                 const rows=Math.min(10,Math.max(1,Number(prompt('Number of table rows?','3')||0))),cols=Math.min(8,Math.max(1,Number(prompt('Number of table columns?','3')||0)));if(!rows||!cols)return;
                 const table=document.createElement('table'),tbody=document.createElement('tbody');
-                for(let y=0;y<rows;y++){const tr=document.createElement('tr');for(let x=0;x<cols;x++){const cell=document.createElement(y===0?'th':'td');cell.textContent=y===0?'Heading':'Text';tr.append(cell);}tbody.append(tr);}table.append(tbody);insertNode(table);editor.dispatchEvent(new Event('input',{bubbles:true}));
+                for(let y=0;y<rows;y++){const tr=document.createElement('tr');for(let x=0;x<cols;x++){const cell=document.createElement(y===0?'th':'td');cell.textContent=y===0?'Heading':'Text';tr.append(cell);}tbody.append(tr);}table.append(tbody);insertNode(table);
               });
-              editor.addEventListener('input',()=>{hidden.value=editor.innerHTML;});
-              form.addEventListener('submit',()=>{hidden.value=editor.innerHTML;});
+              editor.addEventListener('input',()=>{hidden.value=editor.innerHTML;scheduleHistory();});
+              form.addEventListener('submit',()=>{commitHistory();hidden.value=editor.innerHTML;});
+              hidden.value=editor.innerHTML;
             })();
           </script>
         <?php else: ?>
