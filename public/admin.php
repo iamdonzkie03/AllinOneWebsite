@@ -2995,6 +2995,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               const imageInput=document.getElementById('header-link-page-image');
               if(!form||!editor||!hidden)return;
               let savedRange=null;
+              let savedTextOffsets=null;
               let history=[editor.innerHTML],historyIndex=0,historyTimer=null;
               const commitHistory=()=>{
                 if(historyTimer){clearTimeout(historyTimer);historyTimer=null;}
@@ -3009,18 +3010,49 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               const moveHistory=direction=>{
                 commitHistory();const next=historyIndex+direction;
                 if(next<0||next>=history.length)return;
-                historyIndex=next;editor.innerHTML=history[historyIndex];savedRange=null;
+                historyIndex=next;editor.innerHTML=history[historyIndex];savedRange=null;savedTextOffsets=null;
                 hidden.value=editor.innerHTML;
                 editor.focus({preventScroll:true});
               };
+              const rangeOffsets=range=>{
+                const before=document.createRange();
+                before.selectNodeContents(editor);
+                before.setEnd(range.startContainer,range.startOffset);
+                const through=document.createRange();
+                through.selectNodeContents(editor);
+                through.setEnd(range.endContainer,range.endOffset);
+                return {start:before.toString().length,end:through.toString().length};
+              };
+              const rangeFromOffsets=offsets=>{
+                if(!offsets||offsets.end<=offsets.start)return null;
+                const walker=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);
+                let position=0,startPoint=null,endPoint=null;
+                while(walker.nextNode()){
+                  const node=walker.currentNode,length=node.nodeValue.length,next=position+length;
+                  if(!startPoint&&offsets.start>=position&&offsets.start<=next)startPoint={node,offset:offsets.start-position};
+                  if(offsets.end>=position&&offsets.end<=next){endPoint={node,offset:offsets.end-position};break;}
+                  position=next;
+                }
+                if(!startPoint||!endPoint)return null;
+                const range=document.createRange();
+                range.setStart(startPoint.node,startPoint.offset);
+                range.setEnd(endPoint.node,endPoint.offset);
+                return range;
+              };
               const remember=()=>{
                 const selection=window.getSelection();
-                if(selection?.rangeCount&&!selection.isCollapsed&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))savedRange=selection.getRangeAt(0).cloneRange();
+                if(selection?.rangeCount&&!selection.isCollapsed&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode)){
+                  savedRange=selection.getRangeAt(0).cloneRange();
+                  savedTextOffsets=rangeOffsets(savedRange);
+                }
               };
               const restore=()=>{
                 editor.focus({preventScroll:true});
-                if(savedRange&&editor.contains(savedRange.commonAncestorContainer)){
-                  const selection=window.getSelection();selection.removeAllRanges();selection.addRange(savedRange.cloneRange());return selection.getRangeAt(0);
+                const range=rangeFromOffsets(savedTextOffsets)||(savedRange&&editor.contains(savedRange.commonAncestorContainer)?savedRange.cloneRange():null);
+                if(range){
+                  const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);
+                  savedRange=range.cloneRange();
+                  return range;
                 }
                 return null;
               };
@@ -3047,9 +3079,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                 // Apply inline styles to selected text nodes individually. A
                 // single span cannot safely wrap a selection spanning multiple
                 // paragraphs, lists, or other block-level editor content.
-                const range=savedRange&&editor.contains(savedRange.commonAncestorContainer)
+                const range=rangeFromOffsets(savedTextOffsets)||(savedRange&&editor.contains(savedRange.commonAncestorContainer)
                   ? savedRange.cloneRange()
-                  : null;
+                  : null);
                 if(!range||range.collapsed)return false;
                 editor.focus({preventScroll:true});
                 const cssProperty=property.replace(/[A-Z]/g,letter=>'-'+letter.toLowerCase());
@@ -3087,6 +3119,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                 selection.removeAllRanges();
                 selection.addRange(next);
                 savedRange=next.cloneRange();
+                savedTextOffsets=rangeOffsets(savedRange);
                 editor.dispatchEvent(new Event('input',{bubbles:true}));
                 return true;
               };
