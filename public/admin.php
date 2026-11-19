@@ -4772,7 +4772,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           const row=document.createElement('div');row.className='header-link-row';
           const urlInput=document.createElement('input');urlInput.className='field header-generated-url';urlInput.type='text';urlInput.name='header_link_url[]';urlInput.maxLength=500;urlInput.placeholder='/public/page-title.php';urlInput.readOnly=true;urlInput.setAttribute('aria-readonly','true');urlInput.title='Automatically generated from the link title';urlInput.value=url;
           const labelInput=document.createElement('input');labelInput.className='field';labelInput.type='text';labelInput.name='header_link_label[]';labelInput.maxLength=60;labelInput.placeholder='Link title';labelInput.setAttribute('aria-label','Link title');labelInput.value=label;
-          const createPage=document.createElement('button');createPage.type='button';createPage.className='btn light create-header-page';createPage.textContent='Create Page';
+          const createPage=document.createElement('button');createPage.type='button';createPage.className='btn light create-header-page';createPage.textContent='Create Page';createPage.hidden=true;
           const remove=document.createElement('button');remove.type='button';remove.className='btn light remove-header-link';remove.textContent='Remove';remove.addEventListener('click',()=>{row.remove();updatePreview();});
           row.append(urlInput,labelInput,createPage,remove);return row;
         };
