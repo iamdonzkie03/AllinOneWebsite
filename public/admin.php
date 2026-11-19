@@ -2997,7 +2997,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               let savedRange=null;
               const remember=()=>{const selection=window.getSelection();if(selection?.rangeCount&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))savedRange=selection.getRangeAt(0).cloneRange();};
               const restore=()=>{editor.focus();if(savedRange&&editor.contains(savedRange.commonAncestorContainer)){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(savedRange);return selection.getRangeAt(0);}return null;};
-              const insertNode=node=>{const range=restore()||document.createRange();if(!savedRange){range.selectNodeContents(editor);range.collapse(false);}range.deleteContents();range.insertNode(node);const selection=window.getSelection(),caret=document.createRange();caret.setStartAfter(node);caret.collapse(true);selection.removeAllRanges();selection.addRange(caret);remember();};
+              const insertNode=node=>{const restored=restore(),range=restored||document.createRange();if(!restored){range.selectNodeContents(editor);range.collapse(false);}range.deleteContents();range.insertNode(node);const selection=window.getSelection(),caret=document.createRange();caret.setStartAfter(node);caret.collapse(true);selection.removeAllRanges();selection.addRange(caret);remember();};
               editor.addEventListener('keyup',remember);editor.addEventListener('mouseup',remember);editor.addEventListener('touchend',remember);
               form.querySelectorAll('[data-page-command]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
               form.querySelectorAll('[data-page-command]').forEach(button=>button.addEventListener('click',()=>{
