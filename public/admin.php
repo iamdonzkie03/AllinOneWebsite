@@ -3028,6 +3028,13 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                 const selection=window.getSelection();
                 if(selection&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))remember();
               });
+              const toolbar=form.querySelector('.header-link-page-toolbar');
+              toolbar?.addEventListener('pointerdown',event=>{
+                // Capture the text range before a select control takes focus.
+                remember();
+              },true);
+              toolbar?.addEventListener('mousedown',()=>remember(),true);
+
               const insertNode=node=>{
                 const range=restore()||document.createRange();
                 if(!savedRange){range.selectNodeContents(editor);range.collapse(false);}
