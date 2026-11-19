@@ -1673,7 +1673,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-feature .symbol{font-size:24px;color:var(--gold)}
 .admin-feature h3{font:22px Georgia,serif;margin:12px 0 8px}
 .admin-feature p{font-size:13px;color:var(--muted);margin:0 0 17px}
-.admin-panel .users-table{min-width:1040px}.user-full-name{font-weight:800;color:#fff}.user-subdetails{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.7}.user-select-cell{width:42px;text-align:center}.user-toggle{position:relative;display:inline-flex;align-items:center;justify-content:flex-start;gap:9px;min-width:112px;height:36px;padding:4px 11px 4px 5px;border-radius:999px;border:1px solid rgba(70,180,125,.48);background:rgba(35,130,82,.18);color:#9de0b8;font-size:12px;font-weight:800;cursor:pointer;transition:background .2s,border-color .2s}.user-toggle .toggle-knob{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#62c98d;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:transform .2s,background .2s}.user-toggle.inactive{justify-content:flex-end;padding:4px 5px 4px 11px;border-color:rgba(220,85,100,.48);background:rgba(150,35,55,.2);color:#ff9eaa}.user-toggle.inactive .toggle-knob{order:2;background:#e66b7d}.user-toggle:focus-visible{outline:2px solid #e7b7c1;outline-offset:3px}.bulk-delete{background:#8f2034;border-color:#a62b42;color:#fff}.user-actions{display:flex;gap:7px;align-items:center}.pending-email-verification{display:inline-block;padding:7px 10px;border:1px solid rgba(220,165,70,.38);border-radius:999px;background:rgba(150,105,30,.13);color:#f0ca83;font-size:11px;font-weight:700;white-space:nowrap}.admin-note{padding:14px 16px;border:1px solid rgba(184,50,63,.25);border-radius:12px;color:#d7c9cc;background:rgba(105,8,24,.12);font-size:13px}
+.admin-panel .users-table{min-width:1040px}.user-full-name{font-weight:800;color:#fff}.user-subdetails{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.7}.user-select-cell{width:42px;text-align:center}.user-toggle{position:relative;display:inline-flex;align-items:center;justify-content:flex-start;gap:9px;min-width:112px;height:36px;padding:4px 11px 4px 5px;border-radius:999px;border:1px solid rgba(70,180,125,.48);background:rgba(35,130,82,.18);color:#9de0b8;font-size:12px;font-weight:800;cursor:pointer;transition:background .2s,border-color .2s}.user-toggle .toggle-knob{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#62c98d;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:transform .2s,background .2s}.user-toggle.inactive{justify-content:flex-end;padding:4px 5px 4px 11px;border-color:rgba(220,85,100,.48);background:rgba(150,35,55,.2);color:#ff9eaa}.user-toggle.inactive .toggle-knob{order:2;background:#e66b7d}.user-toggle:focus-visible{outline:2px solid #e7b7c1;outline-offset:3px}.bulk-delete{background:#8f2034;border-color:#a62b42;color:#fff}
+.bulk-delete:disabled,.bulk-delete[disabled]{background:#51464a!important;border-color:#665a5e!important;color:#b8adb1!important;opacity:.58!important;cursor:not-allowed!important;pointer-events:none!important;box-shadow:none!important}.user-actions{display:flex;gap:7px;align-items:center}.pending-email-verification{display:inline-block;padding:7px 10px;border:1px solid rgba(220,165,70,.38);border-radius:999px;background:rgba(150,105,30,.13);color:#f0ca83;font-size:11px;font-weight:700;white-space:nowrap}.admin-note{padding:14px 16px;border:1px solid rgba(184,50,63,.25);border-radius:12px;color:#d7c9cc;background:rgba(105,8,24,.12);font-size:13px}
 .account-status-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.76);backdrop-filter:blur(5px)}
  /* Hidden success overlays must stay hidden even though the base modal uses display:flex. */
 .account-status-modal[hidden]{display:none!important}
@@ -1962,10 +1963,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <script>
   (()=>{
     const table=document.querySelector('.users-table');
+    const form=document.getElementById('bulk-users');
     const all=document.getElementById('select-all-users');
-    const bulkDelete=document.querySelector('#bulk-users .bulk-delete');
-    if(!table||!bulkDelete)return;
+    const bulkDelete=form?.querySelector('button.bulk-delete');
+    if(!table||!form||!bulkDelete)return;
     const rows=Array.from(table.querySelectorAll('tbody tr')).filter(row=>row.querySelector('.user-select'));
+    const checkboxes=()=>Array.from(table.querySelectorAll('input.user-select[name="selected_users[]"]'));
     const filter=document.getElementById('users-filter');
     const size=document.getElementById('users-page-size');
     const info=document.getElementById('users-page-info');
@@ -1975,27 +1978,51 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     let page=1;
     const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));};
     const syncSelection=()=>{
-      const boxes=rows.map(row=>row.querySelector('.user-select'));
+      const boxes=checkboxes();
       const selected=boxes.filter(box=>box.checked).length;
-      bulkDelete.disabled=selected===0;
-      bulkDelete.setAttribute('aria-disabled',String(selected===0));
-      if(all){const filtered=matches().map(row=>row.querySelector('.user-select'));const checked=filtered.filter(box=>box.checked).length;all.checked=filtered.length>0&&checked===filtered.length;all.indeterminate=checked>0&&checked<filtered.length;all.disabled=filtered.length===0;}
+      const disabled=selected===0;
+      bulkDelete.disabled=disabled;
+      bulkDelete.toggleAttribute('disabled',disabled);
+      bulkDelete.setAttribute('aria-disabled',String(disabled));
+      if(all){
+        const filtered=matches().map(row=>row.querySelector('.user-select')).filter(Boolean);
+        const checked=filtered.filter(box=>box.checked).length;
+        all.checked=filtered.length>0&&checked===filtered.length;
+        all.indeterminate=checked>0&&checked<filtered.length;
+        all.disabled=filtered.length===0;
+      }
     };
     const render=()=>{
-      const found=matches();const perPage=Math.max(1,Number(size?.value)||10);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);
-      const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=new Set(found.slice(start,end));
+      const found=matches();
+      const perPage=Math.max(1,Number(size?.value)||10);
+      const pages=Math.max(1,Math.ceil(found.length/perPage));
+      page=Math.min(page,pages);
+      const start=found.length?(page-1)*perPage:0;
+      const end=Math.min(start+perPage,found.length);
+      const visible=new Set(found.slice(start,end));
       rows.forEach(row=>{row.hidden=!visible.has(row);});
       if(info)info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';
       if(number)number.textContent='Page '+page+' of '+pages;
-      if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
+      if(prev)prev.disabled=page<=1;
+      if(next)next.disabled=page>=pages;
       syncSelection();
     };
-    all?.addEventListener('change',()=>{matches().forEach(row=>{row.querySelector('.user-select').checked=all.checked;});syncSelection();});
-    table.addEventListener('change',event=>{if(event.target.matches('.user-select'))syncSelection();});
+    all?.addEventListener('change',()=>{
+      matches().forEach(row=>{const box=row.querySelector('.user-select');if(box)box.checked=all.checked;});
+      syncSelection();
+    });
+    document.addEventListener('change',event=>{
+      if(event.target instanceof HTMLInputElement&&event.target.matches('.users-table input.user-select[name="selected_users[]"], #select-all-users'))syncSelection();
+    });
     filter?.addEventListener('input',()=>{page=1;render();});
     size?.addEventListener('change',()=>{page=1;render();});
     prev?.addEventListener('click',()=>{if(page>1){page--;render();}});
     next?.addEventListener('click',()=>{page++;render();});
+    // Never allow the bulk action when the selection is empty, even if another script changes the button state.
+    form.addEventListener('submit',event=>{
+      if(!checkboxes().some(box=>box.checked)){event.preventDefault();syncSelection();}
+    });
+    syncSelection();
     render();
   })();
   </script>
