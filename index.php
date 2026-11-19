@@ -143,6 +143,10 @@ if (isset($generatedHeaderPageSlug)) {
         }
     }
 }
+$publicAppScriptDirectory = dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+if (isset($generatedHeaderPageSlug)) $publicAppScriptDirectory = dirname($publicAppScriptDirectory);
+$publicAppBasePath = rtrim(str_replace('\\\\', '/', $publicAppScriptDirectory), '/') . '/';
+if ($publicAppBasePath === '') $publicAppBasePath = '/';
 $publicHeaderFamily = in_array(($publicHeader['font_family'] ?? 'Ubuntu'), ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'], true) ? $publicHeader['font_family'] : 'Ubuntu';
 $publicHeaderStyle = ($publicHeader['font_style'] ?? 'normal') === 'italic' ? 'italic' : 'normal';
 $publicHeaderSize = max(12, min(32, (int)($publicHeader['font_size'] ?? 20)));
@@ -626,6 +630,7 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<?php if ($generatedHeaderPageTitle !== null): ?><base href="<?=e($publicAppBasePath)?>"><?php endif; ?>
 <meta name="description" content="Explore Zamboanga City's history and culture, photography, community news, marketplace, entertainment and public affairs.">
 <title><?=e($generatedHeaderPageTitle !== null ? $generatedHeaderPageTitle . ' — ' . $config['app']['name'] : $config['app']['name'] . ' — Zamboanga stories, culture and community')?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
@@ -670,7 +675,7 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <header id="public-site-header" data-header-source="page-management"><div class="header-text-bar"><div class="wrap header-text-inner"><span class="header-type-left"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span class="header-type-right"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div><div class="wrap nav">
 <a class="brand" href="index.php" aria-label="Home"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:<?=$publicHeaderLogoWidth?>px;height:<?=$publicHeaderLogoHeight?>px;max-width:100%;object-fit:contain;object-position:center;border-radius:0"><?php endif; ?></a>
 <nav class="navlinks">
-<?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; $headerLinkLabel = $renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label']); $headerLinkUrl = trim((string)($headerLink['url'] ?? '')); ?><?php if ($headerLinkUrl !== ''): ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e($headerLinkUrl)?>"><?=$headerLinkLabel?></a><?php else: ?><span class="header-type-link-<?= (int)$headerLinkIndex ?>"><?=$headerLinkLabel?></span><?php endif; ?><?php endforeach; ?>
+<?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; $headerLinkLabel = $renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label']); $headerLinkUrl = trim((string)($headerLink['url'] ?? '')); ?><?php if ($headerLinkUrl !== ''): ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e($publicAppBasePath . ltrim($headerLinkUrl, '/'))?>"><?=$headerLinkLabel?></a><?php else: ?><span class="header-type-link-<?= (int)$headerLinkIndex ?>"><?=$headerLinkLabel?></span><?php endif; ?><?php endforeach; ?>
 <?php if ($isCreatorSignedIn): ?>
 <?php $creatorPhotoRaw=trim((string)($currentPublicUser['creator_profile_photo']??'')); $creatorPhotoUrl=$creatorPhotoRaw!==''?(preg_match('~^https?://~i',$creatorPhotoRaw)?$creatorPhotoRaw:'public/'.ltrim($creatorPhotoRaw,'/')):''; $creatorInitials=mb_strtoupper(mb_substr($creatorHeaderNickname,0,1,'UTF-8'),'UTF-8'); ?>
 <div class="creator-account-menu" id="creator-account-menu">
