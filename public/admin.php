@@ -4413,9 +4413,14 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
       if (form) {
         const links = document.getElementById('header-links-list');
         const add = document.getElementById('add-header-link');
+        // The visible Link Title must remain exactly as typed. Only its
+        // generated filename is normalized to lowercase.
         const slugifyHeaderLink = value => {
-          const normalized=String(value||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
-          return normalized.toLowerCase().replace(/-/g,'').replace(/[^a-z0-9&]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
+          const normalized = String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          return normalized.toLowerCase()
+            .replace(/-/g, '')
+            .replace(/[^a-z0-9&]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'page';
         };
         const makeLinkRow = (label = '', url = '') => {
           const row=document.createElement('div');row.className='header-link-row';
@@ -4434,19 +4439,28 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           if (!titleInput || !urlField) return;
           const label = titleInput.value.trim();
           const slug = slugifyHeaderLink(label);
+          // Do not alter titleInput.value: capitalization belongs to the title.
           urlField.value = label ? '/public/' + slug + '.php' : '';
           urlField.dataset.generatedLabel = label;
         };
-        links.addEventListener('input', event => {
-          if (event.target.matches('[name="header_link_label[]"]')) {
-            updateGeneratedUrlForRow(event.target.closest('.header-link-row'));
-          }
-        });
-        links.addEventListener('change', event => {
-          if (event.target.matches('[name="header_link_label[]"]')) {
-            updateGeneratedUrlForRow(event.target.closest('.header-link-row'));
-          }
-        });
+        const syncHeaderLinkUrlFromEvent = event => {
+          const target = event.target;
+          if (!(target instanceof HTMLInputElement) ||
+              target.name !== 'header_link_label[]') return;
+          const row = target.closest('.header-link-row');
+          if (!row) return;
+          const urlField = row.querySelector('[name="header_link_url[]"]');
+          if (!urlField) return;
+          const label = target.value.trim();
+          const slug = slugifyHeaderLink(label);
+          urlField.value = label ? '/public/' + slug + '.php' : '';
+          urlField.dataset.generatedLabel = label;
+        };
+        // Capture the input before the form-wide preview listener runs, so the
+        // URL textbox is updated on every keystroke even if another child
+        // handler stops bubbling.
+        links.addEventListener('input', syncHeaderLinkUrlFromEvent, true);
+        links.addEventListener('change', syncHeaderLinkUrlFromEvent, true);
         const refreshGeneratedUrls = () => {
           const used=new Map();
           [...links.querySelectorAll('.header-link-row')].forEach(row=>{
