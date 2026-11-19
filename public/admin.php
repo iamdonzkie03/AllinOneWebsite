@@ -1340,6 +1340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
         ];
         $links = [];
         $usedHeaderSlugs = [];
+        $headerPageSlugsByInputIndex = [];
         foreach ((array)($_POST['header_link_label'] ?? []) as $index => $label) {
             $label = trim((string)$label);
             if ($label === '') continue;
@@ -1354,6 +1355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 $slug = $baseSlug . '-' . $suffix++;
             }
             $usedHeaderSlugs[$slug] = true;
+            $headerPageSlugsByInputIndex[(string)$index] = $slug;
             $links[] = ['label'=>$label,'label_html'=>'','url'=>'/public/'.$slug.'.php'];
         }
         $previousLogoPath = (string)($headerSettings['logo_path'] ?? '');
@@ -1511,17 +1513,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             $headerLinks = $links;
             // Create Page opens the matching editor inside Page Management → Header.
             // Resolve the requested slug only against the just-saved Header Links.
-            $requestedHeaderPageSlug = trim((string)($_POST['create_header_page_slug'] ?? ''));
-            if ($requestedHeaderPageSlug !== '') {
-                $requestedHeaderPageExists = false;
-                foreach ($links as $savedLink) {
-                    $savedPath = parse_url((string)($savedLink['url'] ?? ''), PHP_URL_PATH);
-                    if ($savedPath === '/public/' . $requestedHeaderPageSlug . '.php') {
-                        $requestedHeaderPageExists = true;
-                        break;
-                    }
-                }
-                if ($requestedHeaderPageExists && preg_match('/^[a-z0-9-]+$/', $requestedHeaderPageSlug)) {
+            $requestedHeaderPageIndex = trim((string)($_POST['create_header_page_index'] ?? ''));
+            if ($requestedHeaderPageIndex !== '') {
+                $requestedHeaderPageSlug = $headerPageSlugsByInputIndex[$requestedHeaderPageIndex] ?? '';
+                if ($requestedHeaderPageSlug !== '' && preg_match('/^[a-z0-9-]+$/', $requestedHeaderPageSlug)) {
                     header('Location: admin.php?section=page-management&tab=header&header_page=' . rawurlencode($requestedHeaderPageSlug) . '#pm-panel-header', true, 303);
                     exit;
                 }
@@ -2972,7 +2967,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <form method="post" enctype="multipart/form-data" id="header-settings-form" class="header-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
           <input type="hidden" name="action" value="save_header_settings">
-          <input type="hidden" name="create_header_page_slug" id="create-header-page-slug" value="">
+          <input type="hidden" name="create_header_page_index" id="create-header-page-index" value="">
           <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame" inert aria-label="Non-interactive visual preview of the public website header"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="width:<?=(int)($headerSettings['logo_width'] ?? 200)?>px;height:<?=(int)($headerSettings['logo_height'] ?? 70)?>px;object-fit:contain;<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title" hidden></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; ?><a class="custom-preview-link" href="<?=e(trim((string)($headerLink['url'] ?? '')) ?: '#')?>"><?=e((string)$headerLink['label'])?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
           <div class="header-settings-grid">
             <div class="header-settings-fields">
@@ -4900,7 +4895,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           const row = createButton.closest('.header-link-row');
           const titleInput = row?.querySelector('[name="header_link_label[]"]');
           const urlInput = row?.querySelector('[name="header_link_url[]"]');
-          const destination = document.getElementById('create-header-page-slug');
+          const destination = document.getElementById('create-header-page-index');
           const title = titleInput?.value.trim() || '';
           if (!title) {
             titleInput?.focus();
@@ -4909,9 +4904,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           }
           refreshGeneratedUrls();
           if (!urlInput?.value) return;
-          const match = urlInput.value.match(/^\/public\/([a-z0-9-]+)\.php$/);
-          if (!match) return;
-          destination.value = match[1];
+          const rowIndex = Array.from(links.querySelectorAll('.header-link-row')).indexOf(row);
+          if (rowIndex < 0) return;
+          destination.value = String(rowIndex);
           form.requestSubmit();
         });
         // Synchronize every editable Header field immediately before POST. This prevents
