@@ -4426,14 +4426,10 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           const used=new Map();
           [...links.querySelectorAll('.header-link-row')].forEach(row=>{
             const label=editorText(row).trim(),urlField=row.querySelector('[name="header_link_url[]"]');
-            const unchanged=label===String(urlField.dataset.generatedLabel??'');
-            let slug='';
-            if(unchanged){
-              const match=urlField.value.match(/^\/public\/([a-z0-9-]+)\.php$/i);
-              if(match)slug=match[1].toLowerCase();
-            }
-            const base=slug||slugifyHeaderLink(label);
-            slug=base;
+            // Always derive the URL from the current title. Never preserve a
+            // previously rendered URL, because older saved values may be malformed.
+            const base=slugifyHeaderLink(label);
+            let slug=base;
             let count=2;
             while(used.has(slug))slug=base+'-'+count++;
             used.set(slug,true);
