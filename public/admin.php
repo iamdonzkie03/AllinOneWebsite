@@ -3205,14 +3205,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       table.addEventListener('change',event=>{if(event.target.matches('.forum-post-select'))syncSelection();});
       deleteButton?.addEventListener('click',()=>{const selected=checks().filter(box=>box.checked).length;if(selected>0&&confirmModal){const totalLabel=document.getElementById('forum-delete-selected-total');if(totalLabel)totalLabel.textContent=selected+' '+(selected===1?'post':'posts')+' to delete.';confirmModal.hidden=false;confirmModal.style.display='flex';}});
       document.getElementById('forum-delete-cancel')?.addEventListener('click',()=>{confirmModal.hidden=true;confirmModal.style.display='none';});
-      // The confirmation button is a native submit control associated with the bulk form.
-      // Selected checkboxes already belong to that form through their form="forum-post-bulk-form" attribute.
-      // Avoid rebuilding the payload in JavaScript: a JS exception must never block the actual deletion request.
-      document.getElementById('forum-delete-confirm')?.addEventListener('click',event=>{
-        if(!checks().some(box=>box.checked)){event.preventDefault();confirmModal.hidden=true;confirmModal.style.display='none';syncSelection();return;}
-        const button=event.currentTarget;
-        if(button){button.disabled=true;button.textContent='Deleting…';}
-      });
+      // Delete is submitted natively by the form-associated submit button.
+      // No JavaScript click handler is needed for the destructive request.
       confirmModal?.addEventListener('click',event=>{if(event.target===confirmModal)event.preventDefault();});
       render();
     })();
