@@ -1649,6 +1649,9 @@ if (
 }
 $activeUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin' AND account_status='approved'")->fetchColumn();
 $managedUsers = $pdo->query("SELECT id,full_name,email,credential_notes,created_at,updated_at,account_status,email_verified_at,nickname,birthdate,birthplace,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE role<>'system_admin' ORDER BY created_at DESC")->fetchAll();
+$systemAdminStmt = $pdo->prepare("SELECT id,full_name,email,created_at,updated_at,account_status,email_verified_at,nickname,birthdate,birthplace,mobile_no,lastname,firstname,middlename,suffix FROM users WHERE id=? AND role='system_admin' LIMIT 1");
+$systemAdminStmt->execute([(int)$admin['id']]);
+$systemAdminAccount = $systemAdminStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 $pendingContent = $pdo->query("SELECT c.id,c.title,c.content_type,c.created_at,u.full_name,cat.name category_name FROM content c JOIN users u ON u.id=c.owner_id JOIN categories cat ON cat.id=c.category_id WHERE c.status='pending_review' ORDER BY c.created_at")->fetchAll();
 $totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin'")->fetchColumn();
 $publishedContent = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE status='published'")->fetchColumn();
@@ -1935,6 +1938,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-feature-grid"><div class="admin-feature"><div class="symbol">▤</div><h3>Page Management</h3><p>Manage the pages and sections displayed on the public website.</p><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Open settings</a></div><div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize the images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open settings</a></div></div>
 <?php elseif($section==='user-accounts'):?>
   <div class="admin-topline"><div><div class="eyebrow">Access control</div><h1 class="admin-heading">User Accounts</h1><p class="muted">Manage registered accounts, contributor credentials and account access.</p></div></div>
+  <?php if($systemAdminAccount):
+    $adminLast=trim((string)($systemAdminAccount['lastname'] ?? '')); $adminFirst=trim((string)($systemAdminAccount['firstname'] ?? '')); $adminMiddle=trim((string)($systemAdminAccount['middlename'] ?? '')); $adminSuffix=trim((string)($systemAdminAccount['suffix'] ?? ''));
+    $adminMiddleInitial=$adminMiddle!=='' ? mb_strtoupper(mb_substr($adminMiddle,0,1,'UTF-8'),'UTF-8').'.' : '';
+    $systemAdminDisplayName=($adminLast!=='' || $adminFirst!=='') ? $adminLast.($adminFirst!==''?', '.$adminFirst:'').($adminSuffix!==''?' '.$adminSuffix:'').($adminMiddleInitial!==''?', '.$adminMiddleInitial:'') : (string)$systemAdminAccount['full_name'];
+    $systemAdminStatus=($systemAdminAccount['account_status'] ?? '')==='approved' ? 'Active' : 'Inactive';
+  ?>
+  <section class="panel admin-panel system-admin-account-panel">
+    <div class="admin-panel-head"><h2>Account of the System Administrator</h2><span class="status"><?=e($systemAdminStatus)?></span></div>
+    <div class="table-wrap"><table class="table users-table"><thead><tr><th>Full Name</th><th>Email Address</th><th>Nickname</th><th>Birthdate</th><th>Birthplace</th><th>Contact</th><th>Date Created</th><th>Last Update</th></tr></thead><tbody>
+      <tr><td><strong class="user-full-name"><?=e($systemAdminDisplayName)?></strong></td><td><?=e($systemAdminAccount['email'] ?? '—')?></td><td><?=e($systemAdminAccount['nickname'] ?? '—')?></td><td><?=e($systemAdminAccount['birthdate'] ?? '—')?></td><td><?=e($systemAdminAccount['birthplace'] ?? '—')?></td><td><?=e($systemAdminAccount['mobile_no'] ?? '—')?></td><td><?=e($systemAdminAccount['created_at'] ?? '—')?></td><td><?=e($systemAdminAccount['updated_at'] ?? '—')?></td></tr>
+    </tbody></table></div>
+  </section>
+  <?php endif; ?>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
   <form id="bulk-users" method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_users">
   <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="submit" disabled aria-disabled="true" id="users-delete-selected">Delete Selected</button></div>
