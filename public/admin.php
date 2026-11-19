@@ -461,9 +461,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                     $replyBodies[]=(string)$replyRow['body'];
                   }
                 }
+                // Reply uploads are embedded in the saved HTML. Collect paths from
+                // both src and href attributes, accepting root-relative, relative,
+                // and absolute URL forms. Decode HTML entities and URL-encoded names
+                // before resolving them against the one permitted local upload folder.
                 foreach($replyBodies as $replyBody){
-                  if(preg_match_all('~(?:^|/)public/uploads/forum_replies/([A-Za-z0-9._-]+)~',$replyBody,$photoMatches)){
-                    foreach($photoMatches[1] as $photoName)$queueUpload('public/uploads/forum_replies/'.$photoName,'public/uploads/forum_replies','uploads/forum_replies');
+                  $decodedReply=html_entity_decode((string)$replyBody,ENT_QUOTES|ENT_HTML5,'UTF-8');
+                  if(preg_match_all('~(?:^|/)(?:public/)?uploads/forum_replies/([^/"<>?#\\s]+)~i',$decodedReply,$photoMatches)){
+                    foreach($photoMatches[1] as $photoName){
+                      $photoName=rawurldecode(trim((string)$photoName));
+                      if(!preg_match('/^[A-Za-z0-9._-]+$/',$photoName))continue;
+                      $queueUpload('public/uploads/forum_replies/'.$photoName,'public/uploads/forum_replies','uploads/forum_replies');
+                    }
                   }
                 }
 
