@@ -1486,9 +1486,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             }
             $headerSettings = $savedHeader;
             $headerLinks = $links;
-            // The public index.php reads this verified database row directly.
-            // Do not rewrite an obsolete embedded marker block here.
-            $message = 'Header settings successfully saved.';
+            // A Create Page request is honored only when its destination exactly
+            // matches one of the pages generated and verified above.
+            $requestedHeaderPageLabel = trim((string)($_POST['create_header_page_label'] ?? ''));
+            if ($requestedHeaderPageLabel !== '') {
+                $requestedHeaderPage = '';
+                foreach ($links as $savedLink) {
+                    if (hash_equals((string)$savedLink['label'], $requestedHeaderPageLabel)) {
+                        $requestedHeaderPage = (string)$savedLink['url'];
+                        break;
+                    }
+                }
+                if ($requestedHeaderPage !== '' && preg_match('~^/public/[a-z0-9-]+\\.php$~', $requestedHeaderPage)) {
+                    header('Location: ' . $requestedHeaderPage, true, 303);
+                    exit;
+                }
+                $message = 'The requested Header Link page could not be verified. Please try again.';
+            } else {
+                $message = 'Header settings successfully saved.';
+            }
         }
         $section = 'page-management';
     }
@@ -2860,6 +2876,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <form method="post" enctype="multipart/form-data" id="header-settings-form" class="header-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
           <input type="hidden" name="action" value="save_header_settings">
+          <input type="hidden" name="create_header_page_label" id="create-header-page-label" value="">
           <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame" inert aria-label="Non-interactive visual preview of the public website header"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="width:<?=(int)($headerSettings['logo_width'] ?? 200)?>px;height:<?=(int)($headerSettings['logo_height'] ?? 70)?>px;object-fit:contain;<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title" hidden></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; ?><a class="custom-preview-link" href="<?=e(trim((string)($headerLink['url'] ?? '')) ?: '#')?>"><?=e((string)$headerLink['label'])?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
           <div class="header-settings-grid">
             <div class="header-settings-fields">
@@ -2869,7 +2886,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="header-field"><span>Header Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
                 <div id="header-links-list">
-                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page">Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
                 </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
               </div>
               <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
@@ -4426,8 +4443,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           const row=document.createElement('div');row.className='header-link-row';
           const urlInput=document.createElement('input');urlInput.className='field header-generated-url';urlInput.type='text';urlInput.name='header_link_url[]';urlInput.maxLength=500;urlInput.placeholder='/public/page-title.php';urlInput.readOnly=true;urlInput.setAttribute('aria-readonly','true');urlInput.title='Automatically generated from the link title';urlInput.value=url;
           const labelInput=document.createElement('input');labelInput.className='field';labelInput.type='text';labelInput.name='header_link_label[]';labelInput.maxLength=60;labelInput.placeholder='Link title';labelInput.setAttribute('aria-label','Link title');labelInput.value=label;
+          const createPage=document.createElement('button');createPage.type='button';createPage.className='btn light create-header-page';createPage.textContent='Create Page';
           const remove=document.createElement('button');remove.type='button';remove.className='btn light remove-header-link';remove.textContent='Remove';remove.addEventListener('click',()=>{row.remove();updatePreview();});
-          row.append(urlInput,labelInput,remove);return row;
+          row.append(urlInput,labelInput,createPage,remove);return row;
         };
         const editorText = row => row.querySelector('[name="header_link_label[]"]')?.value || '';
         // Update the URL directly from the exact Link Title input that changed.
@@ -4779,6 +4797,24 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         updatePreview();
         add.addEventListener('click',()=>{links.append(makeLinkRow());initRichEditors();updatePreview();});
         links.querySelectorAll('.remove-header-link').forEach(button=>button.addEventListener('click',()=>{button.closest('.header-link-row').remove();updatePreview();}));
+        links.addEventListener('click', event => {
+          const createButton = event.target.closest('.create-header-page');
+          if (!createButton) return;
+          const row = createButton.closest('.header-link-row');
+          const titleInput = row?.querySelector('[name="header_link_label[]"]');
+          const urlInput = row?.querySelector('[name="header_link_url[]"]');
+          const destination = document.getElementById('create-header-page-label');
+          const title = titleInput?.value.trim() || '';
+          if (!title) {
+            titleInput?.focus();
+            alert('Enter a Header Link title before creating its page.');
+            return;
+          }
+          refreshGeneratedUrls();
+          if (!urlInput?.value) return;
+          destination.value = title;
+          form.requestSubmit();
+        });
         // Synchronize every editable Header field immediately before POST. This prevents
         // stale hidden inputs from overwriting the values currently visible in the editors.
         form.addEventListener('submit', () => {
