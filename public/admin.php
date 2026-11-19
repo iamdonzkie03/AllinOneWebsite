@@ -1960,7 +1960,46 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 @media(hover:none){.mega-menu-preview .module-grid>.mega-public-panel[data-description]:after{display:none}}
  </style>
   <script>
-  (()=>{const all=document.getElementById('select-all-users');const table=document.querySelector('.users-table');if(!table)return;const rows=[...table.tBodies[0].rows].filter(row=>row.querySelector('.user-select'));const bulkDelete=document.querySelector('#bulk-users button.bulk-delete');const filter=document.getElementById('users-filter');const size=document.getElementById('users-page-size');const info=document.getElementById('users-page-info');const number=document.getElementById('users-page-number');const prev=document.getElementById('users-prev');const next=document.getElementById('users-next');let page=1;const userCheckboxes=()=>[...document.querySelectorAll('input.user-select[form="bulk-users"]')];const syncDeleteSelectedState=()=>{const boxes=userCheckboxes(),selected=boxes.filter(box=>box.checked).length;if(bulkDelete){bulkDelete.disabled=selected===0;bulkDelete.toggleAttribute('disabled',selected===0);bulkDelete.setAttribute('aria-disabled',String(selected===0));}};function matches(){const q=filter.value.trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));}function render(){const found=matches();const perPage=Number(size.value);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=found.slice(start,end);const visibleSet=new Set(visible);rows.forEach(row=>row.hidden=!visibleSet.has(row));info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';number.textContent='Page '+page+' of '+pages;prev.disabled=page<=1;next.disabled=page>=pages;if(all){const checks=visible.map(row=>row.querySelector('.user-select'));all.checked=checks.length>0&&checks.every(box=>box.checked);all.indeterminate=checks.some(box=>box.checked)&&!all.checked;}}filter.addEventListener('input',()=>{page=1;render();});size.addEventListener('change',()=>{page=1;render();});prev.addEventListener('click',()=>{if(page>1){page--;render();}});next.addEventListener('click',()=>{page++;render();});if(all)all.addEventListener('change',()=>{matches().slice((page-1)*Number(size.value),page*Number(size.value)).forEach(row=>row.querySelector('.user-select').checked=all.checked);syncDeleteSelectedState();render();});document.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('input.user-select[form="bulk-users"], #select-all-users'))syncDeleteSelectedState();});syncDeleteSelectedState();render();})();<?php else: $settings = ['page-management'=>['Page Management','Manage the website pages and their publication status.','▤'],'media-management'=>['Media Management','Manage image and media assets used by public pages and contributor content.','▧'],'plugins'=>['Plugins','Review and manage optional website extensions.','⌘']]; ?>
+  (()=>{
+    const table=document.querySelector('.users-table');
+    const all=document.getElementById('select-all-users');
+    const bulkDelete=document.querySelector('#bulk-users .bulk-delete');
+    if(!table||!bulkDelete)return;
+    const rows=Array.from(table.querySelectorAll('tbody tr')).filter(row=>row.querySelector('.user-select'));
+    const filter=document.getElementById('users-filter');
+    const size=document.getElementById('users-page-size');
+    const info=document.getElementById('users-page-info');
+    const number=document.getElementById('users-page-number');
+    const prev=document.getElementById('users-prev');
+    const next=document.getElementById('users-next');
+    let page=1;
+    const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));};
+    const syncSelection=()=>{
+      const boxes=rows.map(row=>row.querySelector('.user-select'));
+      const selected=boxes.filter(box=>box.checked).length;
+      bulkDelete.disabled=selected===0;
+      bulkDelete.setAttribute('aria-disabled',String(selected===0));
+      if(all){const filtered=matches().map(row=>row.querySelector('.user-select'));const checked=filtered.filter(box=>box.checked).length;all.checked=filtered.length>0&&checked===filtered.length;all.indeterminate=checked>0&&checked<filtered.length;all.disabled=filtered.length===0;}
+    };
+    const render=()=>{
+      const found=matches();const perPage=Math.max(1,Number(size?.value)||10);const pages=Math.max(1,Math.ceil(found.length/perPage));page=Math.min(page,pages);
+      const start=found.length?(page-1)*perPage:0;const end=Math.min(start+perPage,found.length);const visible=new Set(found.slice(start,end));
+      rows.forEach(row=>{row.hidden=!visible.has(row);});
+      if(info)info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';
+      if(number)number.textContent='Page '+page+' of '+pages;
+      if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
+      syncSelection();
+    };
+    all?.addEventListener('change',()=>{matches().forEach(row=>{row.querySelector('.user-select').checked=all.checked;});syncSelection();});
+    table.addEventListener('change',event=>{if(event.target.matches('.user-select'))syncSelection();});
+    filter?.addEventListener('input',()=>{page=1;render();});
+    size?.addEventListener('change',()=>{page=1;render();});
+    prev?.addEventListener('click',()=>{if(page>1){page--;render();}});
+    next?.addEventListener('click',()=>{page++;render();});
+    render();
+  })();
+  </script>
+<?php else: $settings = ['page-management'=>['Page Management','Manage the website pages and their publication status.','▤'],'media-management'=>['Media Management','Manage image and media assets used by public pages and contributor content.','▧'],'plugins'=>['Plugins','Review and manage optional website extensions.','⌘']]; ?>
   <div class="admin-topline"><div><div class="eyebrow">System configuration</div><h1 class="admin-heading">Settings</h1><p class="muted">Manage website pages, media assets, and optional extensions.</p></div></div>
   <nav class="admin-settings-tabs" aria-label="Settings tabs">
     <a class="<?=navActive($section,'settings')?>" href="<?=e(adminUrl('settings'))?>">Overview</a>
