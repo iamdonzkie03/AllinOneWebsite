@@ -694,7 +694,6 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <main>
 <?php if ($generatedHeaderPageTitle !== null): ?>
 <section class="section module-page-head"><div class="wrap">
-  <div class="eyebrow">Z.C. commonplace</div>
   <h1><?=e($generatedHeaderPageTitle)?></h1>
   <?php if ($generatedHeaderPageNotFound): ?><p class="muted">This page is no longer available.</p><?php endif; ?>
 </div></section>
