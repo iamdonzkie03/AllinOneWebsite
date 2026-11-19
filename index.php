@@ -145,7 +145,7 @@ if (isset($generatedHeaderPageSlug)) {
 }
 $publicAppScriptDirectory = dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
 if (isset($generatedHeaderPageSlug)) $publicAppScriptDirectory = dirname($publicAppScriptDirectory);
-$publicAppBasePath = rtrim(str_replace('\\\\', '/', $publicAppScriptDirectory), '/') . '/';
+$publicAppBasePath = rtrim($publicAppScriptDirectory, '/') . '/';
 if ($publicAppBasePath === '') $publicAppBasePath = '/';
 $publicHeaderFamily = in_array(($publicHeader['font_family'] ?? 'Ubuntu'), ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'], true) ? $publicHeader['font_family'] : 'Ubuntu';
 $publicHeaderStyle = ($publicHeader['font_style'] ?? 'normal') === 'italic' ? 'italic' : 'normal';
