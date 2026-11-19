@@ -3044,26 +3044,46 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                 editor.dispatchEvent(new Event('input',{bubbles:true}));
               };
               const wrapStyle=(property,value)=>{
-                // Clone the saved range BEFORE focusing the editor. Focusing a
-                // contenteditable after a native <select> change can replace the
-                // browser selection; restoring afterward from a live Range is
-                // unreliable in some browsers.
+                // Apply inline styles to selected text nodes individually. A
+                // single span cannot safely wrap a selection spanning multiple
+                // paragraphs, lists, or other block-level editor content.
                 const range=savedRange&&editor.contains(savedRange.commonAncestorContainer)
                   ? savedRange.cloneRange()
                   : null;
                 if(!range||range.collapsed)return false;
                 editor.focus({preventScroll:true});
-                const selection=window.getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
-                const activeRange=selection.getRangeAt(0);
-                const span=document.createElement('span');
                 const cssProperty=property.replace(/[A-Z]/g,letter=>'-'+letter.toLowerCase());
-                span.style.setProperty(cssProperty,String(value));
-                try{activeRange.surroundContents(span);}
-                catch(error){span.append(activeRange.extractContents());activeRange.insertNode(span);}
+                const walker=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);
+                const textNodes=[];
+                while(walker.nextNode()){
+                  const node=walker.currentNode;
+                  if(!node.nodeValue||!node.nodeValue.length)continue;
+                  try{if(!range.intersectsNode(node))continue;}catch(error){continue;}
+                  const start=range.startContainer===node?range.startOffset:0;
+                  const end=range.endContainer===node?range.endOffset:node.nodeValue.length;
+                  if(end>start)textNodes.push({node,start,end});
+                }
+                const wrappers=[];
+                // Work from the end of the document so splitting text nodes
+                // never invalidates offsets for nodes still to be processed.
+                for(let i=textNodes.length-1;i>=0;i--){
+                  const {node,start,end}=textNodes[i];
+                  if(!node.parentNode)continue;
+                  let selected=node;
+                  if(end<selected.nodeValue.length)selected.splitText(end);
+                  if(start>0)selected=selected.splitText(start);
+                  const span=document.createElement('span');
+                  span.style.setProperty(cssProperty,String(value));
+                  selected.parentNode.replaceChild(span,selected);
+                  span.appendChild(selected);
+                  wrappers.push(span);
+                }
+                if(!wrappers.length)return false;
+                wrappers.sort((a,b)=>a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
                 const next=document.createRange();
-                next.selectNodeContents(span);
+                next.setStartBefore(wrappers[0]);
+                next.setEndAfter(wrappers[wrappers.length-1]);
+                const selection=window.getSelection();
                 selection.removeAllRanges();
                 selection.addRange(next);
                 savedRange=next.cloneRange();
