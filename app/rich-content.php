@@ -76,6 +76,12 @@ function sanitize_rich_content(string $html): string {
                             if ($property === 'text-align' && in_array(strtolower($setting), ['left','center','right','justify'], true)) $safe[] = $property.':'.strtolower($setting);
                             elseif (in_array($property, ['color','background-color'], true) && preg_match('/^(#[0-9a-f]{3,8}|[a-z]{3,20}|rgba?\([0-9.,% ]+\))$/i', $setting)) $safe[] = $property.':'.$setting;
                             elseif ($property === 'font-size' && preg_match('/^[0-9.]+(px|pt|em|rem|%)$/i', $setting)) $safe[] = $property.':'.$setting;
+                            elseif ($property === 'font-family' && preg_match('/^[a-z0-9 ,\x27"-]{1,100}$/i', $setting)) $safe[] = $property.':'.$setting;
+                            elseif ($property === 'font-weight' && preg_match('/^(normal|bold|[1-9]00)$/i', $setting)) $safe[] = $property.':'.$setting;
+                            elseif ($property === 'font-style' && in_array(strtolower($setting), ['normal','italic','oblique'], true)) $safe[] = $property.':'.strtolower($setting);
+                            elseif ($property === 'text-decoration' && preg_match('/^(none|underline|line-through|overline)(\s+(underline|line-through|overline))*$/i', $setting)) $safe[] = $property.':'.$setting;
+                            elseif ($property === 'line-height' && preg_match('/^[0-9.]+(px|em|rem|%)?$/i', $setting)) $safe[] = $property.':'.$setting;
+                            elseif ($property === 'letter-spacing' && preg_match('/^-?[0-9.]+(px|em|rem)$/i', $setting)) $safe[] = $property.':'.$setting;
                         }
                         if ($safe) $node->setAttribute('style', implode(';', $safe)); else $node->removeAttribute('style');
                     }
