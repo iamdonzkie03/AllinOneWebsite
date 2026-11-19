@@ -41,6 +41,7 @@ $nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1')
 $nicknameStmt->execute([(int)$admin['id']]);
 $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
+$forumDeletedCount = 0;
 $galleryDeleteSuccessNames = [];
 $galleryPhotoDeleteSuccessCount = max(0, (int)($_SESSION['gallery_photo_delete_success_count'] ?? 0));
 // The query flag is a one-request rendering fallback if the hosting PHP session
@@ -475,8 +476,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             if($deleted<1){$pdo->rollBack();$message='No selected Forum posts were found to delete. Refresh the Forum list and try again.';}
             else {
               $pdo->commit();foreach(array_unique($paths) as $path)if(is_file($path))@unlink($path);
-              $_SESSION['forum_bulk_delete_count']=$deleted;
-              header('Location: admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.$panelIndex.'&forum_deleted=1&forum_deleted_count='.$deleted.'#pm-panel-sections',true,303);exit;
+              // Render the success overlay in this completed POST response. This avoids
+              // losing the feedback during a redirect/session flash cycle.
+              $forumDeletedCount=$deleted;
             }
           } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Forum bulk delete failed: '.$e->getMessage());$message='The selected Forum posts could not be deleted. Please try again.';}
         }
@@ -1544,7 +1546,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .forum-inline-table th:first-child,.forum-inline-table td:first-child{width:38px;text-align:center}
 @media(max-width:700px){.forum-inline-content{padding:16px}.forum-inline-panel{padding:12px}.forum-inline-header{align-items:flex-start;gap:14px;padding:14px 12px}.forum-inline-header>.btn{margin-top:2px}.forum-inline-table th,.forum-inline-table td{padding:10px 11px}}
 </style></head><body>
-      <?php $forumDeletedCount=isset($_GET['forum_deleted_count'])?max(0,(int)$_GET['forum_deleted_count']):(int)($_SESSION['forum_bulk_delete_count']??0); if($forumDeletedCount>0): unset($_SESSION['forum_bulk_delete_count']); ?>
+      <?php if($forumDeletedCount>0): ?>
       <?php
         $forumNumberWords=static function(int $number): string {
           $ones=['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
@@ -3015,7 +3017,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </div>
       <div class="forum-inline-actions"><button class="btn bulk-delete" type="button" id="forum-delete-selected" disabled aria-disabled="true">Delete Selected</button><a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a></div>
      </div>
-     <form method="post" action="admin.php" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"><div id="forum-post-bulk-selected-inputs" hidden></div></form>
+     <form method="post" action="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>#pm-panel-sections" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"><div id="forum-post-bulk-selected-inputs" hidden></div></form>
       <div class="forum-inline-pagination forum-inline-pagination-top"><span id="forum-post-page-info-top" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-first-top">First</button><button type="button" class="btn light" id="forum-post-prev-top">Previous</button><span id="forum-post-page-number-top" class="forum-inline-page-numbers"></span><button type="button" class="btn light" id="forum-post-next-top">Next</button><button type="button" class="btn light" id="forum-post-last-top">Last</button></div></div>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th><input type="checkbox" id="forum-post-select-all" aria-label="Select all Forum posts"></th><th>Thread Title</th><th>Author</th><th>Content Type</th><th>Status</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead>
