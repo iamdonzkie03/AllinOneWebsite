@@ -417,20 +417,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
 
             // Resolve upload paths relative to public/admin.php (this file is already
             // inside /public). Never allow a stored path to escape an upload directory.
-            $queueUpload = static function(string $storedPath, array $allowedRoots) use (&$paths): void {
+            $queueUpload = static function(string $storedPath, string $urlPrefix, string $filesystemRoot) use (&$paths): void {
               $storedPath=html_entity_decode(str_replace('\\\\','/',trim($storedPath)),ENT_QUOTES|ENT_HTML5,'UTF-8');
-              $urlPath=(string)(parse_url($storedPath,PHP_URL_PATH)??$storedPath);
-              $urlPath=ltrim(str_replace('\\\\','/',$urlPath),'/');
-              foreach($allowedRoots as $root){
-                $prefix=rtrim($root,'/').'/';
-                if(!str_starts_with($urlPath,$prefix))continue;
-                $relative=substr($urlPath,strlen($prefix));
-                if($relative===''||str_contains($relative,'..'))continue;
-                $base=realpath(__DIR__.'/'.$root);
-                $real=realpath(__DIR__.'/'.$root.'/'.$relative);
-                if($base&&$real&&str_starts_with($real,$base.DIRECTORY_SEPARATOR)&&is_file($real)&&!is_link($real))$paths[$real]=$real;
-                break;
-              }
+              $urlPath=ltrim(str_replace('\\\\','/',(string)(parse_url($storedPath,PHP_URL_PATH)??$storedPath)),'/');
+              $prefix=rtrim($urlPrefix,'/').'/';
+              if(!str_starts_with($urlPath,$prefix))return;
+              $relative=substr($urlPath,strlen($prefix));
+              if($relative===''||str_contains($relative,'..'))return;
+              $base=realpath(__DIR__.'/'.$filesystemRoot);
+              $real=realpath(__DIR__.'/'.$filesystemRoot.'/'.$relative);
+              if($base&&$real&&str_starts_with($real,$base.DIRECTORY_SEPARATOR)&&is_file($real)&&!is_link($real))$paths[$real]=$real;
+            };
+            $tableExists = static function(string $tableName) use ($pdo): bool {
+              $check=$pdo->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+              $check->execute([$tableName]);
+              return (int)$check->fetchColumn()>0;
             };
 
             if($threadIds){
@@ -446,34 +447,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 // Collect all uploaded files attached to the selected threads.
                 $files=$pdo->prepare("SELECT file_path FROM forum_thread_attachments WHERE thread_id IN ($marks)");
                 $files->execute($valid);
-                foreach($files->fetchAll(PDO::FETCH_COLUMN) as $storedPath)$queueUpload((string)$storedPath,['uploads/forum-threads']);
+                foreach($files->fetchAll(PDO::FETCH_COLUMN) as $storedPath)$queueUpload((string)$storedPath,'uploads/forum-threads','uploads/forum-threads');
 
                 // Include photos embedded in replies. Reply photos are stored in
                 // /public/uploads/forum_replies (not /public/public/uploads/...).
                 $replyIds=[];
                 $replyBodies=[];
-                $replyQuery=$pdo->prepare("SELECT id,body FROM forum_thread_replies WHERE thread_id IN ($marks)");
-                $replyQuery->execute($valid);
-                foreach($replyQuery->fetchAll(PDO::FETCH_ASSOC) as $replyRow){
-                  $replyIds[]=(int)$replyRow['id'];
-                  $replyBodies[]=(string)$replyRow['body'];
+                if($tableExists('forum_thread_replies')){
+                  $replyQuery=$pdo->prepare("SELECT id,body FROM forum_thread_replies WHERE thread_id IN ($marks)");
+                  $replyQuery->execute($valid);
+                  foreach($replyQuery->fetchAll(PDO::FETCH_ASSOC) as $replyRow){
+                    $replyIds[]=(int)$replyRow['id'];
+                    $replyBodies[]=(string)$replyRow['body'];
+                  }
                 }
                 foreach($replyBodies as $replyBody){
                   if(preg_match_all('~(?:^|/)public/uploads/forum_replies/([A-Za-z0-9._-]+)~',$replyBody,$photoMatches)){
-                    foreach($photoMatches[1] as $photoName)$queueUpload('public/uploads/forum_replies/'.$photoName,['public/uploads/forum_replies']);
+                    foreach($photoMatches[1] as $photoName)$queueUpload('public/uploads/forum_replies/'.$photoName,'public/uploads/forum_replies','uploads/forum_replies');
                   }
                 }
 
                 // Remove every dependent record explicitly before deleting the
                 // thread rows. Reports include both thread and reply targets.
-                $pdo->prepare("DELETE FROM forum_thread_likes WHERE thread_id IN ($marks)")->execute($valid);
-                $pdo->prepare("DELETE FROM forum_thread_views WHERE thread_id IN ($marks)")->execute($valid);
-                $pdo->prepare("DELETE FROM forum_reports WHERE thread_id IN ($marks)")->execute($valid);
+                foreach(['forum_thread_likes','forum_thread_views','forum_reports'] as $dependentTable){
+                  if($tableExists($dependentTable))$pdo->prepare("DELETE FROM `$dependentTable` WHERE thread_id IN ($marks)")->execute($valid);
+                }
 
                 if($replyIds){
                   $replyMarks=implode(',',array_fill(0,count($replyIds),'?'));
-                  $pdo->prepare("DELETE FROM forum_reply_likes WHERE reply_id IN ($replyMarks)")->execute($replyIds);
-                  $pdo->prepare("DELETE FROM forum_thread_replies WHERE id IN ($replyMarks)")->execute($replyIds);
+                  if($tableExists('forum_reply_likes'))$pdo->prepare("DELETE FROM forum_reply_likes WHERE reply_id IN ($replyMarks)")->execute($replyIds);
+                  if($tableExists('forum_thread_replies'))$pdo->prepare("DELETE FROM forum_thread_replies WHERE id IN ($replyMarks)")->execute($replyIds);
                 }
                 $pdo->prepare("DELETE FROM forum_thread_attachments WHERE thread_id IN ($marks)")->execute($valid);
                 $deleteThreads=$pdo->prepare("DELETE FROM forum_threads WHERE panel_id=? AND id IN ($marks)");
@@ -550,7 +553,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                   }
                 }
                 arsort($directories);
-                foreach(array_keys($directories) as $dir)if(is_dir($dir)&&!scandir($dir)[2]??false)@rmdir($dir);
+                foreach(array_keys($directories) as $dir)if(is_dir($dir)&&count(scandir($dir)?:[])===2)@rmdir($dir);
               }
 
               $forumDeletedCount=$deleted;
