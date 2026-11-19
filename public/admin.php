@@ -4425,6 +4425,28 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           row.append(urlInput,labelInput,remove);return row;
         };
         const editorText = row => row.querySelector('[name="header_link_label[]"]')?.value || '';
+        // Update the URL directly from the exact Link Title input that changed.
+        // This avoids relying on the broader Header preview refresh to update it.
+        const updateGeneratedUrlForRow = row => {
+          if (!row) return;
+          const titleInput = row.querySelector('[name="header_link_label[]"]');
+          const urlField = row.querySelector('[name="header_link_url[]"]');
+          if (!titleInput || !urlField) return;
+          const label = titleInput.value.trim();
+          const slug = slugifyHeaderLink(label);
+          urlField.value = label ? '/public/' + slug + '.php' : '';
+          urlField.dataset.generatedLabel = label;
+        };
+        links.addEventListener('input', event => {
+          if (event.target.matches('[name="header_link_label[]"]')) {
+            updateGeneratedUrlForRow(event.target.closest('.header-link-row'));
+          }
+        });
+        links.addEventListener('change', event => {
+          if (event.target.matches('[name="header_link_label[]"]')) {
+            updateGeneratedUrlForRow(event.target.closest('.header-link-row'));
+          }
+        });
         const refreshGeneratedUrls = () => {
           const used=new Map();
           [...links.querySelectorAll('.header-link-row')].forEach(row=>{
@@ -4746,6 +4768,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         // Synchronize every editable Header field immediately before POST. This prevents
         // stale hidden inputs from overwriting the values currently visible in the editors.
         form.addEventListener('submit', () => {
+          // Rebuild every generated URL from its title immediately before saving.
+          links.querySelectorAll('.header-link-row').forEach(updateGeneratedUrlForRow);
           form.querySelectorAll('[data-rich-editor]').forEach(editor => {
             const key = editor.dataset.richEditor;
             const plain = key === 'title' ? editor.value.trim() : editor.innerText.trim();
