@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
+require_once __DIR__ . '/../app/rich-content.php';
 function sortSlideshowPhotosByUpdatedAt(array $photos): array {
     $indexed = [];
     foreach (array_values($photos) as $position => $photo) {
