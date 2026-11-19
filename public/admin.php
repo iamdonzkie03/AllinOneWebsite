@@ -3074,7 +3074,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               form.querySelector('[data-page-action="link"]')?.addEventListener('mousedown',event=>event.preventDefault());
               form.querySelector('[data-page-action="link"]')?.addEventListener('click',()=>{
                 const url=prompt('Enter the link URL (https://, http://, or mailto:):');
-                if(url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim())){restore();document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input',{bubbles:true}));remember();}
+                if(url&&/^(https?:\/\/|mailto:)/i.test(url.trim())){restore();document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input',{bubbles:true}));remember();}
               });
               form.querySelector('[data-page-action="image"]')?.addEventListener('pointerdown',event=>event.preventDefault());
               form.querySelector('[data-page-action="image"]')?.addEventListener('mousedown',event=>event.preventDefault());
