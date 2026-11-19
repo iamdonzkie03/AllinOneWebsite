@@ -261,7 +261,7 @@ function adminForumPlainText(string $value): string {
 function adminForumDateLabel(?string $value): string {
     if (!$value) return '—';
     $time = strtotime($value);
-    return $time ? date('F d, Y · g:i A', $time) : '—';
+    return $time ? date('F d, Y · h:i:s A', $time) : '—';
 }
 
 function adminDateLabel(?string $value): string { if (!$value) return '—'; $time=strtotime($value); return $time ? date('F d, Y',$time) : '—'; }
@@ -1978,7 +1978,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <section class="panel admin-panel system-admin-account-panel">
     <div class="admin-panel-head"><h2>My Account</h2><button type="button" class="btn" id="edit-system-admin-account">Edit</button></div>
     <div class="table-wrap"><table class="table users-table"><thead><tr><th>Full Name</th><th>Email Address</th><th>Nickname</th><th>Birthdate</th><th>Birthplace</th><th>Contact</th><th>Date Created</th><th>Last Update</th></tr></thead><tbody>
-      <tr><td><strong class="user-full-name"><?=e($systemAdminDisplayName)?></strong></td><td><?=e($systemAdminAccount['email'] ?? '—')?></td><td><?=e($systemAdminAccount['nickname'] ?? '—')?></td><td><?=e($systemAdminAccount['birthdate'] ?? '—')?></td><td><?=e($systemAdminAccount['birthplace'] ?? '—')?></td><td><?=e($systemAdminAccount['mobile_no'] ?? '—')?></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span></td></tr>
+      <tr><td><strong class="user-full-name"><?=e($systemAdminDisplayName)?></strong></td><td><?=e($systemAdminAccount['email'] ?? '—')?></td><td><?=e($systemAdminAccount['nickname'] ?? '—')?></td><td><?=e(adminDateLabel((string)($systemAdminAccount['birthdate'] ?? '')))?></td><td><?=e($systemAdminAccount['birthplace'] ?? '—')?></td><td><?=e($systemAdminAccount['mobile_no'] ?? '—')?></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span></td></tr>
     </tbody></table></div>
   </section>
   <div class="account-status-modal system-admin-edit-modal" id="system-admin-edit-modal" hidden><div class="account-status-modal-card system-admin-edit-card" role="dialog" aria-modal="true" aria-labelledby="system-admin-edit-title">
@@ -2023,7 +2023,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     $active = $u['account_status'] === 'approved';
   ?><tr>
   <td class="user-select-cell"><input type="checkbox" class="user-select" name="selected_users[]" value="<?=(int)$u['id']?>" form="bulk-users" aria-label="Select <?=e($displayName)?>"></td>
-  <td><strong class="user-full-name"><?=e($displayName)?></strong><span class="user-subdetails">Nickname: <?=e($u['nickname'] ?? '—')?> · Birthdate: <?=e($u['birthdate'] ?? '—')?> · Birthplace: <?=e($u['birthplace'] ?? '—')?> · Contact: <?=e($u['mobile_no'] ?? '—')?></span></td>
+  <td><strong class="user-full-name"><?=e($displayName)?></strong><span class="user-subdetails">Nickname: <?=e($u['nickname'] ?? '—')?> · Birthdate: <?=e(adminDateLabel((string)($u['birthdate'] ?? ''))?> · Birthplace: <?=e($u['birthplace'] ?? '—')?> · Contact: <?=e($u['mobile_no'] ?? '—')?></span></td>
   <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><span><?=e(adminDateLabel((string)($u['created_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($u['created_at'] ?? '')))?></span></td><td><span><?=e(adminDateLabel((string)($u['updated_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($u['updated_at'] ?? '')))?></span></td>
   <td><?php if (empty($u['email_verified_at'])): ?><span class="pending-email-verification">Pending Email Verification</span><?php else: ?><form method="post" class="user-actions"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$u['id']?>"><input type="hidden" name="next_status" value="<?=$active?'suspended':'approved'?>"><button class="user-toggle<?=$active?'':' inactive'?>" name="action" value="toggle_user_status" type="submit" role="switch" aria-checked="<?=$active?'true':'false'?>" aria-label="Account status: <?=$active?'Active':'Inactive'?>"><span class="toggle-knob" aria-hidden="true"></span><span><?=$active?'Active':'Inactive'?></span></button></form><?php endif; ?></td>
   </tr><?php endforeach;?>
