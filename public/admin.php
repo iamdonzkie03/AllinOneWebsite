@@ -1521,6 +1521,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                         && str_contains((string)@file_get_contents($oldFile), 'ZC_HEADER_LINK_PAGE')) {
                         @unlink($oldFile);
                     }
+                    // Remove page content only for a Header Link that is no
+                    // longer saved, preventing orphaned editor records.
+                    $deleteOldPageContent = $pdo->prepare('DELETE FROM site_header_link_pages WHERE slug = ?');
+                    $deleteOldPageContent->execute([$oldMatch[1]]);
                 }
             }
             $headerSettings = $savedHeader;
