@@ -2947,16 +2947,29 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <input type="hidden" name="header_page_slug" value="<?=e($activeHeaderPageSlug)?>">
               <input type="hidden" name="page_content_html" id="header-link-page-content-html" value="">
               <div class="header-field"><span>Page Content</span><small>Use the formatting tools to create the content shown below the page title on the public website.</small>
-                <div class="header-link-page-toolbar" role="toolbar" aria-label="Page content formatting">
-                  <button type="button" class="btn light" data-page-command="bold"><strong>B</strong></button>
-                  <button type="button" class="btn light" data-page-command="italic"><em>I</em></button>
-                  <button type="button" class="btn light" data-page-command="underline"><u>U</u></button>
-                  <button type="button" class="btn light" data-page-command="insertUnorderedList">Bulleted list</button>
-                  <button type="button" class="btn light" data-page-command="insertOrderedList">Numbered list</button>
-                  <button type="button" class="btn light" data-page-command="formatBlock" data-page-value="h2">Heading</button>
-                  <button type="button" class="btn light" data-page-command="formatBlock" data-page-value="p">Paragraph</button>
+                <div class="banner-rich-toolbar content-manager-rich-toolbar header-link-page-toolbar" role="toolbar" aria-label="Page content formatting">
+                  <select data-page-font-family aria-label="Font family"><option value="">Font family</option><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
+                  <select data-page-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+                  <select data-page-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+                  <button type="button" data-page-command="bold" title="Bold"><strong>B</strong></button>
+                  <button type="button" data-page-command="italic" title="Italic"><em>I</em></button>
+                  <button type="button" data-page-command="underline" title="Underline"><u>U</u></button>
+                  <button type="button" data-page-action="quotation" title="Quotation marks">“ ”</button>
+                  <button type="button" data-page-command="justifyLeft" title="Align left">≡</button>
+                  <button type="button" data-page-command="justifyCenter" title="Align center">☰</button>
+                  <button type="button" data-page-command="justifyRight" title="Align right">≡</button>
+                  <label title="Font color" class="header-page-color-label">Color <input type="color" data-page-color value="#f4e9ed" aria-label="Font color"></label>
+                  <button type="button" data-page-action="link" title="Attach Link">Link</button>
+                  <button type="button" data-page-action="image" title="Insert Image">Image</button>
+                  <button type="button" data-page-action="table" title="Insert Table">Table</button>
+                  <button type="button" data-page-command="insertUnorderedList" title="Bulleted list">• List</button>
+                  <button type="button" data-page-command="insertOrderedList" title="Numbered list">1. List</button>
+                  <button type="button" data-page-command="insertHorizontalRule" title="Horizontal line">―</button>
+                  <button type="button" data-page-command="undo" title="Undo">↶</button>
+                  <button type="button" data-page-command="redo" title="Redo">↷</button>
+                  <input type="file" id="header-link-page-image" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
                 </div>
-                <div class="rich-editor header-link-page-content-editor" id="header-link-page-content-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Header Link Page content"><?=sanitize_rich_content($activeHeaderPageContent)?></div>
+                <div class="banner-rich-editor header-link-page-content-editor" id="header-link-page-content-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Header Link Page content" data-placeholder="Start writing your page content..."><?=sanitize_rich_content($activeHeaderPageContent)?></div>
               </div>
               <div class="header-settings-actions"><button type="submit" class="btn">Save Page</button></div>
             </form>
@@ -2966,19 +2979,71 @@ body:has(.admin-shell),body:has(.admin-shell) *{
             .header-link-page-meta span,.header-link-page-meta small{color:var(--muted);font-size:12px}.header-link-page-meta strong{font-size:15px;color:#fff}
             .header-link-page-saved{margin:14px 0;padding:11px 14px;border:1px solid rgba(91,205,145,.35);border-radius:8px;color:#9de0b8;background:rgba(35,130,82,.12);font-size:12px}
             .header-link-page-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}
-            .header-link-page-content-editor{min-height:320px;line-height:1.75;overflow:auto}.header-link-page-content-editor:empty:before{content:'Start writing your page content...';color:#82777c}
+            .header-link-page-toolbar select,.header-link-page-toolbar button{min-height:30px}
+            .header-page-color-label{display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px}
+            .header-link-page-content-editor{min-height:320px;max-height:680px;line-height:1.75;overflow:auto}
+            .header-link-page-content-editor:empty:before{content:attr(data-placeholder);color:#82777c}
+            .header-link-page-content-editor img{max-width:100%;height:auto}
+            .header-link-page-content-editor table{width:100%;border-collapse:collapse}
+            .header-link-page-content-editor th,.header-link-page-content-editor td{border:1px solid #76616b;padding:8px}
           </style>
           <script>
             (() => {
-              const form = document.getElementById('header-link-page-form');
-              const editor = document.getElementById('header-link-page-content-editor');
-              const hidden = document.getElementById('header-link-page-content-html');
-              if (!form || !editor || !hidden) return;
-              form.querySelectorAll('[data-page-command]').forEach(button => button.addEventListener('click', () => {
-                editor.focus();
-                document.execCommand(button.dataset.pageCommand, false, button.dataset.pageValue || null);
+              const form=document.getElementById('header-link-page-form');
+              const editor=document.getElementById('header-link-page-content-editor');
+              const hidden=document.getElementById('header-link-page-content-html');
+              const imageInput=document.getElementById('header-link-page-image');
+              if(!form||!editor||!hidden)return;
+              let savedRange=null;
+              const remember=()=>{const selection=window.getSelection();if(selection?.rangeCount&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))savedRange=selection.getRangeAt(0).cloneRange();};
+              const restore=()=>{editor.focus();if(savedRange&&editor.contains(savedRange.commonAncestorContainer)){const selection=window.getSelection();selection.removeAllRanges();selection.addRange(savedRange);return selection.getRangeAt(0);}return null;};
+              const insertNode=node=>{const restored=restore(),range=restored||document.createRange();if(!restored){range.selectNodeContents(editor);range.collapse(false);}range.deleteContents();range.insertNode(node);const selection=window.getSelection(),caret=document.createRange();caret.setStartAfter(node);caret.collapse(true);selection.removeAllRanges();selection.addRange(caret);remember();};
+              editor.addEventListener('keyup',remember);editor.addEventListener('mouseup',remember);editor.addEventListener('touchend',remember);
+              form.querySelectorAll('[data-page-command]').forEach(button=>button.addEventListener('mousedown',event=>event.preventDefault()));
+              form.querySelectorAll('[data-page-command]').forEach(button=>button.addEventListener('click',()=>{
+                editor.focus();const command=button.dataset.pageCommand;
+                if(command==='undo'||command==='redo'){document.execCommand(command,false,null);return;}
+                document.execCommand(command,false,null);
               }));
-              form.addEventListener('submit', () => { hidden.value = editor.innerHTML; });
+              const wrapStyle=(property,value)=>{const range=restore();if(!range||range.collapsed)return;const span=document.createElement('span');span.style[property]=value;try{range.surroundContents(span);}catch(error){span.append(range.extractContents());range.insertNode(span);}editor.dispatchEvent(new Event('input',{bubbles:true}));remember();};
+              form.querySelector('[data-page-font-family]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontFamily',event.target.value);event.target.value='';});
+              form.querySelector('[data-page-font-size]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontSize',event.target.value+'px');event.target.value='';});
+              form.querySelector('[data-page-font-weight]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontWeight',event.target.value);event.target.value='';});
+              form.querySelector('[data-page-color]')?.addEventListener('input',event=>wrapStyle('color',event.target.value));
+              form.querySelector('[data-page-action="quotation"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="quotation"]')?.addEventListener('click',()=>{
+                const range=restore()||document.createRange();const open=document.createTextNode('“'),close=document.createTextNode('”');
+                if(range.collapsed){range.insertNode(close);range.insertNode(open);range.setStartAfter(open);range.collapse(true);}
+                else{const selected=range.extractContents();range.insertNode(close);range.insertNode(selected);range.insertNode(open);range.setStartAfter(close);range.collapse(true);}
+                const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);editor.dispatchEvent(new Event('input',{bubbles:true}));remember();
+              });
+              form.querySelector('[data-page-action="link"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="link"]')?.addEventListener('click',()=>{
+                const url=prompt('Enter the link URL (https://, http://, or mailto:):');
+                if(url&&/^(https?:\/\/|mailto:)/i.test(url.trim())){restore();document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input',{bubbles:true}));remember();}
+              });
+              form.querySelector('[data-page-action="image"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="image"]')?.addEventListener('click',()=>imageInput?.click());
+              imageInput?.addEventListener('change',async()=>{
+                const file=imageInput.files?.[0];if(!file)return;
+                if(file.size>8*1024*1024){alert('Please choose an image smaller than 8 MB.');imageInput.value='';return;}
+                const data=new FormData();data.append('csrf',form.querySelector('[name="csrf"]')?.value||'');data.append('action','upload_article_image');data.append('image',file);
+                try{
+                  const response=await fetch('admin-content.php?session_context=admin',{method:'POST',body:data,credentials:'same-origin'});
+                  const result=await response.json();if(!response.ok||!result.url)throw new Error(result.message||'The image could not be uploaded.');
+                  const figure=document.createElement('figure'),img=document.createElement('img'),caption=document.createElement('figcaption');
+                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);editor.dispatchEvent(new Event('input',{bubbles:true}));
+                }catch(error){alert(error.message||'Image upload failed.');}
+                imageInput.value='';
+              });
+              form.querySelector('[data-page-action="table"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="table"]')?.addEventListener('click',()=>{
+                const rows=Math.min(10,Math.max(1,Number(prompt('Number of table rows?','3')||0))),cols=Math.min(8,Math.max(1,Number(prompt('Number of table columns?','3')||0)));if(!rows||!cols)return;
+                const table=document.createElement('table'),tbody=document.createElement('tbody');
+                for(let y=0;y<rows;y++){const tr=document.createElement('tr');for(let x=0;x<cols;x++){const cell=document.createElement(y===0?'th':'td');cell.textContent=y===0?'Heading':'Text';tr.append(cell);}tbody.append(tr);}table.append(tbody);insertNode(table);editor.dispatchEvent(new Event('input',{bubbles:true}));
+              });
+              editor.addEventListener('input',()=>{hidden.value=editor.innerHTML;});
+              form.addEventListener('submit',()=>{hidden.value=editor.innerHTML;});
             })();
           </script>
         <?php else: ?>
