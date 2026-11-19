@@ -3087,7 +3087,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                   const response=await fetch('admin-content.php?session_context=admin',{method:'POST',body:data,credentials:'same-origin'});
                   const result=await response.json();if(!response.ok||!result.url)throw new Error(result.message||'The image could not be uploaded.');
                   const figure=document.createElement('figure'),img=document.createElement('img'),caption=document.createElement('figcaption');
-                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);
+                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);
                 }catch(error){alert(error.message||'Image upload failed.');}
                 imageInput.value='';
               });
