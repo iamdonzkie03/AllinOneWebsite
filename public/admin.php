@@ -262,6 +262,18 @@ function adminForumDateLabel(?string $value): string {
     return $time ? date('F d, Y · g:i A', $time) : '—';
 }
 
+function headerLinkSlug(string $label): string {
+    $value = trim($label);
+    if (function_exists('iconv')) {
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if ($ascii !== false) $value = $ascii;
+    }
+    $value = strtolower($value);
+    $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
+    $value = trim($value, '-');
+    return $value !== '' ? $value : 'page';
+}
+
 
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_gallery_photos (
@@ -279,6 +291,25 @@ if ($galleryFolderColumn && strtoupper((string)$galleryFolderColumn['Null']) !==
 
 $headerLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
 if (!is_array($headerLinks)) $headerLinks = [];
+$headerLinkSlugCounts = [];
+foreach ($headerLinks as &$savedHeaderLink) {
+    if (!is_array($savedHeaderLink)) continue;
+    $savedLabel = trim((string)($savedHeaderLink['label'] ?? ''));
+    if ($savedLabel === '') continue;
+    $savedUrlPath = parse_url((string)($savedHeaderLink['url'] ?? ''), PHP_URL_PATH);
+    $savedSlug = is_string($savedUrlPath) && preg_match('~^/public/([a-z0-9-]+)\\.php$~', $savedUrlPath, $savedMatch)
+        ? $savedMatch[1] : '';
+    $savedPageFile = $savedSlug !== '' ? __DIR__ . '/' . $savedSlug . '.php' : '';
+    $isExistingManagedPage = $savedPageFile !== '' && is_file($savedPageFile)
+        && str_contains((string)@file_get_contents($savedPageFile), 'ZC_HEADER_LINK_PAGE');
+    $baseSlug = $isExistingManagedPage ? $savedSlug : headerLinkSlug($savedLabel);
+    $slug = $baseSlug;
+    $suffix = 2;
+    while (isset($headerLinkSlugCounts[$slug])) $slug = $baseSlug . '-' . $suffix++;
+    $headerLinkSlugCounts[$slug] = true;
+    $savedHeaderLink['url'] = '/public/' . $slug . '.php';
+}
+unset($savedHeaderLink);
 $section = (string)($_GET['section'] ?? 'dashboard');
 $activePageTab = (string)($_GET['tab'] ?? 'header');
 if (!in_array($activePageTab, ['header','footer','contents','sections'], true)) $activePageTab = 'header';
@@ -1286,22 +1317,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             'title'=>headerTypography((array)($_POST['typography']['title'] ?? (json_decode((string)($headerSettings['typography_json'] ?? '{}'),true)['title'] ?? [])), ['family'=>$family,'style'=>$style,'size'=>$size,'weight'=>$weight,'color'=>'#f7eef0'])
         ];
         $links = [];
+        $usedHeaderSlugs = [];
         foreach ((array)($_POST['header_link_label'] ?? []) as $index => $label) {
             $label = trim((string)$label);
-            $url = trim((string)(($_POST['header_link_url'][$index] ?? '')));
-            $labelHtml = cleanHeaderRichHtml((string)(($_POST['header_link_html'][$index] ?? '')));
-            // A title may be saved before its destination is assigned. This lets
-            // administrators add and edit navigation labels independently.
-            if ($label === '' && $url === '') continue;
-            if ($label === '') {
-                $message = 'Enter a link title before saving the header link.';
-                break;
+            if ($label === '') continue;
+            $label = mb_substr($label, 0, 60);
+            $baseSlug = headerLinkSlug($label);
+            $slug = $baseSlug;
+            $suffix = 2;
+            while (isset($usedHeaderSlugs[$slug])) $slug = $baseSlug . '-' . $suffix++;
+            // Never overwrite an unrelated PHP page already present in /public.
+            while (is_file(__DIR__ . '/' . $slug . '.php')
+                && !str_contains((string)@file_get_contents(__DIR__ . '/' . $slug . '.php'), 'ZC_HEADER_LINK_PAGE')) {
+                $slug = $baseSlug . '-' . $suffix++;
             }
-            if ($url !== '' && !preg_match('~^(https?://|/|#|\\.\\./|\\./)~i', $url)) {
-                $message = 'Enter a valid Page URL (http://, https://, /, or #), or leave it blank.';
-                break;
-            }
-            $links[] = ['label'=>mb_substr($label,0,60),'label_html'=>'','url'=>mb_substr($url,0,500)];
+            $usedHeaderSlugs[$slug] = true;
+            $links[] = ['label'=>$label,'label_html'=>'','url'=>'/public/'.$slug.'.php'];
         }
         $previousLogoPath = (string)($headerSettings['logo_path'] ?? '');
         $logoPath = $previousLogoPath;
@@ -1327,6 +1358,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                         }
                     }
                 }
+            }
+        }
+        if ($message === '') {
+            // Create one small PHP wrapper per Header Link. The wrapper reuses
+            // the normal public index layout and gets its live title from the
+            // verified Header Links database row.
+            $newlyCreatedHeaderPages = [];
+            foreach ($links as $link) {
+                $pagePath = parse_url((string)$link['url'], PHP_URL_PATH);
+                if (!is_string($pagePath) || !preg_match('~^/public/([a-z0-9-]+)\\.php$~', $pagePath, $pageMatch)) {
+                    $message = 'A generated Header Link URL was invalid.';
+                    break;
+                }
+                $pageSlug = $pageMatch[1];
+                $pageFile = __DIR__ . '/' . $pageSlug . '.php';
+                if (is_file($pageFile)) {
+                    $existingSource = (string)@file_get_contents($pageFile);
+                    if (str_contains($existingSource, 'ZC_HEADER_LINK_PAGE')) continue;
+                    $message = 'The generated page file already exists and is not managed by Header Links: ' . $pageSlug . '.php';
+                    break;
+                }
+                $pageSource = "<?php\n// ZC_HEADER_LINK_PAGE: generated by Page Management. Do not edit manually.\n"
+                    . "\$generatedHeaderPageSlug = " . var_export($pageSlug, true) . ";\n"
+                    . "require dirname(__DIR__) . '/index.php';\n";
+                $tempFile = $pageFile . '.tmp-' . bin2hex(random_bytes(5));
+                if (@file_put_contents($tempFile, $pageSource, LOCK_EX) === false || !@rename($tempFile, $pageFile)) {
+                    if (is_file($tempFile)) @unlink($tempFile);
+                    $message = 'Unable to create the page for Header Link: ' . (string)$link['label'] . '. Check write permissions for the public folder.';
+                    break;
+                }
+                $newlyCreatedHeaderPages[] = $pageFile;
+            }
+            if ($message !== '') {
+                foreach ($newlyCreatedHeaderPages as $createdPage) if (is_file($createdPage)) @unlink($createdPage);
             }
         }
         if ($message === '') {
@@ -1398,6 +1463,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                     $oldLogoFile = __DIR__ . '/uploads/site-header/' . $oldLogoName;
                     if (is_file($oldLogoFile)) {
                         @unlink($oldLogoFile);
+                    }
+                }
+            }
+            // Remove only generated Header Link pages that were present in
+            // the previous saved list but are no longer referenced. The marker
+            // prevents deletion of manually-created PHP files.
+            $currentHeaderPagePaths = [];
+            foreach ($links as $link) $currentHeaderPagePaths[(string)$link['url']] = true;
+            $previousHeaderLinks = json_decode((string)($headerSettings['header_links'] ?? '[]'), true);
+            if (is_array($previousHeaderLinks)) {
+                foreach ($previousHeaderLinks as $oldLink) {
+                    $oldUrl = trim((string)($oldLink['url'] ?? ''));
+                    if ($oldUrl === '' || isset($currentHeaderPagePaths[$oldUrl])) continue;
+                    $oldPath = parse_url($oldUrl, PHP_URL_PATH);
+                    if (!is_string($oldPath) || !preg_match('~^/public/([a-z0-9-]+)\\.php$~', $oldPath, $oldMatch)) continue;
+                    $oldFile = __DIR__ . '/' . $oldMatch[1] . '.php';
+                    if (is_file($oldFile) && !is_link($oldFile)
+                        && str_contains((string)@file_get_contents($oldFile), 'ZC_HEADER_LINK_PAGE')) {
+                        @unlink($oldFile);
                     }
                 }
             }
@@ -2784,9 +2868,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <div class="header-field"><span>Header Logo</span><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>Allowed filetype: PNG, JPG, or JPEG. Maximum upload is 3MB.</small>
                 <div class="logo-crop-controls"><label>Logo width: <output id="logo-width-value"><?=(int)($headerSettings['logo_width'] ?? 200)?> px</output><input type="range" name="logo_width" id="logo-width" min="50" max="200" step="5" value="<?=max(50,min(200,(int)($headerSettings['logo_width'] ?? 200)))?>"></label><label>Logo height: <output id="logo-height-value"><?=(int)($headerSettings['logo_height'] ?? 70)?> px</output><input type="range" name="logo_height" id="logo-height" min="30" max="120" step="5" value="<?=max(30,min(120,(int)($headerSettings['logo_height'] ?? 70)))?>"></label></div>
               </div>
-              <div class="header-field"><span>Header Links</span><small>Add as many navigation links as needed. Each URL can point directly to a website page.</small>
+              <div class="header-field"><span>Header Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
                 <div id="header-links-list">
-                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field" type="text" name="header_link_url[]" maxlength="500" placeholder="Page URL (e.g. /about.php)" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
                 </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
               </div>
               <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
@@ -4330,14 +4414,37 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
       if (form) {
         const links = document.getElementById('header-links-list');
         const add = document.getElementById('add-header-link');
+        const slugifyHeaderLink = value => {
+          const normalized=String(value||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
+          return normalized.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
+        };
         const makeLinkRow = (label = '', url = '') => {
           const row=document.createElement('div');row.className='header-link-row';
-          const urlInput=document.createElement('input');urlInput.className='field';urlInput.type='text';urlInput.name='header_link_url[]';urlInput.maxLength=500;urlInput.placeholder='Page URL';urlInput.value=url;
+          const urlInput=document.createElement('input');urlInput.className='field';urlInput.type='text';urlInput.name='header_link_url[]';urlInput.maxLength=500;urlInput.placeholder='/public/page-title.php';urlInput.readOnly=true;urlInput.setAttribute('aria-readonly','true');urlInput.title='Automatically generated from the link title';urlInput.value=url;
           const labelInput=document.createElement('input');labelInput.className='field';labelInput.type='text';labelInput.name='header_link_label[]';labelInput.maxLength=60;labelInput.placeholder='Link title';labelInput.setAttribute('aria-label','Link title');labelInput.value=label;
           const remove=document.createElement('button');remove.type='button';remove.className='btn light remove-header-link';remove.textContent='Remove';remove.addEventListener('click',()=>{row.remove();updatePreview();});
           row.append(urlInput,labelInput,remove);return row;
         };
         const editorText = row => row.querySelector('[name="header_link_label[]"]')?.value || '';
+        const refreshGeneratedUrls = () => {
+          const used=new Map();
+          [...links.querySelectorAll('.header-link-row')].forEach(row=>{
+            const label=editorText(row).trim(),urlField=row.querySelector('[name="header_link_url[]"]');
+            const unchanged=label===String(urlField.dataset.generatedLabel??'');
+            let slug='';
+            if(unchanged){
+              const match=urlField.value.match(/^\/public\/([a-z0-9-]+)\.php$/i);
+              if(match)slug=match[1].toLowerCase();
+            }
+            const base=slug||slugifyHeaderLink(label);
+            slug=base;
+            let count=2;
+            while(used.has(slug))slug=base+'-'+count++;
+            used.set(slug,true);
+            urlField.value=label?'/public/'+slug+'.php':'';
+            urlField.dataset.generatedLabel=label;
+          });
+        };
         const updatePreview = () => {
           const titleEditor=form.querySelector('[data-rich-editor="title"]'),leftEditor=form.querySelector('[data-rich-editor="hidden_left"]'),rightEditor=form.querySelector('[data-rich-editor="hidden_right"]');
           if(document.activeElement!==titleEditor && titleEditor.value.trim()!==form.elements.header_title.value.trim())titleEditor.value=form.elements.header_title.value;
@@ -4360,6 +4467,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           document.getElementById('preview-hidden-left').innerHTML=form.querySelector('[data-rich-editor="hidden_left"]').innerHTML;
           document.getElementById('preview-hidden-right').innerHTML=form.querySelector('[data-rich-editor="hidden_right"]').innerHTML;
           const nav=document.getElementById('preview-header-links'); nav.querySelectorAll('.custom-preview-link').forEach(a=>a.remove());
+          refreshGeneratedUrls();
           [...links.querySelectorAll('.header-link-row')].forEach(row=>{const label=editorText(row).trim();const url=row.querySelector('[name="header_link_url[]"]').value.trim();if(label){const a=document.createElement('a');a.className='custom-preview-link';a.textContent=label;a.href=url||'#';nav.insertBefore(a,nav.querySelector('.preview-signin'));}});
           const logo=document.getElementById('preview-header-logo');
           const logoWidth=form.elements.logo_width.value,logoHeight=form.elements.logo_height.value;

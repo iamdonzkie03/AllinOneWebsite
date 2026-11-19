@@ -122,6 +122,31 @@ $publicFooter = array_replace($defaultPublicFooter, $publicFooter);
 $publicHeaderTitle = trim((string)($publicHeader['header_title'] ?? ''));
 $publicHeaderLinks = json_decode((string)($publicHeader['header_links'] ?? '[]'), true);
 if (!is_array($publicHeaderLinks)) $publicHeaderLinks = [];
+$generatedHeaderPageTitle = null;
+$generatedHeaderPageNotFound = false;
+if (isset($generatedHeaderPageSlug)) {
+    $requestedGeneratedSlug = (string)$generatedHeaderPageSlug;
+    if (!preg_match('/^[a-z0-9-]+$/', $requestedGeneratedSlug)) {
+        $generatedHeaderPageNotFound = true;
+    } else {
+        foreach ($publicHeaderLinks as $publicLink) {
+            if (!is_array($publicLink)) continue;
+            $publicLinkPath = parse_url((string)($publicLink['url'] ?? ''), PHP_URL_PATH);
+            if ($publicLinkPath === '/public/' . $requestedGeneratedSlug . '.php') {
+                $generatedHeaderPageTitle = trim((string)($publicLink['label'] ?? ''));
+                break;
+            }
+        }
+        if ($generatedHeaderPageTitle === null || $generatedHeaderPageTitle === '') {
+            $generatedHeaderPageNotFound = true;
+            $generatedHeaderPageTitle = 'Page not found';
+        }
+    }
+}
+$publicAppScriptDirectory = dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+if (isset($generatedHeaderPageSlug)) $publicAppScriptDirectory = dirname($publicAppScriptDirectory);
+$publicAppBasePath = rtrim($publicAppScriptDirectory, '/') . '/';
+if ($publicAppBasePath === '') $publicAppBasePath = '/';
 $publicHeaderFamily = in_array(($publicHeader['font_family'] ?? 'Ubuntu'), ['Ubuntu','Georgia','Arial','Roboto','Verdana','Tahoma'], true) ? $publicHeader['font_family'] : 'Ubuntu';
 $publicHeaderStyle = ($publicHeader['font_style'] ?? 'normal') === 'italic' ? 'italic' : 'normal';
 $publicHeaderSize = max(12, min(32, (int)($publicHeader['font_size'] ?? 20)));
@@ -605,8 +630,9 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<?php if ($generatedHeaderPageTitle !== null): ?><base href="<?=e($publicAppBasePath)?>"><?php endif; ?>
 <meta name="description" content="Explore Zamboanga City's history and culture, photography, community news, marketplace, entertainment and public affairs.">
-<title><?=e($config['app']['name'])?> — Zamboanga stories, culture and community</title>
+<title><?=e($generatedHeaderPageTitle !== null ? $generatedHeaderPageTitle . ' — ' . $config['app']['name'] : $config['app']['name'] . ' — Zamboanga stories, culture and community')?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="public/assets/css/site.css?v=stories-slider-20261110">
 <style>.public-forum-section{padding-top:8px}.public-forum-heading{margin:0 0 24px}.public-forum-heading h2{margin:6px 0 8px;color:#f7eef0;font-size:clamp(26px,3vw,36px)}.public-forum-count{margin:10px 0 0;color:#d79aa5;font-size:12px;font-weight:700}.public-forum-list{overflow:hidden;border:1px solid rgba(190,75,98,.28);border-radius:13px;background:rgba(18,11,15,.94);box-shadow:0 14px 36px rgba(0,0,0,.2)}.public-forum-list-head,.public-forum-thread{display:grid;grid-template-columns:minmax(0,1fr) minmax(145px,190px) minmax(130px,170px);gap:18px;align-items:center}.public-forum-list-head{padding:13px 20px;background:rgba(111,31,49,.25);border-bottom:1px solid rgba(190,75,98,.24);color:#d9aab4;font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase}.public-forum-thread{min-width:0;padding:19px 20px;border-bottom:1px solid rgba(255,255,255,.09);transition:background .18s}.public-forum-thread:last-child{border-bottom:0}.public-forum-thread:hover{background:rgba(119,35,55,.12)}.public-forum-topic{min-width:0}.public-forum-thread-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}.public-forum-prefix{display:inline-flex;padding:4px 8px;border-radius:4px;background:rgba(177,55,78,.17);color:#f0b7c1;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}.public-forum-date,.public-forum-thread-footer{color:#b9aab0;font-size:11px}.public-forum-topic h3{margin:0 0 6px;color:#fff;font-size:15px;line-height:1.4}.public-forum-description{color:#cbbec3;font-size:11px;line-height:1.55;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.public-forum-description p{display:inline;margin:0}.public-forum-description img,.public-forum-description video{display:none}.public-forum-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.public-forum-tags span{padding:3px 7px;border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#d9c5cc;font-size:9px}.public-forum-author{min-width:0;color:#eee0e5;font-size:12px;font-weight:700;overflow-wrap:anywhere}.public-forum-author small{display:block;margin-top:4px;color:#a99ba1;font-size:10px;font-weight:400}.public-forum-activity{color:#d0c1c7;font-size:11px;line-height:1.55}.public-forum-activity strong{display:block;color:#f0dce2;font-size:11px;font-weight:600}.public-forum-attachments{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.public-forum-attachments img,.public-forum-attachments video{width:min(100%,150px);height:92px;object-fit:cover;border-radius:7px;background:#080808}.public-forum-file{display:flex;align-items:center;max-width:200px;min-height:48px;padding:8px;border:1px solid rgba(255,255,255,.13);border-radius:7px;color:#f1c4cc;font-size:10px;overflow-wrap:anywhere}.public-forum-empty{padding:25px;border:1px solid rgba(190,75,98,.22);border-radius:13px;background:rgba(30,15,22,.8)}.public-forum-empty h3{margin:0 0 8px;color:#fff}.public-forum-empty p{margin:0}@media(max-width:760px){.public-forum-list-head{display:none}.public-forum-thread{grid-template-columns:minmax(0,1fr);gap:10px;padding:16px}.public-forum-author,.public-forum-activity{padding-left:0}.public-forum-author small{display:inline;margin-left:7px}.public-forum-activity strong{display:inline;margin-right:5px}}.module-page-head{padding:54px 0 20px}.module-page-head h1{margin:8px 0 12px;color:#f7eef0;font-size:clamp(30px,4vw,46px)}.module-page-head .muted{max-width:760px;line-height:1.7}.public-forum-page-head .muted{max-width:none;width:100%;}.module-page-head .btn{margin-top:12px}.header-text-bar{background:#09090b;color:#b6c0b8;border-bottom:1px solid rgba(255,255,255,.1);font:10px Ubuntu,sans-serif;letter-spacing:1.2px}.header-text-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 22px}.header-text-inner span{max-width:48%;overflow-wrap:anywhere}.header-text-inner .header-type-right{text-align:right}.nav .brand{display:flex;align-items:center;gap:12px;min-width:0}.nav .brand img{flex:0 0 auto}.nav .brand .public-header-title{overflow-wrap:anywhere}.nav .navlinks{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-end;gap:19px;white-space:nowrap}.nav .navlinks .header-type-link-0,.nav .navlinks [class^="header-type-link-"],.nav .navlinks>a:not(.btn){font-family:inherit!important;font-size:12px!important;font-weight:500!important;font-style:normal!important;line-height:1.2!important;letter-spacing:normal!important;text-transform:none!important;white-space:nowrap!important}.nav .navlinks [class^="header-type-link-"]{color:inherit!important;text-decoration:none}.creator-account-menu{position:relative;display:inline-flex;align-items:center}
@@ -649,7 +675,7 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <header id="public-site-header" data-header-source="page-management"><div class="header-text-bar"><div class="wrap header-text-inner"><span class="header-type-left"><?=$renderHeaderRich($publicHeader['hidden_left_html'] ?? '',(string)($publicHeader['hidden_left'] ?? ''))?></span><span class="header-type-right"><?=$renderHeaderRich($publicHeader['hidden_right_html'] ?? '',(string)($publicHeader['hidden_right'] ?? ''))?></span></div></div><div class="wrap nav">
 <a class="brand" href="index.php" aria-label="Home"><?php if (!empty($publicHeader['logo_path'])): ?><img src="public/<?=e((string)$publicHeader['logo_path'])?>" alt="" style="width:<?=$publicHeaderLogoWidth?>px;height:<?=$publicHeaderLogoHeight?>px;max-width:100%;object-fit:contain;object-position:center;border-radius:0"><?php endif; ?></a>
 <nav class="navlinks">
-<?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; $headerLinkLabel = $renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label']); $headerLinkUrl = trim((string)($headerLink['url'] ?? '')); ?><?php if ($headerLinkUrl !== ''): ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e($headerLinkUrl)?>"><?=$headerLinkLabel?></a><?php else: ?><span class="header-type-link-<?= (int)$headerLinkIndex ?>"><?=$headerLinkLabel?></span><?php endif; ?><?php endforeach; ?>
+<?php foreach ($publicHeaderLinks as $headerLinkIndex => $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; $headerLinkLabel = $renderHeaderRich($headerLink['label_html'] ?? '',(string)$headerLink['label']); $headerLinkUrl = trim((string)($headerLink['url'] ?? '')); $headerLinkHref = preg_match('~^(https?://|mailto:|#)~i',$headerLinkUrl) ? $headerLinkUrl : $publicAppBasePath . ltrim($headerLinkUrl, '/'); ?><?php if ($headerLinkUrl !== ''): ?><a class="header-type-link-<?= (int)$headerLinkIndex ?>" href="<?=e($headerLinkHref)?>"><?=$headerLinkLabel?></a><?php else: ?><span class="header-type-link-<?= (int)$headerLinkIndex ?>"><?=$headerLinkLabel?></span><?php endif; ?><?php endforeach; ?>
 <?php if ($isCreatorSignedIn): ?>
 <?php $creatorPhotoRaw=trim((string)($currentPublicUser['creator_profile_photo']??'')); $creatorPhotoUrl=$creatorPhotoRaw!==''?(preg_match('~^https?://~i',$creatorPhotoRaw)?$creatorPhotoRaw:'public/'.ltrim($creatorPhotoRaw,'/')):''; $creatorInitials=mb_strtoupper(mb_substr($creatorHeaderNickname,0,1,'UTF-8'),'UTF-8'); ?>
 <div class="creator-account-menu" id="creator-account-menu">
@@ -666,6 +692,13 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <?php else: ?><a href="#sign-in-modal" id="open-sign-in">Sign in</a><a class="btn" href="#create-account-modal" id="open-create-account">Join the Community</a><?php endif; ?>
 </nav></div></header>
 <main>
+<?php if ($generatedHeaderPageTitle !== null): ?>
+<section class="section module-page-head"><div class="wrap">
+  <div class="eyebrow">Z.C. commonplace</div>
+  <h1><?=e($generatedHeaderPageTitle)?></h1>
+  <?php if ($generatedHeaderPageNotFound): ?><p class="muted">This page is no longer available.</p><?php endif; ?>
+</div></section>
+<?php else: ?>
 <?php $publicSections=$sectionsSettings ?? []; $bannerSection=$publicSections['banner']??[]; ?>
 <?php if (!$moduleView): ?>
 <section class="hero home-hero"><div class="wrap hero-grid"><div>
@@ -931,6 +964,7 @@ document.addEventListener('DOMContentLoaded',function(){
 
 <?php endif; ?></div></section>
 
+<?php endif; ?>
 </main>
 
 <div class="register-modal" id="create-account-modal" aria-hidden="true"><div class="register-dialog" role="dialog" aria-modal="true" aria-label="Create an Account"><button type="button" class="register-close" id="close-create-account" aria-label="Close create account">×</button><iframe src="public/register.php" title="Create an Account" loading="lazy"></iframe></div></div>
