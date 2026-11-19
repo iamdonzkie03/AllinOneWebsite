@@ -308,7 +308,7 @@ foreach ($headerLinks as &$savedHeaderLink) {
     // Reuse the exact managed filename already saved for this link. This keeps
     // editor routing aligned when a filename needed a collision-avoidance suffix.
     $storedPath = parse_url((string)($savedHeaderLink['url'] ?? ''), PHP_URL_PATH);
-    if (is_string($storedPath) && preg_match('~^/public/([a-z0-9-]+)\\.php$~', $storedPath, $storedMatch)) {
+    if (is_string($storedPath) && preg_match('~^/public/([a-z0-9&-]+)\\.php$~', $storedPath, $storedMatch)) {
         $storedFile = __DIR__ . '/' . $storedMatch[1] . '.php';
         if (is_file($storedFile) && !is_link($storedFile)
             && str_contains((string)@file_get_contents($storedFile), 'ZC_HEADER_LINK_PAGE')
@@ -328,7 +328,7 @@ unset($savedHeaderLink);
 $activeHeaderPageSlug = trim((string)($_GET['header_page'] ?? ''));
 $activeHeaderPageTitle = '';
 $activeHeaderPageContent = '';
-if ($activeHeaderPageSlug !== '' && preg_match('/^[a-z0-9-]+$/', $activeHeaderPageSlug)) {
+if ($activeHeaderPageSlug !== '' && preg_match('/^[a-z0-9&-]+$/', $activeHeaderPageSlug)) {
     foreach ($headerLinks as $headerLink) {
         $linkPath = parse_url((string)($headerLink['url'] ?? ''), PHP_URL_PATH);
         if ($linkPath === '/public/' . $activeHeaderPageSlug . '.php') {
@@ -1405,7 +1405,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             $newlyCreatedHeaderPages = [];
             foreach ($links as $link) {
                 $pagePath = parse_url((string)$link['url'], PHP_URL_PATH);
-                if (!is_string($pagePath) || !preg_match('~^/public/([a-z0-9-]+)\\.php$~', $pagePath, $pageMatch)) {
+                if (!is_string($pagePath) || !preg_match('~^/public/([a-z0-9&-]+)\\.php$~', $pagePath, $pageMatch)) {
                     $message = 'A generated Header Link URL was invalid.';
                     break;
                 }
@@ -1515,7 +1515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                     $oldUrl = trim((string)($oldLink['url'] ?? ''));
                     if ($oldUrl === '' || isset($currentHeaderPagePaths[$oldUrl])) continue;
                     $oldPath = parse_url($oldUrl, PHP_URL_PATH);
-                    if (!is_string($oldPath) || !preg_match('~^/public/([a-z0-9-]+)\\.php$~', $oldPath, $oldMatch)) continue;
+                    if (!is_string($oldPath) || !preg_match('~^/public/([a-z0-9&-]+)\\.php$~', $oldPath, $oldMatch)) continue;
                     $oldFile = __DIR__ . '/' . $oldMatch[1] . '.php';
                     if (is_file($oldFile) && !is_link($oldFile)
                         && str_contains((string)@file_get_contents($oldFile), 'ZC_HEADER_LINK_PAGE')) {
@@ -1534,7 +1534,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             $requestedHeaderPageIndex = trim((string)($_POST['create_header_page_index'] ?? ''));
             if ($requestedHeaderPageIndex !== '') {
                 $requestedHeaderPageSlug = $headerPageSlugsByInputIndex[$requestedHeaderPageIndex] ?? '';
-                if ($requestedHeaderPageSlug !== '' && preg_match('/^[a-z0-9-]+$/', $requestedHeaderPageSlug)) {
+                if ($requestedHeaderPageSlug !== '' && preg_match('/^[a-z0-9&-]+$/', $requestedHeaderPageSlug)) {
                     header('Location: admin.php?section=page-management&tab=header&header_page=' . rawurlencode($requestedHeaderPageSlug) . '#pm-panel-header', true, 303);
                     exit;
                 }
@@ -1548,7 +1548,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
     if ($action === 'save_header_link_page') {
         $slug = trim((string)($_POST['header_page_slug'] ?? ''));
         $pageTitle = '';
-        if ($slug !== '' && preg_match('/^[a-z0-9-]+$/', $slug)) {
+        if ($slug !== '' && preg_match('/^[a-z0-9&-]+$/', $slug)) {
             foreach ($headerLinks as $link) {
                 $path = parse_url((string)($link['url'] ?? ''), PHP_URL_PATH);
                 if ($path === '/public/' . $slug . '.php') {
