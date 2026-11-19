@@ -1924,7 +1924,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <button type="button" class="btn" id="account-status-modal-close">OK</button>
   </div>
 </div>
-<?php elseif($message):?><div class="panel" style="margin-bottom:20px"><?=e($message)?></div><?php endif;?>
+<?php elseif($message && !(isset($deletedUserCount) && $deletedUserCount > 0)):?><div class="panel" style="margin-bottom:20px"><?=e($message)?></div><?php endif;?>
 <?php if($section==='dashboard'):?>
   <div class="admin-topline"><div><div class="eyebrow">System control</div><h1 class="admin-heading">Dashboard</h1><p class="muted">A clear overview of your website, accounts, and content activity.</p></div><a class="btn" href="<?=e(adminUrl('user-accounts'))?>">Manage accounts <span aria-hidden="true">→</span></a></div>
   <div class="admin-stats"><div class="admin-stat"><span>Contributor accounts</span><strong><?=$totalUsers?></strong></div><div class="admin-stat"><span>Active accounts</span><strong><?=$activeUsers?></strong></div><div class="admin-stat"><span>Published content</span><strong><?=$publishedContent?></strong></div></div>
