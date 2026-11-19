@@ -3044,12 +3044,31 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                 editor.dispatchEvent(new Event('input',{bubbles:true}));
               };
               const wrapStyle=(property,value)=>{
-                const range=restore();if(!range||range.collapsed)return;
-                const span=document.createElement('span');span.style[property]=value;
-                try{range.surroundContents(span);}catch(error){span.append(range.extractContents());range.insertNode(span);}
-                const selection=window.getSelection(),next=document.createRange();next.selectNodeContents(span);
-                selection.removeAllRanges();selection.addRange(next);remember();
+                // Clone the saved range BEFORE focusing the editor. Focusing a
+                // contenteditable after a native <select> change can replace the
+                // browser selection; restoring afterward from a live Range is
+                // unreliable in some browsers.
+                const range=savedRange&&editor.contains(savedRange.commonAncestorContainer)
+                  ? savedRange.cloneRange()
+                  : null;
+                if(!range||range.collapsed)return false;
+                editor.focus({preventScroll:true});
+                const selection=window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                const activeRange=selection.getRangeAt(0);
+                const span=document.createElement('span');
+                const cssProperty=property.replace(/[A-Z]/g,letter=>'-'+letter.toLowerCase());
+                span.style.setProperty(cssProperty,String(value));
+                try{activeRange.surroundContents(span);}
+                catch(error){span.append(activeRange.extractContents());activeRange.insertNode(span);}
+                const next=document.createRange();
+                next.selectNodeContents(span);
+                selection.removeAllRanges();
+                selection.addRange(next);
+                savedRange=next.cloneRange();
                 editor.dispatchEvent(new Event('input',{bubbles:true}));
+                return true;
               };
               editor.addEventListener('keyup',remember);editor.addEventListener('mouseup',remember);editor.addEventListener('touchend',remember);
               form.querySelectorAll('[data-page-command]').forEach(button=>{
