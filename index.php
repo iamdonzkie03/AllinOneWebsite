@@ -131,7 +131,7 @@ $generatedHeaderPageTitle = null;
 $generatedHeaderPageNotFound = false;
 if (isset($generatedHeaderPageSlug)) {
     $requestedGeneratedSlug = (string)$generatedHeaderPageSlug;
-    if (!preg_match('/^[a-z0-9-]+$/', $requestedGeneratedSlug)) {
+    if (!preg_match('/^[a-z0-9&-]+$/', $requestedGeneratedSlug)) {
         $generatedHeaderPageNotFound = true;
     } else {
         foreach ($publicHeaderLinks as $publicLink) {
