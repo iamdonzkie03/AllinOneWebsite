@@ -261,8 +261,11 @@ function adminForumPlainText(string $value): string {
 function adminForumDateLabel(?string $value): string {
     if (!$value) return '—';
     $time = strtotime($value);
-    return $time ? date('F d, Y · g:i A', $time) : '—';
+    return $time ? date('F d, Y · h:i:s A', $time) : '—';
 }
+
+function adminDateLabel(?string $value): string { if (!$value) return '—'; $time=strtotime($value); return $time ? date('F d, Y',$time) : '—'; }
+function adminTimeLabel(?string $value): string { if (!$value) return '—'; $time=strtotime($value); return $time ? date('h:i:s A',$time) : '—'; }
 
 function headerLinkSlug(string $label): string {
     $value = trim($label);
@@ -462,6 +465,35 @@ if($requestBodyTooLarge){
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'update_system_admin_profile') {
+        $section = 'user-accounts';
+        $adminId = (int)$admin['id'];
+        $last = trim((string)($_POST['lastname'] ?? ''));
+        $first = trim((string)($_POST['firstname'] ?? ''));
+        $middle = trim((string)($_POST['middlename'] ?? ''));
+        $suffix = trim((string)($_POST['suffix'] ?? ''));
+        $nickname = trim((string)($_POST['nickname'] ?? ''));
+        $email = strtolower(trim((string)($_POST['email'] ?? '')));
+        $birthdate = trim((string)($_POST['birthdate'] ?? ''));
+        $birthplace = trim((string)($_POST['birthplace'] ?? ''));
+        $mobile = trim((string)($_POST['mobile_no'] ?? ''));
+        $fullName = trim($first . ' ' . $middle . ' ' . $last . ' ' . $suffix);
+        if ($last === '' || $first === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $message = 'Please provide a valid email address, first name and last name.';
+        } else {
+            $emailCheck = $pdo->prepare('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1');
+            $emailCheck->execute([$email, $adminId]);
+            if ($emailCheck->fetchColumn()) {
+                $message = 'That email address is already in use by another account.';
+            } else {
+                $updateAdmin = $pdo->prepare("UPDATE users SET lastname=?,firstname=?,middlename=?,suffix=?,full_name=?,nickname=?,email=?,birthdate=?,birthplace=?,mobile_no=? WHERE id=? AND role='system_admin'");
+                $updateAdmin->execute([$last,$first,$middle !== '' ? $middle : null,$suffix !== '' ? $suffix : null,$fullName,$nickname !== '' ? $nickname : null,$email,$birthdate !== '' ? $birthdate : null,$birthplace !== '' ? $birthplace : null,$mobile !== '' ? $mobile : null,$adminId]);
+                header('Location: admin.php?section=user-accounts&system_admin_saved=1', true, 303);
+                exit;
+            }
+        }
+    }
 
     if ($action === 'delete_selected_forum_posts') {
       $section='page-management';
@@ -1942,15 +1974,44 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     $adminLast=trim((string)($systemAdminAccount['lastname'] ?? '')); $adminFirst=trim((string)($systemAdminAccount['firstname'] ?? '')); $adminMiddle=trim((string)($systemAdminAccount['middlename'] ?? '')); $adminSuffix=trim((string)($systemAdminAccount['suffix'] ?? ''));
     $adminMiddleInitial=$adminMiddle!=='' ? mb_strtoupper(mb_substr($adminMiddle,0,1,'UTF-8'),'UTF-8').'.' : '';
     $systemAdminDisplayName=($adminLast!=='' || $adminFirst!=='') ? $adminLast.($adminFirst!==''?', '.$adminFirst:'').($adminSuffix!==''?' '.$adminSuffix:'').($adminMiddleInitial!==''?', '.$adminMiddleInitial:'') : (string)$systemAdminAccount['full_name'];
-    $systemAdminStatus=($systemAdminAccount['account_status'] ?? '')==='approved' ? 'Active' : 'Inactive';
   ?>
   <section class="panel admin-panel system-admin-account-panel">
-    <div class="admin-panel-head"><h2>Account of the System Administrator</h2><span class="status"><?=e($systemAdminStatus)?></span></div>
+    <div class="admin-panel-head"><h2>My Account</h2><button type="button" class="btn" id="edit-system-admin-account">Edit</button></div>
     <div class="table-wrap"><table class="table users-table"><thead><tr><th>Full Name</th><th>Email Address</th><th>Nickname</th><th>Birthdate</th><th>Birthplace</th><th>Contact</th><th>Date Created</th><th>Last Update</th></tr></thead><tbody>
-      <tr><td><strong class="user-full-name"><?=e($systemAdminDisplayName)?></strong></td><td><?=e($systemAdminAccount['email'] ?? '—')?></td><td><?=e($systemAdminAccount['nickname'] ?? '—')?></td><td><?=e($systemAdminAccount['birthdate'] ?? '—')?></td><td><?=e($systemAdminAccount['birthplace'] ?? '—')?></td><td><?=e($systemAdminAccount['mobile_no'] ?? '—')?></td><td><?=e($systemAdminAccount['created_at'] ?? '—')?></td><td><?=e($systemAdminAccount['updated_at'] ?? '—')?></td></tr>
+      <tr><td><strong class="user-full-name"><?=e($systemAdminDisplayName)?></strong></td><td><?=e($systemAdminAccount['email'] ?? '—')?></td><td><?=e($systemAdminAccount['nickname'] ?? '—')?></td><td><?=e(adminDateLabel((string)($systemAdminAccount['birthdate'] ?? '')))?></td><td><?=e($systemAdminAccount['birthplace'] ?? '—')?></td><td><?=e($systemAdminAccount['mobile_no'] ?? '—')?></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span></td></tr>
     </tbody></table></div>
   </section>
+  <div class="account-status-modal system-admin-edit-modal" id="system-admin-edit-modal" hidden><div class="account-status-modal-card system-admin-edit-card" role="dialog" aria-modal="true" aria-labelledby="system-admin-edit-title">
+    <h2 id="system-admin-edit-title">Edit My Account</h2>
+    <form method="post" class="system-admin-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="update_system_admin_profile">
+      <div class="system-admin-edit-grid">
+        <label>Last Name<input name="lastname" required value="<?=e($systemAdminAccount['lastname'] ?? '')?>"></label>
+        <label>First Name<input name="firstname" required value="<?=e($systemAdminAccount['firstname'] ?? '')?>"></label>
+        <label>Middle Name<input name="middlename" value="<?=e($systemAdminAccount['middlename'] ?? '')?>"></label>
+        <label>Suffix<input name="suffix" value="<?=e($systemAdminAccount['suffix'] ?? '')?>"></label>
+        <label>Nickname<input name="nickname" value="<?=e($systemAdminAccount['nickname'] ?? '')?>"></label>
+        <label>Email Address<input type="email" name="email" required value="<?=e($systemAdminAccount['email'] ?? '')?>"></label>
+        <label>Birthdate<input type="date" name="birthdate" value="<?=e($systemAdminAccount['birthdate'] ?? '')?>"></label>
+        <label>Birthplace<input name="birthplace" value="<?=e($systemAdminAccount['birthplace'] ?? '')?>"></label>
+        <label>Contact Number<input name="mobile_no" value="<?=e($systemAdminAccount['mobile_no'] ?? '')?>"></label>
+      </div>
+      <div class="system-admin-edit-actions"><button type="button" class="btn light" id="system-admin-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div>
+    </form>
+  </div></div>
   <?php endif; ?>
+  <?php if(($_GET['system_admin_saved'] ?? '')==='1'): ?><div class="account-status-modal" id="system-admin-saved-modal"><div class="account-status-modal-card" role="dialog" aria-modal="true"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2>My Account successfully updated.</h2><button type="button" class="btn" id="system-admin-saved-close">OK</button></div></div><?php endif; ?>
+  <script>
+  (() => {
+    const modal=document.getElementById('system-admin-edit-modal');
+    const open=document.getElementById('edit-system-admin-account');
+    const cancel=document.getElementById('system-admin-edit-cancel');
+    const saved=document.getElementById('system-admin-saved-modal');
+    const savedClose=document.getElementById('system-admin-saved-close');
+    if(open&&modal)open.addEventListener('click',()=>{modal.hidden=false;});
+    if(cancel&&modal)cancel.addEventListener('click',()=>{modal.hidden=true;});
+    if(savedClose&&saved)savedClose.addEventListener('click',()=>saved.remove());
+  })();
+  </script>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
   <form id="bulk-users" method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_users">
   <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="submit" disabled aria-disabled="true" id="users-delete-selected">Delete Selected</button></div>
@@ -1962,14 +2023,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     $active = $u['account_status'] === 'approved';
   ?><tr>
   <td class="user-select-cell"><input type="checkbox" class="user-select" name="selected_users[]" value="<?=(int)$u['id']?>" form="bulk-users" aria-label="Select <?=e($displayName)?>"></td>
-  <td><strong class="user-full-name"><?=e($displayName)?></strong><span class="user-subdetails">Nickname: <?=e($u['nickname'] ?? '—')?> · Birthdate: <?=e($u['birthdate'] ?? '—')?> · Birthplace: <?=e($u['birthplace'] ?? '—')?> · Contact: <?=e($u['mobile_no'] ?? '—')?></span></td>
-  <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><?=e($u['created_at'])?></td><td><?=e($u['updated_at'])?></td>
+  <td><strong class="user-full-name"><?=e($displayName)?></strong><span class="user-subdetails">Nickname: <?=e($u['nickname'] ?? '—')?> · Birthdate: <?=e(adminDateLabel((string)($u['birthdate'] ?? '')))?> · Birthplace: <?=e($u['birthplace'] ?? '—')?> · Contact: <?=e($u['mobile_no'] ?? '—')?></span></td>
+  <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><span><?=e(adminDateLabel((string)($u['created_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($u['created_at'] ?? '')))?></span></td><td><span><?=e(adminDateLabel((string)($u['updated_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($u['updated_at'] ?? '')))?></span></td>
   <td><?php if (empty($u['email_verified_at'])): ?><span class="pending-email-verification">Pending Email Verification</span><?php else: ?><form method="post" class="user-actions"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$u['id']?>"><input type="hidden" name="next_status" value="<?=$active?'suspended':'approved'?>"><button class="user-toggle<?=$active?'':' inactive'?>" name="action" value="toggle_user_status" type="submit" role="switch" aria-checked="<?=$active?'true':'false'?>" aria-label="Account status: <?=$active?'Active':'Inactive'?>"><span class="toggle-knob" aria-hidden="true"></span><span><?=$active?'Active':'Inactive'?></span></button></form><?php endif; ?></td>
   </tr><?php endforeach;?>
   <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></form></section>
   <div class="account-status-modal users-delete-confirm-modal" id="users-delete-confirm-modal" hidden><div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="users-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="users-delete-confirm-title">Delete Selected Account/s?</h2><p>Are you sure you want to delete the selected account/s?</p><p><strong>Total Accounts: <span id="users-delete-confirm-count">0</span></strong></p><div class="users-delete-modal-actions"><button type="button" class="btn light" id="users-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="users-delete-confirm">Delete</button></div></div></div>
   <?php if(isset($deletedUserCount) && $deletedUserCount > 0): ?><div class="account-status-modal users-delete-success-modal" id="users-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="users-delete-success-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="users-delete-success-title"><?=e($message)?></h2><button type="button" class="btn" id="users-delete-success-close">OK</button></div></div><?php endif; ?>
   <style>
+  .system-admin-edit-modal[hidden]{display:none!important}.system-admin-edit-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(5px)}.system-admin-edit-card{width:min(760px,100%);max-height:90vh;overflow:auto}.system-admin-edit-form{margin-top:18px}.system-admin-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.system-admin-edit-grid label{display:grid;gap:6px;color:var(--muted);font-size:12px}.system-admin-edit-grid input{width:100%;min-width:0;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:10px 11px;font:inherit}.system-admin-edit-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}@media(max-width:600px){.system-admin-edit-grid{grid-template-columns:1fr}}
   .users-table-controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.users-table-controls label{display:flex;align-items:center;gap:9px}.users-table-controls select,.users-table-controls input{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}.users-table-controls input{width:min(280px,65vw)}.users-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 22px}.users-page-buttons{display:flex;align-items:center;gap:8px}.users-page-buttons .btn{padding:8px 12px;font-size:12px}.users-page-buttons .btn:disabled{opacity:.4;cursor:not-allowed}
  
 /* Reproduce the actual public site.css Mega Menu rules inside the admin preview.
