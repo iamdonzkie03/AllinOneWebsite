@@ -4433,7 +4433,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
             const unchanged=label===String(urlField.dataset.generatedLabel??'');
             let slug='';
             if(unchanged){
-              const match=urlField.value.match(/^\\/public\\/([a-z0-9-]+)\\.php$/i);
+              const match=urlField.value.match(/^\/public\/([a-z0-9-]+)\.php$/i);
               if(match)slug=match[1].toLowerCase();
             }
             const base=slug||slugifyHeaderLink(label);
