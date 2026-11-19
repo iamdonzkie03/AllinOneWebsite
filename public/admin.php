@@ -410,76 +410,152 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
         if(!$threadIds&&!$contentIds)$message='Select at least one Forum post to delete.';
         else {
           try {
-            $pdo->beginTransaction();$deleted=0;$paths=[];
+            $pdo->beginTransaction();
+            $deleted=0;
+            $paths=[];
+            $articleFiles=[];
+
+            // Resolve upload paths relative to public/admin.php (this file is already
+            // inside /public). Never allow a stored path to escape an upload directory.
+            $queueUpload = static function(string $storedPath, array $allowedRoots) use (&$paths): void {
+              $storedPath=html_entity_decode(str_replace('\\\\','/',trim($storedPath)),ENT_QUOTES|ENT_HTML5,'UTF-8');
+              $urlPath=(string)(parse_url($storedPath,PHP_URL_PATH)??$storedPath);
+              $urlPath=ltrim(str_replace('\\\\','/',$urlPath),'/');
+              foreach($allowedRoots as $root){
+                $prefix=rtrim($root,'/').'/';
+                if(!str_starts_with($urlPath,$prefix))continue;
+                $relative=substr($urlPath,strlen($prefix));
+                if($relative===''||str_contains($relative,'..'))continue;
+                $base=realpath(__DIR__.'/'.$root);
+                $real=realpath(__DIR__.'/'.$root.'/'.$relative);
+                if($base&&$real&&str_starts_with($real,$base.DIRECTORY_SEPARATOR)&&is_file($real)&&!is_link($real))$paths[$real]=$real;
+                break;
+              }
+            };
+
             if($threadIds){
               $marks=implode(',',array_fill(0,count($threadIds),'?'));
-              $q=$pdo->prepare("SELECT id FROM forum_threads WHERE panel_id=? AND id IN ($marks)");$q->execute(array_merge([$panelId],$threadIds));$valid=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
+              $q=$pdo->prepare("SELECT id,description FROM forum_threads WHERE panel_id=? AND id IN ($marks)");
+              $q->execute(array_merge([$panelId],$threadIds));
+              $validThreads=$q->fetchAll(PDO::FETCH_ASSOC);
+              $valid=array_map(static fn($row)=>(int)$row['id'],$validThreads);
+
               if($valid){
                 $marks=implode(',',array_fill(0,count($valid),'?'));
-                // Collect thread attachments and reply-editor photos before deleting their database records.
-                $files=$pdo->prepare("SELECT file_path FROM forum_thread_attachments WHERE thread_id IN ($marks)");$files->execute($valid);
-                foreach($files->fetchAll(PDO::FETCH_COLUMN) as $relative){
-                  $relative=str_replace('\\\\','/',(string)$relative);
-                  if(str_starts_with($relative,'uploads/forum-threads/')){
-                    $base=realpath(__DIR__.'/uploads/forum-threads');$real=realpath(__DIR__.'/'.$relative);
-                    if($base&&$real&&str_starts_with($real,$base.DIRECTORY_SEPARATOR)&&is_file($real))$paths[]=$real;
-                  }
-                }
+
+                // Collect all uploaded files attached to the selected threads.
+                $files=$pdo->prepare("SELECT file_path FROM forum_thread_attachments WHERE thread_id IN ($marks)");
+                $files->execute($valid);
+                foreach($files->fetchAll(PDO::FETCH_COLUMN) as $storedPath)$queueUpload((string)$storedPath,['uploads/forum-threads']);
+
+                // Include photos embedded in replies. Reply photos are stored in
+                // /public/uploads/forum_replies (not /public/public/uploads/...).
                 $replyIds=[];
                 $replyBodies=[];
-                $repliesTableCheck=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_thread_replies'");
-                $repliesTableCheck->execute();
-                if((int)$repliesTableCheck->fetchColumn()>0){
-                  $replyQuery=$pdo->prepare("SELECT id,body FROM forum_thread_replies WHERE thread_id IN ($marks)");
-                  $replyQuery->execute($valid);
-                  foreach($replyQuery->fetchAll(PDO::FETCH_ASSOC) as $replyRow){
-                    $replyIds[]=(int)$replyRow['id'];$replyBodies[]=(string)$replyRow['body'];
-                  }
+                $replyQuery=$pdo->prepare("SELECT id,body FROM forum_thread_replies WHERE thread_id IN ($marks)");
+                $replyQuery->execute($valid);
+                foreach($replyQuery->fetchAll(PDO::FETCH_ASSOC) as $replyRow){
+                  $replyIds[]=(int)$replyRow['id'];
+                  $replyBodies[]=(string)$replyRow['body'];
                 }
                 foreach($replyBodies as $replyBody){
-                  if(preg_match_all('~public/uploads/forum_replies/([A-Za-z0-9._-]+)~',$replyBody,$photoMatches)){
-                    foreach($photoMatches[1] as $photoName){
-                      $photoPath=realpath(__DIR__.'/public/uploads/forum_replies/'.$photoName);
-                      $photoBase=realpath(__DIR__.'/public/uploads/forum_replies');
-                      if($photoBase&&$photoPath&&str_starts_with($photoPath,$photoBase.DIRECTORY_SEPARATOR)&&is_file($photoPath))$paths[]=$photoPath;
-                    }
+                  if(preg_match_all('~(?:^|/)public/uploads/forum_replies/([A-Za-z0-9._-]+)~',$replyBody,$photoMatches)){
+                    foreach($photoMatches[1] as $photoName)$queueUpload('public/uploads/forum_replies/'.$photoName,['public/uploads/forum_replies']);
                   }
                 }
-                // Remove reactions, reports, views, and reply records explicitly; no foreign-key cascade is assumed.
-                $relatedDeletes=[
-                  ['forum_thread_likes','thread_id'],
-                  ['forum_reports','thread_id'],
-                  ['forum_thread_views','thread_id'],
-                ];
-                foreach($relatedDeletes as [$tableName,$columnName]){
-                  $tableCheck=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?");
-                  $tableCheck->execute([$tableName]);
-                  if((int)$tableCheck->fetchColumn()>0)$pdo->prepare("DELETE FROM `$tableName` WHERE `$columnName` IN ($marks)")->execute($valid);
-                }
+
+                // Remove every dependent record explicitly before deleting the
+                // thread rows. Reports include both thread and reply targets.
+                $pdo->prepare("DELETE FROM forum_thread_likes WHERE thread_id IN ($marks)")->execute($valid);
+                $pdo->prepare("DELETE FROM forum_thread_views WHERE thread_id IN ($marks)")->execute($valid);
+                $pdo->prepare("DELETE FROM forum_reports WHERE thread_id IN ($marks)")->execute($valid);
+
                 if($replyIds){
                   $replyMarks=implode(',',array_fill(0,count($replyIds),'?'));
-                  $tableCheck=$pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='forum_reply_likes'");
-                  $tableCheck->execute();
-                  if((int)$tableCheck->fetchColumn()>0)$pdo->prepare("DELETE FROM forum_reply_likes WHERE reply_id IN ($replyMarks)")->execute($replyIds);
+                  $pdo->prepare("DELETE FROM forum_reply_likes WHERE reply_id IN ($replyMarks)")->execute($replyIds);
                   $pdo->prepare("DELETE FROM forum_thread_replies WHERE id IN ($replyMarks)")->execute($replyIds);
                 }
                 $pdo->prepare("DELETE FROM forum_thread_attachments WHERE thread_id IN ($marks)")->execute($valid);
-                $pdo->prepare("DELETE FROM forum_threads WHERE panel_id=? AND id IN ($marks)")->execute(array_merge([$panelId],$valid));$deleted+=count($valid);
+                $deleteThreads=$pdo->prepare("DELETE FROM forum_threads WHERE panel_id=? AND id IN ($marks)");
+                $deleteThreads->execute(array_merge([$panelId],$valid));
+                $deleted+=$deleteThreads->rowCount();
               }
             }
+
             if($contentIds){
-              $url=(string)($panel['url']??'');$query=[];parse_str((string)(parse_url($url,PHP_URL_QUERY)?:''),$query);
-              $slug=trim((string)($query['module']??$query['category']??''));if($slug==='')$slug=trim((string)preg_replace('/[^a-z0-9]+/i','-',strtolower((string)($panel['title']??''))),'-');
-              $cat=$pdo->prepare('SELECT id FROM categories WHERE slug=? AND parent_id IS NULL LIMIT 1');$cat->execute([$slug]);$categoryId=(int)$cat->fetchColumn();
-              if($categoryId>0){$marks=implode(',',array_fill(0,count($contentIds),'?'));$q=$pdo->prepare("DELETE FROM content WHERE category_id=? AND id IN ($marks) AND owner_id IN (SELECT id FROM users WHERE role IN ('system_admin','creator'))");$q->execute(array_merge([$categoryId],$contentIds));$deleted+=$q->rowCount();}
+              $url=(string)($panel['url']??'');
+              $query=[];
+              parse_str((string)(parse_url($url,PHP_URL_QUERY)?:''),$query);
+              $slug=trim((string)($query['module']??$query['category']??''));
+              if($slug==='')$slug=trim((string)preg_replace('/[^a-z0-9]+/i','-',strtolower((string)($panel['title']??''))),'-');
+              $cat=$pdo->prepare('SELECT id FROM categories WHERE slug=? AND parent_id IS NULL LIMIT 1');
+              $cat->execute([$slug]);
+              $categoryId=(int)$cat->fetchColumn();
+              if($categoryId>0){
+                $marks=implode(',',array_fill(0,count($contentIds),'?'));
+                $findContent=$pdo->prepare("SELECT id,body,cover_image FROM content WHERE category_id=? AND id IN ($marks) AND owner_id IN (SELECT id FROM users WHERE role IN ('system_admin','creator'))");
+                $findContent->execute(array_merge([$categoryId],$contentIds));
+                $contentRows=$findContent->fetchAll(PDO::FETCH_ASSOC);
+                foreach($contentRows as $row){
+                  $body=(string)($row['body']??'');
+                  if(preg_match_all('~(?:^|/)public/uploads/articles/([A-Za-z0-9._-]+)~',$body,$matches)){
+                    foreach($matches[1] as $filename)$articleFiles[$filename]=true;
+                  }
+                  $cover=(string)($row['cover_image']??'');
+                  if(preg_match('~(?:^|/)public/uploads/articles/(?:cover_photos/)?([A-Za-z0-9._-]+)$~',parse_url($cover,PHP_URL_PATH)?:$cover,$match))$articleFiles[$match[1]]=true;
+                }
+                $deleteContent=$pdo->prepare("DELETE FROM content WHERE category_id=? AND id IN ($marks) AND owner_id IN (SELECT id FROM users WHERE role IN ('system_admin','creator'))");
+                $deleteContent->execute(array_merge([$categoryId],$contentIds));
+                $deleted+=$deleteContent->rowCount();
+              }
             }
-            if($deleted<1){$pdo->rollBack();$message='No selected Forum posts were found to delete. Refresh the Forum list and try again.';}
-            else {
-              $pdo->commit();foreach(array_unique($paths) as $path)if(is_file($path))@unlink($path);
-              // Render the success overlay in this completed POST response. This avoids
-              // losing the feedback during a redirect/session flash cycle.
+
+            if($deleted<1){
+              $pdo->rollBack();
+              $message='No selected Forum posts were found to delete. Refresh the Forum list and try again.';
+            } else {
+              $pdo->commit();
+
+              // Files are removed only after the database transaction commits.
+              foreach($paths as $path)if(is_file($path)&&!is_link($path)&&!@unlink($path)){
+                error_log('Forum bulk delete: unable to remove uploaded file '.$path);
+              }
+
+              // Article media can be shared by other content. Keep any file still referenced.
+              if($articleFiles){
+                $stillReferenced=$pdo->prepare('SELECT COUNT(*) FROM content WHERE body LIKE ? OR cover_image LIKE ?');
+                foreach(array_keys($articleFiles) as $filename){
+                  $stillReferenced->execute(['%'.$filename.'%','%'.$filename.'%']);
+                  if((int)$stillReferenced->fetchColumn()>0)continue;
+                  $articlePath=realpath(__DIR__.'/uploads/articles/'.$filename);
+                  $articleBase=realpath(__DIR__.'/uploads/articles');
+                  if($articleBase&&$articlePath&&str_starts_with($articlePath,$articleBase.DIRECTORY_SEPARATOR)&&is_file($articlePath)&&!is_link($articlePath))@unlink($articlePath);
+                  $coverPath=realpath(__DIR__.'/uploads/articles/cover_photos/'.$filename);
+                  $coverBase=realpath(__DIR__.'/uploads/articles/cover_photos');
+                  if($coverBase&&$coverPath&&str_starts_with($coverPath,$coverBase.DIRECTORY_SEPARATOR)&&is_file($coverPath)&&!is_link($coverPath))@unlink($coverPath);
+                }
+              }
+
+              // Remove now-empty per-thread upload folders without touching other content.
+              $threadUploadRoot=realpath(__DIR__.'/uploads/forum-threads');
+              if($threadUploadRoot){
+                $directories=[];
+                foreach($paths as $path){
+                  $dir=dirname($path);
+                  while($dir!==$threadUploadRoot&&str_starts_with($dir,$threadUploadRoot.DIRECTORY_SEPARATOR)){
+                    $directories[$dir]=strlen($dir);
+                    $parent=dirname($dir);
+                    if($parent===$dir)break;
+                    $dir=$parent;
+                  }
+                }
+                arsort($directories);
+                foreach(array_keys($directories) as $dir)if(is_dir($dir)&&!scandir($dir)[2]??false)@rmdir($dir);
+              }
+
               $forumDeletedCount=$deleted;
             }
+
           } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Forum bulk delete failed: '.$e->getMessage());$message='The selected Forum posts could not be deleted. Please try again.';}
         }
       }
