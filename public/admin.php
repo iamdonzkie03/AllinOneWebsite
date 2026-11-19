@@ -304,9 +304,23 @@ foreach ($headerLinks as &$savedHeaderLink) {
     // Always derive the filename from the visible title. Do not trust a
     // previously saved URL: older generated URLs may be truncated or malformed.
     $baseSlug = headerLinkSlug($savedLabel);
-    $slug = $baseSlug;
-    $suffix = 2;
-    while (isset($headerLinkSlugCounts[$slug])) $slug = $baseSlug . '-' . $suffix++;
+    $slug = '';
+    // Reuse the exact managed filename already saved for this link. This keeps
+    // editor routing aligned when a filename needed a collision-avoidance suffix.
+    $storedPath = parse_url((string)($savedHeaderLink['url'] ?? ''), PHP_URL_PATH);
+    if (is_string($storedPath) && preg_match('~^/public/([a-z0-9-]+)\\.php$~', $storedPath, $storedMatch)) {
+        $storedFile = __DIR__ . '/' . $storedMatch[1] . '.php';
+        if (is_file($storedFile) && !is_link($storedFile)
+            && str_contains((string)@file_get_contents($storedFile), 'ZC_HEADER_LINK_PAGE')
+            && !isset($headerLinkSlugCounts[$storedMatch[1]])) {
+            $slug = $storedMatch[1];
+        }
+    }
+    if ($slug === '') {
+        $slug = $baseSlug;
+        $suffix = 2;
+        while (isset($headerLinkSlugCounts[$slug])) $slug = $baseSlug . '-' . $suffix++;
+    }
     $headerLinkSlugCounts[$slug] = true;
     $savedHeaderLink['url'] = '/public/' . $slug . '.php';
 }
