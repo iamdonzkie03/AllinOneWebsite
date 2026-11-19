@@ -467,10 +467,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 // before resolving them against the one permitted local upload folder.
                 foreach($replyBodies as $replyBody){
                   $decodedReply=html_entity_decode((string)$replyBody,ENT_QUOTES|ENT_HTML5,'UTF-8');
-                  if(preg_match_all('~(?:^|/)(?:public/)?uploads/forum_replies/([^/"\\'<>?\\#\\s]+)~i',$decodedReply,$photoMatches)){
+                  if(preg_match_all('~(?:^|/)(?:public/)?uploads/forum_replies/([^/"<>?#\\s]+)~i',$decodedReply,$photoMatches)){
                     foreach($photoMatches[1] as $photoName){
                       $photoName=rawurldecode(trim((string)$photoName));
-                      if($photoName===''||$photoName==='.'||$photoName==='..'||str_contains($photoName,'\\\\')||str_contains($photoName,'/'))continue;
+                      if(!preg_match('/^[A-Za-z0-9._-]+$/',$photoName))continue;
                       $queueUpload('public/uploads/forum_replies/'.$photoName,'public/uploads/forum_replies','uploads/forum_replies');
                     }
                   }
