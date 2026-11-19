@@ -2967,7 +2967,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                   <button type="button" data-page-command="insertHorizontalRule" title="Horizontal line">―</button>
                   <button type="button" data-page-command="undo" title="Undo">↶</button>
                   <button type="button" data-page-command="redo" title="Redo">↷</button>
-                  <input type="file" id="header-link-page-image" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" hidden>
+                  <input type="file" id="header-link-page-image" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
                 </div>
                 <div class="banner-rich-editor header-link-page-content-editor" id="header-link-page-content-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Header Link Page content" data-placeholder="Start writing your page content..."><?=sanitize_rich_content($activeHeaderPageContent)?></div>
               </div>
@@ -3020,7 +3020,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               form.querySelector('[data-page-action="link"]')?.addEventListener('mousedown',event=>event.preventDefault());
               form.querySelector('[data-page-action="link"]')?.addEventListener('click',()=>{
                 const url=prompt('Enter the link URL (https://, http://, or mailto:):');
-                if(url&&/^(https?:\\/\\/|mailto:)/i.test(url.trim())){restore();document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input',{bubbles:true}));remember();}
+                if(url&&/^(https?:\/\/|mailto:)/i.test(url.trim())){restore();document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input',{bubbles:true}));remember();}
               });
               form.querySelector('[data-page-action="image"]')?.addEventListener('mousedown',event=>event.preventDefault());
               form.querySelector('[data-page-action="image"]')?.addEventListener('click',()=>imageInput?.click());
@@ -3032,7 +3032,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                   const response=await fetch('admin-content.php?session_context=admin',{method:'POST',body:data,credentials:'same-origin'});
                   const result=await response.json();if(!response.ok||!result.url)throw new Error(result.message||'The image could not be uploaded.');
                   const figure=document.createElement('figure'),img=document.createElement('img'),caption=document.createElement('figcaption');
-                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);editor.dispatchEvent(new Event('input',{bubbles:true}));
+                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);editor.dispatchEvent(new Event('input',{bubbles:true}));
                 }catch(error){alert(error.message||'Image upload failed.');}
                 imageInput.value='';
               });
