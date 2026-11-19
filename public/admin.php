@@ -41,7 +41,7 @@ $nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1')
 $nicknameStmt->execute([(int)$admin['id']]);
 $adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
 $message = '';
-$forumDeletedCount = 0;
+$forumDeletedCount = max(0, (int)($_GET['forum_deleted_count'] ?? 0));
 $galleryDeleteSuccessNames = [];
 $galleryPhotoDeleteSuccessCount = max(0, (int)($_SESSION['gallery_photo_delete_success_count'] ?? 0));
 // The query flag is a one-request rendering fallback if the hosting PHP session
@@ -556,7 +556,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 foreach(array_keys($directories) as $dir)if(is_dir($dir)&&count(scandir($dir)?:[])===2)@rmdir($dir);
               }
 
-              $forumDeletedCount=$deleted;
+              // Post/Redirect/Get: return to the exact Forum panel after the
+              // transaction and file cleanup have completed. The refreshed GET
+              // re-runs the panel query, so deleted rows no longer appear.
+              $returnUrl='admin.php?session_context=admin&section=page-management&tab=sections&section_tab=mega_menu&forum_panel='.rawurlencode((string)$panelIndex).'&forum_deleted_count='.$deleted.'#pm-panel-sections';
+              header('Location: '.$returnUrl,true,303);
+              exit;
             }
 
           } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();error_log('Forum bulk delete failed: '.$e->getMessage());$message='The selected Forum posts could not be deleted. Please try again.';}
