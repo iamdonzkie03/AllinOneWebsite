@@ -2867,6 +2867,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  };
  </script>
  <form id="forum-thread-form" method="post" enctype="multipart/form-data"></form>
+ <form method="post" action="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>#pm-panel-sections" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"></form>
  <form method="post" enctype="multipart/form-data" id="sections-settings-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="save_sections_settings"><input type="hidden" name="section_editor_tab" id="section-editor-tab" value="banner"><input type="hidden" name="panel_created_title" id="panel-created-title" value="">
  <section class="section-subpanel" data-section-panel="banner">
   <div class="section-preview banner-preview-stage" id="banner-preview">
@@ -3017,7 +3018,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       </div>
       <div class="forum-inline-actions"><button class="btn bulk-delete" type="button" id="forum-delete-selected" disabled aria-disabled="true">Delete Selected</button><a class="btn" id="forum-open-thread-modal" href="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>&amp;post_thread=1#pm-panel-sections">Post Thread</a></div>
      </div>
-     <form method="post" action="admin.php?session_context=admin&amp;section=page-management&amp;tab=sections&amp;section_tab=mega_menu&amp;forum_panel=<?=rawurlencode((string)$forumPanelViewIndex)?>#pm-panel-sections" id="forum-post-bulk-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_forum_posts"><input type="hidden" name="forum_panel_index" value="<?=(int)$forumPanelViewIndex?>"><input type="hidden" name="forum_panel_id" value="<?=e((string)($forumPanelViewPanel['panel_id']??''))?>"></form>
+     
       <div class="forum-inline-pagination forum-inline-pagination-top"><span id="forum-post-page-info-top" class="muted" aria-live="polite"></span><div class="forum-inline-page-buttons"><button type="button" class="btn light" id="forum-post-first-top">First</button><button type="button" class="btn light" id="forum-post-prev-top">Previous</button><span id="forum-post-page-number-top" class="forum-inline-page-numbers"></span><button type="button" class="btn light" id="forum-post-next-top">Next</button><button type="button" class="btn light" id="forum-post-last-top">Last</button></div></div>
       <div class="forum-inline-table-scroll"><table class="forum-inline-table" id="forum-post-table">
        <thead><tr><th><input type="checkbox" id="forum-post-select-all" aria-label="Select all Forum posts"></th><th>Thread Title</th><th>Author</th><th>Content Type</th><th>Status</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead>
