@@ -1981,23 +1981,25 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <tr><td><strong class="user-full-name"><?=e($systemAdminDisplayName)?></strong></td><td><?=e($systemAdminAccount['email'] ?? '—')?></td><td><?=e($systemAdminAccount['nickname'] ?? '—')?></td><td><?=e(adminDateLabel((string)($systemAdminAccount['birthdate'] ?? '')))?></td><td><?=e($systemAdminAccount['birthplace'] ?? '—')?></td><td><?=e($systemAdminAccount['mobile_no'] ?? '—')?></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['created_at'] ?? '')))?></span></td><td><span><?=e(adminDateLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($systemAdminAccount['updated_at'] ?? '')))?></span></td><td><div class="content-manager-row-actions"><button type="button" class="content-manager-action" id="edit-system-admin-account">Edit</button></div></td></tr>
     </tbody></table></div>
   </section>
-  <div class="account-status-modal system-admin-edit-modal" id="system-admin-edit-modal" hidden><div class="account-status-modal-card system-admin-edit-card" role="dialog" aria-modal="true" aria-labelledby="system-admin-edit-title">
-    <h2 id="system-admin-edit-title">Edit My Account</h2>
-    <form method="post" class="system-admin-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="update_system_admin_profile">
-      <div class="system-admin-edit-grid">
-        <label>Last Name<input name="lastname" required value="<?=e($systemAdminAccount['lastname'] ?? '')?>"></label>
-        <label>First Name<input name="firstname" required value="<?=e($systemAdminAccount['firstname'] ?? '')?>"></label>
-        <label>Middle Name<input name="middlename" value="<?=e($systemAdminAccount['middlename'] ?? '')?>"></label>
-        <label>Suffix<input name="suffix" value="<?=e($systemAdminAccount['suffix'] ?? '')?>"></label>
-        <label>Nickname<input name="nickname" value="<?=e($systemAdminAccount['nickname'] ?? '')?>"></label>
-        <label>Email Address<input type="email" name="email" required value="<?=e($systemAdminAccount['email'] ?? '')?>"></label>
-        <label>Birthdate<input type="date" name="birthdate" value="<?=e($systemAdminAccount['birthdate'] ?? '')?>"></label>
-        <label>Birthplace<input name="birthplace" value="<?=e($systemAdminAccount['birthplace'] ?? '')?>"></label>
-        <label>Contact Number<input name="mobile_no" value="<?=e($systemAdminAccount['mobile_no'] ?? '')?>"></label>
-      </div>
-      <div class="system-admin-edit-actions"><button type="button" class="btn light" id="system-admin-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div>
-    </form>
-  </div></div>
+  <div class="content-manager-modal-backdrop system-admin-edit-modal" id="system-admin-edit-modal" hidden role="presentation">
+    <section class="content-manager-modal content-manager-article-modal system-admin-edit-card" role="dialog" aria-modal="true" aria-labelledby="system-admin-edit-title">
+      <div class="content-manager-section-head"><h3 id="system-admin-edit-title">Edit My Account</h3></div>
+      <form method="post" class="content-manager-form system-admin-edit-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="update_system_admin_profile">
+        <div class="content-manager-article-grid system-admin-edit-grid">
+          <label>Last Name<input class="field" name="lastname" required value="<?=e($systemAdminAccount['lastname'] ?? '')?>"></label>
+          <label>First Name<input class="field" name="firstname" required value="<?=e($systemAdminAccount['firstname'] ?? '')?>"></label>
+          <label>Middle Name<input class="field" name="middlename" value="<?=e($systemAdminAccount['middlename'] ?? '')?>"></label>
+          <label>Suffix<input class="field" name="suffix" value="<?=e($systemAdminAccount['suffix'] ?? '')?>"></label>
+          <label>Nickname<input class="field" name="nickname" value="<?=e($systemAdminAccount['nickname'] ?? '')?>"></label>
+          <label>Email Address<input class="field" type="email" name="email" required value="<?=e($systemAdminAccount['email'] ?? '')?>"></label>
+          <label>Birthdate<input class="field" type="date" name="birthdate" value="<?=e($systemAdminAccount['birthdate'] ?? '')?>"></label>
+          <label>Birthplace<input class="field" name="birthplace" value="<?=e($systemAdminAccount['birthplace'] ?? '')?>"></label>
+          <label>Contact Number<input class="field" name="mobile_no" value="<?=e($systemAdminAccount['mobile_no'] ?? '')?>"></label>
+        </div>
+        <div class="content-manager-actions content-manager-modal-actions system-admin-edit-actions"><button type="button" class="btn light" id="system-admin-edit-cancel">Cancel</button><button type="submit" class="btn">Save Changes</button></div>
+      </form>
+    </section>
+  </div>
   <?php endif; ?>
   <?php if(($_GET['system_admin_saved'] ?? '')==='1'): ?><div class="account-status-modal" id="system-admin-saved-modal"><div class="account-status-modal-card" role="dialog" aria-modal="true"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2>My Account successfully updated.</h2><button type="button" class="btn" id="system-admin-saved-close">OK</button></div></div><?php endif; ?>
   <script>
@@ -2032,7 +2034,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <?php if(isset($deletedUserCount) && $deletedUserCount > 0): ?><div class="account-status-modal users-delete-success-modal" id="users-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="users-delete-success-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="users-delete-success-title"><?=e($message)?></h2><button type="button" class="btn" id="users-delete-success-close">OK</button></div></div><?php endif; ?>
   <style>
   .system-admin-account-panel .content-manager-row-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.system-admin-account-panel .content-manager-action{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}.system-admin-account-panel .content-manager-action:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);transform:translateY(-1px)}.system-admin-account-panel .content-manager-action:focus-visible{outline:2px solid #e17a8d;outline-offset:2px}
-  .system-admin-edit-modal[hidden]{display:none!important}.system-admin-edit-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(5px)}.system-admin-edit-card{width:min(760px,100%);max-height:90vh;overflow:auto}.system-admin-edit-form{margin-top:18px}.system-admin-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.system-admin-edit-grid label{display:grid;gap:6px;color:var(--muted);font-size:12px}.system-admin-edit-grid input{width:100%;min-width:0;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:10px 11px;font:inherit}.system-admin-edit-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}@media(max-width:600px){.system-admin-edit-grid{grid-template-columns:1fr}}
+  .system-admin-edit-modal[hidden]{display:none!important}.system-admin-edit-modal{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(7,3,6,.78);backdrop-filter:blur(5px)}.system-admin-edit-card{width:min(100%,940px);max-height:92vh;overflow:auto}.system-admin-edit-card .content-manager-section-head{margin-bottom:18px}.system-admin-edit-form{display:grid;gap:10px}.system-admin-edit-form label{display:grid;gap:6px;color:#d9cbd0;font-size:11px}.system-admin-edit-form input.field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:12px Ubuntu,sans-serif}.system-admin-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.system-admin-edit-actions{justify-content:flex-end;margin-top:3px}@media(max-width:760px){.system-admin-edit-grid{grid-template-columns:1fr}}
   .users-table-controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.users-table-controls label{display:flex;align-items:center;gap:9px}.users-table-controls select,.users-table-controls input{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}.users-table-controls input{width:min(280px,65vw)}.users-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 22px}.users-page-buttons{display:flex;align-items:center;gap:8px}.users-page-buttons .btn{padding:8px 12px;font-size:12px}.users-page-buttons .btn:disabled{opacity:.4;cursor:not-allowed}
  
 /* Reproduce the actual public site.css Mega Menu rules inside the admin preview.
