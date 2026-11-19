@@ -1571,12 +1571,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
     $id = (int)($_POST['id'] ?? 0);
     if ($action === 'delete_selected_users') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['selected_users'] ?? [])), static fn(int $v): bool => $v > 0)));
+        $deletedUserCount = 0;
         if ($ids) {
             $marks = implode(',', array_fill(0, count($ids), '?'));
             $delete = $pdo->prepare("DELETE FROM users WHERE id IN ($marks) AND role<>'system_admin'");
             $delete->execute($ids);
-            $message = $delete->rowCount() . ' user account(s) deleted.';
-        } else $message = 'Select at least one account to delete.';
+            $deletedUserCount = $delete->rowCount();
+            if ($deletedUserCount > 0) {
+                $numberWords = static function (int $number) use (&$numberWords): string {
+                    $ones = ['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+                    $tens = [2=>'Twenty',3=>'Thirty',4=>'Forty',5=>'Fifty',6=>'Sixty',7=>'Seventy',8=>'Eighty',9=>'Ninety'];
+                    if ($number < 20) return $ones[$number];
+                    if ($number < 100) return $tens[intdiv($number,10)] . (($number % 10) ? '-' . $ones[$number % 10] : '');
+                    if ($number < 1000) return $ones[intdiv($number,100)] . ' Hundred' . (($number % 100) ? ' ' . $numberWords($number % 100) : '');
+                    foreach ([1000000000=>'Billion',1000000=>'Million',1000=>'Thousand'] as $scale=>$label) {
+                        if ($number >= $scale) return $numberWords(intdiv($number,$scale)) . ' ' . $label . (($number % $scale) ? ' ' . $numberWords($number % $scale) : '');
+                    }
+                    return (string)$number;
+                };
+                $message = $deletedUserCount === 1
+                    ? 'One (1) account has been deleted successfully.'
+                    : $numberWords($deletedUserCount) . ' (' . number_format($deletedUserCount) . ') accounts have been deleted successfully.';
+            } else {
+                $message = 'No accounts were deleted.';
+            }
+        } else {
+            $message = 'Select at least one account to delete.';
+        }
         $section = 'user-accounts';
     }
     if ($action === 'toggle_user_status') {
@@ -1915,7 +1936,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-topline"><div><div class="eyebrow">Access control</div><h1 class="admin-heading">User Accounts</h1><p class="muted">Manage registered accounts, contributor credentials and account access.</p></div></div>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
   <form id="bulk-users" method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_users">
-  <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="submit" disabled aria-disabled="true" onclick="return confirm('Delete all selected user accounts? This action cannot be undone.');">Delete Selected</button></div>
+  <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="submit" disabled aria-disabled="true" id="users-delete-selected">Delete Selected</button></div>
   <div class="users-table-controls"><label>Show <select id="users-page-size" aria-label="Accounts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label><label><input id="users-filter" type="search" placeholder="Search registered accounts..." aria-label="Search registered accounts"></label></div><div class="users-pagination"><span id="users-page-info" class="muted" aria-live="polite"></span><div class="users-page-buttons"><button type="button" class="btn light" id="users-prev">Previous</button><span id="users-page-number" class="muted"></span><button type="button" class="btn light" id="users-next">Next</button></div></div><div class="table-wrap"><table class="table users-table"><thead><tr><th class="user-select-cell"><input type="checkbox" id="select-all-users" aria-label="Select all user accounts"></th><th>Full Name</th><th>Email Address</th><th>Credential Notes</th><th>Date Created</th><th>Last Update</th><th>Action</th></tr></thead><tbody>
   <?php foreach($managedUsers as $u):
     $last = trim((string)($u['lastname'] ?? '')); $first = trim((string)($u['firstname'] ?? '')); $middle = trim((string)($u['middlename'] ?? '')); $suffix = trim((string)($u['suffix'] ?? ''));
@@ -1929,6 +1950,8 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <td><?php if (empty($u['email_verified_at'])): ?><span class="pending-email-verification">Pending Email Verification</span><?php else: ?><form method="post" class="user-actions"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$u['id']?>"><input type="hidden" name="next_status" value="<?=$active?'suspended':'approved'?>"><button class="user-toggle<?=$active?'':' inactive'?>" name="action" value="toggle_user_status" type="submit" role="switch" aria-checked="<?=$active?'true':'false'?>" aria-label="Account status: <?=$active?'Active':'Inactive'?>"><span class="toggle-knob" aria-hidden="true"></span><span><?=$active?'Active':'Inactive'?></span></button></form><?php endif; ?></td>
   </tr><?php endforeach;?>
   <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></form></section>
+  <div class="account-status-modal users-delete-confirm-modal" id="users-delete-confirm-modal" hidden><div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="users-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="users-delete-confirm-title">Delete Selected Account/s?</h2><p>Are you sure you want to delete the selected account/s?</p><p><strong>Total Accounts: <span id="users-delete-confirm-count">0</span></strong></p><div class="users-delete-modal-actions"><button type="button" class="btn light" id="users-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="users-delete-confirm">Delete</button></div></div></div>
+  <?php if(isset($deletedUserCount) && $deletedUserCount > 0): ?><div class="account-status-modal users-delete-success-modal" id="users-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="users-delete-success-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="users-delete-success-title"><?=e($message)?></h2><button type="button" class="btn" id="users-delete-success-close">OK</button></div></div><?php endif; ?>
   <style>
   .users-table-controls{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:4px 0 14px;color:var(--muted);font-size:12px}.users-table-controls label{display:flex;align-items:center;gap:9px}.users-table-controls select,.users-table-controls input{background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}.users-table-controls input{width:min(280px,65vw)}.users-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 22px}.users-page-buttons{display:flex;align-items:center;gap:8px}.users-page-buttons .btn{padding:8px 12px;font-size:12px}.users-page-buttons .btn:disabled{opacity:.4;cursor:not-allowed}
  
@@ -1966,7 +1989,41 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const form=document.getElementById('bulk-users');
     const all=document.getElementById('select-all-users');
     const bulkDelete=form?.querySelector('button.bulk-delete');
+    const confirmModal=document.getElementById('users-delete-confirm-modal');
+    const confirmCount=document.getElementById('users-delete-confirm-count');
+    const confirmButton=document.getElementById('users-delete-confirm');
+    const cancelButton=document.getElementById('users-delete-cancel');
+    const successModal=document.getElementById('users-delete-success-modal');
+    const successClose=document.getElementById('users-delete-success-close');
     if(!table||!form||!bulkDelete)return;
+    let deleteConfirmed=false;
+    const selectedCount=()=>checkboxes().filter(box=>box.checked).length;
+    const closeConfirm=()=>{if(confirmModal)confirmModal.hidden=true;};
+    bulkDelete.addEventListener('click',event=>{
+      event.preventDefault();
+      const count=selectedCount();
+      if(count===0)return;
+      if(confirmCount)confirmCount.textContent=String(count);
+      if(confirmModal)confirmModal.hidden=false;
+    });
+    cancelButton?.addEventListener('click',closeConfirm);
+    confirmButton?.addEventListener('click',()=>{
+      if(selectedCount()===0){closeConfirm();syncSelection();return;}
+      deleteConfirmed=true;
+      closeConfirm();
+      form.requestSubmit();
+    });
+    form.addEventListener('submit',event=>{
+      if(!deleteConfirmed){
+        event.preventDefault();
+        const count=selectedCount();
+        if(count>0){if(confirmCount)confirmCount.textContent=String(count);if(confirmModal)confirmModal.hidden=false;}
+        return;
+      }
+      deleteConfirmed=false;
+    });
+    successClose?.addEventListener('click',()=>{if(successModal)successModal.hidden=true;});
+    if(successModal)successModal.hidden=false;
     const rows=Array.from(table.querySelectorAll('tbody tr')).filter(row=>row.querySelector('.user-select'));
     const checkboxes=()=>Array.from(table.querySelectorAll('input.user-select[name="selected_users[]"]'));
     const filter=document.getElementById('users-filter');
@@ -2020,7 +2077,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     next?.addEventListener('click',()=>{page++;render();});
     // Never allow the bulk action when the selection is empty, even if another script changes the button state.
     form.addEventListener('submit',event=>{
-      if(!checkboxes().some(box=>box.checked)){event.preventDefault();syncSelection();}
+      if(!checkboxes().some(box=>box.checked)){event.preventDefault();deleteConfirmed=false;closeConfirm();syncSelection();}
     });
     syncSelection();
     render();
