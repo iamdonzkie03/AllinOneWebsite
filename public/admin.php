@@ -2948,7 +2948,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <input type="hidden" name="page_content_html" id="header-link-page-content-html" value="">
               <div class="header-field"><span>Page Content</span><small>Use the formatting tools to create the content shown below the page title on the public website.</small>
                 <div class="banner-rich-toolbar content-manager-rich-toolbar header-link-page-toolbar" role="toolbar" aria-label="Page content formatting">
-                  <select data-page-font-family aria-label="Font family"><option value="">Font family</option><option value="Ubuntu">Ubuntu</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Times New Roman">Times New Roman</option><option value="Trebuchet MS">Trebuchet MS</option></select>
                   <select data-page-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
                   <select data-page-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
                   <button type="button" data-page-command="bold" title="Bold"><strong>B</strong></button>
@@ -3135,7 +3134,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
                   editor.dispatchEvent(new Event('input',{bubbles:true}));
                 });
               });
-              form.querySelector('[data-page-font-family]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontFamily',event.target.value);event.target.value='';});
               form.querySelector('[data-page-font-size]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontSize',event.target.value+'px');event.target.value='';});
               form.querySelector('[data-page-font-weight]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontWeight',event.target.value);event.target.value='';});
               form.querySelector('[data-page-color]')?.addEventListener('input',event=>wrapStyle('color',event.target.value));
