@@ -1834,6 +1834,32 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
 </aside>
 <main class="admin-main">
+<?php if (($section === 'page-management') && ($activeHeaderPageSlug ?? '') !== '' && ($_GET['header_page_saved'] ?? '') === '1'): ?>
+<div class="account-status-modal" id="header-link-page-saved-modal" role="dialog" aria-modal="true" aria-labelledby="header-link-page-saved-title">
+  <div class="account-status-modal-card">
+    <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+    <h2 id="header-link-page-saved-title">Page content successfully saved.</h2>
+    <button type="button" class="btn" id="header-link-page-saved-close">OK</button>
+  </div>
+</div>
+<script>
+(() => {
+  const modal=document.getElementById('header-link-page-saved-modal');
+  const closeButton=document.getElementById('header-link-page-saved-close');
+  if(!modal||!closeButton)return;
+  if(modal.parentElement!==document.body)document.body.appendChild(modal);
+  const params=new URLSearchParams(window.location.search);
+  params.delete('header_page_saved');
+  const query=params.toString();
+  window.history.replaceState({},'',window.location.pathname+(query?'?'+query:'')+window.location.hash);
+  document.body.classList.add('modal-open');
+  const close=()=>{modal.remove();document.body.classList.remove('modal-open');};
+  closeButton.addEventListener('click',close,{once:true});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.getElementById('header-link-page-saved-modal'))close();},{once:true});
+  closeButton.focus();
+})();
+</script>
+<?php endif; ?>
 <?php if($message === 'Banner Settings successfully saved.'):?>
 <div class="account-status-modal" id="banner-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="banner-settings-success-title">
   <div class="account-status-modal-card">
@@ -2940,7 +2966,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               <a class="btn light" href="admin.php?section=page-management&amp;tab=header#pm-panel-header">Back to Header</a>
             </div>
             <div class="header-link-page-meta"><span>Page title</span><strong><?=e($activeHeaderPageTitle)?></strong><small>/public/<?=e($activeHeaderPageSlug)?>.php</small></div>
-            <?php if (($_GET['header_page_saved'] ?? '') === '1'): ?><div class="header-link-page-saved" role="status">✓ Page content successfully saved.</div><?php endif; ?>
             <form method="post" id="header-link-page-form">
               <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
               <input type="hidden" name="action" value="save_header_link_page">
