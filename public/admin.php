@@ -269,7 +269,10 @@ function headerLinkSlug(string $label): string {
         if ($ascii !== false) $value = $ascii;
     }
     $value = strtolower($value);
-    $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
+    // Header-link filenames remove title hyphens, turn spaces/other separators
+    // into hyphens, and preserve ampersands exactly as entered.
+    $value = str_replace('-', '', $value);
+    $value = preg_replace('/[^a-z0-9&]+/', '-', $value) ?? '';
     $value = trim($value, '-');
     return $value !== '' ? $value : 'page';
 }
@@ -4412,7 +4415,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const add = document.getElementById('add-header-link');
         const slugifyHeaderLink = value => {
           const normalized=String(value||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');
-          return normalized.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
+          return normalized.toLowerCase().replace(/-/g,'').replace(/[^a-z0-9&]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
         };
         const makeLinkRow = (label = '', url = '') => {
           const row=document.createElement('div');row.className='header-link-row';
