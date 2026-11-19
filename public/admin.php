@@ -136,6 +136,7 @@ function headerTypography(array $input, array $fallback=[]): array {
     $format=implode(' ',$formatParts);
     return ['family'=>in_array($family,$families,true)?$family:'Ubuntu','style'=>in_array($style,['normal','italic'],true)?$style:'normal','size'=>$size,'weight'=>in_array($weight,[300,400,500,600,700,800],true)?$weight:400,'color'=>preg_match('/^#[0-9a-f]{6}$/i',$color)?$color:'#eadde1','format'=>$format];
 }
+$pdo->exec("CREATE TABLE IF NOT EXISTS site_header_link_pages (\n  slug VARCHAR(160) NOT NULL PRIMARY KEY,\n  content_html LONGTEXT NULL,\n  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("INSERT IGNORE INTO site_header_settings (id,header_title,header_links,hidden_left,hidden_right) VALUES (1,'Z.C. commonplace','[]','ZAMBOANGA CITY · STORIES, CULTURE & COMMUNITY','Local perspectives. Shared with care.')");
 $headerSettings = $pdo->query("SELECT * FROM site_header_settings WHERE id=1")->fetch() ?: [];
 
@@ -309,6 +310,27 @@ foreach ($headerLinks as &$savedHeaderLink) {
     $savedHeaderLink['url'] = '/public/' . $slug . '.php';
 }
 unset($savedHeaderLink);
+$activeHeaderPageSlug = trim((string)($_GET['header_page'] ?? ''));
+$activeHeaderPageTitle = '';
+$activeHeaderPageContent = '';
+if ($activeHeaderPageSlug !== '' && preg_match('/^[a-z0-9-]+$/', $activeHeaderPageSlug)) {
+    foreach ($headerLinks as $headerLink) {
+        $linkPath = parse_url((string)($headerLink['url'] ?? ''), PHP_URL_PATH);
+        if ($linkPath === '/public/' . $activeHeaderPageSlug . '.php') {
+            $activeHeaderPageTitle = trim((string)($headerLink['label'] ?? ''));
+            break;
+        }
+    }
+    if ($activeHeaderPageTitle !== '') {
+        $pageContentStmt = $pdo->prepare('SELECT content_html FROM site_header_link_pages WHERE slug = ? LIMIT 1');
+        $pageContentStmt->execute([$activeHeaderPageSlug]);
+        $activeHeaderPageContent = (string)($pageContentStmt->fetchColumn() ?: '');
+    } else {
+        $activeHeaderPageSlug = '';
+    }
+} else {
+    $activeHeaderPageSlug = '';
+}
 $section = (string)($_GET['section'] ?? 'dashboard');
 $activePageTab = (string)($_GET['tab'] ?? 'header');
 if (!in_array($activePageTab, ['header','footer','contents','sections'], true)) $activePageTab = 'header';
@@ -1486,19 +1508,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             }
             $headerSettings = $savedHeader;
             $headerLinks = $links;
-            // A Create Page request is honored only when its destination exactly
-            // matches one of the pages generated and verified above.
-            $requestedHeaderPageLabel = trim((string)($_POST['create_header_page_label'] ?? ''));
-            if ($requestedHeaderPageLabel !== '') {
-                $requestedHeaderPage = '';
+            // Create Page opens the matching editor inside Page Management → Header.
+            // Resolve the requested slug only against the just-saved Header Links.
+            $requestedHeaderPageSlug = trim((string)($_POST['create_header_page_slug'] ?? ''));
+            if ($requestedHeaderPageSlug !== '') {
+                $requestedHeaderPageExists = false;
                 foreach ($links as $savedLink) {
-                    if (hash_equals((string)$savedLink['label'], $requestedHeaderPageLabel)) {
-                        $requestedHeaderPage = (string)$savedLink['url'];
+                    $savedPath = parse_url((string)($savedLink['url'] ?? ''), PHP_URL_PATH);
+                    if ($savedPath === '/public/' . $requestedHeaderPageSlug . '.php') {
+                        $requestedHeaderPageExists = true;
                         break;
                     }
                 }
-                if ($requestedHeaderPage !== '' && preg_match('~^/public/[a-z0-9-]+\\.php$~', $requestedHeaderPage)) {
-                    header('Location: ' . $requestedHeaderPage, true, 303);
+                if ($requestedHeaderPageExists && preg_match('/^[a-z0-9-]+$/', $requestedHeaderPageSlug)) {
+                    header('Location: admin.php?section=page-management&tab=header&header_page=' . rawurlencode($requestedHeaderPageSlug) . '#pm-panel-header', true, 303);
                     exit;
                 }
                 $message = 'The requested Header Link page could not be verified. Please try again.';
@@ -1507,6 +1530,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             }
         }
         $section = 'page-management';
+    }
+    if ($action === 'save_header_link_page') {
+        $slug = trim((string)($_POST['header_page_slug'] ?? ''));
+        $pageTitle = '';
+        if ($slug !== '' && preg_match('/^[a-z0-9-]+$/', $slug)) {
+            foreach ($headerLinks as $link) {
+                $path = parse_url((string)($link['url'] ?? ''), PHP_URL_PATH);
+                if ($path === '/public/' . $slug . '.php') {
+                    $pageTitle = trim((string)($link['label'] ?? ''));
+                    break;
+                }
+            }
+        }
+        if ($pageTitle === '') {
+            header('Location: admin.php?section=page-management&tab=header#pm-panel-header', true, 303);
+            exit;
+        }
+        require_once __DIR__ . '/../app/rich-content.php';
+        $contentHtml = sanitize_rich_content((string)($_POST['page_content_html'] ?? ''));
+        $savePage = $pdo->prepare('INSERT INTO site_header_link_pages (slug, content_html) VALUES (?, ?) ON DUPLICATE KEY UPDATE content_html = VALUES(content_html)');
+        $savePage->execute([$slug, $contentHtml]);
+        header('Location: admin.php?section=page-management&tab=header&header_page=' . rawurlencode($slug) . '&header_page_saved=1#pm-panel-header', true, 303);
+        exit;
     }
     $id = (int)($_POST['id'] ?? 0);
     if ($action === 'delete_selected_users') {
@@ -2873,10 +2919,59 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       })();
       </script>
       <section class="page-management-tabpanel" id="pm-panel-header" role="tabpanel" aria-labelledby="pm-tab-header">
+        <?php if ($activeHeaderPageSlug !== ''): ?>
+          <section class="panel admin-panel header-link-page-editor">
+            <div class="admin-panel-head">
+              <div><h2>Header Link Page</h2><p class="muted">Edit the content displayed on the public page for this Header Link.</p></div>
+              <a class="btn light" href="admin.php?section=page-management&amp;tab=header#pm-panel-header">Back to Header</a>
+            </div>
+            <div class="header-link-page-meta"><span>Page title</span><strong><?=e($activeHeaderPageTitle)?></strong><small>/public/<?=e($activeHeaderPageSlug)?>.php</small></div>
+            <?php if (($_GET['header_page_saved'] ?? '') === '1'): ?><div class="header-link-page-saved" role="status">✓ Page content successfully saved.</div><?php endif; ?>
+            <form method="post" id="header-link-page-form">
+              <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+              <input type="hidden" name="action" value="save_header_link_page">
+              <input type="hidden" name="header_page_slug" value="<?=e($activeHeaderPageSlug)?>">
+              <input type="hidden" name="page_content_html" id="header-link-page-content-html" value="">
+              <div class="header-field"><span>Page Content</span><small>Use the formatting tools to create the content shown below the page title on the public website.</small>
+                <div class="header-link-page-toolbar" role="toolbar" aria-label="Page content formatting">
+                  <button type="button" class="btn light" data-page-command="bold"><strong>B</strong></button>
+                  <button type="button" class="btn light" data-page-command="italic"><em>I</em></button>
+                  <button type="button" class="btn light" data-page-command="underline"><u>U</u></button>
+                  <button type="button" class="btn light" data-page-command="insertUnorderedList">Bulleted list</button>
+                  <button type="button" class="btn light" data-page-command="insertOrderedList">Numbered list</button>
+                  <button type="button" class="btn light" data-page-command="formatBlock" data-page-value="h2">Heading</button>
+                  <button type="button" class="btn light" data-page-command="formatBlock" data-page-value="p">Paragraph</button>
+                </div>
+                <div class="rich-editor header-link-page-content-editor" id="header-link-page-content-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Header Link Page content"><?=sanitize_rich_content($activeHeaderPageContent)?></div>
+              </div>
+              <div class="header-settings-actions"><button type="submit" class="btn">Save Page</button></div>
+            </form>
+          </section>
+          <style>
+            .header-link-page-meta{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:20px 0;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025)}
+            .header-link-page-meta span,.header-link-page-meta small{color:var(--muted);font-size:12px}.header-link-page-meta strong{font-size:15px;color:#fff}
+            .header-link-page-saved{margin:14px 0;padding:11px 14px;border:1px solid rgba(91,205,145,.35);border-radius:8px;color:#9de0b8;background:rgba(35,130,82,.12);font-size:12px}
+            .header-link-page-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}
+            .header-link-page-content-editor{min-height:320px;line-height:1.75;overflow:auto}.header-link-page-content-editor:empty:before{content:'Start writing your page content...';color:#82777c}
+          </style>
+          <script>
+            (() => {
+              const form = document.getElementById('header-link-page-form');
+              const editor = document.getElementById('header-link-page-content-editor');
+              const hidden = document.getElementById('header-link-page-content-html');
+              if (!form || !editor || !hidden) return;
+              form.querySelectorAll('[data-page-command]').forEach(button => button.addEventListener('click', () => {
+                editor.focus();
+                document.execCommand(button.dataset.pageCommand, false, button.dataset.pageValue || null);
+              }));
+              form.addEventListener('submit', () => { hidden.value = editor.innerHTML; });
+            })();
+          </script>
+        <?php else: ?>
         <form method="post" enctype="multipart/form-data" id="header-settings-form" class="header-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
           <input type="hidden" name="action" value="save_header_settings">
-          <input type="hidden" name="create_header_page_label" id="create-header-page-label" value="">
+          <input type="hidden" name="create_header_page_slug" id="create-header-page-slug" value="">
           <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame" inert aria-label="Non-interactive visual preview of the public website header"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="width:<?=(int)($headerSettings['logo_width'] ?? 200)?>px;height:<?=(int)($headerSettings['logo_height'] ?? 70)?>px;object-fit:contain;<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title" hidden></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; ?><a class="custom-preview-link" href="<?=e(trim((string)($headerLink['url'] ?? '')) ?: '#')?>"><?=e((string)$headerLink['label'])?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
           <div class="header-settings-grid">
             <div class="header-settings-fields">
@@ -2895,6 +2990,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           </div>
           <div class="header-settings-actions"><button type="submit" class="btn">Save Header Settings</button></div>
         </form>
+        <?php endif; ?>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
@@ -4803,7 +4899,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           const row = createButton.closest('.header-link-row');
           const titleInput = row?.querySelector('[name="header_link_label[]"]');
           const urlInput = row?.querySelector('[name="header_link_url[]"]');
-          const destination = document.getElementById('create-header-page-label');
+          const destination = document.getElementById('create-header-page-slug');
           const title = titleInput?.value.trim() || '';
           if (!title) {
             titleInput?.focus();
@@ -4812,7 +4908,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           }
           refreshGeneratedUrls();
           if (!urlInput?.value) return;
-          destination.value = title;
+          const match = urlInput.value.match(/^\\/public\\/([a-z0-9-]+)\\.php$/);
+          if (!match) return;
+          destination.value = match[1];
           form.requestSubmit();
         });
         // Synchronize every editable Header field immediately before POST. This prevents
