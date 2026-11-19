@@ -4908,7 +4908,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
           }
           refreshGeneratedUrls();
           if (!urlInput?.value) return;
-          const match = urlInput.value.match(/^\\/public\\/([a-z0-9-]+)\\.php$/);
+          const match = urlInput.value.match(/^\/public\/([a-z0-9-]+)\.php$/);
           if (!match) return;
           destination.value = match[1];
           form.requestSubmit();
