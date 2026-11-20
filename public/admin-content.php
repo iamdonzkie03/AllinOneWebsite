@@ -334,8 +334,8 @@ try {
             $coverPhoto = $storeArticleCoverPhoto($coverUpload);
         }
         if ($id > 0) {
-            $save = $pdo->prepare("UPDATE content SET category_id=?,subcategory_id=?,title=?,slug=?,excerpt=?,cover_photo=?,body=?,status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
-            $save->execute([$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$coverPhoto,$body,$status,$status,$id]);
+            $save = $pdo->prepare("UPDATE content SET category_id=?,subcategory_id=?,title=?,slug=?,excerpt=?,cover_photo=?,body=?,status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END,updated_by=? WHERE id=? AND content_type='article'");
+            $save->execute([$categoryId,$subcategoryValue,$title,$slug,mb_substr($excerpt,0,500),$coverPhoto,$body,$status,$status,(int)$admin['id'],$id]);
             $newCoverFilePath = null;
             $deleteOrphanedArticleImages($previousImageFiles, $currentImageFiles, $id);
             if ($previousCoverPhoto !== (string)($coverPhoto ?? '')) $deleteOrphanedCoverPhoto($previousCoverPhoto, $id);
@@ -397,8 +397,8 @@ try {
         $currentStatus = $find->fetchColumn();
         if ($currentStatus === false) throw new RuntimeException('article_missing');
         $nextStatus = $currentStatus === 'published' ? 'draft' : 'published';
-        $toggle = $pdo->prepare("UPDATE content SET status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END WHERE id=? AND content_type='article'");
-        $toggle->execute([$nextStatus,$nextStatus,$id]);
+        $toggle = $pdo->prepare("UPDATE content SET status=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,NOW()) ELSE NULL END,updated_by=? WHERE id=? AND content_type='article'");
+        $toggle->execute([$nextStatus,$nextStatus,(int)$admin['id'],$id]);
         $notice = 'article_status_updated';
     } elseif ($action === 'delete_article') {
         $id = (int)($_POST['item_id'] ?? 0);
