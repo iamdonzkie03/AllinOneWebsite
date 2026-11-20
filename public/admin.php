@@ -1728,10 +1728,10 @@ $totalForumThreads = (int)$pdo->query("SELECT COUNT(*) FROM forum_threads")->fet
 $lastCreatedUser = $pdo->query("SELECT full_name,nickname,created_at FROM users WHERE role<>'system_admin' ORDER BY created_at DESC,id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
 $lastUpdatedUser = $pdo->query("SELECT full_name,nickname,updated_at FROM users WHERE role<>'system_admin' ORDER BY updated_at DESC,id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
 $lastCreatedArticle = $pdo->query("SELECT c.title,c.created_at,u.full_name AS creator_name FROM content c LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.created_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
-$lastUpdatedArticle = $pdo->query("SELECT c.title,c.updated_at,updater.full_name AS updater_name FROM content c LEFT JOIN users updater ON updater.id=c.updated_by WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastUpdatedArticle = $pdo->query("SELECT c.title,c.updated_at,updater.full_name AS updater_name FROM content c LEFT JOIN users updater ON updater.id=c.updated_by WHERE c.content_type='article' AND c.updated_at>c.created_at ORDER BY c.updated_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
 $lastCreatedThread = $pdo->query("SELECT t.title,t.created_at,u.full_name AS creator_name FROM forum_threads t LEFT JOIN users u ON u.id=t.owner_id ORDER BY t.created_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
-$lastUpdatedThread = $pdo->query("SELECT t.title,t.updated_at,updater.full_name AS updater_name FROM forum_threads t LEFT JOIN users updater ON updater.id=t.updated_by ORDER BY t.updated_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
-$dashboardDateLabel = static function($value): string { $timestamp=strtotime((string)$value); return $timestamp ? date('F d, Y · h:i A',$timestamp) : '—'; };
+$lastUpdatedThread = $pdo->query("SELECT t.title,t.updated_at,updater.full_name AS updater_name FROM forum_threads t LEFT JOIN users updater ON updater.id=t.updated_by WHERE t.updated_at>t.created_at ORDER BY t.updated_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$dashboardDateLabel = static function($value): string { $timestamp=strtotime((string)$value); return $timestamp ? date('F d, Y · h:i:s A',$timestamp) : '—'; };
 function navActive(string $current, string $target): string { return $current === $target ? ' active' : ''; }
 function adminUrl(string $section): string { return 'admin.php?section=' . rawurlencode($section); }
 ?><!doctype html>
