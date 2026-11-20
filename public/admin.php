@@ -1774,10 +1774,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-help-modal{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(6px)}
 .admin-help-modal[hidden]{display:none!important}
 .admin-help-card{position:relative;width:min(680px,100%);max-height:min(82vh,760px);overflow:auto;padding:28px;border:1px solid rgba(191,89,112,.42);border-radius:17px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.65);color:#eadde1}
-.admin-help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}
+.admin-help-head{display:flex;align-items:flex-start;justify-content:flex-start;gap:18px;margin-bottom:20px}
 .admin-help-head h2{margin:0;color:#fff;font:25px Georgia,serif}
 .admin-help-head p{margin:7px 0 0;color:#bbaeb2;font-size:12px;line-height:1.6}
-.admin-help-close{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid rgba(255,255,255,.13);border-radius:9px;background:rgba(255,255,255,.04);color:#f4e8eb;font-size:20px;cursor:pointer}
 .admin-help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .admin-help-item{padding:14px;border:1px solid rgba(255,255,255,.09);border-radius:11px;background:rgba(255,255,255,.025)}
 .admin-help-item h3{margin:0 0 6px;color:#f5dce2;font-size:13px}
@@ -1960,7 +1959,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <section class="admin-help-card">
     <div class="admin-help-head">
       <div><h2 id="admin-help-title">Administrator Help</h2><p>A quick guide to the main areas and account controls in Z.C. commonplace.</p></div>
-      <button class="admin-help-close" type="button" id="admin-help-close" aria-label="Close Help">&times;</button>
     </div>
     <div class="admin-help-grid">
       <article class="admin-help-item"><h3>Dashboard</h3><p>Use the Dashboard to view the administrator workspace and access the main management areas.</p></article>
@@ -6115,7 +6113,7 @@ document.addEventListener('click',event=>{
 (() => {
   const modal = document.getElementById('admin-help-modal');
   const openButton = document.getElementById('admin-help-open');
-  const closeButtons = [document.getElementById('admin-help-close'), document.getElementById('admin-help-done')].filter(Boolean);
+  const closeButtons = [document.getElementById('admin-help-done')].filter(Boolean);
   if (!modal || !openButton) return;
   let previousFocus = null;
   const close = () => {
@@ -6127,7 +6125,7 @@ document.addEventListener('click',event=>{
     previousFocus = document.activeElement;
     modal.hidden = false;
     document.body.classList.add('admin-help-open');
-    document.getElementById('admin-help-close')?.focus();
+    document.getElementById('admin-help-done')?.focus();
   });
   closeButtons.forEach(button => button.addEventListener('click', close));
   document.addEventListener('keydown', event => {
