@@ -495,7 +495,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
         } elseif (!$passwordValid) {
             $message = 'Password must be at least 10 characters and include uppercase and lowercase letters, a number, and a symbol. Both password fields must match.';
         } else {
-            $currentAdminStmt = $pdo->prepare("SELECT email FROM users WHERE id=? AND role='system_admin' LIMIT 1');
+            $currentAdminStmt = $pdo->prepare("SELECT email FROM users WHERE id=? AND role='system_admin' LIMIT 1");
             $currentAdminStmt->execute([$adminId]);
             $currentAdminEmail = strtolower(trim((string)$currentAdminStmt->fetchColumn()));
             $emailChanged = $currentAdminEmail !== $email;
