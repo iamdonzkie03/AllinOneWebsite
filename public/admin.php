@@ -38,9 +38,17 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_attachments (
  INDEX idx_forum_thread_attachments_thread(thread_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-$nicknameStmt = $pdo->prepare('SELECT nickname FROM users WHERE id = ? LIMIT 1');
+$nicknameStmt = $pdo->prepare('SELECT nickname, firstname, middlename, lastname, suffix FROM users WHERE id = ? LIMIT 1');
 $nicknameStmt->execute([(int)$admin['id']]);
-$adminNickname = trim((string)($nicknameStmt->fetchColumn() ?: 'Administrator'));
+$adminProfile = $nicknameStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$adminNickname = trim((string)($adminProfile['nickname'] ?? '')) ?: 'Administrator';
+$adminFullName = trim(implode(' ', array_filter([
+    trim((string)($adminProfile['firstname'] ?? '')),
+    trim((string)($adminProfile['middlename'] ?? '')),
+    trim((string)($adminProfile['lastname'] ?? '')),
+    trim((string)($adminProfile['suffix'] ?? ''))
+], static fn(string $part): bool => $part !== '')));
+if ($adminFullName === '') $adminFullName = 'System Administrator';
 $message = '';
 $forumDeletedCount = max(0, (int)($_GET['forum_deleted_count'] ?? 0));
 $galleryDeleteSuccessNames = [];
@@ -1756,6 +1764,26 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-feature p{font-size:13px;color:var(--muted);margin:0 0 17px}
 .admin-panel .users-table{min-width:1040px}.user-full-name{font-weight:800;color:#fff}.user-subdetails{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.7}.user-select-cell{width:42px;text-align:center}.user-toggle{position:relative;display:inline-flex;align-items:center;justify-content:flex-start;gap:9px;min-width:112px;height:36px;padding:4px 11px 4px 5px;border-radius:999px;border:1px solid rgba(70,180,125,.48);background:rgba(35,130,82,.18);color:#9de0b8;font-size:12px;font-weight:800;cursor:pointer;transition:background .2s,border-color .2s}.user-toggle .toggle-knob{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:#62c98d;box-shadow:0 1px 5px rgba(0,0,0,.35);transition:transform .2s,background .2s}.user-toggle.inactive{justify-content:flex-end;padding:4px 5px 4px 11px;border-color:rgba(220,85,100,.48);background:rgba(150,35,55,.2);color:#ff9eaa}.user-toggle.inactive .toggle-knob{order:2;background:#e66b7d}.user-toggle:focus-visible{outline:2px solid #e7b7c1;outline-offset:3px}.bulk-delete{background:#8f2034;border-color:#a62b42;color:#fff}
 .bulk-delete:disabled,.bulk-delete[disabled]{background:#51464a!important;border-color:#665a5e!important;color:#b8adb1!important;opacity:.58!important;cursor:not-allowed!important;pointer-events:none!important;box-shadow:none!important}.user-actions{display:flex;gap:7px;align-items:center}.pending-email-verification{display:inline-block;padding:7px 10px;border:1px solid rgba(220,165,70,.38);border-radius:999px;background:rgba(150,105,30,.13);color:#f0ca83;font-size:11px;font-weight:700;white-space:nowrap}.admin-note{padding:14px 16px;border:1px solid rgba(184,50,63,.25);border-radius:12px;color:#d7c9cc;background:rgba(105,8,24,.12);font-size:13px}
+.admin-sidebar-profile{margin:26px 5px 0;padding:14px 13px;border:1px solid rgba(184,50,63,.25);border-radius:12px;background:rgba(105,8,24,.12);color:#d7c9cc}
+.admin-sidebar-profile-name{display:block;color:#fff;font-size:14px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
+.admin-sidebar-profile-fullname{display:block;margin-top:3px;color:#bbaeb2;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.admin-sidebar-profile-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}
+.admin-sidebar-profile-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 9px;border:1px solid rgba(191,89,112,.38);border-radius:8px;background:rgba(255,255,255,.035);color:#f2e7ea;font-family:inherit;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer;transition:background .18s,border-color .18s}
+.admin-sidebar-profile-action:hover{background:rgba(160,34,58,.22);border-color:rgba(220,105,128,.65)}
+.admin-sidebar-profile-action svg{width:14px;height:14px;flex:0 0 14px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.admin-help-modal{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(6px)}
+.admin-help-modal[hidden]{display:none!important}
+.admin-help-card{position:relative;width:min(680px,100%);max-height:min(82vh,760px);overflow:auto;padding:28px;border:1px solid rgba(191,89,112,.42);border-radius:17px;background:linear-gradient(145deg,#211319,#100d10);box-shadow:0 24px 80px rgba(0,0,0,.65);color:#eadde1}
+.admin-help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}
+.admin-help-head h2{margin:0;color:#fff;font:25px Georgia,serif}
+.admin-help-head p{margin:7px 0 0;color:#bbaeb2;font-size:12px;line-height:1.6}
+.admin-help-close{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid rgba(255,255,255,.13);border-radius:9px;background:rgba(255,255,255,.04);color:#f4e8eb;font-size:20px;cursor:pointer}
+.admin-help-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.admin-help-item{padding:14px;border:1px solid rgba(255,255,255,.09);border-radius:11px;background:rgba(255,255,255,.025)}
+.admin-help-item h3{margin:0 0 6px;color:#f5dce2;font-size:13px}
+.admin-help-item p{margin:0;color:#c6b8bd;font-size:11px;line-height:1.65}
+.admin-help-footer{display:flex;justify-content:flex-end;margin-top:20px}
+@media(max-width:560px){.admin-help-card{padding:21px 17px}.admin-help-grid{grid-template-columns:1fr}.admin-sidebar-profile-actions{grid-template-columns:1fr 1fr}}
 .account-status-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.76);backdrop-filter:blur(5px)}
  /* Hidden success overlays must stay hidden even though the base modal uses display:flex. */
 .account-status-modal[hidden]{display:none!important}
@@ -1899,7 +1927,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <script>document.getElementById('forum-delete-success-close')?.addEventListener('click',()=>{document.getElementById('forum-delete-success-modal')?.remove();});</script>
       <?php endif; ?>
 
-<header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a><a class="btn light" href="logout.php?scope=admin">Sign out</a></nav></div></header>
+<header><div class="wrap nav"><a class="brand" href="../index.php">Z.C. commonplace<span>.</span></a><nav class="navlinks"><a href="../index.php" target="_blank" rel="noopener noreferrer">Public website</a></nav></div></header>
 <div class="admin-shell">
 <aside class="admin-sidebar">
   <div class="admin-label">Administration</div>
@@ -1913,8 +1941,40 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </div>
     <a class="<?=navActive($section,'user-accounts')?>" href="<?=e(adminUrl('user-accounts'))?>"><span class="nav-icon">♙</span>User Accounts </a>
   </nav>
-  <div class="admin-note" style="margin:26px 5px 0">Signed in as<br><strong><?=e($adminNickname)?></strong><br><span class="muted">System Administrator</span></div>
+  <div class="admin-sidebar-profile" aria-label="Administrator account">
+    <strong class="admin-sidebar-profile-name"><?=e($adminNickname)?></strong>
+    <span class="admin-sidebar-profile-fullname"><?=e($adminFullName)?></span>
+    <div class="admin-sidebar-profile-actions">
+      <a class="admin-sidebar-profile-action" href="logout.php?scope=admin" aria-label="Sign out">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>
+        Sign Out
+      </a>
+      <button class="admin-sidebar-profile-action" type="button" id="admin-help-open" aria-haspopup="dialog" aria-controls="admin-help-modal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.3 1.8c-1.2 1.1-1.9 1.4-1.9 3.2M12 17.5h.01"/></svg>
+        Help
+      </button>
+    </div>
+  </div>
 </aside>
+<div class="admin-help-modal" id="admin-help-modal" role="dialog" aria-modal="true" aria-labelledby="admin-help-title" hidden>
+  <section class="admin-help-card">
+    <div class="admin-help-head">
+      <div><h2 id="admin-help-title">Administrator Help</h2><p>A quick guide to the main areas and account controls in Z.C. commonplace.</p></div>
+      <button class="admin-help-close" type="button" id="admin-help-close" aria-label="Close Help">&times;</button>
+    </div>
+    <div class="admin-help-grid">
+      <article class="admin-help-item"><h3>Dashboard</h3><p>Use the Dashboard to view the administrator workspace and access the main management areas.</p></article>
+      <article class="admin-help-item"><h3>Page Management</h3><p>Manage the public website's header, footer, contents, sections, and other page presentation settings. Save your changes in the relevant tab.</p></article>
+      <article class="admin-help-item"><h3>Media Management</h3><p>Organize uploaded media and manage the images and other files used throughout the website.</p></article>
+      <article class="admin-help-item"><h3>Plugins</h3><p>Review and manage the available website plugins and their configuration.</p></article>
+      <article class="admin-help-item"><h3>User Accounts</h3><p>Review registered accounts, check email-verification status, edit account details, change account status, and delete selected accounts.</p></article>
+      <article class="admin-help-item"><h3>My Account</h3><p>Use Edit in the My Account panel to update your profile. Changing your email address or password ends the current session; sign in again with the updated credentials.</p></article>
+      <article class="admin-help-item"><h3>Sign Out</h3><p>Select Sign Out in the sidebar profile panel to securely end the System Administrator session.</p></article>
+      <article class="admin-help-item"><h3>Need more assistance?</h3><p>Close this window to return to the Admin Dashboard. Use the relevant management tab to find the controls for the task you want to complete.</p></article>
+    </div>
+    <div class="admin-help-footer"><button type="button" class="btn" id="admin-help-done">Close</button></div>
+  </section>
+</div>
 <main class="admin-main">
 <?php if (($section === 'page-management') && ($activeHeaderPageSlug ?? '') !== '' && ($_GET['header_page_saved'] ?? '') === '1'): ?>
 <div class="account-status-modal" id="header-link-page-saved-modal" role="dialog" aria-modal="true" aria-labelledby="header-link-page-saved-title">
@@ -6051,4 +6111,28 @@ document.addEventListener('click',event=>{
 </script>
 
 
+<script>
+(() => {
+  const modal = document.getElementById('admin-help-modal');
+  const openButton = document.getElementById('admin-help-open');
+  const closeButtons = [document.getElementById('admin-help-close'), document.getElementById('admin-help-done')].filter(Boolean);
+  if (!modal || !openButton) return;
+  let previousFocus = null;
+  const close = () => {
+    modal.hidden = true;
+    document.body.classList.remove('admin-help-open');
+    previousFocus?.focus();
+  };
+  openButton.addEventListener('click', () => {
+    previousFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add('admin-help-open');
+    document.getElementById('admin-help-close')?.focus();
+  });
+  closeButtons.forEach(button => button.addEventListener('click', close));
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+</script>
 </body></html>
