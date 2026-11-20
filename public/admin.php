@@ -1900,6 +1900,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-settings-tabs a.active{color:#fff;background:linear-gradient(100deg,rgba(128,20,39,.42),rgba(128,20,39,.08));border-color:rgba(184,50,63,.4)}
 @media(max-width:850px){.admin-shell{grid-template-columns:1fr}.admin-sidebar{position:relative;top:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:16px}.admin-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-subnav{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 8px 0;padding:8px 0 0;border-left:0;border-top:1px solid var(--line)}.admin-main{padding-top:25px}}
 @media(max-width:560px){.admin-stats,.admin-feature-grid{grid-template-columns:1fr}.admin-nav{grid-template-columns:1fr}.admin-subnav{grid-template-columns:1fr}.admin-topline .btn{width:100%}}
+  .dashboard-kpi-actions{display:flex;justify-content:flex-start;margin-top:16px;position:relative;z-index:2}.dashboard-kpi-actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:32px;padding:7px 14px;border-radius:999px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 5px 14px rgba(30,12,20,.12)}.dashboard-kpi-actions .btn:hover{transform:translateY(-1px)}
 </style><style>
 .section-subpanel.forum-panel-view{padding:0!important;overflow:hidden}
 
@@ -2081,7 +2082,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 </div>
 <?php elseif($message && empty($isBulkUserDeleteAction)):?><div class="panel" style="margin-bottom:20px"><?=e($message)?></div><?php endif;?>
 <?php if($section==='dashboard'):?>
-  <div class="admin-topline"><div><div class="eyebrow">System control</div><h1 class="admin-heading">Dashboard</h1><p class="muted">A clear overview of your website, accounts, and content activity.</p></div><a class="btn" href="<?=e(adminUrl('user-accounts'))?>">Manage accounts <span aria-hidden="true">→</span></a></div>
+  <div class="admin-topline"><div><div class="eyebrow">System control</div><h1 class="admin-heading">Dashboard</h1><p class="muted">A clear overview of your website, accounts, and content activity.</p></div></div>
   <div class="admin-stats dashboard-kpi-grid">
     <article class="admin-stat">
       <span>Total User Accounts</span><strong><?=number_format($totalUsers)?></strong>
@@ -2091,6 +2092,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <span class="activity-label" style="margin-top:9px">Last updated account</span>
         <?php if($lastUpdatedUser): ?><strong><?=e((string)($lastUpdatedUser['nickname'] ?: $lastUpdatedUser['full_name']))?></strong><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedUser['updated_at']))?></span><?php else: ?>No user accounts yet.<?php endif; ?>
       </div>
+      <div class="dashboard-kpi-actions"><a class="btn" href="<?=e(adminUrl('user-accounts'))?>">View Accounts <span aria-hidden="true">→</span></a></div>
     </article>
     <article class="admin-stat">
       <span>Total Articles</span><strong><?=number_format($totalArticles)?></strong>
@@ -2100,6 +2102,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <span class="activity-label" style="margin-top:9px">Last updated article</span>
         <?php if($lastUpdatedArticle): ?><strong><?=e((string)$lastUpdatedArticle['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedArticle['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedArticle['updated_at']))?></span><?php else: ?>No articles updated yet.<?php endif; ?>
       </div>
+      <div class="dashboard-kpi-actions"><a class="btn" href="<?=e(adminUrl('page-management'))?>&amp;tab=contents#pm-panel-contents">View Articles <span aria-hidden="true">→</span></a></div>
     </article>
     <article class="admin-stat">
       <span>Total Forum Threads</span><strong><?=number_format($totalForumThreads)?></strong>
@@ -2109,6 +2112,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <span class="activity-label" style="margin-top:9px">Last updated thread</span>
         <?php if($lastUpdatedThread): ?><strong><?=e((string)$lastUpdatedThread['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedThread['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedThread['updated_at']))?></span><?php else: ?>No forum threads updated yet.<?php endif; ?>
       </div>
+      <div class="dashboard-kpi-actions"><a class="btn" href="../index.php#community-forum">View Threads <span aria-hidden="true">→</span></a></div>
     </article>
   </div>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Content moderation</h2><span class="status"><?=count($pendingContent)?> awaiting review</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Content</th><th>Creator</th><th>Category</th><th>Submitted</th><th>Decision</th></tr></thead><tbody>
