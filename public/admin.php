@@ -1768,7 +1768,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-sidebar-profile-name{display:block;color:#fff;font-size:14px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
 .admin-sidebar-profile-fullname{display:block;margin-top:3px;color:#bbaeb2;font-size:10px;line-height:1.45;overflow-wrap:anywhere}
 .admin-sidebar-profile-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}
-.admin-sidebar-profile-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 9px;border:1px solid rgba(191,89,112,.38);border-radius:8px;background:rgba(255,255,255,.035);color:#f2e7ea;font:700 11px inherit;text-decoration:none;cursor:pointer;transition:background .18s,border-color .18s}
+.admin-sidebar-profile-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 9px;border:1px solid rgba(191,89,112,.38);border-radius:8px;background:rgba(255,255,255,.035);color:#f2e7ea;font-family:inherit;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer;transition:background .18s,border-color .18s}
 .admin-sidebar-profile-action:hover{background:rgba(160,34,58,.22);border-color:rgba(220,105,128,.65)}
 .admin-sidebar-profile-action svg{width:14px;height:14px;flex:0 0 14px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .admin-help-modal{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.78);backdrop-filter:blur(6px)}
