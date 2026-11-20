@@ -2096,18 +2096,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <span>Total Articles</span><strong><?=number_format($totalArticles)?></strong>
       <div class="admin-stat-activity">
         <span class="activity-label">Last created article</span>
-        <?php if($lastCreatedArticle): ?><strong><a class="dashboard-kpi-link" href="article.php?id=<?=(int)$lastCreatedArticle['id']?>"><?=e((string)$lastCreatedArticle['title'])?></a></strong><span>Created by <?=e((string)($lastCreatedArticle['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedArticle['created_at']))?></span><?php else: ?>No articles created yet.<?php endif; ?>
+        <?php if($lastCreatedArticle): ?><strong><?=e((string)$lastCreatedArticle['title'])?></strong><span>Created by <?=e((string)($lastCreatedArticle['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedArticle['created_at']))?></span><?php else: ?>No articles created yet.<?php endif; ?>
         <span class="activity-label" style="margin-top:9px">Last updated article</span>
-        <?php if($lastUpdatedArticle): ?><strong><a class="dashboard-kpi-link" href="article.php?id=<?=(int)$lastUpdatedArticle['id']?>"><?=e((string)$lastUpdatedArticle['title'])?></a></strong><span>Updated by <?=e((string)($lastUpdatedArticle['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedArticle['updated_at']))?></span><?php else: ?>No articles updated yet.<?php endif; ?>
+        <?php if($lastUpdatedArticle): ?><strong><?=e((string)$lastUpdatedArticle['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedArticle['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedArticle['updated_at']))?></span><?php else: ?>No articles updated yet.<?php endif; ?>
       </div>
     </article>
     <article class="admin-stat">
       <span>Total Forum Threads</span><strong><?=number_format($totalForumThreads)?></strong>
       <div class="admin-stat-activity">
         <span class="activity-label">Last created thread</span>
-        <?php if($lastCreatedThread): ?><strong><a class="dashboard-kpi-link" href="index.php?<?=e(http_build_query(['forum_panel_id'=>(string)$lastCreatedThread['panel_id'],'thread_id'=>(int)$lastCreatedThread['id'],'session_context'=>'creator']))?>#forum-thread-detail"><?=e((string)$lastCreatedThread['title'])?></a></strong><span>Created by <?=e((string)($lastCreatedThread['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedThread['created_at']))?></span><?php else: ?>No forum threads created yet.<?php endif; ?>
+        <?php if($lastCreatedThread): ?><strong><?=e((string)$lastCreatedThread['title'])?></strong><span>Created by <?=e((string)($lastCreatedThread['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedThread['created_at']))?></span><?php else: ?>No forum threads created yet.<?php endif; ?>
         <span class="activity-label" style="margin-top:9px">Last updated thread</span>
-        <?php if($lastUpdatedThread): ?><strong><a class="dashboard-kpi-link" href="index.php?<?=e(http_build_query(['forum_panel_id'=>(string)$lastUpdatedThread['panel_id'],'thread_id'=>(int)$lastUpdatedThread['id'],'session_context'=>'creator']))?>#forum-thread-detail"><?=e((string)$lastUpdatedThread['title'])?></a></strong><span>Updated by <?=e((string)($lastUpdatedThread['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedThread['updated_at']))?></span><?php else: ?>No forum threads updated yet.<?php endif; ?>
+        <?php if($lastUpdatedThread): ?><strong><?=e((string)$lastUpdatedThread['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedThread['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedThread['updated_at']))?></span><?php else: ?>No forum threads updated yet.<?php endif; ?>
       </div>
     </article>
   </div>
