@@ -2112,7 +2112,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <span class="activity-label" style="margin-top:9px">Last updated thread</span>
         <?php if($lastUpdatedThread): ?><strong><?=e((string)$lastUpdatedThread['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedThread['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedThread['updated_at']))?></span><?php else: ?>No forum threads updated yet.<?php endif; ?>
       </div>
-      <div class="dashboard-kpi-actions"><a class="btn" href="../index.php#community-forum">View Threads <span aria-hidden="true">→</span></a></div>
+      <div class="dashboard-kpi-actions"><a class="btn" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu#pm-panel-sections">View Threads <span aria-hidden="true">→</span></a></div>
     </article>
   </div>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Content moderation</h2><span class="status"><?=count($pendingContent)?> awaiting review</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Content</th><th>Creator</th><th>Category</th><th>Submitted</th><th>Decision</th></tr></thead><tbody>
