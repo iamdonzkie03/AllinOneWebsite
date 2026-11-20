@@ -29,6 +29,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS forum_threads (
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  INDEX idx_forum_threads_category_status(category_id,status), INDEX idx_forum_threads_panel(panel_id), INDEX idx_forum_threads_owner(owner_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$forumUpdatedByColumn=$pdo->query("SHOW COLUMNS FROM forum_threads LIKE 'updated_by'")->fetch(PDO::FETCH_ASSOC);
+if(!$forumUpdatedByColumn){$pdo->exec("ALTER TABLE forum_threads ADD COLUMN updated_by BIGINT UNSIGNED NULL AFTER owner_id");}
+$contentUpdatedByColumn=$pdo->query("SHOW COLUMNS FROM content LIKE 'updated_by'")->fetch(PDO::FETCH_ASSOC);
+if(!$contentUpdatedByColumn){$pdo->exec("ALTER TABLE content ADD COLUMN updated_by BIGINT UNSIGNED NULL AFTER owner_id");}
 $forumPanelIdColumn=$pdo->query("SHOW COLUMNS FROM forum_threads LIKE 'panel_id'")->fetch(PDO::FETCH_ASSOC);
 if(!$forumPanelIdColumn){$pdo->exec("ALTER TABLE forum_threads ADD COLUMN panel_id VARCHAR(64) NULL AFTER category_id, ADD INDEX idx_forum_threads_panel(panel_id)");}
 $pdo->exec("CREATE TABLE IF NOT EXISTS forum_thread_attachments (
@@ -716,7 +720,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
         $q=$pdo->prepare('SELECT * FROM forum_threads WHERE id=? AND panel_id=? LIMIT 1');$q->execute([$threadId,$panelId]);$current=$q->fetch(PDO::FETCH_ASSOC);if(!$current)throw new RuntimeException('The selected Forum thread could not be found.');
         if($action==='update_forum_thread_status'){
           $status=(string)($_POST['thread_status']??'unpublished');if(!in_array($status,['published','unpublished'],true))throw new RuntimeException('Invalid publication status.');
-          $pdo->prepare('UPDATE forum_threads SET status=? WHERE id=? AND panel_id=?')->execute([$status,$threadId,$panelId]);$t=e((string)$current['title']);
+          $pdo->prepare('UPDATE forum_threads SET status=?,updated_by=? WHERE id=? AND panel_id=?')->execute([$status,(int)$admin['id'],$threadId,$panelId]);$t=e((string)$current['title']);
           $_SESSION['forum_thread_success']=['html'=>$status==='published'?'The thread with <strong class="forum-post-result-thread-title">'.$t.'</strong> is now published.':'The thread with <strong class="forum-post-result-thread-title">'.$t.'</strong> is unpublished. You may publish it once changes has been finalized.'];
         }else{
           $title=trim((string)($_POST['thread_title']??''));$body=trim((string)($_POST['thread_description']??''));$group=trim((string)($_POST['thread_prefix_group']??''));$prefix=trim((string)($_POST['thread_prefix']??''));$status=(string)($_POST['thread_status']??'unpublished');
@@ -747,7 +751,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
           if($folder===''){$panelTitle=(string)($forumPanelViewPanel['title']??$forumPanelViewPanel['name']??'Forum');$slug=static function($v){if(function_exists('iconv')){$x=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$v);if($x!==false)$v=$x;}$v=strtolower(trim((string)$v));$v=preg_replace('/[^a-z0-9]+/','-',$v)??'';return trim($v,'-')?:'untitled';};$q=$pdo->prepare('SELECT full_name FROM users WHERE id=?');$q->execute([(int)$current['owner_id']]);$folder='uploads/forum-threads/'.$slug($panelTitle).'/ID'.$threadId.'_'.$slug((string)$q->fetchColumn()).'_'.date('Y-m-d_H-i-s',strtotime((string)$current['created_at']));}
           $sub=['photo'=>'Photos','video'=>'Videos','archive'=>'Compressed_Files','other'=>'Other_Files'];$base=__DIR__.'/'.$folder;$replace=[];foreach($accepted as $file)$replace[$file['type']]=true;
           if($accepted&&!is_dir($base)&&!@mkdir($base,0755,true))throw new RuntimeException('Unable to access the thread attachment folder.');
-          $pdo->beginTransaction();$pdo->prepare('UPDATE forum_threads SET prefix_group=?,prefix=?,title=?,description=?,tags_json=?,status=? WHERE id=? AND panel_id=?')->execute([$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status,$threadId,$panelId]);
+          $pdo->beginTransaction();$pdo->prepare('UPDATE forum_threads SET prefix_group=?,prefix=?,title=?,description=?,tags_json=?,status=?,updated_by=? WHERE id=? AND panel_id=?')->execute([$group,$prefix,$title,$body,json_encode($tags,JSON_UNESCAPED_UNICODE),$status,(int)$admin['id'],$threadId,$panelId]);
           $delIds=[];$removedKinds=[];foreach($oldFiles as $old){$oldId=(int)$old['id'];$kind=adminForumAttachmentKind($old);if(isset($replace[$kind])||in_array($oldId,$requestedRemovalIds,true)){$delIds[]=$oldId;if(in_array($oldId,$requestedRemovalIds,true))$removedKinds[$kind]=true;$path=__DIR__.'/'.ltrim(str_replace(['\\\\','..'],['/',''],(string)$old['file_path']),'/');if(is_file($path))$oldPathsToDelete[]=$path;}}
           if($delIds){$in=implode(',',array_fill(0,count($delIds),'?'));$pdo->prepare('DELETE FROM forum_thread_attachments WHERE thread_id=? AND id IN ('.$in.')')->execute(array_merge([$threadId],$delIds));}
           $ins=$pdo->prepare('INSERT INTO forum_thread_attachments(thread_id,original_name,file_path,mime_type,file_size,attachment_type) VALUES(?,?,?,?,?,?)');
@@ -1682,8 +1686,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
     }
     if ($action === 'publish' || $action === 'reject_content') {
         $status = $action === 'publish' ? 'published' : 'rejected';
-        $s = $pdo->prepare("UPDATE content SET status=?,published_at=IF(?='published',NOW(),published_at) WHERE id=?");
-        $s->execute([$status, $status, $id]);
+        $s = $pdo->prepare("UPDATE content SET status=?,published_at=IF(?='published',NOW(),published_at),updated_by=? WHERE id=?");
+        $s->execute([$status, $status, (int)$admin['id'], $id]);
         $message = 'Content moderation updated.';
         $section = 'dashboard';
     }
@@ -1719,6 +1723,15 @@ $systemAdminAccount = $systemAdminStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 $pendingContent = $pdo->query("SELECT c.id,c.title,c.content_type,c.created_at,u.full_name,cat.name category_name FROM content c JOIN users u ON u.id=c.owner_id JOIN categories cat ON cat.id=c.category_id WHERE c.status='pending_review' ORDER BY c.created_at")->fetchAll();
 $totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin'")->fetchColumn();
 $publishedContent = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE status='published'")->fetchColumn();
+$totalArticles = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE content_type='article'")->fetchColumn();
+$totalForumThreads = (int)$pdo->query("SELECT COUNT(*) FROM forum_threads")->fetchColumn();
+$lastCreatedUser = $pdo->query("SELECT full_name,nickname,created_at FROM users WHERE role<>'system_admin' ORDER BY created_at DESC,id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastUpdatedUser = $pdo->query("SELECT full_name,nickname,updated_at FROM users WHERE role<>'system_admin' ORDER BY updated_at DESC,id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastCreatedArticle = $pdo->query("SELECT c.title,c.created_at,u.full_name AS creator_name FROM content c LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.created_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastUpdatedArticle = $pdo->query("SELECT c.title,c.updated_at,updater.full_name AS updater_name FROM content c LEFT JOIN users updater ON updater.id=c.updated_by WHERE c.content_type='article' ORDER BY c.updated_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastCreatedThread = $pdo->query("SELECT t.title,t.created_at,u.full_name AS creator_name FROM forum_threads t LEFT JOIN users u ON u.id=t.owner_id ORDER BY t.created_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastUpdatedThread = $pdo->query("SELECT t.title,t.updated_at,updater.full_name AS updater_name FROM forum_threads t LEFT JOIN users updater ON updater.id=t.updated_by ORDER BY t.updated_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$dashboardDateLabel = static function($value): string { $timestamp=strtotime((string)$value); return $timestamp ? date('F d, Y · h:i A',$timestamp) : '—'; };
 function navActive(string $current, string $target): string { return $current === $target ? ' active' : ''; }
 function adminUrl(string $section): string { return 'admin.php?section=' . rawurlencode($section); }
 ?><!doctype html>
@@ -1751,6 +1764,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-stat{padding:22px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012))}
 .admin-stat span{display:block;color:var(--muted);font-size:12px}
 .admin-stat strong{display:block;font:36px Georgia,serif;margin-top:9px;color:#f7eef0}
+.admin-stat .admin-stat-activity{margin-top:13px;padding-top:11px;border-top:1px solid rgba(255,255,255,.09);color:#cbbdc2;font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.admin-stat .admin-stat-activity strong{display:inline;font:inherit;font-weight:700;color:#f3e8eb;margin:0}
+.admin-stat .admin-stat-activity .activity-label{display:block;margin:0 0 3px;color:#bcaeb3;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.admin-stat .admin-stat-activity .activity-date{display:block;color:#a99ba0;font-size:10px}
 .admin-panel{margin:20px 0;padding:22px;min-width:0}
 .admin-panel h2{font:24px Georgia,serif;margin:0 0 16px}
 .admin-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -2045,7 +2062,35 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 <?php elseif($message && empty($isBulkUserDeleteAction)):?><div class="panel" style="margin-bottom:20px"><?=e($message)?></div><?php endif;?>
 <?php if($section==='dashboard'):?>
   <div class="admin-topline"><div><div class="eyebrow">System control</div><h1 class="admin-heading">Dashboard</h1><p class="muted">A clear overview of your website, accounts, and content activity.</p></div><a class="btn" href="<?=e(adminUrl('user-accounts'))?>">Manage accounts <span aria-hidden="true">→</span></a></div>
-  <div class="admin-stats"><div class="admin-stat"><span>Contributor accounts</span><strong><?=$totalUsers?></strong></div><div class="admin-stat"><span>Active accounts</span><strong><?=$activeUsers?></strong></div><div class="admin-stat"><span>Published content</span><strong><?=$publishedContent?></strong></div></div>
+  <div class="admin-stats dashboard-kpi-grid">
+    <article class="admin-stat">
+      <span>Total User Accounts</span><strong><?=number_format($totalUsers)?></strong>
+      <div class="admin-stat-activity">
+        <span class="activity-label">Last created account</span>
+        <?php if($lastCreatedUser): ?><strong><?=e((string)($lastCreatedUser['nickname'] ?: $lastCreatedUser['full_name']))?></strong><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedUser['created_at']))?></span><?php else: ?>No user accounts yet.<?php endif; ?>
+        <span class="activity-label" style="margin-top:9px">Last updated account</span>
+        <?php if($lastUpdatedUser): ?><strong><?=e((string)($lastUpdatedUser['nickname'] ?: $lastUpdatedUser['full_name']))?></strong><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedUser['updated_at']))?></span><?php else: ?>No user accounts yet.<?php endif; ?>
+      </div>
+    </article>
+    <article class="admin-stat">
+      <span>Total Articles</span><strong><?=number_format($totalArticles)?></strong>
+      <div class="admin-stat-activity">
+        <span class="activity-label">Last created article</span>
+        <?php if($lastCreatedArticle): ?><strong><?=e((string)$lastCreatedArticle['title'])?></strong><span>Created by <?=e((string)($lastCreatedArticle['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedArticle['created_at']))?></span><?php else: ?>No articles created yet.<?php endif; ?>
+        <span class="activity-label" style="margin-top:9px">Last updated article</span>
+        <?php if($lastUpdatedArticle): ?><strong><?=e((string)$lastUpdatedArticle['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedArticle['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedArticle['updated_at']))?></span><?php else: ?>No articles updated yet.<?php endif; ?>
+      </div>
+    </article>
+    <article class="admin-stat">
+      <span>Total Forum Threads</span><strong><?=number_format($totalForumThreads)?></strong>
+      <div class="admin-stat-activity">
+        <span class="activity-label">Last created thread</span>
+        <?php if($lastCreatedThread): ?><strong><?=e((string)$lastCreatedThread['title'])?></strong><span>Created by <?=e((string)($lastCreatedThread['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedThread['created_at']))?></span><?php else: ?>No forum threads created yet.<?php endif; ?>
+        <span class="activity-label" style="margin-top:9px">Last updated thread</span>
+        <?php if($lastUpdatedThread): ?><strong><?=e((string)$lastUpdatedThread['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedThread['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedThread['updated_at']))?></span><?php else: ?>No forum threads updated yet.<?php endif; ?>
+      </div>
+    </article>
+  </div>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Content moderation</h2><span class="status"><?=count($pendingContent)?> awaiting review</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Content</th><th>Creator</th><th>Category</th><th>Submitted</th><th>Decision</th></tr></thead><tbody>
   <?php foreach($pendingContent as $c):?><tr><td><?=e($c['title'])?><br><small><?=e($c['content_type'])?></small></td><td><?=e($c['full_name'])?></td><td><?=e($c['category_name'])?></td><td><?=e($c['created_at'])?></td><td><form method="post" style="display:flex;gap:6px;flex-wrap:wrap"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$c['id']?>"><button class="btn" name="action" value="publish">Publish</button><button class="btn light" name="action" value="reject_content">Reject</button></form></td></tr><?php endforeach;?>
   <?php if(!$pendingContent):?><tr><td colspan="5">No content awaiting review.</td></tr><?php endif;?></tbody></table></div></section>
