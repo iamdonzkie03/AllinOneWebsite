@@ -1727,10 +1727,10 @@ $totalArticles = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE content_ty
 $totalForumThreads = (int)$pdo->query("SELECT COUNT(*) FROM forum_threads")->fetchColumn();
 $lastCreatedUser = $pdo->query("SELECT full_name,nickname,created_at FROM users WHERE role<>'system_admin' ORDER BY created_at DESC,id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
 $lastUpdatedUser = $pdo->query("SELECT full_name,nickname,updated_at FROM users WHERE role<>'system_admin' ORDER BY updated_at DESC,id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
-$lastCreatedArticle = $pdo->query("SELECT c.title,c.created_at,u.full_name AS creator_name FROM content c LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.created_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
-$lastUpdatedArticle = $pdo->query("SELECT c.title,c.updated_at,updater.full_name AS updater_name FROM content c LEFT JOIN users updater ON updater.id=c.updated_by WHERE c.content_type='article' AND c.updated_at>c.created_at ORDER BY c.updated_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
-$lastCreatedThread = $pdo->query("SELECT t.title,t.created_at,u.full_name AS creator_name FROM forum_threads t LEFT JOIN users u ON u.id=t.owner_id ORDER BY t.created_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
-$lastUpdatedThread = $pdo->query("SELECT t.title,t.updated_at,updater.full_name AS updater_name FROM forum_threads t LEFT JOIN users updater ON updater.id=t.updated_by WHERE t.updated_at>t.created_at ORDER BY t.updated_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastCreatedArticle = $pdo->query("SELECT c.id,c.title,c.created_at,u.full_name AS creator_name FROM content c LEFT JOIN users u ON u.id=c.owner_id WHERE c.content_type='article' ORDER BY c.created_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastUpdatedArticle = $pdo->query("SELECT c.id,c.title,c.updated_at,updater.full_name AS updater_name FROM content c LEFT JOIN users updater ON updater.id=c.updated_by WHERE c.content_type='article' AND c.updated_at>c.created_at ORDER BY c.updated_at DESC,c.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastCreatedThread = $pdo->query("SELECT t.id,t.panel_id,t.title,t.created_at,u.full_name AS creator_name FROM forum_threads t LEFT JOIN users u ON u.id=t.owner_id ORDER BY t.created_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
+$lastUpdatedThread = $pdo->query("SELECT t.id,t.panel_id,t.title,t.updated_at,updater.full_name AS updater_name FROM forum_threads t LEFT JOIN users updater ON updater.id=t.updated_by WHERE t.updated_at>t.created_at ORDER BY t.updated_at DESC,t.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: null;
 $dashboardDateLabel = static function($value): string { $timestamp=strtotime((string)$value); return $timestamp ? date('F d, Y · h:i:s A',$timestamp) : '—'; };
 function navActive(string $current, string $target): string { return $current === $target ? ' active' : ''; }
 function adminUrl(string $section): string { return 'admin.php?section=' . rawurlencode($section); }
@@ -1768,6 +1768,20 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-stat .admin-stat-activity strong{display:inline;font:inherit;font-weight:700;color:#f3e8eb;margin:0}
 .admin-stat .admin-stat-activity .activity-label{display:block;margin:0 0 3px;color:#bcaeb3;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .admin-stat .admin-stat-activity .activity-date{display:block;color:#a99ba0;font-size:10px}
+.admin-stats.dashboard-kpi-grid{align-items:stretch}
+.admin-stats.dashboard-kpi-grid>.admin-stat{color:#30242a;border:1px solid rgba(47,35,42,.12);box-shadow:0 10px 28px rgba(0,0,0,.16)}
+.admin-stats.dashboard-kpi-grid>.admin-stat:nth-child(1){background:linear-gradient(145deg,#e8ddf5,#d8c9ed)}
+.admin-stats.dashboard-kpi-grid>.admin-stat:nth-child(2){background:linear-gradient(145deg,#d9eee2,#c4e4d2)}
+.admin-stats.dashboard-kpi-grid>.admin-stat:nth-child(3){background:linear-gradient(145deg,#f7e2cf,#f1d2b7)}
+.admin-stats.dashboard-kpi-grid>.admin-stat>span{color:#594c53;font-weight:600}
+.admin-stats.dashboard-kpi-grid>.admin-stat>strong{color:#30232a}
+.admin-stats.dashboard-kpi-grid .admin-stat-activity{border-top-color:rgba(47,35,42,.16);color:#55464e}
+.admin-stats.dashboard-kpi-grid .admin-stat-activity strong{color:#30232a}
+.admin-stats.dashboard-kpi-grid .admin-stat-activity .activity-label{color:#66545d}
+.admin-stats.dashboard-kpi-grid .admin-stat-activity .activity-date{color:#66545d}
+.dashboard-kpi-link{color:inherit!important;text-decoration:underline;text-decoration-color:rgba(48,35,42,.45);text-underline-offset:3px;cursor:pointer;overflow-wrap:anywhere}
+.dashboard-kpi-link:hover{color:#781f39!important;text-decoration-color:currentColor}
+.dashboard-kpi-link:focus-visible{outline:2px solid #6f2742;outline-offset:3px;border-radius:3px}
 .admin-panel{margin:20px 0;padding:22px;min-width:0}
 .admin-panel h2{font:24px Georgia,serif;margin:0 0 16px}
 .admin-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -2076,18 +2090,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <span>Total Articles</span><strong><?=number_format($totalArticles)?></strong>
       <div class="admin-stat-activity">
         <span class="activity-label">Last created article</span>
-        <?php if($lastCreatedArticle): ?><strong><?=e((string)$lastCreatedArticle['title'])?></strong><span>Created by <?=e((string)($lastCreatedArticle['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedArticle['created_at']))?></span><?php else: ?>No articles created yet.<?php endif; ?>
+        <?php if($lastCreatedArticle): ?><strong><a class="dashboard-kpi-link" href="article.php?id=<?=(int)$lastCreatedArticle['id']?>"><?=e((string)$lastCreatedArticle['title'])?></a></strong><span>Created by <?=e((string)($lastCreatedArticle['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedArticle['created_at']))?></span><?php else: ?>No articles created yet.<?php endif; ?>
         <span class="activity-label" style="margin-top:9px">Last updated article</span>
-        <?php if($lastUpdatedArticle): ?><strong><?=e((string)$lastUpdatedArticle['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedArticle['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedArticle['updated_at']))?></span><?php else: ?>No articles updated yet.<?php endif; ?>
+        <?php if($lastUpdatedArticle): ?><strong><a class="dashboard-kpi-link" href="article.php?id=<?=(int)$lastUpdatedArticle['id']?>"><?=e((string)$lastUpdatedArticle['title'])?></a></strong><span>Updated by <?=e((string)($lastUpdatedArticle['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedArticle['updated_at']))?></span><?php else: ?>No articles updated yet.<?php endif; ?>
       </div>
     </article>
     <article class="admin-stat">
       <span>Total Forum Threads</span><strong><?=number_format($totalForumThreads)?></strong>
       <div class="admin-stat-activity">
         <span class="activity-label">Last created thread</span>
-        <?php if($lastCreatedThread): ?><strong><?=e((string)$lastCreatedThread['title'])?></strong><span>Created by <?=e((string)($lastCreatedThread['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedThread['created_at']))?></span><?php else: ?>No forum threads created yet.<?php endif; ?>
+        <?php if($lastCreatedThread): ?><strong><a class="dashboard-kpi-link" href="index.php?<?=e(http_build_query(['forum_panel_id'=>(string)$lastCreatedThread['panel_id'],'thread_id'=>(int)$lastCreatedThread['id'],'session_context'=>'creator']))?>#forum-thread-detail"><?=e((string)$lastCreatedThread['title'])?></a></strong><span>Created by <?=e((string)($lastCreatedThread['creator_name'] ?: 'Unknown'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastCreatedThread['created_at']))?></span><?php else: ?>No forum threads created yet.<?php endif; ?>
         <span class="activity-label" style="margin-top:9px">Last updated thread</span>
-        <?php if($lastUpdatedThread): ?><strong><?=e((string)$lastUpdatedThread['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedThread['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedThread['updated_at']))?></span><?php else: ?>No forum threads updated yet.<?php endif; ?>
+        <?php if($lastUpdatedThread): ?><strong><a class="dashboard-kpi-link" href="index.php?<?=e(http_build_query(['forum_panel_id'=>(string)$lastUpdatedThread['panel_id'],'thread_id'=>(int)$lastUpdatedThread['id'],'session_context'=>'creator']))?>#forum-thread-detail"><?=e((string)$lastUpdatedThread['title'])?></a></strong><span>Updated by <?=e((string)($lastUpdatedThread['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedThread['updated_at']))?></span><?php else: ?>No forum threads updated yet.<?php endif; ?>
       </div>
     </article>
   </div>
