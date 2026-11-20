@@ -495,6 +495,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
         } elseif (!$passwordValid) {
             $message = 'Password must be at least 10 characters and include uppercase and lowercase letters, a number, and a symbol. Both password fields must match.';
         } else {
+            $currentAdminStmt = $pdo->prepare("SELECT email FROM users WHERE id=? AND role='system_admin' LIMIT 1');
+            $currentAdminStmt->execute([$adminId]);
+            $currentAdminEmail = strtolower(trim((string)$currentAdminStmt->fetchColumn()));
+            $emailChanged = $currentAdminEmail !== $email;
+
             $emailCheck = $pdo->prepare('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1');
             $emailCheck->execute([$email, $adminId]);
             if ($emailCheck->fetchColumn()) {
@@ -507,7 +512,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                     $updateAdmin = $pdo->prepare("UPDATE users SET lastname=?,firstname=?,middlename=?,suffix=?,full_name=?,nickname=?,email=?,birthdate=?,birthplace=?,mobile_no=? WHERE id=? AND role='system_admin'");
                     $updateAdmin->execute([$last,$first,$middle !== '' ? $middle : null,$suffix !== '' ? $suffix : null,$fullName,$nickname !== '' ? $nickname : null,$email,$birthdate !== '' ? $birthdate : null,$birthplace !== '' ? $birthplace : null,$mobile !== '' ? $mobile : null,$adminId]);
                 }
-                header('Location: admin.php?section=user-accounts&system_admin_saved=1', true, 303);
+                $savedType = $emailChanged && $passwordRequested ? 'both' : ($emailChanged ? 'email' : ($passwordRequested ? 'password' : 'details'));
+                header('Location: admin.php?section=user-accounts&system_admin_saved=' . rawurlencode($savedType), true, 303);
                 exit;
             }
         }
@@ -2036,7 +2042,30 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     </section>
   </div>
   <?php endif; ?>
-  <?php if(($_GET['system_admin_saved'] ?? '')==='1'): ?><div class="account-status-modal" id="system-admin-saved-modal"><div class="account-status-modal-card" role="dialog" aria-modal="true"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2>Your user account has been updated successfully.</h2><button type="button" class="btn" id="system-admin-saved-close">OK</button></div></div><?php endif; ?>
+  <?php
+    $systemAdminSavedType = (string)($_GET['system_admin_saved'] ?? '');
+    if (!in_array($systemAdminSavedType, ['email','password','details','both'], true)) $systemAdminSavedType = '';
+  ?>
+  <?php if($systemAdminSavedType !== ''): ?>
+    <div class="account-status-modal" id="system-admin-saved-modal" data-update-type="<?=e($systemAdminSavedType)?>">
+      <div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="system-admin-saved-title">
+        <div class="account-status-modal-icon" aria-hidden="true">✓</div>
+        <h2 id="system-admin-saved-title">Account Update Successful.</h2>
+        <p>
+          <?php if($systemAdminSavedType === 'email'): ?>
+            Your email address has been updated. You will be logged out from the current session and re-login using your new email address.
+          <?php elseif($systemAdminSavedType === 'password'): ?>
+            Your password has been updated. You will be logged out from the current session and re-login using your new password.
+          <?php elseif($systemAdminSavedType === 'both'): ?>
+            Your email address and password have been updated. You will be logged out from the current session and re-login using your new email address and password.
+          <?php else: ?>
+            Your account details has been updated successfully.
+          <?php endif; ?>
+        </p>
+        <button type="button" class="btn" id="system-admin-saved-close">OK</button>
+      </div>
+    </div>
+  <?php endif; ?>
   <script>
   (() => {
     const modal=document.getElementById('system-admin-edit-modal');
@@ -2090,7 +2119,16 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     }));
     if(open&&modal)open.addEventListener('click',()=>{modal.hidden=false;});
     if(cancel&&modal)cancel.addEventListener('click',()=>{modal.hidden=true;});
-    if(savedClose&&saved)savedClose.addEventListener('click',()=>saved.remove());
+    if(savedClose&&saved)savedClose.addEventListener('click',()=>{
+      const updateType=saved.dataset.updateType||'details';
+      if(updateType==='email'||updateType==='password'||updateType==='both'){
+        window.location.replace('logout.php?scope=admin&destination=signin');
+        return;
+      }
+      const destination=new URL('admin.php',window.location.href);
+      destination.searchParams.set('section','user-accounts');
+      window.location.replace(destination.toString());
+    });
   })();
   </script>
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
