@@ -2102,7 +2102,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <span class="activity-label" style="margin-top:9px">Last updated article</span>
         <?php if($lastUpdatedArticle): ?><strong><?=e((string)$lastUpdatedArticle['title'])?></strong><span>Updated by <?=e((string)($lastUpdatedArticle['updater_name'] ?: 'Not recorded'))?></span><span class="activity-date"><?=e($dashboardDateLabel($lastUpdatedArticle['updated_at']))?></span><?php else: ?>No articles updated yet.<?php endif; ?>
       </div>
-      <div class="dashboard-kpi-actions"><a class="btn" href="<?=e(adminUrl('page-management'))?>?tab=contents#pm-panel-contents">View Articles <span aria-hidden="true">→</span></a></div>
+      <div class="dashboard-kpi-actions"><a class="btn" href="<?=e(adminUrl('page-management'))?>&amp;tab=contents#pm-panel-contents">View Articles <span aria-hidden="true">→</span></a></div>
     </article>
     <article class="admin-stat">
       <span>Total Forum Threads</span><strong><?=number_format($totalForumThreads)?></strong>
