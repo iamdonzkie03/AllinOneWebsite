@@ -2200,8 +2200,9 @@ body:has(.admin-shell),body:has(.admin-shell) *{
  </style>
   <script>
   (()=>{
-    const table=document.querySelector('.users-table');
     const form=document.getElementById('bulk-users');
+    // Scope pagination and selection to Registered User Accounts, not the My Account table above it.
+    const table=form?.querySelector('table.users-table');
     const all=document.getElementById('select-all-users');
     const bulkDelete=form?.querySelector('button.bulk-delete');
     const confirmModal=document.getElementById('users-delete-confirm-modal');
