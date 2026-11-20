@@ -2134,7 +2134,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <section class="panel admin-panel"><div class="admin-panel-head"><h2>Registered User Accounts</h2><span class="muted" id="total-account-count"><?=count($managedUsers)?> Total <?=count($managedUsers)===1?'Account':'Accounts'?></span></div>
   <form id="bulk-users" method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete_selected_users">
   <div class="admin-panel-head" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="submit" disabled aria-disabled="true" id="users-delete-selected">Delete Selected</button></div>
-  <div class="users-table-controls"><label>Show <select id="users-page-size" aria-label="Accounts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label><label><input id="users-filter" type="search" placeholder="Search registered accounts..." aria-label="Search registered accounts"></label></div><div class="users-pagination"><span id="users-page-info" class="muted" aria-live="polite"></span><div class="users-page-buttons"><button type="button" class="btn light" id="users-prev">Previous</button><span id="users-page-number" class="muted"></span><button type="button" class="btn light" id="users-next">Next</button></div></div><div class="table-wrap"><table class="table users-table"><thead><tr><th class="user-select-cell"><input type="checkbox" id="select-all-users" aria-label="Select all user accounts"></th><th>Full Name</th><th>Email Address</th><th>Credential Notes</th><th>Date Created</th><th>Last Update</th><th>Action</th></tr></thead><tbody>
+  <div class="content-manager-table-tools users-table-controls"><label class="content-manager-page-size">Show<select class="field" id="users-page-size" aria-label="Accounts per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label><label class="content-manager-filter"><input class="field" id="users-filter" type="search" placeholder="Search registered accounts..." aria-label="Search registered accounts"></label></div><div class="content-manager-pagination content-manager-gallery-pagination"><span class="muted" id="users-page-info-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="users-first" aria-label="First page">First</button><button type="button" class="btn light" id="users-prev">Previous</button><span id="users-page-numbers-top" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="users-next">Next</button><button type="button" class="btn light" id="users-last" aria-label="Last page">Last</button></div></div><div class="table-wrap"><table class="table users-table"><thead><tr><th class="user-select-cell"><input type="checkbox" id="select-all-users" aria-label="Select all user accounts"></th><th>Full Name</th><th>Email Address</th><th>Credential Notes</th><th>Date Created</th><th>Last Update</th><th>Action</th></tr></thead><tbody>
   <?php foreach($managedUsers as $u):
     $last = trim((string)($u['lastname'] ?? '')); $first = trim((string)($u['firstname'] ?? '')); $middle = trim((string)($u['middlename'] ?? '')); $suffix = trim((string)($u['suffix'] ?? ''));
     $middleInitial = $middle !== '' ? mb_strtoupper(mb_substr($middle,0,1,'UTF-8'),'UTF-8').'.' : '';
@@ -2146,7 +2146,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   <td><?=e($u['email'])?></td><td class="credential-cell"><?=nl2br(e($u['credential_notes'] ?? '—'))?></td><td><span><?=e(adminDateLabel((string)($u['created_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($u['created_at'] ?? '')))?></span></td><td><span><?=e(adminDateLabel((string)($u['updated_at'] ?? '')))?></span><span class="user-subdetails"><?=e(adminTimeLabel((string)($u['updated_at'] ?? '')))?></span></td>
   <td><?php if (empty($u['email_verified_at'])): ?><span class="pending-email-verification">Pending Email Verification</span><?php else: ?><form method="post" class="user-actions"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$u['id']?>"><input type="hidden" name="next_status" value="<?=$active?'suspended':'approved'?>"><button class="user-toggle<?=$active?'':' inactive'?>" name="action" value="toggle_user_status" type="submit" role="switch" aria-checked="<?=$active?'true':'false'?>" aria-label="Account status: <?=$active?'Active':'Inactive'?>"><span class="toggle-knob" aria-hidden="true"></span><span><?=$active?'Active':'Inactive'?></span></button></form><?php endif; ?></td>
   </tr><?php endforeach;?>
-  <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div></form></section>
+  <?php if(!$managedUsers):?><tr><td colspan="7">No user accounts found.</td></tr><?php endif;?></tbody></table></div><div class="content-manager-pagination content-manager-gallery-pagination"><span class="muted" id="users-page-info-bottom" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="users-first-bottom" aria-label="First page">First</button><button type="button" class="btn light" id="users-prev-bottom">Previous</button><span id="users-page-numbers-bottom" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="users-next-bottom">Next</button><button type="button" class="btn light" id="users-last-bottom" aria-label="Last page">Last</button></div></div></form></section>
   <div class="account-status-modal users-delete-confirm-modal" id="users-delete-confirm-modal" hidden><div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="users-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="users-delete-confirm-title">Delete Selected Account/s?</h2><p>Are you sure you want to delete the selected account/s?</p><p><strong>Total Accounts: <span id="users-delete-confirm-count">0</span></strong></p><div class="users-delete-modal-actions"><button type="button" class="btn light" id="users-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="users-delete-confirm">Delete</button></div></div></div>
   <?php if(isset($deletedUserCount) && $deletedUserCount > 0): ?><div class="account-status-modal users-delete-success-modal" id="users-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="users-delete-success-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="users-delete-success-title"><?=e($message)?></h2><button type="button" class="btn" id="users-delete-success-close">OK</button></div></div><?php endif; ?>
   <style>
@@ -2227,10 +2227,14 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     const checkboxes=()=>Array.from(table.querySelectorAll('input.user-select[name="selected_users[]"]'));
     const filter=document.getElementById('users-filter');
     const size=document.getElementById('users-page-size');
-    const info=document.getElementById('users-page-info');
-    const number=document.getElementById('users-page-number');
-    const prev=document.getElementById('users-prev');
-    const next=document.getElementById('users-next');
+    const countTop=document.getElementById('users-page-info-top');
+    const countBottom=document.getElementById('users-page-info-bottom');
+    const pageNumbersTop=document.getElementById('users-page-numbers-top');
+    const pageNumbersBottom=document.getElementById('users-page-numbers-bottom');
+    const firstButtons=[document.getElementById('users-first'),document.getElementById('users-first-bottom')].filter(Boolean);
+    const previousButtons=[document.getElementById('users-prev'),document.getElementById('users-prev-bottom')].filter(Boolean);
+    const nextButtons=[document.getElementById('users-next'),document.getElementById('users-next-bottom')].filter(Boolean);
+    const lastButtons=[document.getElementById('users-last'),document.getElementById('users-last-bottom')].filter(Boolean);
     let page=1;
     const matches=()=>{const q=(filter?.value||'').trim().toLocaleLowerCase();return rows.filter(row=>row.textContent.toLocaleLowerCase().includes(q));};
     const syncSelection=()=>{
@@ -2248,6 +2252,30 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         all.disabled=filtered.length===0;
       }
     };
+    const renderPageNumbers=container=>{
+      if(!container)return;
+      container.replaceChildren();
+      const found=matches();
+      const perPage=Math.max(1,Number(size?.value)||10);
+      const pages=Math.max(1,Math.ceil(found.length/perPage));
+      const maxVisible=7;
+      let first=Math.max(1,page-Math.floor(maxVisible/2));
+      let last=Math.min(pages,first+maxVisible-1);
+      first=Math.max(1,last-maxVisible+1);
+      const addNumber=number=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='btn light gallery-page-number'+(number===page?' is-active':'');
+        button.textContent=String(number);
+        button.setAttribute('aria-label','Page '+number);
+        if(number===page)button.setAttribute('aria-current','page');
+        button.addEventListener('click',()=>{page=number;render();});
+        container.appendChild(button);
+      };
+      if(first>1){addNumber(1);if(first>2){const dots=document.createElement('span');dots.className='muted';dots.textContent='…';container.appendChild(dots);}}
+      for(let number=first;number<=last;number++)addNumber(number);
+      if(last<pages){if(last<pages-1){const dots=document.createElement('span');dots.className='muted';dots.textContent='…';container.appendChild(dots);}addNumber(pages);}
+    };
     const render=()=>{
       const found=matches();
       const perPage=Math.max(1,Number(size?.value)||10);
@@ -2257,10 +2285,15 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       const end=Math.min(start+perPage,found.length);
       const visible=new Set(found.slice(start,end));
       rows.forEach(row=>{row.hidden=!visible.has(row);});
-      if(info)info.textContent=found.length?'Showing '+(start+1)+' to '+end+' of '+found.length+' '+(found.length===1?'account':'accounts'):'Showing 0 accounts';
-      if(number)number.textContent='Page '+page+' of '+pages;
-      if(prev)prev.disabled=page<=1;
-      if(next)next.disabled=page>=pages;
+      const summary=found.length?'Showing '+(start+1)+'–'+end+' of '+found.length+' entries':'Showing 0–0 of 0 entries';
+      if(countTop)countTop.textContent=summary;
+      if(countBottom)countBottom.textContent=summary;
+      renderPageNumbers(pageNumbersTop);
+      renderPageNumbers(pageNumbersBottom);
+      firstButtons.forEach(button=>{button.disabled=page<=1;});
+      previousButtons.forEach(button=>{button.disabled=page<=1;});
+      nextButtons.forEach(button=>{button.disabled=page>=pages;});
+      lastButtons.forEach(button=>{button.disabled=page>=pages;});
       syncSelection();
     };
     all?.addEventListener('change',()=>{
@@ -2272,8 +2305,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     });
     filter?.addEventListener('input',()=>{page=1;render();});
     size?.addEventListener('change',()=>{page=1;render();});
-    prev?.addEventListener('click',()=>{if(page>1){page--;render();}});
-    next?.addEventListener('click',()=>{page++;render();});
+    firstButtons.forEach(button=>button.addEventListener('click',()=>{page=1;render();}));
+    previousButtons.forEach(button=>button.addEventListener('click',()=>{page=Math.max(1,page-1);render();}));
+    nextButtons.forEach(button=>button.addEventListener('click',()=>{page=Math.min(Math.max(1,Math.ceil(matches().length/Math.max(1,Number(size?.value)||10))),page+1);render();}));
+    lastButtons.forEach(button=>button.addEventListener('click',()=>{page=Math.max(1,Math.ceil(matches().length/Math.max(1,Number(size?.value)||10)));render();}));
     // Never allow the bulk action when the selection is empty, even if another script changes the button state.
     form.addEventListener('submit',event=>{
       if(!checkboxes().some(box=>box.checked)){event.preventDefault();deleteConfirmed=false;closeConfirm();syncSelection();}
