@@ -4084,7 +4084,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               hidden.value=editor.innerHTML;
             })();
           </script>
-        </form>
         <?php endif; ?>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
