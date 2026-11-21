@@ -3835,12 +3835,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
                 <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="explore">+ Add Explore Link</button>
               </div>
               <div class="footer-column-editor"><h3>Column 3 — Discover</h3>
                 <label class="header-field">Column title<input class="field" name="footer_discover_title" id="footer-discover-title" maxlength="60" value="<?=e($footerSettings['discover_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-discover-editor"><?php foreach($footerSettings['discover_links'] as $link): ?><div class="footer-link-row"><input class="field" name="discover_label[]" maxlength="100" aria-label="Discover link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="discover_url[]" maxlength="500" aria-label="Automatically generated Discover page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-discover-editor"><?php foreach($footerSettings['discover_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="discover_label[]" maxlength="100" aria-label="Discover link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="discover_url[]" maxlength="500" aria-label="Automatically generated Discover page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="discover">+ Add Discover Link</button>
               </div>
             </div>
@@ -5366,7 +5366,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
               if (!title || !urlField || !title.value.trim()) continue;
               syncGeneratedFooterUrl(row);
               const url=urlField.value.trim();
-              if (url && await checkFooterPageExists(url)) {
+              const currentSlug=footerSlugify(title.value.trim());
+              const savedSlug=row.dataset.savedSlug || '';
+              // Previously saved links are already registered Footer entries; only
+              // newly added links or renamed entries should trigger duplicate checks.
+              if ((!savedSlug || currentSlug !== savedSlug) && url && await checkFooterPageExists(url)) {
                 const reuse=await askToReuseFooterPage();
                 if (!reuse) { title.focus(); return; }
               }
