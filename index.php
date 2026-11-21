@@ -143,6 +143,18 @@ if (isset($generatedHeaderPageSlug)) {
             }
         }
         if ($generatedHeaderPageTitle === null || $generatedHeaderPageTitle === '') {
+            foreach (['explore_links','discover_links'] as $footerGroup) {
+                foreach (($publicFooter[$footerGroup] ?? []) as $publicLink) {
+                    if (!is_array($publicLink)) continue;
+                    $publicLinkPath = parse_url((string)($publicLink['url'] ?? ''), PHP_URL_PATH);
+                    if ($publicLinkPath === '/public/' . $requestedGeneratedSlug . '.php') {
+                        $generatedHeaderPageTitle = trim((string)($publicLink['label'] ?? ''));
+                        break 2;
+                    }
+                }
+            }
+        }
+        if ($generatedHeaderPageTitle === null || $generatedHeaderPageTitle === '') {
             $generatedHeaderPageNotFound = true;
             $generatedHeaderPageTitle = 'Page not found';
         }
