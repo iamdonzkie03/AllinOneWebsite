@@ -1483,10 +1483,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                     $oldFile = __DIR__ . '/' . $oldMatch[1] . '.php';
                     if (is_file($oldFile) && !is_link($oldFile) && str_contains((string)@file_get_contents($oldFile), 'ZC_FOOTER_LINK_PAGE')) @unlink($oldFile);
                 }
-                $requestedFooterGroup=(string)($_POST['create_footer_page_group']??''); $requestedFooterIndex=trim((string)($_POST['create_footer_page_index']??''));
-                if(in_array($requestedFooterGroup,['explore','discover'],true)&&$requestedFooterIndex!==''){
-                  $requestedLink=$content[$requestedFooterGroup.'_links'][(int)$requestedFooterIndex]??null; $requestedPath=is_array($requestedLink)?parse_url((string)($requestedLink['url']??''),PHP_URL_PATH):null;
-                  if(is_string($requestedPath)&&preg_match('~^/.*?/public/([a-z0-9&-]+)\.php$~',$requestedPath,$match)){header('Location: admin.php?section=page-management&tab=footer&footer_page='.rawurlencode($match[1]).'#pm-panel-footer',true,303);exit;}
+                $requestedFooterGroup=(string)($_POST['create_footer_page_group']??'');
+                $requestedFooterSlug=trim((string)($_POST['create_footer_page_slug']??''));
+                if(in_array($requestedFooterGroup,['explore','discover'],true)&&$requestedFooterSlug!==''&&preg_match('/^[a-z0-9&-]{1,180}$/',$requestedFooterSlug)){
+                  $requestedPageFound=false;
+                  foreach(($content[$requestedFooterGroup.'_links']??[]) as $requestedLink){
+                    $requestedPath=parse_url((string)($requestedLink['url']??''),PHP_URL_PATH);
+                    if(is_string($requestedPath)&&basename($requestedPath)===$requestedFooterSlug.'.php'){$requestedPageFound=true;break;}
+                  }
+                  $requestedPageFile=__DIR__.'/'.$requestedFooterSlug.'.php';
+                  if($requestedPageFound&&is_file($requestedPageFile)&&!is_link($requestedPageFile)){
+                    header('Location: admin.php?section=page-management&tab=footer&footer_page='.rawurlencode($requestedFooterSlug).'#pm-panel-footer',true,303);exit;
+                  }
                   header('Location: admin.php?section=page-management&tab=footer#pm-panel-footer',true,303);exit;
                 }
                 if($message==='') header('Location: admin.php?section=page-management&tab=footer&footer_saved=1#pm-panel-footer',true,303);
@@ -4096,7 +4104,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <?php endif; ?>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
-          <input type="hidden" name="action" value="save_footer_settings"><input type="hidden" name="create_footer_page_group" id="create-footer-page-group"><input type="hidden" name="create_footer_page_index" id="create-footer-page-index">
+          <input type="hidden" name="action" value="save_footer_settings"><input type="hidden" name="create_footer_page_group" id="create-footer-page-group"><input type="hidden" name="create_footer_page_index" id="create-footer-page-index"><input type="hidden" name="create_footer_page_slug" id="create-footer-page-slug">
           <div class="footer-settings-grid">
             <aside class="footer-preview-column">
               <div class="header-preview-title">Footer Preview</div>
@@ -5631,8 +5639,15 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const button=row.querySelector('.create-footer-page'); if(!button)return;
         const group=button.dataset.group;
         const url=row.querySelector('[name="'+group+'_url[]"]')?.value.trim()||'';
+        const checkId=String((Number(row.dataset.pageCheckId)||0)+1);
+        row.dataset.pageCheckId=checkId;
         if(!url){button.hidden=true;return;}
-        try{button.hidden=await checkFooterPageExists(url);}catch(error){button.hidden=true;}
+        try{
+          const exists=await checkFooterPageExists(url);
+          if(row.dataset.pageCheckId===checkId)button.hidden=exists;
+        }catch(error){
+          if(row.dataset.pageCheckId===checkId)button.hidden=true;
+        }
       };
       form.addEventListener('input', event => {const row=event.target.closest('.footer-link-row');if(row&&['explore_label[]','discover_label[]'].includes(event.target.name||''))refreshCreatePageButton(row);});
       form.addEventListener('change', updatePreview);
@@ -5677,14 +5692,35 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         form.dataset.footerSubmitting='1';
         HTMLFormElement.prototype.submit.call(form);
       });
+      // Capture Create Page clicks at document level so other Page Management
+      // scripts cannot swallow the action before it reaches the Footer form.
+      document.addEventListener('click', event => {
+        const target=event.target instanceof Element?event.target:null;
+        const create=target?.closest('.create-footer-page');
+        if(!create||!form.contains(create))return;
+        event.preventDefault();
+        event.stopPropagation();
+        const group=create.dataset.group;
+        const row=create.closest('.footer-link-row');
+        const title=row?.querySelector('[name="'+group+'_label[]"]');
+        const url=row?.querySelector('[name="'+group+'_url[]"]')?.value.trim()||'';
+        if(!title?.value.trim()){title?.focus();return;}
+        const slug=url.split('/').pop().replace(/\.php(?:[?#].*)?$/i,'');
+        if(!slug){title.focus();return;}
+        document.getElementById('create-footer-page-group').value=group;
+        document.getElementById('create-footer-page-index').value='';
+        document.getElementById('create-footer-page-slug').value=slug;
+        form.requestSubmit();
+      },true);
       form.addEventListener('click', event => {
-        const create=event.target.closest('.create-footer-page');
-        if(create){const group=create.dataset.group,row=create.closest('.footer-link-row'),editor=document.getElementById('footer-'+group+'-editor'),title=row?.querySelector('[name="'+group+'_label[]"]');if(!title?.value.trim()){title?.focus();return;}const index=[...editor.querySelectorAll('.footer-link-row')].indexOf(row);document.getElementById('create-footer-page-group').value=group;document.getElementById('create-footer-page-index').value=String(index);form.requestSubmit();return;}
-        const add = event.target.closest('.add-footer-link');
+        const target=event.target instanceof Element?event.target:null;
+        const add = target?.closest('.add-footer-link');
         if (add) { addRow(add.dataset.group); return; }
-        const remove = event.target.closest('.remove-footer-link');
+        const remove = target?.closest('.remove-footer-link');
         if (remove) { remove.closest('.footer-link-row').remove(); updatePreview(); }
       });
+      // Refresh saved rows every time the Footer settings page is loaded.
+      form.querySelectorAll('.footer-link-row').forEach(refreshCreatePageButton);
       updatePreview();
     })();
     (() => {
