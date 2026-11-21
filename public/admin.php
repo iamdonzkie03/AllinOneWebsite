@@ -319,6 +319,15 @@ function headerLinkSlug(string $label): string {
     return $value !== '' ? $value : 'page';
 }
 
+function footerLinkPageExists(string $url): bool {
+    $path = parse_url(trim($url), PHP_URL_PATH);
+    if (!is_string($path)) return false;
+    $filename = basename($path);
+    if (!preg_match('/^([a-z0-9&-]{1,180})\\.php$/', $filename, $match)) return false;
+    $candidate = __DIR__ . '/' . $filename;
+    return is_file($candidate) && !is_link($candidate);
+}
+
 
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_gallery_photos (
@@ -4109,7 +4118,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
                 <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="explore" <?=is_file(__DIR__ . '/' . headerLinkSlug((string)$link['label']) . '.php') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="explore" <?=footerLinkPageExists((string)$link['url']) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="explore">+ Add Explore Link</button>
               </div>
               <div class="footer-column-editor"><h3>Column 3 — Discover</h3>
@@ -5620,9 +5629,10 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
       });
       const refreshCreatePageButton = async row => {
         const button=row.querySelector('.create-footer-page'); if(!button)return;
-        const group=button.dataset.group; const title=row.querySelector('[name="'+group+'_label[]"]')?.value.trim()||'';
-        if(!title){button.hidden=true;return;}
-        try{const response=await fetch('admin.php?check_footer_page='+encodeURIComponent(footerSlugify(title)),{credentials:'same-origin',cache:'no-store'});const result=await response.json();button.hidden=result?.exists===true;}catch(error){button.hidden=true;}
+        const group=button.dataset.group;
+        const url=row.querySelector('[name="'+group+'_url[]"]')?.value.trim()||'';
+        if(!url){button.hidden=true;return;}
+        try{button.hidden=await checkFooterPageExists(url);}catch(error){button.hidden=true;}
       };
       form.addEventListener('input', event => {const row=event.target.closest('.footer-link-row');if(row&&['explore_label[]','discover_label[]'].includes(event.target.name||''))refreshCreatePageButton(row);});
       form.addEventListener('change', updatePreview);
