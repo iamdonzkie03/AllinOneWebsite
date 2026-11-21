@@ -23,28 +23,39 @@ function sortSlideshowPhotosByUpdatedAt(array $photos): array {
 $admin = require_admin();
 $footerPublicUrlBase = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/public/admin.php'))), '/') . '/';
 
-// AJAX check against the actual local public folder. This deliberately checks
-// the PHP file itself rather than issuing a browser request to its URL.
-if (isset($_GET['check_header_shared_page'])) {
-    $requestedSlug = (string)$_GET['check_header_shared_page'];
-    $candidate = preg_match('/^[a-z0-9&-]{1,180}$/', $requestedSlug) ? __DIR__ . '/' . $requestedSlug . '.php' : '';
-    $exists = $candidate !== '' && is_file($candidate) && !is_link($candidate);
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store, max-age=0');
-    echo json_encode(['exists' => $exists]);
-    exit;
+// Return the origin of a generated link page so Header and Footer can
+// independently decide whether their own Create Page action should be shown.
+function generatedLinkPageOwnerBySlug(string $slug): ?string {
+    if (!preg_match('/^[a-z0-9&-]{1,180}$/', $slug)) return null;
+    $candidate = __DIR__ . '/' . $slug . '.php';
+    if (!is_file($candidate) || is_link($candidate)) return null;
+    $source = (string)@file_get_contents($candidate);
+    if (str_contains($source, 'ZC_HEADER_LINK_PAGE')) return 'header';
+    if (str_contains($source, 'ZC_FOOTER_LINK_PAGE')) return 'footer';
+    return 'other';
 }
 
-if (isset($_GET['check_footer_page'])) {
-    $requestedSlug = (string)$_GET['check_footer_page'];
-    $exists = false;
-    if (preg_match('/^[a-z0-9&-]{1,180}$/', $requestedSlug)) {
-        $candidate = __DIR__ . '/' . $requestedSlug . '.php';
-        $exists = is_file($candidate) && !is_link($candidate);
-    }
+function generatedLinkPageOwner(string $url): ?string {
+    $path = parse_url(trim($url), PHP_URL_PATH);
+    if (!is_string($path)) return null;
+    $filename = basename($path);
+    if (!preg_match('/^([a-z0-9&-]{1,180})\\.php$/', $filename, $match)) return null;
+    return generatedLinkPageOwnerBySlug($match[1]);
+}
+
+function shouldShowGeneratedPageButton(string $url, string $section): bool {
+    $owner = generatedLinkPageOwner($url);
+    return $owner === null || $owner === $section;
+}
+
+// Shared AJAX endpoint used by both Header and Footer. A missing page has
+// no owner; an unmanaged existing PHP file is deliberately not claimable.
+if (isset($_GET['check_header_shared_page']) || isset($_GET['check_footer_page'])) {
+    $requestedSlug = (string)($_GET['check_header_shared_page'] ?? $_GET['check_footer_page'] ?? '');
+    $owner = generatedLinkPageOwnerBySlug($requestedSlug);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, max-age=0');
-    echo json_encode(['exists' => $exists]);
+    echo json_encode(['exists' => $owner !== null, 'owner' => $owner]);
     exit;
 }
 
@@ -329,14 +340,7 @@ function headerLinkSlug(string $label): string {
     return $value !== '' ? $value : 'page';
 }
 
-function footerLinkPageExists(string $url): bool {
-    $path = parse_url(trim($url), PHP_URL_PATH);
-    if (!is_string($path)) return false;
-    $filename = basename($path);
-    if (!preg_match('/^([a-z0-9&-]{1,180})\\.php$/', $filename, $match)) return false;
-    $candidate = __DIR__ . '/' . $filename;
-    return is_file($candidate) && !is_link($candidate);
-}
+function footerLinkPageExists(string $url): bool { return generatedLinkPageOwner($url) === 'footer'; }
 
 
 
@@ -3854,7 +3858,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="header-field"><span>Header Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
                 <div id="header-links-list">
-                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page" <?=footerLinkPageExists((string)($headerLink['url'] ?? '')) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page" <?=!shouldShowGeneratedPageButton((string)($headerLink['url'] ?? ''), 'header') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
                 </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
               </div>
               <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
@@ -4137,7 +4141,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
                 <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="explore" <?=footerLinkPageExists((string)$link['url']) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="explore" <?=!shouldShowGeneratedPageButton((string)$link['url'], 'footer') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="explore">+ Add Explore Link</button>
               </div>
               <div class="footer-column-editor"><h3>Column 3 — Discover</h3>
@@ -5626,12 +5630,12 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const no=document.createElement('button');no.type='button';no.className='btn light';no.textContent='No';no.addEventListener('click',()=>{popup.remove();resolve(false);});
         actions.append(yes,no);card.append(icon,heading,actions);popup.append(card);document.body.append(popup);yes.focus();
       });
-      const checkFooterPageExists = async url => {
+      const checkFooterPageOwner = async url => {
         const slug=url.split('/').pop().replace(/\.php$/,'');
         const response=await fetch('admin.php?check_footer_page='+encodeURIComponent(slug),{credentials:'same-origin',cache:'no-store'});
         if(!response.ok) throw new Error('Unable to check whether the Footer page already exists.');
         const result=await response.json();
-        return result?.exists === true;
+        return result?.owner ?? null;
       };
       const addRow = group => {
         const editor = document.getElementById('footer-'+group+'-editor');
@@ -5655,8 +5659,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         row.dataset.pageCheckId=checkId;
         if(!url){button.hidden=true;return;}
         try{
-          const exists=await checkFooterPageExists(url);
-          if(row.dataset.pageCheckId===checkId)button.hidden=exists;
+          const owner=await checkFooterPageOwner(url);
+          if(row.dataset.pageCheckId===checkId)button.hidden=owner!==null && owner!=='footer';
         }catch(error){
           if(row.dataset.pageCheckId===checkId)button.hidden=true;
         }
@@ -5801,7 +5805,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
             const response=await fetch('admin.php?check_header_shared_page='+encodeURIComponent(slug),{credentials:'same-origin',cache:'no-store'});
             if(!response.ok)throw new Error('Shared page check failed');
             const result=await response.json();
-            if(row.dataset.pageCheckId===checkId)button.hidden=result?.exists===true;
+            if(row.dataset.pageCheckId===checkId)button.hidden=result?.owner!==null && result?.owner!=='header';
           }catch(error){if(row.dataset.pageCheckId===checkId)button.hidden=false;}
         };
         const refreshGeneratedUrls = () => {
