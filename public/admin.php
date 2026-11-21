@@ -4084,32 +4084,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               hidden.value=editor.innerHTML;
             })();
           </script>
-        <?php else: ?>
-        <form method="post" enctype="multipart/form-data" id="header-settings-form" class="header-settings-form">
-          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
-          <input type="hidden" name="action" value="save_header_settings">
-          <input type="hidden" name="create_header_page_index" id="create-header-page-index" value="">
-          <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame" inert aria-label="Non-interactive visual preview of the public website header"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="width:<?=(int)($headerSettings['logo_width'] ?? 200)?>px;height:<?=(int)($headerSettings['logo_height'] ?? 70)?>px;object-fit:contain;<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title" hidden></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; ?><a class="custom-preview-link" href="<?=e(trim((string)($headerLink['url'] ?? '')) ?: '#')?>"><?=e((string)$headerLink['label'])?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
-          <div class="header-settings-grid">
-            <div class="header-settings-fields">
-              <div class="header-field" hidden aria-hidden="true"><input type="hidden" data-rich-editor="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"></div>
-              <div class="header-field"><span>Header Logo</span>
-                <div class="header-logo-controls-row">
-                  <div class="header-logo-upload"><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>Allowed filetype: PNG, JPG, or JPEG. Maximum upload is 3MB.</small></div>
-                  <div class="logo-crop-controls"><label>Logo width: <output id="logo-width-value"><?=(int)($headerSettings['logo_width'] ?? 200)?> px</output><input type="range" name="logo_width" id="logo-width" min="50" max="200" step="5" value="<?=max(50,min(200,(int)($headerSettings['logo_width'] ?? 200)))?>"></label><label>Logo height: <output id="logo-height-value"><?=(int)($headerSettings['logo_height'] ?? 70)?> px</output><input type="range" name="logo_height" id="logo-height" min="30" max="120" step="5" value="<?=max(30,min(120,(int)($headerSettings['logo_height'] ?? 70)))?>"></label></div>
-                </div>
-              </div>
-              <div class="header-field"><span>Footer Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
-                <div id="header-links-list">
-                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page">Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
-                </div><button type="button" class="btn light" id="add-header-link">+ Add Footer Link</button>
-              </div>
-              <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
-            </div>
-            
-          </div>
-          <div class="header-settings-actions"><button type="submit" class="btn">Save Header Settings</button></div>
-        </form>
         <?php endif; ?>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
