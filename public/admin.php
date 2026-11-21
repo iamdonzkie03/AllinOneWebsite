@@ -5359,7 +5359,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const label = document.createElement('input'); label.className='field'; label.name=group+'_label[]'; label.maxLength=100; label.placeholder='Link title'; label.setAttribute('aria-label',group+' link title');
         const url = document.createElement('input'); url.className='field footer-generated-url'; url.name=group+'_url[]'; url.maxLength=500; url.placeholder=group==='brand'?'Page URL':'/public/page-title.php'; url.readOnly=group!=='brand'; if(group!=='brand')url.setAttribute('aria-readonly','true'); url.setAttribute('aria-label',group+' link URL');
         const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-footer-link'; remove.textContent='Remove';
-        row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
+        if(group!=='brand'){const create=document.createElement('button');create.type='button';create.className='btn light create-footer-page';create.dataset.group=group;create.textContent='Create Page';row.append(label,url,create,remove);}else row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
       };
       form.addEventListener('input', event => {
         if (event.target.matches('.footer-link-row input')) event.target.classList.remove('footer-field-invalid');
@@ -5410,6 +5410,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         HTMLFormElement.prototype.submit.call(form);
       });
       form.addEventListener('click', event => {
+        const create=event.target.closest('.create-footer-page');
+        if(create){const group=create.dataset.group,row=create.closest('.footer-link-row'),editor=document.getElementById('footer-'+group+'-editor'),title=row?.querySelector('[name="'+group+'_label[]"]');if(!title?.value.trim()){title?.focus();return;}const index=[...editor.querySelectorAll('.footer-link-row')].indexOf(row);document.getElementById('create-footer-page-group').value=group;document.getElementById('create-footer-page-index').value=String(index);form.requestSubmit();return;}
         const add = event.target.closest('.add-footer-link');
         if (add) { addRow(add.dataset.group); return; }
         const remove = event.target.closest('.remove-footer-link');
