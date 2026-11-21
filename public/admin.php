@@ -329,6 +329,16 @@ function headerLinkSlug(string $label): string {
     return $value !== '' ? $value : 'page';
 }
 
+function footerManagedPageExists(string $url): bool {
+    $path = parse_url(trim($url), PHP_URL_PATH);
+    if (!is_string($path)) return false;
+    $filename = basename($path);
+    if (!preg_match('/^([a-z0-9&-]{1,180})\\.php$/', $filename)) return false;
+    $candidate = __DIR__ . '/' . $filename;
+    return is_file($candidate) && !is_link($candidate)
+        && str_contains((string)@file_get_contents($candidate), 'ZC_FOOTER_LINK_PAGE');
+}
+
 function footerLinkPageExists(string $url): bool {
     $path = parse_url(trim($url), PHP_URL_PATH);
     if (!is_string($path)) return false;
@@ -3854,7 +3864,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="header-field"><span>Header Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
                 <div id="header-links-list">
-                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page">Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page" <?=footerManagedPageExists((string)($headerLink['url'] ?? '')) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
                 </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
               </div>
               <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
