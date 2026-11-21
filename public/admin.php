@@ -5307,12 +5307,12 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
       form.addEventListener('input', event => {
         if (event.target.matches('.footer-link-row input')) event.target.classList.remove('footer-field-invalid');
         const row=event.target.closest('.footer-link-row');
-        if(row && /^(explore|discover)_label\\[\\]$/.test(event.target.name||'')){syncGeneratedFooterUrl(row);row.dataset.duplicatePrompted='';}
+        if(row && ['explore_label[]','discover_label[]'].includes(event.target.name||'').test(event.target.name||'')){syncGeneratedFooterUrl(row);row.dataset.duplicatePrompted='';}
         updatePreview();
       });
       form.addEventListener('focusout', event => {
         const row=event.target.closest('.footer-link-row');
-        if(row && /^(explore|discover)_label\\[\\]$/.test(event.target.name||'')){syncGeneratedFooterUrl(row);checkFooterPageExists(row,event.target);}
+        if(row && ['explore_label[]','discover_label[]'].includes(event.target.name||'').test(event.target.name||'')){syncGeneratedFooterUrl(row);checkFooterPageExists(row,event.target);}
       });
       form.addEventListener('change', updatePreview);
       let invalidTitleField = null;
