@@ -1877,6 +1877,7 @@ $systemAdminStmt->execute([(int)$admin['id']]);
 $systemAdminAccount = $systemAdminStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 $pendingContent = $pdo->query("SELECT c.id,c.title,c.content_type,c.created_at,u.full_name,cat.name category_name FROM content c JOIN users u ON u.id=c.owner_id JOIN categories cat ON cat.id=c.category_id WHERE c.status='pending_review' ORDER BY c.created_at")->fetchAll();
 $totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role<>'system_admin'")->fetchColumn();
+$inactiveUsers = max(0, $totalUsers - $activeUsers);
 $publishedContent = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE status='published'")->fetchColumn();
 $totalArticles = (int)$pdo->query("SELECT COUNT(*) FROM content WHERE content_type='article'")->fetchColumn();
 $totalForumThreads = (int)$pdo->query("SELECT COUNT(*) FROM forum_threads")->fetchColumn();
@@ -1940,6 +1941,18 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 .admin-stats.dashboard-kpi-grid .admin-stat-activity strong{color:#30232a}
 .admin-stats.dashboard-kpi-grid .admin-stat-activity .activity-label{color:#66545d;font-size:9px;margin-bottom:2px}
 .admin-stats.dashboard-kpi-grid .admin-stat-activity .activity-date{color:#66545d}
+.dashboard-user-chart-panel{margin-top:18px}
+.dashboard-user-chart{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(18px,5vw,64px);align-items:end;max-width:760px;margin:12px auto 0;padding:12px 20px 0}
+.dashboard-user-chart-column{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;gap:8px}
+.dashboard-user-chart-value{font:700 15px Ubuntu,sans-serif;color:#f4e8ec}
+.dashboard-user-chart-track{display:flex;align-items:flex-end;justify-content:center;width:min(100%,112px);height:180px;overflow:hidden;border-radius:10px 10px 4px 4px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08)}
+.dashboard-user-chart-bar{width:100%;min-height:0;border-radius:8px 8px 2px 2px;transition:height .25s ease}
+.dashboard-user-chart-bar.active{background:linear-gradient(180deg,#75c99c,#34865f)}
+.dashboard-user-chart-bar.inactive{background:linear-gradient(180deg,#e9a0a8,#a93c50)}
+.dashboard-user-chart-bar.total{background:linear-gradient(180deg,#c8a5e5,#79509e)}
+.dashboard-user-chart-label{font-size:12px;font-weight:700;color:#e8dce1;text-align:center}
+.dashboard-user-chart-note{margin:14px 0 0;color:var(--muted);font-size:11px;text-align:center}
+@media(max-width:560px){.dashboard-user-chart{gap:12px;padding-inline:0}.dashboard-user-chart-track{height:145px;width:min(100%,82px)}.dashboard-user-chart-label{font-size:10px}}
 .dashboard-kpi-link{color:inherit!important;text-decoration:underline;text-decoration-color:rgba(48,35,42,.45);text-underline-offset:3px;cursor:pointer;overflow-wrap:anywhere}
 .dashboard-kpi-link:hover{color:#781f39!important;text-decoration-color:currentColor}
 .dashboard-kpi-link:focus-visible{outline:2px solid #6f2742;outline-offset:3px;border-radius:3px}
@@ -2275,9 +2288,19 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <div class="dashboard-kpi-actions"><a class="btn" href="admin.php?section=page-management&amp;tab=sections&amp;section_tab=mega_menu#pm-panel-sections">View Threads <span aria-hidden="true">→</span></a></div>
     </article>
   </div>
-  <section class="panel admin-panel"><div class="admin-panel-head"><h2>Content moderation</h2><span class="status"><?=count($pendingContent)?> awaiting review</span></div><div class="table-wrap"><table class="table"><thead><tr><th>Content</th><th>Creator</th><th>Category</th><th>Submitted</th><th>Decision</th></tr></thead><tbody>
-  <?php foreach($pendingContent as $c):?><tr><td><?=e($c['title'])?><br><small><?=e($c['content_type'])?></small></td><td><?=e($c['full_name'])?></td><td><?=e($c['category_name'])?></td><td><?=e($c['created_at'])?></td><td><form method="post" style="display:flex;gap:6px;flex-wrap:wrap"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=(int)$c['id']?>"><button class="btn" name="action" value="publish">Publish</button><button class="btn light" name="action" value="reject_content">Reject</button></form></td></tr><?php endforeach;?>
-  <?php if(!$pendingContent):?><tr><td colspan="5">No content awaiting review.</td></tr><?php endif;?></tbody></table></div></section>
+  <section class="panel admin-panel dashboard-user-chart-panel">
+    <div class="admin-panel-head"><h2>User Accounts Overview</h2><span class="status">Account status</span></div>
+    <div class="dashboard-user-chart" role="img" aria-label="User accounts: <?=number_format($activeUsers)?> active, <?=number_format($inactiveUsers)?> inactive, <?=number_format($totalUsers)?> total.">
+      <?php foreach ([['label'=>'Active Users','value'=>$activeUsers,'class'=>'active'],['label'=>'Inactive Users','value'=>$inactiveUsers,'class'=>'inactive'],['label'=>'Total Users','value'=>$totalUsers,'class'=>'total']] as $userBar): ?>
+        <div class="dashboard-user-chart-column">
+          <strong class="dashboard-user-chart-value"><?=number_format($userBar['value'])?></strong>
+          <div class="dashboard-user-chart-track"><div class="dashboard-user-chart-bar <?=$userBar['class']?>" style="height:<?=$totalUsers > 0 ? max(0, min(100, ($userBar['value'] / $totalUsers) * 100)) : 0?>%"></div></div>
+          <span class="dashboard-user-chart-label"><?=e($userBar['label'])?></span>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <p class="dashboard-user-chart-note">Inactive includes accounts that are suspended or have not yet completed email verification.</p>
+  </section>
   <div class="admin-feature-grid"><div class="admin-feature"><div class="symbol">▤</div><h3>Page Management</h3><p>Manage the pages and sections displayed on the public website.</p><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Open settings</a></div><div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize the images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open settings</a></div></div>
 <?php elseif($section==='user-accounts'):?>
   <div class="admin-topline"><div><div class="eyebrow">Access control</div><h1 class="admin-heading">User Accounts</h1><p class="muted">Manage registered accounts, contributor credentials and account access.</p></div></div>
