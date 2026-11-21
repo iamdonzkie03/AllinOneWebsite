@@ -2112,6 +2112,10 @@ body:has(.admin-shell),body:has(.admin-shell) *{
   </section>
 </div>
 <main class="admin-main">
+<?php if (($section === 'page-management') && ($activeFooterPageSlug ?? '') !== '' && ($_GET['footer_page_saved'] ?? '') === '1'): ?>
+<div class="account-status-modal" id="footer-link-page-saved-modal" role="dialog" aria-modal="true" aria-labelledby="footer-link-page-saved-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="footer-link-page-saved-title">Page content successfully saved.</h2><button type="button" class="btn" id="footer-link-page-saved-close">OK</button></div></div>
+<script>(()=>{const modal=document.getElementById('footer-link-page-saved-modal'),button=document.getElementById('footer-link-page-saved-close');if(!modal||!button)return;if(modal.parentElement!==document.body)document.body.appendChild(modal);const params=new URLSearchParams(location.search);params.delete('footer_page_saved');history.replaceState({},'',location.pathname+(params.toString()?'?'+params.toString():'')+location.hash);document.body.classList.add('modal-open');const close=()=>{modal.remove();document.body.classList.remove('modal-open');};button.addEventListener('click',close,{once:true});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('footer-link-page-saved-modal'))close();},{once:true});button.focus();})();</script>
+<?php endif; ?>
 <?php if (($section === 'page-management') && ($activeHeaderPageSlug ?? '') !== '' && ($_GET['header_page_saved'] ?? '') === '1'): ?>
 <div class="account-status-modal" id="header-link-page-saved-modal" role="dialog" aria-modal="true" aria-labelledby="header-link-page-saved-title">
   <div class="account-status-modal-card">
@@ -5641,6 +5645,13 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         if(row && ['explore_label[]','discover_label[]'].includes(event.target.name||'')){syncGeneratedFooterUrl(row);row.dataset.duplicatePrompted='';}
         updatePreview();
       });
+      const refreshCreatePageButton = async row => {
+        const button=row.querySelector('.create-footer-page'); if(!button)return;
+        const group=button.dataset.group; const title=row.querySelector('[name="'+group+'_label[]"]')?.value.trim()||'';
+        if(!title){button.hidden=true;return;}
+        try{const response=await fetch('admin.php?check_footer_page='+encodeURIComponent(footerSlugify(title)),{credentials:'same-origin',cache:'no-store'});const result=await response.json();button.hidden=result?.exists===true;}catch(error){button.hidden=true;}
+      };
+      form.addEventListener('input', event => {const row=event.target.closest('.footer-link-row');if(row&&['explore_label[]','discover_label[]'].includes(event.target.name||''))refreshCreatePageButton(row);});
       form.addEventListener('change', updatePreview);
       let invalidTitleField = null;
       form.addEventListener('submit', async event => {
