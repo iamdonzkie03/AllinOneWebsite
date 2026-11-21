@@ -25,6 +25,16 @@ $footerPublicUrlBase = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['S
 
 // AJAX check against the actual local public folder. This deliberately checks
 // the PHP file itself rather than issuing a browser request to its URL.
+if (isset($_GET['check_header_shared_page'])) {
+    $requestedSlug = (string)$_GET['check_header_shared_page'];
+    $candidate = preg_match('/^[a-z0-9&-]{1,180}$/', $requestedSlug) ? __DIR__ . '/' . $requestedSlug . '.php' : '';
+    $exists = $candidate !== '' && is_file($candidate) && !is_link($candidate) && str_contains((string)@file_get_contents($candidate), 'ZC_FOOTER_LINK_PAGE');
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+    echo json_encode(['exists' => $exists]);
+    exit;
+}
+
 if (isset($_GET['check_footer_page'])) {
     $requestedSlug = (string)$_GET['check_footer_page'];
     $exists = false;
@@ -317,6 +327,16 @@ function headerLinkSlug(string $label): string {
     $value = preg_replace('/[^a-z0-9&]+/', '-', $value) ?? '';
     $value = trim($value, '-');
     return $value !== '' ? $value : 'page';
+}
+
+function footerManagedPageExists(string $url): bool {
+    $path = parse_url(trim($url), PHP_URL_PATH);
+    if (!is_string($path)) return false;
+    $filename = basename($path);
+    if (!preg_match('/^([a-z0-9&-]{1,180})\\.php$/', $filename)) return false;
+    $candidate = __DIR__ . '/' . $filename;
+    return is_file($candidate) && !is_link($candidate)
+        && str_contains((string)@file_get_contents($candidate), 'ZC_FOOTER_LINK_PAGE');
 }
 
 function footerLinkPageExists(string $url): bool {
@@ -1540,7 +1560,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             while (isset($usedHeaderSlugs[$slug])) $slug = $baseSlug . '-' . $suffix++;
             // Never overwrite an unrelated PHP page already present in /public.
             while (is_file(__DIR__ . '/' . $slug . '.php')
-                && !str_contains((string)@file_get_contents(__DIR__ . '/' . $slug . '.php'), 'ZC_HEADER_LINK_PAGE')) {
+                && !str_contains((string)@file_get_contents(__DIR__ . '/' . $slug . '.php'), 'ZC_HEADER_LINK_PAGE')
+                && !str_contains((string)@file_get_contents(__DIR__ . '/' . $slug . '.php'), 'ZC_FOOTER_LINK_PAGE')) {
                 $slug = $baseSlug . '-' . $suffix++;
             }
             $usedHeaderSlugs[$slug] = true;
@@ -1588,7 +1609,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 $pageFile = __DIR__ . '/' . $pageSlug . '.php';
                 if (is_file($pageFile)) {
                     $existingSource = (string)@file_get_contents($pageFile);
-                    if (str_contains($existingSource, 'ZC_HEADER_LINK_PAGE')) continue;
+                    if (str_contains($existingSource, 'ZC_HEADER_LINK_PAGE') || str_contains($existingSource, 'ZC_FOOTER_LINK_PAGE')) continue;
                     $message = 'The generated page file already exists and is not managed by Header Links: ' . $pageSlug . '.php';
                     break;
                 }
@@ -3843,7 +3864,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="header-field"><span>Header Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
                 <div id="header-links-list">
-                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page">Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page" <?=footerManagedPageExists((string)($headerLink['url'] ?? '')) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
                 </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
               </div>
               <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
