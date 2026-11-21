@@ -4110,7 +4110,6 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           </div>
           <div class="header-settings-actions"><button type="submit" class="btn">Save Header Settings</button></div>
         </form>
-        <?php else: ?>
         <?php endif; ?>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
