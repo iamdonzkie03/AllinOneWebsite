@@ -43,9 +43,33 @@ function generatedLinkPageOwner(string $url): ?string {
     return generatedLinkPageOwnerBySlug($match[1]);
 }
 
-function shouldShowGeneratedPageButton(string $url, string $section): bool {
+function shouldShowGeneratedPageButton(string $url, string $section, string $label = ''): bool {
     $owner = generatedLinkPageOwner($url);
-    return $owner === null || $owner === $section;
+    if ($owner !== null) return $owner === $section;
+
+    // When Header and Footer titles match exactly, resolve visibility against
+    // the counterpart link as well. This covers legacy or collision-suffixed
+    // URLs where the same title does not currently point to the same filename.
+    $label = trim($label);
+    if ($label === '') return true;
+
+    global $headerLinks, $footerSettings;
+    $counterpartLinks = [];
+    if ($section === 'header') {
+        foreach (['explore_links', 'discover_links'] as $group) {
+            foreach (($footerSettings[$group] ?? []) as $link) $counterpartLinks[] = $link;
+        }
+    } elseif ($section === 'footer') {
+        $counterpartLinks = is_array($headerLinks ?? null) ? $headerLinks : [];
+    }
+
+    foreach ($counterpartLinks as $counterpart) {
+        if (!is_array($counterpart) || trim((string)($counterpart['label'] ?? '')) !== $label) continue;
+        $counterpartOwner = generatedLinkPageOwner((string)($counterpart['url'] ?? ''));
+        if ($counterpartOwner !== null) return $counterpartOwner === $section;
+    }
+
+    return true;
 }
 
 // Shared AJAX endpoint used by both Header and Footer. A missing page has
@@ -3858,7 +3882,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="header-field"><span>Header Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
                 <div id="header-links-list">
-                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page" <?=!shouldShowGeneratedPageButton((string)($headerLink['url'] ?? ''), 'header') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page" <?=!shouldShowGeneratedPageButton((string)($headerLink['url'] ?? ''), 'header', (string)($headerLink['label'] ?? '')) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
                 </div><button type="button" class="btn light" id="add-header-link">+ Add Header Link</button>
               </div>
               <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
@@ -4141,12 +4165,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
                 <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="explore" <?=!shouldShowGeneratedPageButton((string)$link['url'], 'footer') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="explore" <?=!shouldShowGeneratedPageButton((string)$link['url'], 'footer', (string)$link['label']) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="explore">+ Add Explore Link</button>
               </div>
               <div class="footer-column-editor"><h3>Column 3 — Discover</h3>
                 <label class="header-field">Column title<input class="field" name="footer_discover_title" id="footer-discover-title" maxlength="60" value="<?=e($footerSettings['discover_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-discover-editor"><?php foreach($footerSettings['discover_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="discover_label[]" maxlength="100" aria-label="Discover link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="discover_url[]" maxlength="500" aria-label="Automatically generated Discover page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="discover" <?=!shouldShowGeneratedPageButton((string)$link['url'], 'footer') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-discover-editor"><?php foreach($footerSettings['discover_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="discover_label[]" maxlength="100" aria-label="Discover link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="discover_url[]" maxlength="500" aria-label="Automatically generated Discover page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="discover" <?=!shouldShowGeneratedPageButton((string)$link['url'], 'footer', (string)$link['label']) ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="discover">+ Add Discover Link</button>
               </div>
             </div>
