@@ -1703,6 +1703,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
         }
         $section = 'page-management';
     }
+    if ($action === 'save_footer_link_page') {
+        $slug=trim((string)($_POST['footer_page_slug']??'')); $pageTitle='';
+        if($slug!==''&&preg_match('/^[a-z0-9&-]+$/',$slug)){foreach(['explore_links','discover_links'] as $footerGroup){foreach(($footerSettings[$footerGroup]??[]) as $link){$path=parse_url((string)($link['url']??''),PHP_URL_PATH);if($path===$footerPublicUrlBase.$slug.'.php'){$pageTitle=trim((string)($link['label']??''));break 2;}}}}
+        if($pageTitle===''){header('Location: admin.php?section=page-management&tab=footer#pm-panel-footer',true,303);exit;}
+        require_once __DIR__.'/../app/rich-content.php';
+        $contentHtml=sanitize_rich_content((string)($_POST['page_content_html']??''));
+        $savePage=$pdo->prepare('INSERT INTO site_header_link_pages (slug, content_html) VALUES (?, ?) ON DUPLICATE KEY UPDATE content_html=VALUES(content_html)'); $savePage->execute([$slug,$contentHtml]);
+        header('Location: admin.php?section=page-management&tab=footer&footer_page='.rawurlencode($slug).'&footer_page_saved=1#pm-panel-footer',true,303); exit;
+    }
     if ($action === 'save_header_link_page') {
         $slug = trim((string)($_POST['header_page_slug'] ?? ''));
         $pageTitle = '';
