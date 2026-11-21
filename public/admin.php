@@ -1773,7 +1773,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['sections_sav
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['mega_menu_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'sections' && (string)($_GET['section_tab'] ?? '') === 'mega_menu') $message='Forum settings successfully saved.';
 // A successful Footer save is shown only on the redirected GET request.
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && (string)($_GET['footer_saved'] ?? '') === '1' && $section === 'page-management' && $activePageTab === 'footer') {
-    $message = 'Footer settings successfully updated.';
+    $message = 'Footer settings successfully saved.';
 }
 // Return an unambiguous save result to the background form request.
 if (
@@ -2140,11 +2140,11 @@ body:has(.admin-shell),body:has(.admin-shell) *{
 </div>
 <?php elseif(str_starts_with($message, 'Please enter a title in Column ')):?>
 <div class="account-status-modal" id="footer-validation-modal" role="dialog" aria-modal="true" aria-labelledby="footer-validation-title"><div class="account-status-modal-card"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="footer-validation-title"><?=e($message)?></h2><button type="button" class="btn" id="footer-validation-close">OK</button></div></div>
-<?php elseif($message === 'Footer settings successfully updated.'):?>
+<?php elseif($message === 'Footer settings successfully saved.'):?>
 <div class="account-status-modal" id="footer-settings-success-modal" role="dialog" aria-modal="true" aria-labelledby="footer-settings-success-title">
   <div class="account-status-modal-card">
     <div class="account-status-modal-icon" aria-hidden="true">✓</div>
-    <h2 id="footer-settings-success-title">Footer settings successfully updated.</h2>
+    <h2 id="footer-settings-success-title">Footer settings successfully saved.</h2>
     <button type="button" class="btn" id="footer-settings-success-close" onclick="window.location.replace('admin.php?section=page-management&amp;tab=footer#pm-panel-footer')">OK</button>
   </div>
 </div>
@@ -5311,28 +5311,22 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const url = row.querySelector('[name="'+group+'_url[]"]');
         if (title && url) url.value = title.value.trim() ? '/public/'+footerSlugify(title.value.trim())+'.php' : '';
       };
-      const askToReuseFooterPage = (row, titleInput) => {
-        const url = row.querySelector('[name$="_url[]"]');
-        if (!url || !url.value || row.dataset.duplicatePrompted === url.value) return;
-        row.dataset.duplicatePrompted = url.value;
+      const askToReuseFooterPage = () => new Promise(resolve => {
         const popup=document.createElement('div');popup.className='account-status-modal';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');
         const card=document.createElement('div');card.className='account-status-modal-card';
         const icon=document.createElement('div');icon.className='account-status-modal-icon';icon.textContent='?';
         const heading=document.createElement('h2');heading.textContent='The link page has been already created. Would you like to use the same link page?';
         const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:center;gap:10px;margin-top:18px';
-        const yes=document.createElement('button');yes.type='button';yes.className='btn';yes.textContent='Yes';yes.addEventListener('click',()=>popup.remove());
-        const no=document.createElement('button');no.type='button';no.className='btn light';no.textContent='No';no.addEventListener('click',()=>{popup.remove();titleInput.value='';row.dataset.duplicatePrompted='';syncGeneratedFooterUrl(row);updatePreview();titleInput.focus();});
+        const yes=document.createElement('button');yes.type='button';yes.className='btn';yes.textContent='Yes';yes.addEventListener('click',()=>{popup.remove();resolve(true);});
+        const no=document.createElement('button');no.type='button';no.className='btn light';no.textContent='No';no.addEventListener('click',()=>{popup.remove();resolve(false);});
         actions.append(yes,no);card.append(icon,heading,actions);popup.append(card);document.body.append(popup);yes.focus();
-      };
-      const checkFooterPageExists = async (row, titleInput) => {
-        const url=row.querySelector('[name$="_url[]"]'); if(!url || !url.value) return;
-        const requested=url.value;
-        const slug=requested.split('/').pop().replace(/\.php$/,'');
-        try {
-          const response=await fetch('admin.php?check_footer_page='+encodeURIComponent(slug),{credentials:'same-origin',cache:'no-store'});
-          const result=response.ok ? await response.json() : null;
-          if(result?.exists && row.isConnected && url.value===requested) askToReuseFooterPage(row,titleInput);
-        } catch (_) {}
+      });
+      const checkFooterPageExists = async url => {
+        const slug=url.split('/').pop().replace(/\.php$/,'');
+        const response=await fetch('admin.php?check_footer_page='+encodeURIComponent(slug),{credentials:'same-origin',cache:'no-store'});
+        if(!response.ok) throw new Error('Unable to check whether the Footer page already exists.');
+        const result=await response.json();
+        return result?.exists === true;
       };
       const addRow = group => {
         const editor = document.getElementById('footer-'+group+'-editor');
@@ -5348,19 +5342,43 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         if(row && ['explore_label[]','discover_label[]'].includes(event.target.name||'')){syncGeneratedFooterUrl(row);row.dataset.duplicatePrompted='';}
         updatePreview();
       });
-      form.addEventListener('focusout', event => {
-        const row=event.target.closest('.footer-link-row');
-        if(row && ['explore_label[]','discover_label[]'].includes(event.target.name||'')){syncGeneratedFooterUrl(row);checkFooterPageExists(row,event.target);}
-      });
       form.addEventListener('change', updatePreview);
       let invalidTitleField = null;
-      form.addEventListener('submit', event => {
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (form.dataset.footerSubmitting === '1') return;
         form.querySelectorAll('.footer-field-invalid').forEach(field => field.classList.remove('footer-field-invalid'));
         for (const group of [{name:'brand',column:'1'},{name:'explore',column:'2'},{name:'discover',column:'3'}]) {
           const rows=[...document.querySelectorAll('#footer-'+group.name+'-editor .footer-link-row')];
           const missing=rows.filter(row=>row.querySelector('[name="'+group.name+'_url[]"]').value.trim()&&!row.querySelector('[name="'+group.name+'_label[]"]').value.trim());
           if(missing.length){event.preventDefault();missing.forEach(row=>row.querySelector('[name="'+group.name+'_label[]"]').classList.add('footer-field-invalid'));invalidTitleField=missing[0].querySelector('[name="'+group.name+'_label[]"]');const popup=document.createElement('div');popup.className='account-status-modal';popup.id='footer-client-validation-modal';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');const card=document.createElement('div');card.className='account-status-modal-card';const icon=document.createElement('div');icon.className='account-status-modal-icon';icon.textContent='!';const heading=document.createElement('h2');heading.textContent='Please enter a title in Column '+group.column+'.';const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='OK';ok.addEventListener('click',()=>{popup.remove();if(invalidTitleField){invalidTitleField.focus();invalidTitleField.scrollIntoView({behavior:'smooth',block:'center'});}});card.append(icon,heading,ok);popup.append(card);document.body.append(popup);ok.focus();return;}
         }
+        // Check existing local PHP pages only when the user saves. A duplicate
+        // requires an explicit choice before the Footer settings are submitted.
+        try {
+          for (const group of ['explore','discover']) {
+            const rows=[...document.querySelectorAll('#footer-'+group+'-editor .footer-link-row')];
+            for (const row of rows) {
+              const title=row.querySelector('[name="'+group+'_label[]"]');
+              const urlField=row.querySelector('[name="'+group+'_url[]"]');
+              if (!title || !urlField || !title.value.trim()) continue;
+              syncGeneratedFooterUrl(row);
+              const url=urlField.value.trim();
+              if (url && await checkFooterPageExists(url)) {
+                const reuse=await askToReuseFooterPage();
+                if (!reuse) { title.focus(); return; }
+              }
+            }
+          }
+        } catch (error) {
+          const popup=document.createElement('div');popup.className='account-status-modal';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');
+          const card=document.createElement('div');card.className='account-status-modal-card';
+          const heading=document.createElement('h2');heading.textContent=error.message || 'Unable to verify the existing Footer link page.';
+          const ok=document.createElement('button');ok.type='button';ok.className='btn';ok.textContent='OK';ok.addEventListener('click',()=>popup.remove());
+          card.append(heading,ok);popup.append(card);document.body.append(popup);ok.focus();return;
+        }
+        form.dataset.footerSubmitting='1';
+        HTMLFormElement.prototype.submit.call(form);
       });
       form.addEventListener('click', event => {
         const add = event.target.closest('.add-footer-link');
