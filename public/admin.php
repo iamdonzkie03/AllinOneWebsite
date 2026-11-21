@@ -5692,7 +5692,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
               const savedSlug=row.dataset.savedSlug || '';
               // Previously saved links are already registered Footer entries; only
               // newly added links or renamed entries should trigger duplicate checks.
-              if ((!savedSlug || currentSlug !== savedSlug) && url && await checkFooterPageExists(url)) {
+              if ((!savedSlug || currentSlug !== savedSlug) && url && (await checkFooterPageOwner(url)) !== null) {
                 const reuse=await askToReuseFooterPage();
                 if (!reuse) { title.focus(); return; }
               }
