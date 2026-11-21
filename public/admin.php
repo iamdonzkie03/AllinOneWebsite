@@ -1353,6 +1353,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
 
     if ($action === 'save_footer_settings') {
         $activePageTab = 'footer';
+        $previousFooterContent = $footerSettings;
         $content = [
             'brand' => mb_substr(trim((string)($_POST['footer_brand'] ?? '')), 0, 100),
             'description' => mb_substr(trim((string)($_POST['footer_description'] ?? '')), 0, 500),
@@ -1419,6 +1420,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 throw new RuntimeException('Footer settings were submitted but could not be verified in the connected database.');
             }
             $footerSettings = array_replace($defaultFooterContent, $content);
+            // Remove only previously published footer-generated page files that
+            // were explicitly removed from the successfully saved footer lists.
+            $activeFooterUrls = [];
+            foreach (['explore_links','discover_links'] as $group) foreach (($content[$group] ?? []) as $link) $activeFooterUrls[(string)($link['url'] ?? '')] = true;
+            foreach (['explore_links','discover_links'] as $group) foreach (($previousFooterContent[$group] ?? []) as $oldLink) {
+                $oldUrl = (string)($oldLink['url'] ?? '');
+                if ($oldUrl === '' || isset($activeFooterUrls[$oldUrl])) continue;
+                $oldPath = parse_url($oldUrl, PHP_URL_PATH);
+                if (!is_string($oldPath) || !preg_match('~^/public/([a-z0-9&-]+)\\.php$~', $oldPath, $oldMatch)) continue;
+                $oldFile = __DIR__ . '/' . $oldMatch[1] . '.php';
+                if (is_file($oldFile) && !is_link($oldFile) && str_contains((string)@file_get_contents($oldFile), 'ZC_FOOTER_LINK_PAGE')) @unlink($oldFile);
+            }
             // POST/Redirect/GET prevents browser refresh from resubmitting this save.
             header('Location: admin.php?section=page-management&tab=footer&footer_saved=1#pm-panel-footer', true, 303);
             exit;
@@ -5256,7 +5269,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         document.getElementById('preview-footer-discover-title').textContent = fields.discoverTitle.value;
         updateLinks('brand'); updateLinks('explore'); updateLinks('discover');
       };
-      const footerSlugify = value => String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/-/g,'').replace(/[^a-z0-9&]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
+      const footerSlugify = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/-/g,'').replace(/[^a-z0-9&]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
       const syncGeneratedFooterUrl = row => {
         const group = row.closest('#footer-explore-editor') ? 'explore' : (row.closest('#footer-discover-editor') ? 'discover' : '');
         if (!group) return;
