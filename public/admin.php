@@ -3433,6 +3433,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .footer-column-editor h3{font:600 14px Ubuntu,sans-serif;margin:0;color:#f4e9ec}.footer-column-editor .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:12px Ubuntu,sans-serif}
       .footer-column-editor textarea{resize:vertical}.footer-preview-frame .footer-preview-text-item{display:block;color:#c9bbc0;font-size:11px;line-height:1.45}.footer-field-invalid{border-color:#ff526b!important;box-shadow:0 0 0 2px rgba(255,82,107,.2)!important}.footer-link-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;margin:7px 0}
       .footer-column-editor .header-field{font-size:12px}.footer-column-editor small{font-size:10px;color:var(--muted);font-weight:400}
+      .footer-column-editor .footer-generated-url{background:#292329!important;color:#aaa!important;border-color:#51464c!important;cursor:not-allowed}
       @media(max-width:1000px){.footer-settings-grid{grid-template-columns:1fr}.footer-preview-column{position:static}}
       @media(max-width:600px){.footer-preview-frame .footer-grid{grid-template-columns:1fr;gap:16px}.footer-link-row{grid-template-columns:1fr}.footer-preview-frame{padding:18px 14px}}
       @media(max-width:560px){.page-management-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.page-management-tabs button{width:100%}}
