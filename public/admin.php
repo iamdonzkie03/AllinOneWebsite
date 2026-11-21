@@ -5256,15 +5256,50 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         document.getElementById('preview-footer-discover-title').textContent = fields.discoverTitle.value;
         updateLinks('brand'); updateLinks('explore'); updateLinks('discover');
       };
+      const footerSlugify = value => String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/-/g,'').replace(/[^a-z0-9&]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
+      const syncGeneratedFooterUrl = row => {
+        const group = row.closest('#footer-explore-editor') ? 'explore' : (row.closest('#footer-discover-editor') ? 'discover' : '');
+        if (!group) return;
+        const title = row.querySelector('[name="'+group+'_label[]"]');
+        const url = row.querySelector('[name="'+group+'_url[]"]');
+        if (title && url) url.value = title.value.trim() ? '/public/'+footerSlugify(title.value.trim())+'.php' : '';
+      };
+      const askToReuseFooterPage = (row, titleInput) => {
+        const url = row.querySelector('[name$="_url[]"]');
+        if (!url || !url.value || row.dataset.duplicatePrompted === url.value) return;
+        row.dataset.duplicatePrompted = url.value;
+        const popup=document.createElement('div');popup.className='account-status-modal';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');
+        const card=document.createElement('div');card.className='account-status-modal-card';
+        const icon=document.createElement('div');icon.className='account-status-modal-icon';icon.textContent='?';
+        const heading=document.createElement('h2');heading.textContent='The link page has been already created. Would you like to use the same link page?';
+        const actions=document.createElement('div');actions.style.cssText='display:flex;justify-content:center;gap:10px;margin-top:18px';
+        const yes=document.createElement('button');yes.type='button';yes.className='btn';yes.textContent='Yes';yes.addEventListener('click',()=>popup.remove());
+        const no=document.createElement('button');no.type='button';no.className='btn light';no.textContent='No';no.addEventListener('click',()=>{popup.remove();titleInput.value='';row.dataset.duplicatePrompted='';syncGeneratedFooterUrl(row);updatePreview();titleInput.focus();});
+        actions.append(yes,no);card.append(icon,heading,actions);popup.append(card);document.body.append(popup);yes.focus();
+      };
+      const checkFooterPageExists = async (row, titleInput) => {
+        const url=row.querySelector('[name$="_url[]"]'); if(!url || !url.value) return;
+        const requested=url.value;
+        try { const response=await fetch(requested,{method:'HEAD',credentials:'same-origin',cache:'no-store'}); if(response.ok && row.isConnected && url.value===requested) askToReuseFooterPage(row,titleInput); } catch (_) {}
+      };
       const addRow = group => {
         const editor = document.getElementById('footer-'+group+'-editor');
         const row = document.createElement('div'); row.className = 'footer-link-row';
         const label = document.createElement('input'); label.className='field'; label.name=group+'_label[]'; label.maxLength=100; label.placeholder='Link title'; label.setAttribute('aria-label',group+' link title');
-        const url = document.createElement('input'); url.className='field'; url.name=group+'_url[]'; url.maxLength=500; url.placeholder='Page URL'; url.setAttribute('aria-label',group+' link URL');
+        const url = document.createElement('input'); url.className='field footer-generated-url'; url.name=group+'_url[]'; url.maxLength=500; url.placeholder=group==='brand'?'Page URL':'/public/page-title.php'; url.readOnly=group!=='brand'; if(group!=='brand')url.setAttribute('aria-readonly','true'); url.setAttribute('aria-label',group+' link URL');
         const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-footer-link'; remove.textContent='Remove';
         row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
       };
-      form.addEventListener('input', event => { if (event.target.matches('.footer-link-row input')) event.target.classList.remove('footer-field-invalid'); updatePreview(); });
+      form.addEventListener('input', event => {
+        if (event.target.matches('.footer-link-row input')) event.target.classList.remove('footer-field-invalid');
+        const row=event.target.closest('.footer-link-row');
+        if(row && /^(explore|discover)_label\\[\\]$/.test(event.target.name||'')){syncGeneratedFooterUrl(row);row.dataset.duplicatePrompted='';}
+        updatePreview();
+      });
+      form.addEventListener('focusout', event => {
+        const row=event.target.closest('.footer-link-row');
+        if(row && /^(explore|discover)_label\\[\\]$/.test(event.target.name||'')){syncGeneratedFooterUrl(row);checkFooterPageExists(row,event.target);}
+      });
       form.addEventListener('change', updatePreview);
       let invalidTitleField = null;
       form.addEventListener('submit', event => {
