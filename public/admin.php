@@ -182,6 +182,15 @@ $footerRow = $pdo->query("SELECT content_json FROM site_footer_settings WHERE id
 $footerSettings = json_decode((string)($footerRow['content_json'] ?? ''), true);
 if (!is_array($footerSettings)) $footerSettings = [];
 $footerSettings = array_replace($defaultFooterContent, $footerSettings);
+$activeFooterPageSlug = trim((string)($_GET['footer_page'] ?? ''));
+$activeFooterPageTitle = ''; $activeFooterPageContent = '';
+if ($activeFooterPageSlug !== '' && preg_match('/^[a-z0-9&-]+$/', $activeFooterPageSlug)) {
+  foreach (['explore_links','discover_links'] as $footerGroup) { foreach (($footerSettings[$footerGroup] ?? []) as $footerLink) {
+    $footerPath = parse_url((string)($footerLink['url'] ?? ''), PHP_URL_PATH);
+    if ($footerPath === $footerPublicUrlBase . $activeFooterPageSlug . '.php') { $activeFooterPageTitle = trim((string)($footerLink['label'] ?? '')); break 2; }
+  } }
+  if ($activeFooterPageTitle !== '') { $stmt=$pdo->prepare('SELECT content_html FROM site_header_link_pages WHERE slug=? LIMIT 1'); $stmt->execute([$activeFooterPageSlug]); $activeFooterPageContent=(string)($stmt->fetchColumn() ?: ''); } else $activeFooterPageSlug='';
+} else $activeFooterPageSlug='';
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS site_sections_settings (
   id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
@@ -1465,8 +1474,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                     $oldFile = __DIR__ . '/' . $oldMatch[1] . '.php';
                     if (is_file($oldFile) && !is_link($oldFile) && str_contains((string)@file_get_contents($oldFile), 'ZC_FOOTER_LINK_PAGE')) @unlink($oldFile);
                 }
-                // POST/Redirect/GET prevents browser refresh from resubmitting this save.
-                header('Location: admin.php?section=page-management&tab=footer&footer_saved=1#pm-panel-footer', true, 303);
+                $requestedFooterGroup=(string)($_POST['create_footer_page_group']??''); $requestedFooterIndex=trim((string)($_POST['create_footer_page_index']??''));
+                if(in_array($requestedFooterGroup,['explore','discover'],true)&&$requestedFooterIndex!==''){
+                  $requestedLink=$content[$requestedFooterGroup.'_links'][(int)$requestedFooterIndex]??null; $requestedPath=is_array($requestedLink)?parse_url((string)($requestedLink['url']??''),PHP_URL_PATH):null;
+                  if(is_string($requestedPath)&&preg_match('~^/.*?/public/([a-z0-9&-]+)\.php$~',$requestedPath,$match)){header('Location: admin.php?section=page-management&tab=footer&footer_page='.rawurlencode($match[1]).'#pm-panel-footer',true,303);exit;}
+                  $message='The requested Footer link page could not be verified. Please try again.';
+                }
+                if($message==='') header('Location: admin.php?section=page-management&tab=footer&footer_saved=1#pm-panel-footer',true,303);
                 exit;
             }
         }
@@ -3813,7 +3827,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
-          <input type="hidden" name="action" value="save_footer_settings">
+          <input type="hidden" name="action" value="save_footer_settings"><input type="hidden" name="create_footer_page_group" id="create-footer-page-group"><input type="hidden" name="create_footer_page_index" id="create-footer-page-index">
           <div class="footer-settings-grid">
             <aside class="footer-preview-column">
               <div class="header-preview-title">Footer Preview</div>
@@ -3835,12 +3849,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               </div>
               <div class="footer-column-editor"><h3>Column 2 — Explore</h3>
                 <label class="header-field">Column title<input class="field" name="footer_explore_title" id="footer-explore-title" maxlength="60" value="<?=e($footerSettings['explore_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-explore-editor"><?php foreach($footerSettings['explore_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="explore_label[]" maxlength="100" aria-label="Explore link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="explore_url[]" maxlength="500" aria-label="Automatically generated Explore page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="explore" <?=is_file(__DIR__ . '/' . headerLinkSlug((string)$link['label']) . '.php') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="explore">+ Add Explore Link</button>
               </div>
               <div class="footer-column-editor"><h3>Column 3 — Discover</h3>
                 <label class="header-field">Column title<input class="field" name="footer_discover_title" id="footer-discover-title" maxlength="60" value="<?=e($footerSettings['discover_title'])?>"></label>
-                <div class="footer-link-editor" id="footer-discover-editor"><?php foreach($footerSettings['discover_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="discover_label[]" maxlength="100" aria-label="Discover link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="discover_url[]" maxlength="500" aria-label="Automatically generated Discover page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
+                <div class="footer-link-editor" id="footer-discover-editor"><?php foreach($footerSettings['discover_links'] as $link): ?><div class="footer-link-row" data-saved-slug="<?=e(headerLinkSlug((string)$link['label']))?>"><input class="field" name="discover_label[]" maxlength="100" aria-label="Discover link title" placeholder="Link title" value="<?=e($link['label'])?>"><input class="field footer-generated-url" name="discover_url[]" maxlength="500" aria-label="Automatically generated Discover page URL" placeholder="/public/page-title.php" value="<?=e($link['url'])?>" readonly aria-readonly="true"><button type="button" class="btn light create-footer-page" data-group="discover" <?=is_file(__DIR__ . '/' . headerLinkSlug((string)$link['label']) . '.php') ? 'hidden' : '' ?>>Create Page</button><button type="button" class="btn light remove-footer-link">Remove</button></div><?php endforeach; ?></div>
                 <button type="button" class="btn light add-footer-link" data-group="discover">+ Add Discover Link</button>
               </div>
             </div>
