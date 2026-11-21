@@ -25,6 +25,16 @@ $footerPublicUrlBase = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['S
 
 // AJAX check against the actual local public folder. This deliberately checks
 // the PHP file itself rather than issuing a browser request to its URL.
+if (isset($_GET['check_header_shared_page'])) {
+    $requestedSlug = (string)$_GET['check_header_shared_page'];
+    $candidate = preg_match('/^[a-z0-9&-]{1,180}$/', $requestedSlug) ? __DIR__ . '/' . $requestedSlug . '.php' : '';
+    $exists = $candidate !== '' && is_file($candidate) && !is_link($candidate) && str_contains((string)@file_get_contents($candidate), 'ZC_FOOTER_LINK_PAGE');
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+    echo json_encode(['exists' => $exists]);
+    exit;
+}
+
 if (isset($_GET['check_footer_page'])) {
     $requestedSlug = (string)$_GET['check_footer_page'];
     $exists = false;
@@ -1540,7 +1550,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             while (isset($usedHeaderSlugs[$slug])) $slug = $baseSlug . '-' . $suffix++;
             // Never overwrite an unrelated PHP page already present in /public.
             while (is_file(__DIR__ . '/' . $slug . '.php')
-                && !str_contains((string)@file_get_contents(__DIR__ . '/' . $slug . '.php'), 'ZC_HEADER_LINK_PAGE')) {
+                && !str_contains((string)@file_get_contents(__DIR__ . '/' . $slug . '.php'), 'ZC_HEADER_LINK_PAGE')
+                && !str_contains((string)@file_get_contents(__DIR__ . '/' . $slug . '.php'), 'ZC_FOOTER_LINK_PAGE')) {
                 $slug = $baseSlug . '-' . $suffix++;
             }
             $usedHeaderSlugs[$slug] = true;
@@ -1588,7 +1599,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 $pageFile = __DIR__ . '/' . $pageSlug . '.php';
                 if (is_file($pageFile)) {
                     $existingSource = (string)@file_get_contents($pageFile);
-                    if (str_contains($existingSource, 'ZC_HEADER_LINK_PAGE')) continue;
+                    if (str_contains($existingSource, 'ZC_HEADER_LINK_PAGE') || str_contains($existingSource, 'ZC_FOOTER_LINK_PAGE')) continue;
                     $message = 'The generated page file already exists and is not managed by Header Links: ' . $pageSlug . '.php';
                     break;
                 }
