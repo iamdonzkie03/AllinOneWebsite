@@ -4101,7 +4101,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
               hidden.value=editor.innerHTML;
             })();
           </script>
-        <?php endif; ?>
+        <?php else: ?>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
           <input type="hidden" name="action" value="save_footer_settings"><input type="hidden" name="create_footer_page_group" id="create-footer-page-group"><input type="hidden" name="create_footer_page_index" id="create-footer-page-index"><input type="hidden" name="create_footer_page_slug" id="create-footer-page-slug">
@@ -4138,6 +4138,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           </div>
           <div class="header-settings-actions"><button type="submit" class="btn">Save Footer Settings</button></div>
         </form>
+        <?php endif; ?>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-contents" role="tabpanel" aria-labelledby="pm-tab-contents" hidden>
         <?php require __DIR__ . '/../app/content-manager-view.php'; ?>
