@@ -3834,6 +3834,280 @@ body:has(.admin-shell),body:has(.admin-shell) *{
         <?php endif; ?>
       </section>
       <section class="page-management-tabpanel" id="pm-panel-footer" role="tabpanel" aria-labelledby="pm-tab-footer" hidden>
+        <?php if ($activeFooterPageSlug !== ''): ?>
+          <section class="panel admin-panel footer-link-page-editor">
+            <div class="admin-panel-head">
+              <div><h2>Footer Link Page</h2><p class="muted">Edit the content displayed on the public page for this Footer Link.</p></div>
+              <a class="btn light" href="admin.php?section=page-management&amp;tab=footer#pm-panel-footer">Back to Header</a>
+            </div>
+            <div class="footer-link-page-meta"><span>Page title</span><strong><?=e($activeFooterPageTitle)?></strong><small>/public/<?=e($activeFooterPageSlug)?>.php</small></div>
+            <form method="post" id="footer-link-page-form">
+              <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+              <input type="hidden" name="action" value="save_footer_link_page">
+              <input type="hidden" name="footer_page_slug" value="<?=e($activeFooterPageSlug)?>">
+              <input type="hidden" name="page_content_html" id="footer-link-page-content-html" value="">
+              <div class="header-field"><span>Page Content</span><small>Use the formatting tools to create the content shown below the page title on the public website.</small>
+                <div class="banner-rich-toolbar content-manager-rich-toolbar footer-link-page-toolbar" role="toolbar" aria-label="Page content formatting">
+                  <select data-page-font-size aria-label="Font size"><option value="">Font size</option><option value="8">8px</option><option value="12">12px</option><option value="16">16px</option><option value="20">20px</option><option value="24">24px</option><option value="28">28px</option><option value="32">32px</option><option value="36">36px</option><option value="40">40px</option><option value="44">44px</option><option value="48">48px</option><option value="52">52px</option><option value="56">56px</option><option value="60">60px</option><option value="64">64px</option><option value="68">68px</option><option value="72">72px</option></select>
+                  <select data-page-font-weight aria-label="Font weight"><option value="">Font weight</option><option value="400">Normal</option><option value="500">Medium</option><option value="600">Semi-bold</option><option value="700">Bold</option><option value="800">Extra bold</option></select>
+                  <button type="button" data-page-command="bold" title="Bold"><strong>B</strong></button>
+                  <button type="button" data-page-command="italic" title="Italic"><em>I</em></button>
+                  <button type="button" data-page-command="underline" title="Underline"><u>U</u></button>
+                  <button type="button" data-page-action="quotation" title="Quotation marks">“ ”</button>
+                  <button type="button" data-page-command="justifyLeft" title="Align left">≡</button>
+                  <button type="button" data-page-command="justifyCenter" title="Align center">☰</button>
+                  <button type="button" data-page-command="justifyRight" title="Align right">≡</button>
+                  <label title="Font color" class="header-page-color-label">Color <input type="color" data-page-color value="#f4e9ed" aria-label="Font color"></label>
+                  <button type="button" data-page-action="link" title="Attach Link">Link</button>
+                  <button type="button" data-page-action="image" title="Insert Image">Image</button>
+                  <button type="button" data-page-action="table" title="Insert Table">Table</button>
+                  <button type="button" data-page-command="insertUnorderedList" title="Bulleted list">• List</button>
+                  <button type="button" data-page-command="insertOrderedList" title="Numbered list">1. List</button>
+                  <button type="button" data-page-command="insertHorizontalRule" title="Horizontal line">―</button>
+                  <button type="button" data-page-command="undo" title="Undo">↶</button>
+                  <button type="button" data-page-command="redo" title="Redo">↷</button>
+                  <input type="file" id="footer-link-page-image" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+                </div>
+                <div class="banner-rich-editor footer-link-page-content-editor" id="footer-link-page-content-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Footer Link Page content" data-placeholder="Start writing your page content..."><?=sanitize_rich_content($activeFooterPageContent)?></div>
+              </div>
+              <div class="header-settings-actions"><button type="submit" class="btn">Save Page</button></div>
+            </form>
+          </section>
+          <style>
+            .footer-link-page-meta{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:20px 0;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025)}
+            .footer-link-page-meta span,.footer-link-page-meta small{color:var(--muted);font-size:12px}.footer-link-page-meta strong{font-size:15px;color:#fff}
+            .footer-link-page-saved{margin:14px 0;padding:11px 14px;border:1px solid rgba(91,205,145,.35);border-radius:8px;color:#9de0b8;background:rgba(35,130,82,.12);font-size:12px}
+            .footer-link-page-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}
+            .footer-link-page-toolbar select,.footer-link-page-toolbar button{min-height:30px}
+            .header-page-color-label{display:flex;align-items:center;gap:4px;color:#d9cbd0;font-size:10px}
+            .footer-link-page-content-editor{min-height:320px;max-height:680px;line-height:1.75;overflow:auto}
+            .footer-link-page-content-editor:empty:before{content:attr(data-placeholder);color:#82777c}
+            .footer-link-page-content-editor img{max-width:100%;height:auto}
+            .footer-link-page-content-editor table{width:100%;border-collapse:collapse}
+            .footer-link-page-content-editor th,.footer-link-page-content-editor td{border:1px solid #76616b;padding:8px}
+          </style>
+          <script>
+            (() => {
+              const form=document.getElementById('footer-link-page-form');
+              const editor=document.getElementById('footer-link-page-content-editor');
+              const hidden=document.getElementById('footer-link-page-content-html');
+              const imageInput=document.getElementById('footer-link-page-image');
+              if(!form||!editor||!hidden)return;
+              let savedRange=null;
+              let savedTextOffsets=null;
+              let history=[editor.innerHTML],historyIndex=0,historyTimer=null;
+              const commitHistory=()=>{
+                if(historyTimer){clearTimeout(historyTimer);historyTimer=null;}
+                const html=editor.innerHTML;
+                if(history[historyIndex]===html)return;
+                history=history.slice(0,historyIndex+1);history.push(html);historyIndex=history.length-1;
+              };
+              const scheduleHistory=()=>{
+                if(historyTimer)clearTimeout(historyTimer);
+                historyTimer=setTimeout(commitHistory,350);
+              };
+              const moveHistory=direction=>{
+                commitHistory();const next=historyIndex+direction;
+                if(next<0||next>=history.length)return;
+                historyIndex=next;editor.innerHTML=history[historyIndex];savedRange=null;savedTextOffsets=null;
+                hidden.value=editor.innerHTML;
+                editor.focus({preventScroll:true});
+              };
+              const rangeOffsets=range=>{
+                const before=document.createRange();
+                before.selectNodeContents(editor);
+                before.setEnd(range.startContainer,range.startOffset);
+                const through=document.createRange();
+                through.selectNodeContents(editor);
+                through.setEnd(range.endContainer,range.endOffset);
+                return {start:before.toString().length,end:through.toString().length};
+              };
+              const rangeFromOffsets=offsets=>{
+                if(!offsets||offsets.end<=offsets.start)return null;
+                const walker=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);
+                let position=0,startPoint=null,endPoint=null;
+                while(walker.nextNode()){
+                  const node=walker.currentNode,length=node.nodeValue.length,next=position+length;
+                  if(!startPoint&&offsets.start>=position&&offsets.start<=next)startPoint={node,offset:offsets.start-position};
+                  if(offsets.end>=position&&offsets.end<=next){endPoint={node,offset:offsets.end-position};break;}
+                  position=next;
+                }
+                if(!startPoint||!endPoint)return null;
+                const range=document.createRange();
+                range.setStart(startPoint.node,startPoint.offset);
+                range.setEnd(endPoint.node,endPoint.offset);
+                return range;
+              };
+              const remember=()=>{
+                const selection=window.getSelection();
+                if(selection?.rangeCount&&!selection.isCollapsed&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode)){
+                  savedRange=selection.getRangeAt(0).cloneRange();
+                  savedTextOffsets=rangeOffsets(savedRange);
+                }
+              };
+              const restore=()=>{
+                editor.focus({preventScroll:true});
+                const range=rangeFromOffsets(savedTextOffsets)||(savedRange&&editor.contains(savedRange.commonAncestorContainer)?savedRange.cloneRange():null);
+                if(range){
+                  const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);
+                  savedRange=range.cloneRange();
+                  return range;
+                }
+                return null;
+              };
+              document.addEventListener('selectionchange',()=>{
+                const selection=window.getSelection();
+                if(selection&&editor.contains(selection.anchorNode)&&editor.contains(selection.focusNode))remember();
+              });
+              const toolbar=form.querySelector('.footer-link-page-toolbar');
+              toolbar?.addEventListener('pointerdown',event=>{
+                // Capture the text range before a select control takes focus.
+                remember();
+              },true);
+              toolbar?.addEventListener('mousedown',()=>remember(),true);
+
+              const insertNode=node=>{
+                const range=restore()||document.createRange();
+                if(!savedRange){range.selectNodeContents(editor);range.collapse(false);}
+                range.deleteContents();range.insertNode(node);
+                const selection=window.getSelection(),caret=document.createRange();caret.setStartAfter(node);caret.collapse(true);
+                selection.removeAllRanges();selection.addRange(caret);remember();
+                editor.dispatchEvent(new Event('input',{bubbles:true}));
+              };
+              const wrapStyle=(property,value)=>{
+                // Apply inline styles to selected text nodes individually. A
+                // single span cannot safely wrap a selection spanning multiple
+                // paragraphs, lists, or other block-level editor content.
+                const range=rangeFromOffsets(savedTextOffsets)||(savedRange&&editor.contains(savedRange.commonAncestorContainer)
+                  ? savedRange.cloneRange()
+                  : null);
+                if(!range||range.collapsed)return false;
+                editor.focus({preventScroll:true});
+                const cssProperty=property.replace(/[A-Z]/g,letter=>'-'+letter.toLowerCase());
+                const walker=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);
+                const textNodes=[];
+                while(walker.nextNode()){
+                  const node=walker.currentNode;
+                  if(!node.nodeValue||!node.nodeValue.length)continue;
+                  try{if(!range.intersectsNode(node))continue;}catch(error){continue;}
+                  const start=range.startContainer===node?range.startOffset:0;
+                  const end=range.endContainer===node?range.endOffset:node.nodeValue.length;
+                  if(end>start)textNodes.push({node,start,end});
+                }
+                const wrappers=[];
+                // Work from the end of the document so splitting text nodes
+                // never invalidates offsets for nodes still to be processed.
+                for(let i=textNodes.length-1;i>=0;i--){
+                  const {node,start,end}=textNodes[i];
+                  if(!node.parentNode)continue;
+                  let selected=node;
+                  if(end<selected.nodeValue.length)selected.splitText(end);
+                  if(start>0)selected=selected.splitText(start);
+                  const span=document.createElement('span');
+                  span.style.setProperty(cssProperty,String(value));
+                  selected.parentNode.replaceChild(span,selected);
+                  span.appendChild(selected);
+                  wrappers.push(span);
+                }
+                if(!wrappers.length)return false;
+                wrappers.sort((a,b)=>a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1);
+                const next=document.createRange();
+                next.setStartBefore(wrappers[0]);
+                next.setEndAfter(wrappers[wrappers.length-1]);
+                const selection=window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(next);
+                savedRange=next.cloneRange();
+                savedTextOffsets=rangeOffsets(savedRange);
+                editor.dispatchEvent(new Event('input',{bubbles:true}));
+                return true;
+              };
+              editor.addEventListener('keyup',remember);editor.addEventListener('mouseup',remember);editor.addEventListener('touchend',remember);
+              form.querySelectorAll('[data-page-command]').forEach(button=>{
+                button.addEventListener('pointerdown',event=>event.preventDefault());
+                button.addEventListener('mousedown',event=>event.preventDefault());
+                button.addEventListener('click',()=>{
+                  const command=button.dataset.pageCommand;
+                  if(command==='undo'){moveHistory(-1);return;}
+                  if(command==='redo'){moveHistory(1);return;}
+                  restore();document.execCommand(command,false,null);
+                  editor.dispatchEvent(new Event('input',{bubbles:true}));
+                });
+              });
+              form.querySelector('[data-page-font-size]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontSize',event.target.value+'px');event.target.value='';});
+              form.querySelector('[data-page-font-weight]')?.addEventListener('change',event=>{if(event.target.value)wrapStyle('fontWeight',event.target.value);event.target.value='';});
+              form.querySelector('[data-page-color]')?.addEventListener('input',event=>wrapStyle('color',event.target.value));
+              form.querySelector('[data-page-action="quotation"]')?.addEventListener('pointerdown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="quotation"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="quotation"]')?.addEventListener('click',()=>{
+                const range=restore()||document.createRange();if(!savedRange){range.selectNodeContents(editor);range.collapse(false);}
+                const open=document.createTextNode('“'),close=document.createTextNode('”');
+                if(range.collapsed){range.insertNode(close);range.insertNode(open);range.setStartAfter(open);range.collapse(true);}
+                else{const selected=range.extractContents();range.insertNode(close);range.insertNode(selected);range.insertNode(open);range.setStartAfter(close);range.collapse(true);}
+                const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);remember();
+                editor.dispatchEvent(new Event('input',{bubbles:true}));
+              });
+              form.querySelector('[data-page-action="link"]')?.addEventListener('pointerdown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="link"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="link"]')?.addEventListener('click',()=>{
+                const url=prompt('Enter the link URL (https://, http://, or mailto:):');
+                if(url&&/^(https?:\/\/|mailto:)/i.test(url.trim())){restore();document.execCommand('createLink',false,url.trim());editor.dispatchEvent(new Event('input',{bubbles:true}));remember();}
+              });
+              form.querySelector('[data-page-action="image"]')?.addEventListener('pointerdown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="image"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="image"]')?.addEventListener('click',()=>imageInput?.click());
+              imageInput?.addEventListener('change',async()=>{
+                const file=imageInput.files?.[0];if(!file)return;
+                if(file.size>8*1024*1024){alert('Please choose an image smaller than 8 MB.');imageInput.value='';return;}
+                const data=new FormData();data.append('csrf',form.querySelector('[name="csrf"]')?.value||'');data.append('action','upload_article_image');data.append('image',file);
+                try{
+                  const response=await fetch('admin-content.php?session_context=admin',{method:'POST',body:data,credentials:'same-origin'});
+                  const result=await response.json();if(!response.ok||!result.url)throw new Error(result.message||'The image could not be uploaded.');
+                  const figure=document.createElement('figure'),img=document.createElement('img'),caption=document.createElement('figcaption');
+                  img.src=result.url;img.alt=file.name.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));caption.textContent=file.name.replace(/\.[^.]+$/,'');figure.append(img,caption);insertNode(figure);
+                }catch(error){alert(error.message||'Image upload failed.');}
+                imageInput.value='';
+              });
+              form.querySelector('[data-page-action="table"]')?.addEventListener('pointerdown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="table"]')?.addEventListener('mousedown',event=>event.preventDefault());
+              form.querySelector('[data-page-action="table"]')?.addEventListener('click',()=>{
+                const rows=Math.min(10,Math.max(1,Number(prompt('Number of table rows?','3')||0))),cols=Math.min(8,Math.max(1,Number(prompt('Number of table columns?','3')||0)));if(!rows||!cols)return;
+                const table=document.createElement('table'),tbody=document.createElement('tbody');
+                for(let y=0;y<rows;y++){const tr=document.createElement('tr');for(let x=0;x<cols;x++){const cell=document.createElement(y===0?'th':'td');cell.textContent=y===0?'Heading':'Text';tr.append(cell);}tbody.append(tr);}table.append(tbody);insertNode(table);
+              });
+              editor.addEventListener('input',()=>{hidden.value=editor.innerHTML;scheduleHistory();});
+              form.addEventListener('submit',()=>{commitHistory();hidden.value=editor.innerHTML;});
+              hidden.value=editor.innerHTML;
+            })();
+          </script>
+        <?php else: ?>
+        <form method="post" enctype="multipart/form-data" id="header-settings-form" class="header-settings-form">
+          <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
+          <input type="hidden" name="action" value="save_header_settings">
+          <input type="hidden" name="create_header_page_index" id="create-header-page-index" value="">
+          <aside class="header-preview-column"><div class="header-preview-title">Header Preview</div><div class="header-preview-frame" inert aria-label="Non-interactive visual preview of the public website header"><div class="header-preview-topbar"><span id="preview-hidden-left"><?=e((string)($headerSettings['hidden_left'] ?? ''))?></span><span id="preview-hidden-right"><?=e((string)($headerSettings['hidden_right'] ?? ''))?></span></div><div class="header-preview-main"><a href="../index.php" class="header-preview-brand" id="preview-header-brand"><img id="preview-header-logo" src="<?=e((string)($headerSettings['logo_path'] ?? ''))?>" alt="" style="width:<?=(int)($headerSettings['logo_width'] ?? 200)?>px;height:<?=(int)($headerSettings['logo_height'] ?? 70)?>px;object-fit:contain;<?=empty($headerSettings['logo_path'])?'display:none;':''?>"><span id="preview-header-title" hidden></span></a><nav id="preview-header-links"><?php foreach($headerLinks as $headerLink): if (!is_array($headerLink) || trim((string)($headerLink['label'] ?? '')) === '') continue; ?><a class="custom-preview-link" href="<?=e(trim((string)($headerLink['url'] ?? '')) ?: '#')?>"><?=e((string)$headerLink['label'])?></a><?php endforeach; ?><a href="#" class="preview-signin">Sign in</a><a href="#" class="preview-join">Join the Community</a></nav></div></div><p class="header-preview-help">Preview updates as you edit. Sign in and Join the Community stay visible on the public header.</p></aside>
+          <div class="header-settings-grid">
+            <div class="header-settings-fields">
+              <div class="header-field" hidden aria-hidden="true"><input type="hidden" data-rich-editor="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title" maxlength="160" data-plain-value="title" value="<?=e((string)($headerSettings['header_title'] ?? 'Z.C. commonplace'))?>"><input type="hidden" name="header_title_html" data-rich-value="title"></div>
+              <div class="header-field"><span>Header Logo</span>
+                <div class="header-logo-controls-row">
+                  <div class="header-logo-upload"><input class="field" type="file" name="header_logo" id="header-logo-input" accept="image/png,image/jpeg"><small>Allowed filetype: PNG, JPG, or JPEG. Maximum upload is 3MB.</small></div>
+                  <div class="logo-crop-controls"><label>Logo width: <output id="logo-width-value"><?=(int)($headerSettings['logo_width'] ?? 200)?> px</output><input type="range" name="logo_width" id="logo-width" min="50" max="200" step="5" value="<?=max(50,min(200,(int)($headerSettings['logo_width'] ?? 200)))?>"></label><label>Logo height: <output id="logo-height-value"><?=(int)($headerSettings['logo_height'] ?? 70)?> px</output><input type="range" name="logo_height" id="logo-height" min="30" max="120" step="5" value="<?=max(30,min(120,(int)($headerSettings['logo_height'] ?? 70)))?>"></label></div>
+                </div>
+              </div>
+              <div class="header-field"><span>Footer Links</span><small>Add navigation links by title. Each page URL is generated automatically and cannot be edited. Multi-word titles use hyphens in the page filename.</small>
+                <div id="header-links-list">
+                <?php foreach($headerLinks as $headerLink): ?><div class="header-link-row"><input class="field header-generated-url" type="text" name="header_link_url[]" maxlength="500" placeholder="/public/page-title.php" aria-label="Automatically generated page URL" title="Automatically generated from the link title" readonly data-generated-label="<?=e((string)($headerLink['label'] ?? ''))?>" value="<?=e((string)($headerLink['url'] ?? ''))?>"><input class="field" type="text" name="header_link_label[]" maxlength="60" placeholder="Link title" aria-label="Link title" value="<?=e((string)($headerLink['label'] ?? ''))?>"><button type="button" class="btn light create-header-page">Create Page</button><button type="button" class="btn light remove-header-link" aria-label="Remove link">Remove</button></div><?php endforeach; ?>
+                </div><button type="button" class="btn light" id="add-header-link">+ Add Footer Link</button>
+              </div>
+              <div class="header-field"><span>Hidden Texts</span><small>Left Text appears in the far-left corner and Right Text in the far-right corner of the header.</small><div class="header-hidden-fields"><div class="header-hidden-item"><span>Left text</span><div class="rich-editor" data-rich-editor="hidden_left" contenteditable="true" role="textbox" aria-label="Edit left hidden text" data-placeholder="Text on the left"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_left_html'] ?? '')) ?: e((string)($headerSettings['hidden_left'] ?? ''))?></div><input type="hidden" name="hidden_left" maxlength="180" data-plain-value="hidden_left" value="<?=e((string)($headerSettings['hidden_left'] ?? ''))?>"><input type="hidden" name="hidden_left_html" data-rich-value="hidden_left"></div><div class="header-hidden-item"><span>Right text</span><div class="rich-editor" data-rich-editor="hidden_right" contenteditable="true" role="textbox" aria-label="Edit right hidden text" data-placeholder="Text on the right"><?=cleanHeaderRichHtml((string)($headerSettings['hidden_right_html'] ?? '')) ?: e((string)($headerSettings['hidden_right'] ?? ''))?></div><input type="hidden" name="hidden_right" maxlength="180" data-plain-value="hidden_right" value="<?=e((string)($headerSettings['hidden_right'] ?? ''))?>"><input type="hidden" name="hidden_right_html" data-rich-value="hidden_right"></div></div></div>
+            </div>
+            
+          </div>
+          <div class="header-settings-actions"><button type="submit" class="btn">Save Header Settings</button></div>
+        </form>
+        <?php else: ?>
+        <?php endif; ?>
         <form method="post" id="footer-settings-form" class="footer-settings-form">
           <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
           <input type="hidden" name="action" value="save_footer_settings"><input type="hidden" name="create_footer_page_group" id="create-footer-page-group"><input type="hidden" name="create_footer_page_index" id="create-footer-page-index">
