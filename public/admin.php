@@ -3567,7 +3567,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <section class="panel admin-panel header-link-page-editor">
             <div class="admin-panel-head">
               <div><h2>Header Link Page</h2><p class="muted">Edit the content displayed on the public page for this Header Link.</p></div>
-              <a class="btn light" href="admin.php?section=page-management&amp;tab=header#pm-panel-header">Back to Header</a>
+              <a class="btn light" href="admin.php?section=page-management&amp;tab=header#pm-panel-header">Back to Footer</a>
             </div>
             <div class="header-link-page-meta"><span>Page title</span><strong><?=e($activeHeaderPageTitle)?></strong><small>/public/<?=e($activeHeaderPageSlug)?>.php</small></div>
             <form method="post" id="header-link-page-form">
