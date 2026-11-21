@@ -1469,7 +1469,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 exit;
             }
         }
-        }
     } elseif ($action === 'save_header_settings') {
         // Header Title is no longer editable in Page Management. Preserve
         // the currently published title instead of clearing it on unrelated saves.
