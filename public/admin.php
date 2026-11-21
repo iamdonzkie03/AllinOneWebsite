@@ -3492,7 +3492,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       .footer-preview-frame a:not(.brand){display:block;color:#c9bbc0;text-decoration:none;font-size:11px;line-height:1.45}
       .footer-settings-fields{display:grid;gap:16px;min-width:0}.footer-column-editor{display:grid;gap:10px;padding:15px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.018)}
       .footer-column-editor h3{font:600 14px Ubuntu,sans-serif;margin:0;color:#f4e9ec}.footer-column-editor .field{width:100%;box-sizing:border-box;background:#171115;color:#f5e9ed;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:12px Ubuntu,sans-serif}
-      .footer-column-editor textarea{resize:vertical}.footer-preview-frame .footer-preview-text-item{display:block;color:#c9bbc0;font-size:11px;line-height:1.45}.footer-field-invalid{border-color:#ff526b!important;box-shadow:0 0 0 2px rgba(255,82,107,.2)!important}.footer-link-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;margin:7px 0}
+      .footer-column-editor textarea{resize:vertical}.footer-preview-frame .footer-preview-text-item{display:block;color:#c9bbc0;font-size:11px;line-height:1.45}.footer-field-invalid{border-color:#ff526b!important;box-shadow:0 0 0 2px rgba(255,82,107,.2)!important}.footer-link-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto;gap:7px;margin:7px 0}
       .footer-column-editor .header-field{font-size:12px}.footer-column-editor small{font-size:10px;color:var(--muted);font-weight:400}
       .footer-column-editor .footer-generated-url{background:#292329!important;color:#aaa!important;border-color:#51464c!important;cursor:not-allowed}
       @media(max-width:1000px){.footer-settings-grid{grid-template-columns:1fr}.footer-preview-column{position:static}}
@@ -5637,7 +5637,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const label = document.createElement('input'); label.className='field'; label.name=group+'_label[]'; label.maxLength=100; label.placeholder='Link title'; label.setAttribute('aria-label',group+' link title');
         const url = document.createElement('input'); url.className='field footer-generated-url'; url.name=group+'_url[]'; url.maxLength=500; url.placeholder=group==='brand'?'Page URL':'/public/page-title.php'; url.readOnly=group!=='brand'; if(group!=='brand')url.setAttribute('aria-readonly','true'); url.setAttribute('aria-label',group+' link URL');
         const remove = document.createElement('button'); remove.type='button'; remove.className='btn light remove-footer-link'; remove.textContent='Remove';
-        if(group!=='brand'){const create=document.createElement('button');create.type='button';create.className='btn light create-footer-page';create.dataset.group=group;create.textContent='Create Page';row.append(label,url,create,remove);}else row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
+        if(group!=='brand'){const create=document.createElement('button');create.type='button';create.className='btn light create-footer-page';create.dataset.group=group;create.textContent='Create Page';create.hidden=true;row.append(label,url,create,remove);}else row.append(label,url,remove); editor.append(row); updatePreview(); label.focus();
       };
       form.addEventListener('input', event => {
         if (event.target.matches('.footer-link-row input')) event.target.classList.remove('footer-field-invalid');
