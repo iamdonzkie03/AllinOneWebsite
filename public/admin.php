@@ -21,6 +21,7 @@ function sortSlideshowPhotosByUpdatedAt(array $photos): array {
 }
 
 $admin = require_admin();
+$footerPublicUrlBase = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/public/admin.php'))), '/') . '/';
 
 // AJAX check against the actual local public folder. This deliberately checks
 // the PHP file itself rather than issuing a browser request to its URL.
@@ -1401,7 +1402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
             foreach (['explore','discover'] as $group) {
                 foreach ($content[$group.'_links'] as &$footerLink) {
                     $slug = headerLinkSlug((string)$footerLink['label']);
-                    $footerLink['url'] = '/public/' . $slug . '.php';
+                    $footerLink['url'] = $footerPublicUrlBase . $slug . '.php';
                 }
                 unset($footerLink);
             }
@@ -1424,7 +1425,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 foreach (['explore','discover'] as $group) {
                     foreach ($content[$group.'_links'] as $footerLink) {
                         $pagePath = parse_url((string)$footerLink['url'], PHP_URL_PATH);
-                        if (!is_string($pagePath) || !preg_match('~^/public/([a-z0-9&-]+)\\.php$~', $pagePath, $pageMatch)) {
+                        if (!is_string($pagePath) || !preg_match('~^/.*?/public/([a-z0-9&-]+)\\.php$~', $pagePath, $pageMatch)) {
                             throw new RuntimeException('Unable to determine the generated footer page filename for: ' . (string)$footerLink['label']);
                         }
                         $slug = $pageMatch[1];
@@ -1460,7 +1461,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                     $oldUrl = (string)($oldLink['url'] ?? '');
                     if ($oldUrl === '' || isset($activeFooterUrls[$oldUrl])) continue;
                     $oldPath = parse_url($oldUrl, PHP_URL_PATH);
-                    if (!is_string($oldPath) || !preg_match('~^/public/([a-z0-9&-]+)\\.php$~', $oldPath, $oldMatch)) continue;
+                    if (!is_string($oldPath) || !preg_match('~^/.*?/public/([a-z0-9&-]+)\\.php$~', $oldPath, $oldMatch)) continue;
                     $oldFile = __DIR__ . '/' . $oldMatch[1] . '.php';
                     if (is_file($oldFile) && !is_link($oldFile) && str_contains((string)@file_get_contents($oldFile), 'ZC_FOOTER_LINK_PAGE')) @unlink($oldFile);
                 }
@@ -5304,12 +5305,13 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         updateLinks('brand'); updateLinks('explore'); updateLinks('discover');
       };
       const footerSlugify = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/-/g,'').replace(/[^a-z0-9&]+/g,'-').replace(/^-+|-+$/g,'') || 'page';
+      const footerPublicUrlBase = <?=json_encode($footerPublicUrlBase, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)?>;
       const syncGeneratedFooterUrl = row => {
         const group = row.closest('#footer-explore-editor') ? 'explore' : (row.closest('#footer-discover-editor') ? 'discover' : '');
         if (!group) return;
         const title = row.querySelector('[name="'+group+'_label[]"]');
         const url = row.querySelector('[name="'+group+'_url[]"]');
-        if (title && url) url.value = title.value.trim() ? '/public/'+footerSlugify(title.value.trim())+'.php' : '';
+        if (title && url) url.value = title.value.trim() ? footerPublicUrlBase+footerSlugify(title.value.trim())+'.php' : '';
       };
       const askToReuseFooterPage = () => new Promise(resolve => {
         const popup=document.createElement('div');popup.className='account-status-modal';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');
