@@ -1478,7 +1478,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$requestBodyTooLarge) {
                 if(in_array($requestedFooterGroup,['explore','discover'],true)&&$requestedFooterIndex!==''){
                   $requestedLink=$content[$requestedFooterGroup.'_links'][(int)$requestedFooterIndex]??null; $requestedPath=is_array($requestedLink)?parse_url((string)($requestedLink['url']??''),PHP_URL_PATH):null;
                   if(is_string($requestedPath)&&preg_match('~^/.*?/public/([a-z0-9&-]+)\.php$~',$requestedPath,$match)){header('Location: admin.php?section=page-management&tab=footer&footer_page='.rawurlencode($match[1]).'#pm-panel-footer',true,303);exit;}
-                  $message='The requested Footer link page could not be verified. Please try again.';
+                  header('Location: admin.php?section=page-management&tab=footer#pm-panel-footer',true,303);exit;
                 }
                 if($message==='') header('Location: admin.php?section=page-management&tab=footer&footer_saved=1#pm-panel-footer',true,303);
                 exit;
@@ -3567,7 +3567,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <section class="panel admin-panel header-link-page-editor">
             <div class="admin-panel-head">
               <div><h2>Header Link Page</h2><p class="muted">Edit the content displayed on the public page for this Header Link.</p></div>
-              <a class="btn light" href="admin.php?section=page-management&amp;tab=header#pm-panel-header">Back to Footer</a>
+              <a class="btn light" href="admin.php?section=page-management&amp;tab=header#pm-panel-header">Back to Header</a>
             </div>
             <div class="header-link-page-meta"><span>Page title</span><strong><?=e($activeHeaderPageTitle)?></strong><small>/public/<?=e($activeHeaderPageSlug)?>.php</small></div>
             <form method="post" id="header-link-page-form">
@@ -3842,7 +3842,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
           <section class="panel admin-panel footer-link-page-editor">
             <div class="admin-panel-head">
               <div><h2>Footer Link Page</h2><p class="muted">Edit the content displayed on the public page for this Footer Link.</p></div>
-              <a class="btn light" href="admin.php?section=page-management&amp;tab=footer#pm-panel-footer">Back to Header</a>
+              <a class="btn light" href="admin.php?section=page-management&amp;tab=footer#pm-panel-footer">Back to Footer</a>
             </div>
             <div class="footer-link-page-meta"><span>Page title</span><strong><?=e($activeFooterPageTitle)?></strong><small>/public/<?=e($activeFooterPageSlug)?>.php</small></div>
             <form method="post" id="footer-link-page-form">
