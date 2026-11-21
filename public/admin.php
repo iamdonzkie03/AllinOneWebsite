@@ -438,7 +438,7 @@ $activePageTab = (string)($_GET['tab'] ?? 'header');
 if (!in_array($activePageTab, ['header','footer','contents','sections'], true)) $activePageTab = 'header';
 $activeMediaTab = (string)($_GET['media_tab'] ?? 'gallery');
 if (!in_array($activeMediaTab, ['gallery','video'], true)) $activeMediaTab = 'gallery';
-$allowedSections = ['dashboard', 'settings', 'page-management', 'category-list', 'media-management', 'plugins', 'user-accounts'];
+$allowedSections = ['dashboard', 'settings', 'page-management', 'category-list', 'media-management', 'plugins', 'marketplace', 'user-accounts'];
 if (!in_array($section, $allowedSections, true)) $section = 'dashboard';
 
 /**
@@ -2145,6 +2145,7 @@ body:has(.admin-shell),body:has(.admin-shell) *{
       <a class="<?=navActive($section,'media-management')?>" href="<?=e(adminUrl('media-management'))?>">Media Management</a>
       <a class="<?=navActive($section,'plugins')?>" href="<?=e(adminUrl('plugins'))?>">Plugins</a>
     </div>
+    <a class="<?=navActive($section,'marketplace')?>" href="<?=e(adminUrl('marketplace'))?>"><span class="nav-icon">▣</span>Marketplace</a>
     <a class="<?=navActive($section,'user-accounts')?>" href="<?=e(adminUrl('user-accounts'))?>"><span class="nav-icon">♙</span>User Accounts </a>
   </nav>
   <div class="admin-sidebar-profile" aria-label="Administrator account">
@@ -2302,6 +2303,12 @@ body:has(.admin-shell),body:has(.admin-shell) *{
     <p class="dashboard-user-chart-note">Inactive includes accounts that are suspended or have not yet completed email verification.</p>
   </section>
   <div class="admin-feature-grid"><div class="admin-feature"><div class="symbol">▤</div><h3>Page Management</h3><p>Manage the pages and sections displayed on the public website.</p><a class="btn light" href="<?=e(adminUrl('page-management'))?>">Open settings</a></div><div class="admin-feature"><div class="symbol">▧</div><h3>Media Management</h3><p>Organize the images and media used throughout the website.</p><a class="btn light" href="<?=e(adminUrl('media-management'))?>">Open settings</a></div></div>
+<?php elseif($section==='marketplace'):?>
+  <div class="admin-topline"><div><div class="eyebrow">Community commerce</div><h1 class="admin-heading">Marketplace</h1><p class="muted">Manage marketplace listings and community transactions.</p></div></div>
+  <section class="panel admin-panel">
+    <div class="admin-panel-head"><h2>Marketplace</h2><span class="status">Workspace</span></div>
+    <div class="admin-empty">The Marketplace management workspace is ready for its features to be added.</div>
+  </section>
 <?php elseif($section==='user-accounts'):?>
   <div class="admin-topline"><div><div class="eyebrow">Access control</div><h1 class="admin-heading">User Accounts</h1><p class="muted">Manage registered accounts, contributor credentials and account access.</p></div></div>
   <?php if($systemAdminAccount):
