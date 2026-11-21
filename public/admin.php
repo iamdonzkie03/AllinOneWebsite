@@ -5639,9 +5639,9 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const button=row.querySelector('.create-footer-page'); if(!button)return;
         const group=button.dataset.group;
         const url=row.querySelector('[name="'+group+'_url[]"]')?.value.trim()||'';
-        if(!url){button.hidden=true;return;}
         const checkId=String((Number(row.dataset.pageCheckId)||0)+1);
         row.dataset.pageCheckId=checkId;
+        if(!url){button.hidden=true;return;}
         try{
           const exists=await checkFooterPageExists(url);
           if(row.dataset.pageCheckId===checkId)button.hidden=exists;
@@ -5705,7 +5705,7 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         const title=row?.querySelector('[name="'+group+'_label[]"]');
         const url=row?.querySelector('[name="'+group+'_url[]"]')?.value.trim()||'';
         if(!title?.value.trim()){title?.focus();return;}
-        const slug=url.split('/').pop().replace(/\\.php(?:[?#].*)?$/i,'');
+        const slug=url.split('/').pop().replace(/\.php(?:[?#].*)?$/i,'');
         if(!slug){title.focus();return;}
         document.getElementById('create-footer-page-group').value=group;
         document.getElementById('create-footer-page-index').value='';
