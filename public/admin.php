@@ -5659,8 +5659,8 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
         row.dataset.pageCheckId=checkId;
         if(!url){button.hidden=true;return;}
         try{
-          const exists=await checkFooterPageExists(url);
-          if(row.dataset.pageCheckId===checkId)button.hidden=exists && ! (await checkFooterPageOwner(url) === 'footer');
+          const owner=await checkFooterPageOwner(url);
+          if(row.dataset.pageCheckId===checkId)button.hidden=owner!==null && owner!=='footer';
         }catch(error){
           if(row.dataset.pageCheckId===checkId)button.hidden=true;
         }
