@@ -489,12 +489,19 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
  const form=document.getElementById('marketplace-product-add-form');
  const rows=document.getElementById('marketplace-product-entry-rows');
  const add=document.getElementById('marketplace-product-add-row');
- const close=()=>{if(modal)modal.hidden=true;};
- document.getElementById('marketplace-product-add-open')?.addEventListener('click',()=>{if(modal)modal.hidden=false;});
- document.getElementById('marketplace-product-add-cancel')?.addEventListener('click',close);
+ const initialRowMarkup=rows?.querySelector('.marketplace-product-entry-row')?.outerHTML||'';
  const bindRemove=container=>container.querySelector('.marketplace-product-remove-row')?.addEventListener('click',()=>{if(rows.children.length>1)container.remove();else container.querySelectorAll('input,textarea').forEach(field=>field.value='');});
+ const resetForm=()=>{
+  if(!rows)return;
+  form?.reset();
+  rows.innerHTML=initialRowMarkup;
+  rows.querySelectorAll('.marketplace-product-entry-row').forEach(bindRemove);
+ };
+ const close=()=>{resetForm();if(modal)modal.hidden=true;};
+ document.getElementById('marketplace-product-add-open')?.addEventListener('click',()=>{resetForm();if(modal)modal.hidden=false;});
+ document.getElementById('marketplace-product-add-cancel')?.addEventListener('click',close);
  rows?.querySelectorAll('.marketplace-product-entry-row').forEach(bindRemove);
- add?.addEventListener('click',()=>{const clone=rows.querySelector('.marketplace-product-entry-row').cloneNode(true);clone.querySelectorAll('input,textarea').forEach(field=>{field.value='';});rows.append(clone);bindRemove(clone);clone.querySelector('input')?.focus();});
+ add?.addEventListener('click',()=>{const clone=rows.querySelector('.marketplace-product-entry-row').cloneNode(true);clone.querySelectorAll('input,textarea').forEach(field=>{field.value='';});clone.querySelectorAll('select').forEach(field=>{field.selectedIndex=0;});rows.append(clone);bindRemove(clone);clone.querySelector('input')?.focus();});
  document.getElementById('marketplace-product-created-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
 })();
