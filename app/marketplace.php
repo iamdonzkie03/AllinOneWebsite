@@ -418,7 +418,7 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
   <label class="wide">Product Photo (JPG, PNG, WEBP · max 5 MB)<input type="file" name="product_photo" accept="image/jpeg,image/png,image/webp"><?php if(!empty($marketplaceProductForm['photo_path'])): ?><small>Current photo: <?=e(basename((string)$marketplaceProductForm['photo_path']))?></small><?php endif; ?></label>
   <div class="wide"><button class="btn" type="submit"><?=$marketplaceProductForm?'Update Product':'Save Product'?></button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=products">Cancel</a></div>
  </form>
- <?php endif; endif; ?>
+ <?php endif; ?>
  <?php if($marketplaceProductReadOnly && $marketplaceProductForm): ?><div id="product-editor" class="marketplace-form"><div><strong><?=e($marketplaceProductForm['product_name'])?></strong><p class="muted"><?=e((string)$marketplaceProductForm['brand'])?> · <?=e((string)$marketplaceProductForm['model'])?></p><p><?=e((string)$marketplaceProductForm['description'])?></p></div><div><?php if($marketplaceProductForm['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$marketplaceProductForm['photo_path'])?>" alt="<?=e($marketplaceProductForm['product_name'])?>"><?php endif; ?><p><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=products&amp;edit_product=<?=(int)$marketplaceProductForm['id']?>#product-editor">Edit Product</a> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=products">Close</a></p></div></div><?php endif; ?>
  <?php if(!$marketplaceProducts): ?><div class="marketplace-empty">No products have been added yet.</div><?php else: ?>
  <div class="table-wrap"><table class="marketplace-table"><thead><tr><th>Product Photo</th><th>Product ID</th><th>Product Name</th><th>Brand</th><th>Model</th><th>Manufacturer</th><th>Supply Chain Entity</th><th>Country of Origin</th><th>Description</th><th>Actions</th></tr></thead><tbody>
@@ -456,7 +456,7 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
    <p>The product <strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> with product ID <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> has been successfully created.</p>
   <?php else: ?>
    <p>The following products have been successfully created.</p>
-   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li>Product ID: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong>: <strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong></li><?php endforeach; ?></ul>
+   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li>Product ID: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> — <strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong></li><?php endforeach; ?></ul>
   <?php endif; ?>
   <button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-created-close">OK</button>
  </section>
