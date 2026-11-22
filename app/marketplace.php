@@ -226,8 +226,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $currentCode = $existingCode->fetchColumn();
                 if ($currentCode === false) throw new RuntimeException('The product to update could not be found.');
                 $row = $rows[0];
-                $update = $pdo->prepare('UPDATE marketplace_products SET category_id=?,product_name=?,brand=?,model=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,description=? WHERE id=?');
-                $update->execute([$row[8] ?: null,$row[0],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null,$productId]);
+                if (array_key_exists('category_id', $_POST)) {
+                    $update = $pdo->prepare('UPDATE marketplace_products SET category_id=?,product_name=?,brand=?,model=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,description=? WHERE id=?');
+                    $update->execute([$row[8] ?: null,$row[0],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null,$productId]);
+                } else {
+                    $update = $pdo->prepare('UPDATE marketplace_products SET product_name=?,brand=?,model=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,description=? WHERE id=?');
+                    $update->execute([$row[0],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null,$productId]);
+                }
                 $marketplaceNotice = 'Marketplace product successfully updated.';
                 $marketplaceTab = 'products';
                 $marketplaceEditProductId = 0;
