@@ -80,6 +80,9 @@ if (!in_array($marketplaceTab, $marketplaceTabs, true)) $marketplaceTab = 'overv
 $marketplaceNotice = '';
 $marketplaceError = '';
 $marketplaceCreatedCategoryName = null;
+$marketplaceDuplicateCategoryName = null;
+$marketplaceCategoryInputName = '';
+$marketplaceCategoryInputDescription = '';
 $marketplaceDeletedCategoryCount = 0;
 $marketplaceDeletedCategoryNames = [];
 $marketplaceEditProductId = max(0, (int)($_GET['edit_product'] ?? 0));
@@ -120,10 +123,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
         } elseif ($action === 'marketplace_save_category') {
             $name = trim((string)($_POST['category_name'] ?? ''));
             $description = trim((string)($_POST['category_description'] ?? ''));
+            $marketplaceCategoryInputName = $name;
+            $marketplaceCategoryInputDescription = $description;
             if ($name === '') throw new RuntimeException('Please enter a category name.');
-            $stmt = $pdo->prepare('INSERT INTO marketplace_categories(name,description) VALUES(?,?)');
-            $stmt->execute([$name, $description !== '' ? $description : null]);
-            $marketplaceCreatedCategoryName = $name;
+            $existingCategory = $pdo->prepare('SELECT name FROM marketplace_categories WHERE name = ? LIMIT 1');
+            $existingCategory->execute([$name]);
+            $existingName = $existingCategory->fetchColumn();
+            if ($existingName !== false) {
+                $marketplaceDuplicateCategoryName = (string)$existingName;
+            } else {
+                $stmt = $pdo->prepare('INSERT INTO marketplace_categories(name,description) VALUES(?,?)');
+                $stmt->execute([$name, $description !== '' ? $description : null]);
+                $marketplaceCreatedCategoryName = $name;
+            }
             $marketplaceNotice = '';
             $marketplaceTab = 'category';
         } elseif ($action === 'marketplace_save_product') {
@@ -203,9 +215,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $marketplaceTab = 'inventory';
         }
     } catch (Throwable $exception) {
-        $marketplaceError = $exception instanceof PDOException && (string)$exception->getCode() === '23000'
-            ? 'That category name or SKU already exists. Please use a unique value.'
-            : $exception->getMessage();
+        if (($action ?? '') === 'marketplace_save_category' && $exception instanceof PDOException && (string)$exception->getCode() === '23000') {
+            $marketplaceDuplicateCategoryName = trim((string)($_POST['category_name'] ?? ''));
+            $marketplaceCategoryInputName = $marketplaceDuplicateCategoryName;
+            $marketplaceCategoryInputDescription = trim((string)($_POST['category_description'] ?? ''));
+        } else {
+            $marketplaceError = $exception instanceof PDOException && (string)$exception->getCode() === '23000'
+                ? 'That category name or SKU already exists. Please use a unique value.'
+                : $exception->getMessage();
+        }
         $marketplaceTab = match ((string)($_POST['action'] ?? '')) {
             'marketplace_save_category','marketplace_delete_categories' => 'category',
             'marketplace_save_inventory','marketplace_add_stock' => 'inventory',
@@ -296,7 +314,8 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
   <div class="marketplace-category-pagination marketplace-category-pagination-bottom"><span class="muted" id="marketplace-category-page-info-bottom" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-category-first-bottom">First</button><button type="button" class="btn light" id="marketplace-category-prev-bottom">Previous</button><span id="marketplace-category-page-numbers-bottom" class="gallery-page-numbers"></span><button type="button" class="btn light" id="marketplace-category-next-bottom">Next</button><button type="button" class="btn light" id="marketplace-category-last-bottom">Last</button></div></div>
  </form>
 </section>
-<div class="account-status-modal marketplace-category-modal" id="marketplace-category-add-modal" hidden><div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-category-add-title"><h2 id="marketplace-category-add-title">Add Category</h2><form class="marketplace-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=category"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_category"><label>Category Name *<input name="category_name" maxlength="140" required placeholder="e.g. Electronics"></label><label>Description<textarea name="category_description" placeholder="Brief category description"></textarea></label><div class="wide marketplace-category-modal-actions"><button class="btn light" type="button" id="marketplace-category-add-cancel">Cancel</button><button class="btn" type="submit">Save Category</button></div></form></div></div>
+<div class="account-status-modal marketplace-category-modal" id="marketplace-category-add-modal" hidden><div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-category-add-title"><h2 id="marketplace-category-add-title">Add Category</h2><form class="marketplace-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=category"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_category"><label>Category Name *<input name="category_name" maxlength="140" required placeholder="e.g. Electronics" value="<?=e($marketplaceCategoryInputName)?>"></label><label>Description<textarea name="category_description" placeholder="Brief category description"><?=e($marketplaceCategoryInputDescription)?></textarea></label><div class="wide marketplace-category-modal-actions"><button class="btn light" type="button" id="marketplace-category-add-cancel">Cancel</button><button class="btn" type="submit">Save Category</button></div></form></div></div>
+<?php if($marketplaceDuplicateCategoryName !== null): ?><div class="account-status-modal marketplace-category-success-modal" id="marketplace-category-duplicate-modal"><div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-category-duplicate-title"><h2 id="marketplace-category-duplicate-title">Category Already Added</h2><p class="marketplace-category-success-message">The category <strong style="color:#e34b62;font-weight:800"><?=e($marketplaceDuplicateCategoryName)?></strong> has been already added in the database. Please create a new one.</p><div class="marketplace-category-modal-actions"><button class="btn" type="button" id="marketplace-category-duplicate-close">OK</button></div></div></div><?php endif; ?>
 <?php if($marketplaceCreatedCategoryName !== null): ?><div class="account-status-modal marketplace-category-success-modal" id="marketplace-category-success-modal"><div class="account-status-modal-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-category-success-title"><h2 id="marketplace-category-success-title">Category Created</h2><p class="marketplace-category-success-message">Category <strong><?=e($marketplaceCreatedCategoryName)?></strong> successfully created.</p><div class="marketplace-category-modal-actions"><button class="btn" type="button" id="marketplace-category-success-close">OK</button></div></div></div><?php endif; ?>
 <div class="content-manager-modal-backdrop content-manager-article-bulk-modal marketplace-category-delete-modal" id="marketplace-category-delete-modal" hidden role="presentation"><section class="content-manager-modal" role="dialog" aria-modal="true" aria-labelledby="marketplace-category-delete-title"><div class="content-manager-section-head"><h3 id="marketplace-category-delete-title">Delete Selected Categories?</h3></div><p id="marketplace-category-delete-message" style="margin:0;color:#e9dce1;font-size:12px;line-height:1.65"></p><ul id="marketplace-category-delete-list" class="marketplace-category-delete-list"></ul><div class="content-manager-actions content-manager-modal-actions"><button type="button" class="btn light" id="marketplace-category-delete-cancel">Cancel</button><button type="button" class="content-manager-delete-selected" id="marketplace-category-delete-confirm">Delete</button></div></section></div>
 
@@ -305,7 +324,7 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
 (()=>{
  const root=document.querySelector('.marketplace-category-panel');if(!root)return;
  const rows=[...root.querySelectorAll('[data-marketplace-category-row]')],filter=document.getElementById('marketplace-category-filter'),size=document.getElementById('marketplace-category-page-size'),selectAll=document.getElementById('marketplace-category-select-all'),deleteButton=document.getElementById('marketplace-category-delete-selected'),bulkForm=document.getElementById('marketplace-category-bulk-form'),deleteModal=document.getElementById('marketplace-category-delete-modal'),empty=document.getElementById('marketplace-category-empty');
- const addModal=document.getElementById('marketplace-category-add-modal');const deleteMessage=document.getElementById('marketplace-category-delete-message');const deleteList=document.getElementById('marketplace-category-delete-list');let page=1;
+ const addModal=document.getElementById('marketplace-category-add-modal');const duplicateModal=document.getElementById('marketplace-category-duplicate-modal');document.getElementById('marketplace-category-duplicate-close')?.addEventListener('click',()=>{if(duplicateModal)duplicateModal.hidden=true;if(addModal)addModal.hidden=false;addModal?.querySelector('input[name="category_name"]')?.focus();});const deleteMessage=document.getElementById('marketplace-category-delete-message');const deleteList=document.getElementById('marketplace-category-delete-list');let page=1;
  const visibleRows=()=>rows.filter(row=>row.dataset.categorySearch.includes((filter?.value||'').trim().toLocaleLowerCase()));
  const pageButtons=(container,total,current,go)=>{if(!container)return;container.replaceChildren();const maxVisible=7;let first=Math.max(1,current-Math.floor(maxVisible/2)),last=Math.min(total,first+maxVisible-1);first=Math.max(1,last-maxVisible+1);const add=n=>{const b=document.createElement('button');b.type='button';b.className='btn light gallery-page-number'+(n===current?' is-active':'');b.textContent=String(n);b.setAttribute('aria-label','Page '+n);if(n===current)b.setAttribute('aria-current','page');b.addEventListener('click',()=>go(n));container.append(b);};if(first>1){add(1);if(first>2){const dots=document.createElement('span');dots.className='muted';dots.textContent='…';container.append(dots);}}for(let n=first;n<=last;n++)add(n);if(last<total){if(last<total-1){const dots=document.createElement('span');dots.className='muted';dots.textContent='…';container.append(dots);}add(total);}};
  const update=()=>{const matched=visibleRows(),perPage=Math.max(1,Number(size?.value||10)),total=Math.max(1,Math.ceil(matched.length/perPage));page=Math.min(page,total);const from=(page-1)*perPage;rows.forEach(row=>row.hidden=true);matched.forEach((row,index)=>{row.hidden=index<from||index>=from+perPage;});const start=matched.length?from+1:0,end=Math.min(from+perPage,matched.length),info=matched.length?'Showing '+start+'–'+end+' of '+matched.length+' entries':'Showing 0 to 0 of 0 categories';['top','bottom'].forEach(pos=>{const el=document.getElementById('marketplace-category-page-info-'+pos);if(el)el.textContent=info;pageButtons(document.getElementById('marketplace-category-page-numbers-'+pos),total,page,n=>{page=n;update();});});['first','prev','next','last'].forEach(action=>{const buttons=[document.getElementById('marketplace-category-'+action),document.getElementById('marketplace-category-'+action+'-bottom')];buttons.forEach(button=>{if(button){button.disabled=action==='first'||action==='prev'?page===1:page===total;button.onclick=()=>{page=action==='first'?1:action==='prev'?page-1:action==='next'?page+1:total;update();};}});});if(empty){empty.hidden=matched.length>0;}syncSelection();};
