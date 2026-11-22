@@ -29,10 +29,20 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_products (
  INDEX idx_marketplace_product_category(category_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("ALTER TABLE marketplace_products MODIFY category_id BIGINT UNSIGNED NULL");
-$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS product_code VARCHAR(100) NULL AFTER product_name");
-$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(180) NULL AFTER model");
-$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS supply_chain_entity VARCHAR(180) NULL AFTER manufacturer");
-$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS country_of_origin VARCHAR(120) NULL AFTER supply_chain_entity");
+// Use metadata checks instead of ALTER TABLE ... ADD COLUMN IF NOT EXISTS,
+// which is not supported by several MySQL/MariaDB versions bundled with Laragon.
+$marketplaceProductColumns = [
+    'product_code' => "VARCHAR(100) NULL AFTER product_name",
+    'manufacturer' => "VARCHAR(180) NULL AFTER model",
+    'supply_chain_entity' => "VARCHAR(180) NULL AFTER manufacturer",
+    'country_of_origin' => "VARCHAR(120) NULL AFTER supply_chain_entity",
+];
+foreach ($marketplaceProductColumns as $columnName => $columnDefinition) {
+    $columnCheck = $pdo->query("SHOW COLUMNS FROM marketplace_products LIKE " . $pdo->quote($columnName));
+    if (!$columnCheck->fetch(PDO::FETCH_ASSOC)) {
+        $pdo->exec("ALTER TABLE marketplace_products ADD COLUMN " . $columnName . " " . $columnDefinition);
+    }
+}
 $productCodeIndex = $pdo->query("SHOW INDEX FROM marketplace_products WHERE Key_name = 'uq_marketplace_product_code'")->fetch(PDO::FETCH_ASSOC);
 if (!$productCodeIndex) $pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY uq_marketplace_product_code (product_code)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_inventory (
