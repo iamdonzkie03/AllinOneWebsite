@@ -422,7 +422,7 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
 </style>
 <nav class="marketplace-tabs" aria-label="Marketplace sections">
 <?php foreach (['overview'=>'Overview','products'=>'Products','inventory'=>'Inventory','purchases'=>'Purchases','invoices'=>'Invoices'] as $key=>$label): ?>
-<a class="<?=$marketplaceTab===$key?'active':''?>" href="admin.php?section=marketplace&amp;marketplace_tab=<?=$key?>"><?=$label?></a>
+<a class="<?=($marketplaceTab===$key || ($marketplaceTab==='category' && $key==='products'))?'active':''?>" href="admin.php?section=marketplace&amp;marketplace_tab=<?=$key?>"><?=$label?></a>
 <?php endforeach; ?>
 </nav>
 <?php if($marketplaceNotice!==''): ?><div class="marketplace-alert success"><?=e($marketplaceNotice)?></div><?php endif; ?>
