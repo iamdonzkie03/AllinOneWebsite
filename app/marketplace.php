@@ -13,8 +13,12 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_categories (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_products (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
- category_id BIGINT UNSIGNED NOT NULL,
+ category_id BIGINT UNSIGNED NULL,
  product_name VARCHAR(220) NOT NULL,
+ product_code VARCHAR(100) NULL,
+ manufacturer VARCHAR(180) NULL,
+ supply_chain_entity VARCHAR(180) NULL,
+ country_of_origin VARCHAR(120) NULL,
  brand VARCHAR(140) NULL,
  model VARCHAR(140) NULL,
  description TEXT NULL,
@@ -24,6 +28,12 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_products (
  CONSTRAINT fk_marketplace_product_category FOREIGN KEY (category_id) REFERENCES marketplace_categories(id) ON DELETE RESTRICT,
  INDEX idx_marketplace_product_category(category_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("ALTER TABLE marketplace_products MODIFY category_id BIGINT UNSIGNED NULL");
+$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS product_code VARCHAR(100) NULL AFTER product_name");
+$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(180) NULL AFTER model");
+$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS supply_chain_entity VARCHAR(180) NULL AFTER manufacturer");
+$pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS country_of_origin VARCHAR(120) NULL AFTER supply_chain_entity");
+$pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY IF NOT EXISTS uq_marketplace_product_code (product_code)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_inventory (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  product_id BIGINT UNSIGNED NOT NULL UNIQUE,
@@ -80,6 +90,7 @@ if (!in_array($marketplaceTab, $marketplaceTabs, true)) $marketplaceTab = 'overv
 $marketplaceNotice = '';
 $marketplaceError = '';
 $marketplaceCreatedCategoryName = null;
+$marketplaceCreatedProducts = null;
 $marketplaceDuplicateCategoryName = null;
 $marketplaceCategoryUpdateResult = null;
 $marketplaceCategoryInputName = '';
@@ -167,44 +178,44 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             ];
             $marketplaceTab = 'category';
         } elseif ($action === 'marketplace_save_product') {
-            $productId = max(0, (int)($_POST['product_id'] ?? 0));
-            $categoryId = max(0, (int)($_POST['category_id'] ?? 0));
-            $name = trim((string)($_POST['product_name'] ?? ''));
-            $brand = trim((string)($_POST['brand'] ?? ''));
-            $model = trim((string)($_POST['model'] ?? ''));
-            $description = trim((string)($_POST['description'] ?? ''));
-            $categoryCheck = $pdo->prepare('SELECT id FROM marketplace_categories WHERE id=? LIMIT 1');
-            $categoryCheck->execute([$categoryId]);
-            if (!$categoryCheck->fetchColumn()) throw new RuntimeException('Create at least one Marketplace category before adding a product.');
-            if ($name === '') throw new RuntimeException('Please enter a product name.');
-            $photoPath = null;
-            if (!empty($_FILES['product_photo']['name'])) {
-                $file = $_FILES['product_photo'];
-                if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) throw new RuntimeException('The product photo could not be uploaded.');
-                if ((int)$file['size'] > 5 * 1024 * 1024) throw new RuntimeException('Product photos must not exceed 5 MB.');
-                $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
-                $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
-                if (!isset($extensions[$mime])) throw new RuntimeException('Upload a JPG, PNG, or WEBP product photo.');
-                $uploadDir = __DIR__ . '/../public/uploads/marketplace/products';
-                if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) throw new RuntimeException('The product photo folder could not be created.');
-                $filename = 'product-' . bin2hex(random_bytes(12)) . '.' . $extensions[$mime];
-                if (!move_uploaded_file((string)$file['tmp_name'], $uploadDir . '/' . $filename)) throw new RuntimeException('The product photo could not be saved.');
-                $photoPath = 'uploads/marketplace/products/' . $filename;
+            $productNames = (array)($_POST['product_name'] ?? []);
+            $productCodes = (array)($_POST['product_code'] ?? []);
+            $brands = (array)($_POST['brand'] ?? []);
+            $models = (array)($_POST['model'] ?? []);
+            $manufacturers = (array)($_POST['manufacturer'] ?? []);
+            $supplyEntities = (array)($_POST['supply_chain_entity'] ?? []);
+            $countries = (array)($_POST['country_of_origin'] ?? []);
+            $descriptions = (array)($_POST['description'] ?? []);
+            $rows = [];
+            foreach ($productNames as $index => $rawName) {
+                $name = trim((string)$rawName);
+                $code = trim((string)($productCodes[$index] ?? ''));
+                $brand = trim((string)($brands[$index] ?? ''));
+                $model = trim((string)($models[$index] ?? ''));
+                $manufacturer = trim((string)($manufacturers[$index] ?? ''));
+                $supplyEntity = trim((string)($supplyEntities[$index] ?? ''));
+                $country = trim((string)($countries[$index] ?? ''));
+                $description = trim((string)($descriptions[$index] ?? ''));
+                if ($name === '' && $code === '' && $brand === '' && $model === '' && $manufacturer === '' && $supplyEntity === '' && $country === '' && $description === '') continue;
+                if ($name === '' || $code === '') throw new RuntimeException('Product Name and Product ID are required for every product row.');
+                $rows[] = [$name,$code,$brand,$model,$manufacturer,$supplyEntity,$country,$description];
             }
-            if ($productId > 0) {
-                if ($photoPath !== null) {
-                    $stmt = $pdo->prepare('UPDATE marketplace_products SET category_id=?,product_name=?,brand=?,model=?,description=?,photo_path=? WHERE id=?');
-                    $stmt->execute([$categoryId,$name,$brand ?: null,$model ?: null,$description ?: null,$photoPath,$productId]);
-                } else {
-                    $stmt = $pdo->prepare('UPDATE marketplace_products SET category_id=?,product_name=?,brand=?,model=?,description=? WHERE id=?');
-                    $stmt->execute([$categoryId,$name,$brand ?: null,$model ?: null,$description ?: null,$productId]);
+            if (!$rows) throw new RuntimeException('Add at least one product with a Product Name and Product ID.');
+            $codes = array_column($rows, 1);
+            if (count($codes) !== count(array_unique($codes))) throw new RuntimeException('Each product must have a unique Product ID.');
+            $pdo->beginTransaction();
+            try {
+                $insert = $pdo->prepare('INSERT INTO marketplace_products(category_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,photo_path) VALUES(NULL,?,?,?,?,?,?,?,?,NULL)');
+                foreach ($rows as $row) {
+                    $insert->execute([$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null]);
                 }
-                $marketplaceNotice = 'Marketplace product successfully updated.';
-            } else {
-                $stmt = $pdo->prepare('INSERT INTO marketplace_products(category_id,product_name,brand,model,description,photo_path) VALUES(?,?,?,?,?,?)');
-                $stmt->execute([$categoryId,$name,$brand ?: null,$model ?: null,$description ?: null,$photoPath]);
-                $marketplaceNotice = 'Marketplace product successfully created.';
+                $pdo->commit();
+            } catch (Throwable $insertError) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $insertError;
             }
+            $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1]], $rows);
+            $marketplaceNotice = '';
             $marketplaceTab = 'products';
             $marketplaceEditProductId = 0;
         } elseif ($action === 'marketplace_save_inventory') {
@@ -261,8 +272,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
 }
 
 $marketplaceCategories = $pdo->query('SELECT id,name,description,created_at FROM marketplace_categories ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
-$marketplaceProducts = $pdo->query("SELECT p.*,c.name AS category_name,i.id AS inventory_id,i.sku,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.latest_loaded,i.created_at AS inventory_created_at,i.updated_at AS inventory_updated_at FROM marketplace_products p INNER JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
-$marketplaceInventory = $pdo->query("SELECT i.*,p.product_name,p.brand,p.model,p.description,p.photo_path,c.name AS category_name FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id INNER JOIN marketplace_categories c ON c.id=p.category_id ORDER BY i.updated_at DESC,i.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceProducts = $pdo->query("SELECT p.*,c.name AS category_name,i.id AS inventory_id,i.sku,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.latest_loaded,i.created_at AS inventory_created_at,i.updated_at AS inventory_updated_at FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceInventory = $pdo->query("SELECT i.*,p.product_name,p.brand,p.model,p.description,p.photo_path,c.name AS category_name FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id LEFT JOIN marketplace_categories c ON c.id=p.category_id ORDER BY i.updated_at DESC,i.id DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceTotalIncome = (float)$pdo->query('SELECT COALESCE(SUM(net_income),0) FROM marketplace_purchases')->fetchColumn();
 $marketplaceProductCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_products')->fetchColumn();
 $marketplaceInventoryCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_inventory')->fetchColumn();
@@ -298,7 +309,7 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
 .marketplace-form label{display:grid;gap:6px;color:#d7cbd0;font-size:12px}.marketplace-form input,.marketplace-form select,.marketplace-form textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:#171317;color:#fff;font:12px Ubuntu,sans-serif}.marketplace-form textarea{min-height:76px;resize:vertical}.marketplace-form .wide{grid-column:1/-1}
 .marketplace-table{width:100%;min-width:850px;border-collapse:collapse}.marketplace-table th,.marketplace-table td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:11px}.marketplace-table th{color:#cbbdc2;font-size:10px;text-transform:uppercase;letter-spacing:.06em}.marketplace-table td strong{font-size:12px;color:#f4e9ed}.marketplace-table small{display:block;color:var(--muted);line-height:1.55;margin-top:3px}.marketplace-photo{width:58px;height:58px;object-fit:cover;border-radius:9px;background:#211a20;border:1px solid var(--line)}.marketplace-actions{display:flex;gap:6px;flex-wrap:wrap}.marketplace-actions a,.marketplace-actions button{font-size:10px;padding:6px 8px}.marketplace-empty{padding:25px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}.marketplace-alert{padding:12px 14px;border-radius:10px;margin:0 0 15px;font-size:12px}.marketplace-alert.success{background:rgba(45,150,99,.13);border:1px solid rgba(45,190,125,.25);color:#b5f0d0}.marketplace-alert.error{background:rgba(190,55,65,.14);border:1px solid rgba(220,75,85,.3);color:#ffc2c7}
 @media(max-width:700px){.marketplace-form{grid-template-columns:1fr}.marketplace-form .wide{grid-column:auto}}
-.marketplace-category-panel>.admin-panel-head{margin-bottom:20px}
+.marketplace-product-add-card{width:min(1100px,94vw)!important;max-width:1100px!important;max-height:88vh;overflow:auto}.marketplace-product-entry-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:15px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}.marketplace-product-entry-row label{display:grid;gap:6px;color:#d7cbd0;font:12px Ubuntu,sans-serif}.marketplace-product-entry-row input,.marketplace-product-entry-row textarea{box-sizing:border-box;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#171317;color:#fff;font:12px Ubuntu,sans-serif}.marketplace-product-entry-row .wide{grid-column:1/-1}.marketplace-product-entry-row textarea{min-height:66px}.marketplace-product-row-actions{grid-column:1/-1;display:flex;justify-content:flex-end}.marketplace-product-modal-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px}.marketplace-product-name-highlight{color:#e34b62;font-weight:800}.marketplace-product-id-highlight{color:#f2d35e;font-weight:800}.marketplace-product-created-list{width:100%;box-sizing:border-box;margin:22px 0;padding-left:24px;text-align:left;color:#e9dce1;font:14px/1.9 Ubuntu,sans-serif}.marketplace-product-created-card{max-height:85vh;overflow:auto}.marketplace-category-modal[hidden]{display:none!important}@media(max-width:850px){.marketplace-product-entry-row{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.marketplace-product-entry-row{grid-template-columns:1fr}.marketplace-product-entry-row .wide{grid-column:auto}.marketplace-product-modal-footer{align-items:flex-start;flex-direction:column}.marketplace-product-modal-footer>div{display:flex;gap:8px;align-self:flex-end}}.marketplace-category-panel>.admin-panel-head{margin-bottom:20px}
 .marketplace-category-table .marketplace-category-edit-open{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease;box-sizing:border-box}
 .marketplace-category-table .marketplace-category-edit-open:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);color:#f0c4cf;text-decoration:none;transform:translateY(-1px)}
 .marketplace-category-table .marketplace-category-edit-open:focus-visible{outline:2px solid #e17a8d;outline-offset:2px}
@@ -375,10 +386,9 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
 
 <?php elseif($marketplaceTab==='products'): ?>
 <section class="panel admin-panel">
- <div class="admin-panel-head"><h2>Products</h2><span class="status"><?=count($marketplaceProducts)?> products</span></div>
- <?php if(!$marketplaceCategories): ?><div class="marketplace-alert error">You must create at least one Marketplace category before a product can be posted. <a href="admin.php?section=marketplace&amp;marketplace_tab=category">Create a category</a>.</div><?php else: ?>
- <div class="marketplace-toolbar"><span class="muted">Manage product details and photos.</span><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=products&amp;edit_product=0#product-editor">+ Add Product</a></div>
- <?php if(!$marketplaceProductReadOnly): ?>
+ <div class="admin-panel-head"><h2>Products</h2></div>
+ <div class="marketplace-toolbar"><span class="muted">Manage product details and photos.</span><button class="btn" type="button" id="marketplace-product-add-open">+ Add Product</button></div>
+ <?php if(!$marketplaceProductReadOnly && $marketplaceEditProductId>0): ?>
  <form id="product-editor" class="marketplace-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products">
   <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product"><input type="hidden" name="product_id" value="<?=(int)($marketplaceProductForm['id']??0)?>">
   <label>Product Name *<input name="product_name" required maxlength="220" value="<?=e((string)($marketplaceProductForm['product_name']??''))?>"></label>
@@ -392,10 +402,63 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
  <?php endif; endif; ?>
  <?php if($marketplaceProductReadOnly && $marketplaceProductForm): ?><div id="product-editor" class="marketplace-form"><div><strong><?=e($marketplaceProductForm['product_name'])?></strong><p class="muted"><?=e((string)$marketplaceProductForm['brand'])?> · <?=e((string)$marketplaceProductForm['model'])?></p><p><?=e((string)$marketplaceProductForm['description'])?></p></div><div><?php if($marketplaceProductForm['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$marketplaceProductForm['photo_path'])?>" alt="<?=e($marketplaceProductForm['product_name'])?>"><?php endif; ?><p><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=products&amp;edit_product=<?=(int)$marketplaceProductForm['id']?>#product-editor">Edit Product</a> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=products">Close</a></p></div></div><?php endif; ?>
  <?php if(!$marketplaceProducts): ?><div class="marketplace-empty">No products have been added yet.</div><?php else: ?>
- <div class="table-wrap"><table class="marketplace-table"><thead><tr><th>Product Photo</th><th>Product Name</th><th>Brand</th><th>Model</th><th>Description</th><th>Actions</th></tr></thead><tbody>
- <?php foreach($marketplaceProducts as $product): ?><tr><td><?php if($product['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$product['photo_path'])?>" alt="<?=e($product['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td><td><strong><?=e($product['product_name'])?></strong><small><?=e($product['category_name'])?></small></td><td><?=e((string)$product['brand'])?></td><td><?=e((string)$product['model'])?></td><td><?=e((string)$product['description'])?></td><td><div class="marketplace-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=products&amp;view_product=<?=(int)$product['id']?>#product-editor">View</a><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=products&amp;edit_product=<?=(int)$product['id']?>#product-editor">Edit</a></div></td></tr><?php endforeach; ?>
+ <div class="table-wrap"><table class="marketplace-table"><thead><tr><th>Product Photo</th><th>Product ID</th><th>Product Name</th><th>Brand</th><th>Model</th><th>Manufacturer</th><th>Supply Chain Entity</th><th>Country of Origin</th><th>Description</th><th>Actions</th></tr></thead><tbody>
+ <?php foreach($marketplaceProducts as $product): ?><tr><td><?php if($product['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$product['photo_path'])?>" alt="<?=e($product['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td><td><strong><?=e((string)($product['product_code']??''))?></strong></td><td><strong><?=e($product['product_name'])?></strong><?php if(!empty($product['category_name'])): ?><small><?=e($product['category_name'])?></small><?php endif; ?></td><td><?=e((string)$product['brand'])?></td><td><?=e((string)$product['model'])?></td><td><?=e((string)($product['manufacturer']??''))?></td><td><?=e((string)($product['supply_chain_entity']??''))?></td><td><?=e((string)($product['country_of_origin']??''))?></td><td><?=e((string)$product['description'])?></td><td><div class="marketplace-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=products&amp;view_product=<?=(int)$product['id']?>#product-editor">View</a><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=products&amp;edit_product=<?=(int)$product['id']?>#product-editor">Edit</a></div></td></tr><?php endforeach; ?>
  </tbody></table></div><?php endif; ?>
 </section>
+<div class="account-status-modal marketplace-category-modal" id="marketplace-product-add-modal" hidden>
+ <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-add-title">
+  <h2 id="marketplace-product-add-title">Add Product</h2>
+  <form id="marketplace-product-add-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=products">
+   <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product">
+   <div id="marketplace-product-entry-rows">
+    <div class="marketplace-product-entry-row">
+     <label>Product Name *<input name="product_name[]" maxlength="220" required></label>
+     <label>Product ID *<input name="product_code[]" maxlength="100" required></label>
+     <label>Brand<input name="brand[]" maxlength="140"></label>
+     <label>Model<input name="model[]" maxlength="140"></label>
+     <label>Manufacturer<input name="manufacturer[]" maxlength="180"></label>
+     <label>Supply Chain Entity<input name="supply_chain_entity[]" maxlength="180"></label>
+     <label>Country of Origin<input name="country_of_origin[]" maxlength="120"></label>
+     <label class="wide">Description<textarea name="description[]"></textarea></label>
+     <div class="marketplace-product-row-actions"><button type="button" class="btn light marketplace-product-remove-row">Remove</button></div>
+    </div>
+   </div>
+   <div class="marketplace-product-modal-footer"><button type="button" class="btn light" id="marketplace-product-add-row">Add Row</button><div><button type="button" class="btn light" id="marketplace-product-add-cancel">Cancel</button> <button type="submit" class="btn">Add</button></div></div>
+  </form>
+ </div>
+</div>
+<?php if($marketplaceCreatedProducts !== null): ?>
+<div class="marketplace-category-delete-success-overlay" id="marketplace-product-created-modal">
+ <section class="marketplace-category-delete-success-card marketplace-product-created-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-created-title">
+  <div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div>
+  <h2 id="marketplace-product-created-title">Products Created Successfully</h2>
+  <?php if(count($marketplaceCreatedProducts)===1): $created=$marketplaceCreatedProducts[0]; ?>
+   <p>The product <strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> with product ID <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> has been successfully created.</p>
+  <?php else: ?>
+   <p>The following products have been successfully created.</p>
+   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li>Product ID: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong>: <strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong></li><?php endforeach; ?></ul>
+  <?php endif; ?>
+  <button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-created-close">OK</button>
+ </section>
+</div>
+<?php endif; ?>
+<script>
+(()=>{
+ const modal=document.getElementById('marketplace-product-add-modal');
+ const form=document.getElementById('marketplace-product-add-form');
+ const rows=document.getElementById('marketplace-product-entry-rows');
+ const add=document.getElementById('marketplace-product-add-row');
+ const close=()=>{if(modal)modal.hidden=true;};
+ document.getElementById('marketplace-product-add-open')?.addEventListener('click',()=>{if(modal)modal.hidden=false;});
+ document.getElementById('marketplace-product-add-cancel')?.addEventListener('click',close);
+ const bindRemove=container=>container.querySelector('.marketplace-product-remove-row')?.addEventListener('click',()=>{if(rows.children.length>1)container.remove();else container.querySelectorAll('input,textarea').forEach(field=>field.value='');});
+ rows?.querySelectorAll('.marketplace-product-entry-row').forEach(bindRemove);
+ add?.addEventListener('click',()=>{const clone=rows.querySelector('.marketplace-product-entry-row').cloneNode(true);clone.querySelectorAll('input,textarea').forEach(field=>{field.value='';});rows.append(clone);bindRemove(clone);clone.querySelector('input')?.focus();});
+ document.getElementById('marketplace-product-created-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
+})();
+</script>
 
 <?php elseif($marketplaceTab==='inventory'): ?>
 <section class="panel admin-panel">
