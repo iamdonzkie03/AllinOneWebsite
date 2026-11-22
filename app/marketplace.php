@@ -411,7 +411,7 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
  .marketplace-subcategory-indent{display:inline-block;margin-right:7px;color:#d98a9d;font-size:16px;font-weight:700}
 .marketplace-category-table td.marketplace-category-name-cell{position:relative;overflow:visible}
 .marketplace-category-table td.marketplace-category-name-cell.is-subcategory{padding-left:88px!important}
-.marketplace-category-tree-arrow{position:absolute;left:-60px;top:-34px;width:40px;height:35px;border-left:2px solid #d98a9d;border-bottom:2px solid #d98a9d;border-bottom-left-radius:15px;box-sizing:border-box}
+.marketplace-category-tree-arrow{position:absolute;left:38px;top:0;width:40px;height:35px;border-left:2px solid #d98a9d;border-bottom:2px solid #d98a9d;border-bottom-left-radius:15px;box-sizing:border-box}
 .marketplace-category-tree-arrow:after{content:"";position:absolute;right:-1px;bottom:-6px;width:10px;height:10px;border-top:2px solid #d98a9d;border-right:2px solid #d98a9d;transform:rotate(45deg);box-sizing:border-box}
 .marketplace-category-table .marketplace-category-edit-open{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease;box-sizing:border-box}
 .marketplace-category-table .marketplace-category-edit-open:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);color:#f0c4cf;text-decoration:none;transform:translateY(-1px)}
