@@ -114,6 +114,7 @@ $marketplaceProductReadOnly = $marketplaceViewProductId > 0 && $marketplaceEditP
 $marketplaceEditInventoryId = max(0, (int)($_GET['edit_inventory'] ?? 0));
 $marketplaceViewInventoryId = max(0, (int)($_GET['view_inventory'] ?? 0));
 $marketplaceInventoryReadOnly = $marketplaceViewInventoryId > 0 && $marketplaceEditInventoryId === 0;
+$marketplaceSupplyEntities = ['Importer', 'Distributor', 'Manufacturer', 'Retailer', 'Vendor'];
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_POST['action'] ?? ''), 'marketplace_')) {
     try {
@@ -190,7 +191,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $marketplaceTab = 'category';
         } elseif ($action === 'marketplace_save_product') {
             $productNames = (array)($_POST['product_name'] ?? []);
-            $productCodes = (array)($_POST['product_code'] ?? []);
             $brands = (array)($_POST['brand'] ?? []);
             $models = (array)($_POST['model'] ?? []);
             $manufacturers = (array)($_POST['manufacturer'] ?? []);
@@ -200,49 +200,60 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $rows = [];
             foreach ($productNames as $index => $rawName) {
                 $name = trim((string)$rawName);
-                $code = trim((string)($productCodes[$index] ?? ''));
                 $brand = trim((string)($brands[$index] ?? ''));
                 $model = trim((string)($models[$index] ?? ''));
                 $manufacturer = trim((string)($manufacturers[$index] ?? ''));
                 $supplyEntity = trim((string)($supplyEntities[$index] ?? ''));
                 $country = trim((string)($countries[$index] ?? ''));
                 $description = trim((string)($descriptions[$index] ?? ''));
-                if ($name === '' && $code === '' && $brand === '' && $model === '' && $manufacturer === '' && $supplyEntity === '' && $country === '' && $description === '') continue;
-                if ($name === '' || $code === '') throw new RuntimeException('Product Name and Product ID are required for every product row.');
-                $rows[] = [$name,$code,$brand,$model,$manufacturer,$supplyEntity,$country,$description];
+                if ($name === '' && $brand === '' && $model === '' && $manufacturer === '' && $supplyEntity === '' && $country === '' && $description === '') continue;
+                if ($name === '') throw new RuntimeException('Product Name is required for every product row.');
+                if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
+                $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description];
             }
-            if (!$rows) throw new RuntimeException('Add at least one product with a Product Name and Product ID.');
+            if (!$rows) throw new RuntimeException('Add at least one product with a Product Name.');
             $productId = max(0, (int)($_POST['product_id'] ?? 0));
             if ($productId > 0) {
-                if ($rows[0][1] === '') {
-                    $existingCode = $pdo->prepare('SELECT product_code FROM marketplace_products WHERE id=?');
-                    $existingCode->execute([$productId]);
-                    $rows[0][1] = (string)$existingCode->fetchColumn();
-                }
-                $update = $pdo->prepare('UPDATE marketplace_products SET product_name=?,product_code=?,brand=?,model=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,description=? WHERE id=?');
+                $existingCode = $pdo->prepare('SELECT product_code FROM marketplace_products WHERE id=?');
+                $existingCode->execute([$productId]);
+                $currentCode = $existingCode->fetchColumn();
+                if ($currentCode === false) throw new RuntimeException('The product to update could not be found.');
                 $row = $rows[0];
-                $update->execute([$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null,$productId]);
+                $update = $pdo->prepare('UPDATE marketplace_products SET product_name=?,brand=?,model=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,description=? WHERE id=?');
+                $update->execute([$row[0],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null,$productId]);
                 $marketplaceNotice = 'Marketplace product successfully updated.';
                 $marketplaceTab = 'products';
                 $marketplaceEditProductId = 0;
             } else {
-            $codes = array_column($rows, 1);
-            if (count($codes) !== count(array_unique($codes))) throw new RuntimeException('Each product must have a unique Product ID.');
-            $pdo->beginTransaction();
-            try {
-                $insert = $pdo->prepare('INSERT INTO marketplace_products(category_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,photo_path) VALUES(NULL,?,?,?,?,?,?,?,?,NULL)');
-                foreach ($rows as $row) {
-                    $insert->execute([$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null]);
+                $reservedCodes = [];
+                foreach ($rows as &$row) {
+                    do {
+                        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                        $suffix = '';
+                        for ($i = 0; $i < 8; $i++) $suffix .= $alphabet[random_int(0, 61)];
+                        $generatedCode = 'PROD-' . date('Y') . $suffix;
+                        $exists = $pdo->prepare('SELECT 1 FROM marketplace_products WHERE product_code = ? LIMIT 1');
+                        $exists->execute([$generatedCode]);
+                    } while ($exists->fetchColumn() || in_array($generatedCode, $reservedCodes, true));
+                    $row[1] = $generatedCode;
+                    $reservedCodes[] = $generatedCode;
                 }
-                $pdo->commit();
-            } catch (Throwable $insertError) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                throw $insertError;
-            }
-            $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1]], $rows);
-            $marketplaceNotice = '';
-            $marketplaceTab = 'products';
-            $marketplaceEditProductId = 0;
+                unset($row);
+                $pdo->beginTransaction();
+                try {
+                    $insert = $pdo->prepare('INSERT INTO marketplace_products(category_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,photo_path) VALUES(NULL,?,?,?,?,?,?,?,?,NULL)');
+                    foreach ($rows as $row) {
+                        $insert->execute([$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null]);
+                    }
+                    $pdo->commit();
+                } catch (Throwable $insertError) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    throw $insertError;
+                }
+                $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1]], $rows);
+                $marketplaceNotice = '';
+                $marketplaceTab = 'products';
+                $marketplaceEditProductId = 0;
             }
         } elseif ($action === 'marketplace_save_inventory') {
             $inventoryId = max(0, (int)($_POST['inventory_id'] ?? 0));
@@ -418,11 +429,11 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
  <form id="product-editor" class="marketplace-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products">
   <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product"><input type="hidden" name="product_id" value="<?=(int)($marketplaceProductForm['id']??0)?>">
   <label>Product Name *<input name="product_name" required maxlength="220" value="<?=e((string)($marketplaceProductForm['product_name']??''))?>"></label>
-  <label>Product ID *<input name="product_code" required maxlength="100" value="<?=e((string)($marketplaceProductForm['product_code']??''))?>"></label>
+  <label>Product ID<input value="<?=e((string)($marketplaceProductForm['product_code']??''))?>" readonly aria-readonly="true" style="background:#29252a;color:#999;cursor:not-allowed"></label>
   <label>Brand<input name="brand" maxlength="140" value="<?=e((string)($marketplaceProductForm['brand']??''))?>"></label>
   <label>Model<input name="model" maxlength="140" value="<?=e((string)($marketplaceProductForm['model']??''))?>"></label>
   <label>Manufacturer<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceProductForm['manufacturer']??''))?>"></label>
-  <label>Supply Chain Entity<input name="supply_chain_entity" maxlength="180" value="<?=e((string)($marketplaceProductForm['supply_chain_entity']??''))?>"></label>
+  <label>Supply Chain Entity<select name="supply_chain_entity"><option value="">Select entity</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceProductForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
   <label>Country of Origin<input name="country_of_origin" maxlength="120" value="<?=e((string)($marketplaceProductForm['country_of_origin']??''))?>"></label>
   <label class="wide">Description<textarea name="description"><?=e((string)($marketplaceProductForm['description']??''))?></textarea></label>
   <label class="wide">Product Photo (JPG, PNG, WEBP · max 5 MB)<input type="file" name="product_photo" accept="image/jpeg,image/png,image/webp"><?php if(!empty($marketplaceProductForm['photo_path'])): ?><small>Current photo: <?=e(basename((string)$marketplaceProductForm['photo_path']))?></small><?php endif; ?></label>
@@ -443,11 +454,11 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
    <div id="marketplace-product-entry-rows">
     <div class="marketplace-product-entry-row">
      <label>Product Name *<input name="product_name[]" maxlength="220" required></label>
-     <label>Product ID *<input name="product_code[]" maxlength="100" required></label>
+     
      <label>Brand<input name="brand[]" maxlength="140"></label>
      <label>Model<input name="model[]" maxlength="140"></label>
      <label>Manufacturer<input name="manufacturer[]" maxlength="180"></label>
-     <label>Supply Chain Entity<input name="supply_chain_entity[]" maxlength="180"></label>
+     <label>Supply Chain Entity<select name="supply_chain_entity[]"><option value="">Select entity</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>"><?=e($entity)?></option><?php endforeach; ?></select></label>
      <label>Country of Origin<input name="country_of_origin[]" maxlength="120"></label>
      <label class="wide">Description<textarea name="description[]"></textarea></label>
      <div class="marketplace-product-row-actions"><button type="button" class="btn light marketplace-product-remove-row">Remove</button></div>
