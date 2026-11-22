@@ -33,7 +33,8 @@ $pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS product_co
 $pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(180) NULL AFTER model");
 $pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS supply_chain_entity VARCHAR(180) NULL AFTER manufacturer");
 $pdo->exec("ALTER TABLE marketplace_products ADD COLUMN IF NOT EXISTS country_of_origin VARCHAR(120) NULL AFTER supply_chain_entity");
-$pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY IF NOT EXISTS uq_marketplace_product_code (product_code)");
+$productCodeIndex = $pdo->query("SHOW INDEX FROM marketplace_products WHERE Key_name = 'uq_marketplace_product_code'")->fetch(PDO::FETCH_ASSOC);
+if (!$productCodeIndex) $pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY uq_marketplace_product_code (product_code)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_inventory (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  product_id BIGINT UNSIGNED NOT NULL UNIQUE,
@@ -201,6 +202,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $rows[] = [$name,$code,$brand,$model,$manufacturer,$supplyEntity,$country,$description];
             }
             if (!$rows) throw new RuntimeException('Add at least one product with a Product Name and Product ID.');
+            $productId = max(0, (int)($_POST['product_id'] ?? 0));
+            if ($productId > 0) {
+                if ($rows[0][1] === '') {
+                    $existingCode = $pdo->prepare('SELECT product_code FROM marketplace_products WHERE id=?');
+                    $existingCode->execute([$productId]);
+                    $rows[0][1] = (string)$existingCode->fetchColumn();
+                }
+                $update = $pdo->prepare('UPDATE marketplace_products SET product_name=?,product_code=?,brand=?,model=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,description=? WHERE id=?');
+                $row = $rows[0];
+                $update->execute([$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null,$productId]);
+                $marketplaceNotice = 'Marketplace product successfully updated.';
+                $marketplaceTab = 'products';
+                $marketplaceEditProductId = 0;
+            } else {
             $codes = array_column($rows, 1);
             if (count($codes) !== count(array_unique($codes))) throw new RuntimeException('Each product must have a unique Product ID.');
             $pdo->beginTransaction();
@@ -218,6 +233,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $marketplaceNotice = '';
             $marketplaceTab = 'products';
             $marketplaceEditProductId = 0;
+            }
         } elseif ($action === 'marketplace_save_inventory') {
             $inventoryId = max(0, (int)($_POST['inventory_id'] ?? 0));
             $productId = max(0, (int)($_POST['inventory_product_id'] ?? 0));
@@ -392,9 +408,12 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
  <form id="product-editor" class="marketplace-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products">
   <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product"><input type="hidden" name="product_id" value="<?=(int)($marketplaceProductForm['id']??0)?>">
   <label>Product Name *<input name="product_name" required maxlength="220" value="<?=e((string)($marketplaceProductForm['product_name']??''))?>"></label>
-  <label>Category *<select name="category_id" required><?php foreach($marketplaceCategories as $category): ?><option value="<?=(int)$category['id']?>" <?=((int)($marketplaceProductForm['category_id']??0)===(int)$category['id'])?'selected':''?>><?=e($category['name'])?></option><?php endforeach; ?></select></label>
+  <label>Product ID *<input name="product_code" required maxlength="100" value="<?=e((string)($marketplaceProductForm['product_code']??''))?>"></label>
   <label>Brand<input name="brand" maxlength="140" value="<?=e((string)($marketplaceProductForm['brand']??''))?>"></label>
   <label>Model<input name="model" maxlength="140" value="<?=e((string)($marketplaceProductForm['model']??''))?>"></label>
+  <label>Manufacturer<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceProductForm['manufacturer']??''))?>"></label>
+  <label>Supply Chain Entity<input name="supply_chain_entity" maxlength="180" value="<?=e((string)($marketplaceProductForm['supply_chain_entity']??''))?>"></label>
+  <label>Country of Origin<input name="country_of_origin" maxlength="120" value="<?=e((string)($marketplaceProductForm['country_of_origin']??''))?>"></label>
   <label class="wide">Description<textarea name="description"><?=e((string)($marketplaceProductForm['description']??''))?></textarea></label>
   <label class="wide">Product Photo (JPG, PNG, WEBP · max 5 MB)<input type="file" name="product_photo" accept="image/jpeg,image/png,image/webp"><?php if(!empty($marketplaceProductForm['photo_path'])): ?><small>Current photo: <?=e(basename((string)$marketplaceProductForm['photo_path']))?></small><?php endif; ?></label>
   <div class="wide"><button class="btn" type="submit"><?=$marketplaceProductForm?'Update Product':'Save Product'?></button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=products">Cancel</a></div>
