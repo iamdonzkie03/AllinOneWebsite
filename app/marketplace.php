@@ -458,7 +458,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory,0755,true) && !is_dir($uploadDirectory)) throw new RuntimeException('The product photo upload folder could not be created.');
                     $safeProductName = trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');
                     if ($safeProductName === '') $safeProductName = 'product';
-                    $photoFilename = (string)$existingProduct['product_code'] . '_' . $safeProductName . '.' . $extension;
+                    $photoFilename = (string)$existingProduct['product_code'] . '_' . $safeProductName . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
                     $destinationPath = $uploadDirectory . '/' . $photoFilename;
                     if (!move_uploaded_file($temporaryPath,$destinationPath)) throw new RuntimeException('The new product photo could not be saved.');
                     $newPhotoFile = $destinationPath;
@@ -483,15 +483,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $modelChanged = (string)($existingProduct['model'] ?? '') !== $row[3];
                 $descriptionChanged = (string)($existingProduct['description'] ?? '') !== $row[7];
                 $photoChanged = $newPhotoFile !== null;
-                if ($categoryChanged || $subcategoryChanged) {
+                $brandChanged = (string)($existingProduct['brand'] ?? '') !== $row[2];
+                $changedCount = (int)$categoryChanged + (int)$subcategoryChanged + (int)$nameChanged + (int)$modelChanged + (int)$descriptionChanged + (int)$photoChanged + (int)$brandChanged;
+                if (($categoryChanged || $subcategoryChanged) && $changedCount === (int)$categoryChanged + (int)$subcategoryChanged) {
                     $marketplaceProductEditSuccess = ['type'=>'category','old_category'=>(string)($existingProduct['category_name'] ?? 'Uncategorized'),'new_category'=>(string)($newCategoryName ?? 'Uncategorized'),'subcategory'=>(string)($newSubcategoryName ?? 'None')];
-                } elseif ($nameChanged) {
+                } elseif ($nameChanged && $changedCount === 1) {
                     $marketplaceProductEditSuccess = ['type'=>'name','old_name'=>(string)$existingProduct['product_name'],'new_name'=>$row[0]];
-                } elseif ($modelChanged) {
+                } elseif ($modelChanged && $changedCount === 1) {
                     $marketplaceProductEditSuccess = ['type'=>'model','old_model'=>(string)($existingProduct['model'] ?? ''),'new_model'=>$row[3],'product_name'=>$row[0]];
-                } elseif ($descriptionChanged) {
+                } elseif ($descriptionChanged && $changedCount === 1) {
                     $marketplaceProductEditSuccess = ['type'=>'description','product_name'=>$row[0]];
-                } elseif ($photoChanged) {
+                } elseif ($photoChanged && $changedCount === 1) {
                     $marketplaceProductEditSuccess = ['type'=>'photo','product_name'=>$row[0]];
                 } else {
                     $marketplaceProductEditSuccess = ['type'=>'details','product_name'=>$row[0]];
