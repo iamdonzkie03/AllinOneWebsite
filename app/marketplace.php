@@ -94,8 +94,15 @@ foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
     }
 }
 $pdo->exec("UPDATE marketplace_inventory SET batch_number=sku WHERE batch_number IS NULL OR batch_number=''");
-// Normalize legacy percentage-point values (e.g. 12.000) to decimal fractions (0.12).
-$pdo->exec("UPDATE marketplace_inventory SET tax_rate=tax_rate/100,vat_rate=vat_rate/100,percentage_tax_rate=percentage_tax_rate/100,income_tax_rate=income_tax_rate/100,withholding_tax_rate=withholding_tax_rate/100,other_tax_rate=other_tax_rate/100 WHERE GREATEST(ABS(tax_rate),ABS(vat_rate),ABS(percentage_tax_rate),ABS(income_tax_rate),ABS(withholding_tax_rate),ABS(other_tax_rate)) > 1");
+// Convert all pre-existing percentage-point tax values to decimal fractions exactly once.
+$pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_schema_migrations (migration_key VARCHAR(120) NOT NULL PRIMARY KEY, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$taxFormatMigration = $pdo->prepare("SELECT migration_key FROM marketplace_schema_migrations WHERE migration_key=? LIMIT 1");
+$taxFormatMigration->execute(['inventory_tax_rates_to_decimal_fractions_v1']);
+if (!$taxFormatMigration->fetchColumn()) {
+    $pdo->exec("UPDATE marketplace_inventory SET tax_rate=tax_rate/100,vat_rate=vat_rate/100,percentage_tax_rate=percentage_tax_rate/100,income_tax_rate=income_tax_rate/100,withholding_tax_rate=withholding_tax_rate/100,other_tax_rate=other_tax_rate/100");
+    $markTaxFormatMigration = $pdo->prepare("INSERT INTO marketplace_schema_migrations(migration_key) VALUES(?)");
+    $markTaxFormatMigration->execute(['inventory_tax_rates_to_decimal_fractions_v1']);
+}
 $pdo->exec("UPDATE marketplace_inventory SET selling_price=unit_price WHERE selling_price=0 AND unit_price<>0");
 $pdo->exec("UPDATE marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id SET i.supply_chain_type=p.supply_chain_entity WHERE i.supply_chain_type IS NULL OR i.supply_chain_type=''");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_purchases (
