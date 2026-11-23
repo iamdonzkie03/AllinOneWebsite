@@ -76,6 +76,11 @@ $marketplaceInventoryColumns = [
     'batch_number' => "VARCHAR(100) NULL AFTER sku",
     'supply_chain_type' => "VARCHAR(40) NULL AFTER batch_number",
     'selling_price' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER retail_price",
+    'vat_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER tax_rate",
+    'percentage_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER vat_rate",
+    'income_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER percentage_tax_rate",
+    'withholding_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER income_tax_rate",
+    'other_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER withholding_tax_rate",
     'status' => "VARCHAR(30) NOT NULL DEFAULT 'Low Stock' AFTER selling_price",
 ];
 foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
@@ -602,10 +607,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $sku = $batchNumber;
             $stock = max(0, (int)($_POST['stock_on_hand'] ?? 0));
             $sold = max(0, (int)($_POST['sold'] ?? 0));
-            $tax = max(0, (float)($_POST['tax_rate'] ?? 0));
-            $unitPrice = max(0, (float)($_POST['selling_price'] ?? 0));
+            $vatRate = max(0, (float)($_POST['vat_rate'] ?? 0));
+            $percentageTaxRate = max(0, (float)($_POST['percentage_tax_rate'] ?? 0));
+            $incomeTaxRate = max(0, (float)($_POST['income_tax_rate'] ?? 0));
+            $withholdingTaxRate = max(0, (float)($_POST['withholding_tax_rate'] ?? 0));
+            $otherTaxRate = max(0, (float)($_POST['other_tax_rate'] ?? 0));
+            $tax = $vatRate + $percentageTaxRate + $incomeTaxRate + $withholdingTaxRate + $otherTaxRate;
             $retailPrice = max(0, (float)($_POST['retail_price'] ?? 0));
-            $sellingPrice = $unitPrice;
+            $sellingPrice = round($retailPrice * (1 + ($tax / 100)), 2);
+            $unitPrice = $sellingPrice;
             $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
             $productCheck = $pdo->prepare('SELECT id FROM marketplace_products WHERE id=? LIMIT 1');
             $productCheck->execute([$productId]);
@@ -620,12 +630,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
             $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
             if ($inventoryId > 0) {
-                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=? WHERE id=?');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$unitPrice,$retailPrice,$sellingPrice,$status,$inventoryId]);
+                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=? WHERE id=?');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$inventoryId]);
                 $marketplaceNotice = 'Inventory record successfully updated.';
             } else {
-                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,unit_price,retail_price,selling_price,status,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW())');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$unitPrice,$retailPrice,$sellingPrice,$status]);
+                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status]);
                 $marketplaceNotice = 'Inventory record successfully created.';
             }
             $marketplaceTab = 'inventory';
@@ -672,7 +682,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
 }
 
 $marketplaceCategories = $pdo->query('SELECT id,parent_id,name,description,created_at FROM marketplace_categories ORDER BY COALESCE(parent_id,id) DESC, (parent_id IS NULL) DESC, created_at DESC, id DESC')->fetchAll(PDO::FETCH_ASSOC);
-$marketplaceProducts = $pdo->query("SELECT p.*,c.name AS category_name,sc.name AS subcategory_name,i.id AS inventory_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at AS inventory_created_at,i.updated_at AS inventory_updated_at FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceProducts = $pdo->query("SELECT p.*,c.name AS category_name,sc.name AS subcategory_name,i.id AS inventory_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at AS inventory_created_at,i.updated_at AS inventory_updated_at FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceAddInventoryProduct = null;
 if ($marketplaceAddInventoryProductId > 0) {
     foreach ($marketplaceProducts as $candidateProduct) {
@@ -1116,9 +1126,13 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock<input type="number" name="stock_on_hand" min="0" required value="0"></label>
-   <label>Tax (%)<input type="number" name="tax_rate" min="0" step="0.001" value="0"></label>
-   <label>Retail Price (₱)<input type="number" name="retail_price" min="0" step="0.01" value="0"></label>
-   <label>Selling Price (₱)<input type="number" name="selling_price" min="0" step="0.01" value="0"></label>
+   <label>Value-Added Tax (%)<input type="number" name="vat_rate" min="0" step="0.001" value="0"></label>
+   <label>Percentage Tax (%)<input type="number" name="percentage_tax_rate" min="0" step="0.001" value="0"></label>
+   <label>Income Tax (%)<input type="number" name="income_tax_rate" min="0" step="0.001" value="0"></label>
+   <label>Withholding Tax (%)<input type="number" name="withholding_tax_rate" min="0" step="0.001" value="0"></label>
+   <label>Other Taxes (%)<input type="number" name="other_tax_rate" min="0" step="0.001" value="0"></label>
+   <label>Retail Price (₱) — Before Taxes<input class="marketplace-retail-price" type="number" name="retail_price" min="0" step="0.01" value="0"></label>
+   <label>Selling Price (₱)<input class="marketplace-selling-price" type="number" name="selling_price" value="0.00" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=($statusOption==='Low Stock')?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
    <input type="hidden" name="sold" value="0">
    <div class="wide"><button class="btn" type="submit">Save Inventory</button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a></div>
@@ -1137,9 +1151,13 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock<input type="number" name="stock_on_hand" min="0" required value="<?=e((string)$marketplaceInventoryForm['stock_on_hand'])?>"></label>
-   <label>Tax (%)<input type="number" name="tax_rate" min="0" step="0.001" value="<?=e((string)$marketplaceInventoryForm['tax_rate'])?>"></label>
-   <label>Retail Price (₱)<input type="number" name="retail_price" min="0" step="0.01" value="<?=e((string)$marketplaceInventoryForm['retail_price'])?>"></label>
-   <label>Selling Price (₱)<input type="number" name="selling_price" min="0" step="0.01" value="<?=e((string)($marketplaceInventoryForm['selling_price']??$marketplaceInventoryForm['unit_price']))?>"></label>
+   <label>Value-Added Tax (%)<input type="number" name="vat_rate" min="0" step="0.001" value="<?=e((string)($marketplaceInventoryForm['vat_rate']??0))?>"></label>
+   <label>Percentage Tax (%)<input type="number" name="percentage_tax_rate" min="0" step="0.001" value="<?=e((string)($marketplaceInventoryForm['percentage_tax_rate']??0))?>"></label>
+   <label>Income Tax (%)<input type="number" name="income_tax_rate" min="0" step="0.001" value="<?=e((string)($marketplaceInventoryForm['income_tax_rate']??0))?>"></label>
+   <label>Withholding Tax (%)<input type="number" name="withholding_tax_rate" min="0" step="0.001" value="<?=e((string)($marketplaceInventoryForm['withholding_tax_rate']??0))?>"></label>
+   <label>Other Taxes (%)<input type="number" name="other_tax_rate" min="0" step="0.001" value="<?=e((string)($marketplaceInventoryForm['other_tax_rate']??0))?>"></label>
+   <label>Retail Price (₱) — Before Taxes<input class="marketplace-retail-price" type="number" name="retail_price" min="0" step="0.01" value="<?=e((string)$marketplaceInventoryForm['retail_price'])?>"></label>
+   <label>Selling Price (₱)<input class="marketplace-selling-price" type="number" name="selling_price" value="<?=e((string)($marketplaceInventoryForm['selling_price']??$marketplaceInventoryForm['unit_price']))?>" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=((string)($marketplaceInventoryForm['status']??'Low Stock')===$statusOption)?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
    <input type="hidden" name="sold" value="<?=e((string)$marketplaceInventoryForm['sold'])?>">
    <div class="wide"><button class="btn" type="submit">Update Inventory</button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a></div>
