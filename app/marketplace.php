@@ -1165,6 +1165,28 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  </div>
 </div>
 <?php endif; ?>
+<script>
+(function(){
+ const taxFields=['vat_rate','percentage_tax_rate','income_tax_rate','withholding_tax_rate','other_tax_rate'];
+ document.querySelectorAll('#marketplace-inventory-add-modal form,#marketplace-inventory-edit-modal form').forEach(function(form){
+  const retail=form.querySelector('[name="retail_price"]');
+  const selling=form.querySelector('[name="selling_price"]');
+  if(!retail||!selling)return;
+  function recalculate(){
+   const totalRate=taxFields.reduce(function(sum,name){
+    const field=form.querySelector('[name="'+name+'"]');
+    const value=field?Number(field.value):0;
+    return sum+(Number.isFinite(value)&&value>0?value:0);
+   },0);
+   const base=Math.max(0,Number(retail.value)||0);
+   selling.value=(Math.round((base*(1+totalRate/100)+Number.EPSILON)*100)/100).toFixed(2);
+  }
+  taxFields.forEach(function(name){const field=form.querySelector('[name="'+name+'"]');if(field)field.addEventListener('input',recalculate);});
+  retail.addEventListener('input',recalculate);
+  recalculate();
+ });
+})();
+</script>
 <?php if($marketplaceInventoryReadOnly && $marketplaceInventoryForm): ?><div class="account-status-modal marketplace-category-modal" id="marketplace-inventory-view-modal"><div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-inventory-view-title"><h2 id="marketplace-inventory-view-title">Inventory Details</h2><p><strong>SKU:</strong> <?=e($marketplaceInventoryForm['sku'])?></p><p>Stock on Hand: <?=(int)$marketplaceInventoryForm['stock_on_hand']?> · Sold: <?=(int)$marketplaceInventoryForm['sold']?></p><p>Stock Level: <?=max(0,(int)$marketplaceInventoryForm['stock_on_hand']-(int)$marketplaceInventoryForm['sold'])?></p><p>Tax: <?=number_format((float)$marketplaceInventoryForm['tax_rate'],3)?>%</p><p>Unit Price: <?=$money($marketplaceInventoryForm['unit_price'])?></p><p>Retail: <?=$money($marketplaceInventoryForm['retail_price'])?></p><p>Manufacturer: <?=e((string)($marketplaceInventoryForm['manufacturer']??''))?></p><p>Supply Chain Entity: <?=e((string)($marketplaceInventoryForm['supply_chain_entity']??''))?></p><p>Country of Origin: <?=e((string)($marketplaceInventoryForm['country_of_origin']??''))?></p><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Close</a></div></div><?php endif; ?>
 <?php elseif($marketplaceTab==='purchases'): ?>
 <section class="panel admin-panel"><div class="admin-panel-head"><h2>Purchases</h2><span class="status"><?=count($marketplacePurchaseRows)?> product lines</span></div>
