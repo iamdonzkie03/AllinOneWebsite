@@ -778,12 +778,12 @@ $numberToWords = static function(int $number): string {
 #marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 #marketplace-inventory-add-modal .marketplace-form>label{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:6px!important;text-align:left!important;min-width:0}
 #marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select,#marketplace-inventory-add-modal .marketplace-form>label>textarea{display:block;width:100%;box-sizing:border-box;margin:0}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(1){grid-column:1/4}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(2){grid-column:4/6}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(3){grid-column:1/2}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(4){grid-column:2/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(5){grid-column:3/4}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(6){grid-column:4/6}
+#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(1){grid-column:1/3}
+#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(2){grid-column:3/4}
+#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(3){grid-column:4/6}
+#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(4){grid-column:1/3}
+#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(5){grid-column:3/5}
+#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(6){grid-column:5/6}
 #marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(7){grid-column:1/2}
 #marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(8){grid-column:2/3}
 #marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(9){grid-column:3/4}
