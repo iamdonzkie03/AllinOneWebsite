@@ -294,6 +294,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $deleteItems->execute($actualIds);
                 if($relatedPurchaseIds){
                     $purchasePlaceholders=implode(',',array_fill(0,count($relatedPurchaseIds),'?'));
+                    $recalculatePurchases=$pdo->prepare("UPDATE marketplace_purchases pu SET net_income=(SELECT COALESCE(SUM(pi.total_price),0) FROM marketplace_purchase_items pi WHERE pi.purchase_id=pu.id) WHERE pu.id IN ($purchasePlaceholders)");
+                    $recalculatePurchases->execute($relatedPurchaseIds);
+                    $purchasePlaceholders=implode(',',array_fill(0,count($relatedPurchaseIds),'?'));
                     $emptyQuery=$pdo->prepare("SELECT pu.id FROM marketplace_purchases pu LEFT JOIN marketplace_purchase_items pi ON pi.purchase_id=pu.id WHERE pu.id IN ($purchasePlaceholders) GROUP BY pu.id HAVING COUNT(pi.id)=0");
                     $emptyQuery->execute($relatedPurchaseIds);
                     $emptyIds=array_map('intval',$emptyQuery->fetchAll(PDO::FETCH_COLUMN));
