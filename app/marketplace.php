@@ -773,6 +773,8 @@ $numberToWords = static function(int $number): string {
 .marketplace-product-add-card{width:min(1600px,96vw)!important;max-width:1600px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto}
 #marketplace-inventory-add-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;box-sizing:border-box}
 #marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+#marketplace-inventory-add-modal .marketplace-form>label{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:6px!important;text-align:left!important;min-width:0}
+#marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select,#marketplace-inventory-add-modal .marketplace-form>label>textarea{display:block;width:100%;box-sizing:border-box;margin:0}
 #marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(1){grid-column:1/3}
 #marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(2){grid-column:3/6}
 #marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(3){grid-column:1/3}
