@@ -1200,9 +1200,27 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   retail.addEventListener('input',recalculate);
   recalculate();
  });
- document.querySelectorAll('.marketplace-formatted-number,.marketplace-tax-formatted').forEach(function(field){
+ document.querySelectorAll('.marketplace-tax-formatted').forEach(function(field){
+  // Tax inputs accept percentage points as digits: 12 becomes 0.12 and 100 becomes 1.00.
+  const formatTaxInput=function(){
+   const digits=String(field.value).replace(/[^0-9]/g,'');
+   if(!digits){field.value='';return;}
+   const cents=Math.min(10000,Number(digits)||0);
+   field.value=(cents/100).toFixed(2);
+   field.setSelectionRange(field.value.length,field.value.length);
+  };
+  field.addEventListener('input',formatTaxInput);
+  field.addEventListener('focus',function(){field.value=String(field.value).replace(/,/g,'');});
+  field.addEventListener('blur',function(){
+   if(field.value==='')return;
+   const value=Number(field.value);
+   field.value=Number.isFinite(value)?Math.min(1,Math.max(0,value)).toFixed(2):'';
+  });
+  field.form?.addEventListener('submit',function(){if(field.value!==''){const value=Number(field.value);field.value=Number.isFinite(value)?Math.min(1,Math.max(0,value)).toFixed(2):'0.00';}});
+  if(field.value!==''){const value=Number(String(field.value).replace(/,/g,''));field.value=Number.isFinite(value)?Math.min(1,Math.max(0,value)).toFixed(2):'';}
+ });
+ document.querySelectorAll('.marketplace-formatted-number').forEach(function(field){
   const decimals=Number(field.dataset.decimals||2);
-  const isTax=field.classList.contains('marketplace-tax-formatted');
   const clean=value=>{
    let raw=String(value).replace(/,/g,'').replace(/[^0-9.]/g,'');
    const dot=raw.indexOf('.');
@@ -1224,8 +1242,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    if(raw===''){field.value='';return;}
    const parts=raw.split('.');
    const integer=(parts[0]||'0');
-   const grouped=isTax?integer:integer.replace(/\B(?=(\d{3})+(?!\d))/g,',');
-   const next=grouped+(parts.length>1?'.'+parts[1]:'');
+   const next=integer.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(parts.length>1?'.'+parts[1]:'');
    field.value=next;
    let caret=0,seen=0;
    while(caret<next.length&&seen<before.length){if(/[0-9.]/.test(next[caret]))seen++;caret++;}
