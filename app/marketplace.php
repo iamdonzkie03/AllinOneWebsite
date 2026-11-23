@@ -1141,11 +1141,11 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="0.00"></label>
-   <label>Value-Added Tax (%)<input type="number" name="vat_rate" min="0" step="0.01" value="0.00"></label>
-   <label>Percentage Tax (%)<input type="number" name="percentage_tax_rate" min="0" step="0.01" value="0.00"></label>
-   <label>Income Tax (%)<input type="number" name="income_tax_rate" min="0" step="0.01" value="0.00"></label>
-   <label>Withholding Tax (%)<input type="number" name="withholding_tax_rate" min="0" step="0.01" value="0.00"></label>
-   <label>Other Taxes (%)<input type="number" name="other_tax_rate" min="0" step="0.01" value="0.00"></label>
+   <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value="0.00"></label>
+   <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value="0.00"></label>
+   <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value="0.00"></label>
+   <label>Withholding Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="withholding_tax_rate" min="0" value="0.00"></label>
+   <label>Other Taxes (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="other_tax_rate" min="0" value="0.00"></label>
    <label>Retail Price (₱) — Before Taxes<input class="marketplace-retail-price marketplace-formatted-number" type="text" inputmode="decimal" data-decimals="2" name="retail_price" min="0" value="0.00"></label>
    <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="0.00" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=($statusOption==='Low Stock')?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
@@ -1166,11 +1166,11 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="<?=e($quantityFormat($marketplaceInventoryForm['stock_on_hand']))?>"></label>
-   <label>Value-Added Tax (%)<input type="number" name="vat_rate" min="0" step="0.01" value="<?=e($taxFormat($marketplaceInventoryForm['vat_rate']??0))?>"></label>
-   <label>Percentage Tax (%)<input type="number" name="percentage_tax_rate" min="0" step="0.01" value="<?=e($taxFormat($marketplaceInventoryForm['percentage_tax_rate']??0))?>"></label>
-   <label>Income Tax (%)<input type="number" name="income_tax_rate" min="0" step="0.01" value="<?=e($taxFormat($marketplaceInventoryForm['income_tax_rate']??0))?>"></label>
-   <label>Withholding Tax (%)<input type="number" name="withholding_tax_rate" min="0" step="0.01" value="<?=e($taxFormat($marketplaceInventoryForm['withholding_tax_rate']??0))?>"></label>
-   <label>Other Taxes (%)<input type="number" name="other_tax_rate" min="0" step="0.01" value="<?=e($taxFormat($marketplaceInventoryForm['other_tax_rate']??0))?>"></label>
+   <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value="<?=e($taxFormat($marketplaceInventoryForm['vat_rate']??0))?>"></label>
+   <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value="<?=e($taxFormat($marketplaceInventoryForm['percentage_tax_rate']??0))?>"></label>
+   <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value="<?=e($taxFormat($marketplaceInventoryForm['income_tax_rate']??0))?>"></label>
+   <label>Withholding Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="withholding_tax_rate" min="0" value="<?=e($taxFormat($marketplaceInventoryForm['withholding_tax_rate']??0))?>"></label>
+   <label>Other Taxes (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="other_tax_rate" min="0" value="<?=e($taxFormat($marketplaceInventoryForm['other_tax_rate']??0))?>"></label>
    <label>Retail Price (₱) — Before Taxes<input class="marketplace-retail-price marketplace-formatted-number" type="text" inputmode="decimal" data-decimals="2" name="retail_price" min="0" value="<?=e(number_format((float)$marketplaceInventoryForm['retail_price'], 2, '.', ','))?>"></label>
    <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="<?=e(number_format((float)($marketplaceInventoryForm['selling_price']??$marketplaceInventoryForm['unit_price']), 2, '.', ','))?>" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=((string)($marketplaceInventoryForm['status']??'Low Stock')===$statusOption)?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
@@ -1200,9 +1200,38 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   retail.addEventListener('input',recalculate);
   recalculate();
  });
- document.querySelectorAll('.marketplace-formatted-number').forEach(function(field){
+ document.querySelectorAll('.marketplace-formatted-number,.marketplace-tax-formatted').forEach(function(field){
   const decimals=Number(field.dataset.decimals||2);
-  const format=value=>{const raw=String(value).replace(/,/g,'').trim();if(raw==='')return '';const number=Number(raw);return Number.isFinite(number)?number.toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals}):'';};
+  const isTax=field.classList.contains('marketplace-tax-formatted');
+  const clean=value=>{
+   let raw=String(value).replace(/,/g,'').replace(/[^0-9.]/g,'');
+   const dot=raw.indexOf('.');
+   if(dot!==-1)raw=raw.slice(0,dot+1)+raw.slice(dot+1).replace(/\./g,'');
+   if(dot!==-1)raw=raw.slice(0,dot+1)+raw.slice(dot+1,dot+1+decimals);
+   return raw;
+  };
+  const format=value=>{
+   const raw=clean(value);
+   if(raw==='')return '';
+   const parts=raw.split('.');
+   const integer=(parts[0]||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',');
+   return integer+(parts.length>1?'.'+parts[1].padEnd(decimals,'0').slice(0,decimals):'.'+'0'.repeat(decimals));
+  };
+  const formatWhileTyping=()=>{
+   const start=field.selectionStart??field.value.length;
+   const before=clean(field.value.slice(0,start));
+   const raw=clean(field.value);
+   if(raw===''){field.value='';return;}
+   const parts=raw.split('.');
+   const integer=(parts[0]||'0');
+   const grouped=isTax?integer:integer.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+   const next=grouped+(parts.length>1?'.'+parts[1]:'');
+   field.value=next;
+   let caret=0,seen=0;
+   while(caret<next.length&&seen<before.length){if(/[0-9.]/.test(next[caret]))seen++;caret++;}
+   field.setSelectionRange(caret,caret);
+  };
+  field.addEventListener('input',formatWhileTyping);
   field.addEventListener('focus',()=>{field.value=String(field.value).replace(/,/g,'');});
   field.addEventListener('blur',()=>{field.value=format(field.value);});
   field.form?.addEventListener('submit',()=>{field.value=String(field.value).replace(/,/g,'');});
