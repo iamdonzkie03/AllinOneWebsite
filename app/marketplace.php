@@ -682,7 +682,7 @@ if ($marketplaceAddInventoryProductId > 0) {
         }
     }
 }
-$marketplaceInventory = $pdo->query("SELECT i.*,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY i.updated_at DESC,i.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceInventory = $pdo->query("SELECT p.id AS linked_product_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name,i.id,i.product_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at,i.updated_at FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceTotalIncome = (float)$pdo->query('SELECT COALESCE(SUM(net_income),0) FROM marketplace_purchases')->fetchColumn();
 $marketplaceProductCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_products')->fetchColumn();
 $marketplaceInventoryCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_inventory')->fetchColumn();
@@ -1064,17 +1064,17 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  <tr>
   <td><?php if($item['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$item['photo_path'])?>" alt="<?=e($item['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td>
   <td class="marketplace-inventory-product"><strong><?=e($item['product_name'])?></strong><small>Product ID: <?=e((string)($item['product_code']??''))?></small><small>Category: <?=e((string)($item['category_name']??''))?></small><small>Subcategory: <?=e((string)($item['subcategory_name']??''))?></small><small>Brand: <?=e((string)($item['brand']??''))?></small><small>Model: <?=e((string)($item['model']??''))?></small><small>Description: <?=e((string)($item['description']??''))?></small></td>
-  <td><?=e((string)($item['batch_number']??$item['sku']))?></td>
-  <td><?=e((string)($item['manufacturer']??''))?></td>
-  <td><?=e((string)($item['supply_chain_type']??''))?></td>
-  <td><?=(int)$item['stock_on_hand']?></td>
-  <td><?=number_format((float)$item['tax_rate'],3)?>%</td>
-  <td><?=$money($item['retail_price'])?></td>
-  <td><?=$money($item['selling_price']??$item['unit_price'])?></td>
-  <td><span class="marketplace-inventory-status"><?=e((string)($item['status']??'Low Stock'))?></span></td>
+  <td><?=e((string)($item['batch_number']??$item['sku']??'—'))?></td>
+  <td><?=e((string)($item['manufacturer']??'—'))?></td>
+  <td><?=e((string)($item['supply_chain_type']??$item['supply_chain_entity']??'—'))?></td>
+  <td><?=isset($item['stock_on_hand'])?(int)$item['stock_on_hand']:'—'?></td>
+  <td><?=isset($item['tax_rate'])?number_format((float)$item['tax_rate'],3).'%':'—'?></td>
+  <td><?=isset($item['retail_price'])?$money($item['retail_price']):'—'?></td>
+  <td><?=isset($item['selling_price'])?$money($item['selling_price']):((isset($item['unit_price']))?$money($item['unit_price']):'—')?></td>
+  <td><span class="marketplace-inventory-status"><?=e((string)($item['status']??'Not Set'))?></span></td>
   <td><div class="marketplace-actions marketplace-inventory-actions">
-   <form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="number" name="load_quantity" min="1" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form>
-   <a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;edit_inventory=<?=(int)$item['id']?>">Edit</a>
+   <?php if(empty($item['id'])): ?><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;add_inventory_product=<?=(int)$item['linked_product_id']?>">Add</a><?php else: ?><form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="number" name="load_quantity" min="1" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form><?php endif; ?>
+   <?php if(!empty($item['id'])): ?><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;edit_inventory=<?=(int)$item['id']?>">Edit</a><?php endif; ?>
   </div></td>
  </tr><?php endforeach; ?>
  </tbody></table></div><?php endif; ?>
