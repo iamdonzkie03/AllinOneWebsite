@@ -560,6 +560,22 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-products-pagination .gallery-page-number{min-width:30px;padding:7px 9px!important;text-align:center}
 .marketplace-products-pagination .gallery-page-number.is-active{background:linear-gradient(135deg,#8f243b,#bd344b);border-color:#d45a70;color:#fff;box-shadow:0 0 0 1px rgba(212,90,112,.18)}
 .marketplace-products-pagination .gallery-page-number:focus-visible,.marketplace-products-pagination .gallery-page-controls .btn:focus-visible,.marketplace-products-controls input:focus-visible,.marketplace-products-controls select:focus-visible{outline:2px solid #e17a8d;outline-offset:2px}
+/* Keep the Products table within the full panel width instead of forcing horizontal overflow. */
+.marketplace-products-table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;box-sizing:border-box!important}
+.marketplace-products-table th,.marketplace-products-table td{box-sizing:border-box;min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+.marketplace-products-table th:nth-child(1),.marketplace-products-table td:nth-child(1){width:4%;padding-left:7px;padding-right:7px}
+.marketplace-products-table th:nth-child(2),.marketplace-products-table td:nth-child(2){width:9%}
+.marketplace-products-table th:nth-child(3),.marketplace-products-table td:nth-child(3){width:10%}
+.marketplace-products-table th:nth-child(4),.marketplace-products-table td:nth-child(4){width:17%}
+.marketplace-products-table th:nth-child(5),.marketplace-products-table td:nth-child(5){width:11%}
+.marketplace-products-table th:nth-child(6),.marketplace-products-table td:nth-child(6){width:10%}
+.marketplace-products-table th:nth-child(7),.marketplace-products-table td:nth-child(7){width:23%}
+.marketplace-products-table th:nth-child(8),.marketplace-products-table td:nth-child(8){width:16%}
+.marketplace-products-table .marketplace-photo{width:48px;height:48px;max-width:100%}
+.marketplace-products-table .marketplace-actions{min-width:0;gap:5px!important}
+.marketplace-products-table .marketplace-actions a,.marketplace-products-table .marketplace-actions button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:900px){.marketplace-products-table th,.marketplace-products-table td{padding:8px 6px;font-size:10px}.marketplace-products-table td strong{font-size:11px}.marketplace-products-table .marketplace-photo{width:40px;height:40px}}
+@media(max-width:560px){.marketplace-products-table th,.marketplace-products-table td{padding:7px 4px;font-size:9px}.marketplace-products-table th:nth-child(7),.marketplace-products-table td:nth-child(7){width:20%}.marketplace-products-table th:nth-child(8),.marketplace-products-table td:nth-child(8){width:19%}.marketplace-products-table .marketplace-actions{flex-direction:column;align-items:stretch!important}.marketplace-products-table .marketplace-actions a,.marketplace-products-table .marketplace-actions button{justify-content:center;text-align:center}}
 .marketplace-products-table tbody tr[hidden]{display:none!important}
 @media(max-width:680px){.marketplace-products-controls{align-items:stretch;flex-direction:column}.marketplace-products-controls .marketplace-products-filter{max-width:none}.marketplace-products-controls .marketplace-products-page-size{align-self:flex-start}.marketplace-products-pagination{align-items:flex-start;flex-direction:column}.marketplace-products-pagination-bottom{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,auto)!important;align-items:center!important;justify-content:stretch!important;width:100%!important}.marketplace-products-pagination-bottom > #marketplace-products-page-info-bottom{grid-column:1;grid-row:1;justify-self:start!important;text-align:left!important}.marketplace-products-pagination-bottom > .gallery-page-controls{grid-column:2;grid-row:1;justify-self:end!important;justify-content:flex-end!important;width:max-content!important;max-width:100%!important;flex-wrap:wrap!important}.marketplace-products-pagination .gallery-page-controls{gap:5px}.marketplace-products-pagination .gallery-page-number{min-width:28px}}
 </style>
