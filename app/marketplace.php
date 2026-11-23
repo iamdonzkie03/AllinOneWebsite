@@ -115,6 +115,8 @@ $marketplaceNotice = '';
 $marketplaceError = '';
 $marketplaceCreatedCategoryName = null;
 $marketplaceCreatedProducts = null;
+$marketplaceDuplicateProduct = null;
+$marketplaceProductInputRows = [];
 $marketplaceDuplicateCategoryName = null;
 $marketplaceCategoryUpdateResult = null;
 $marketplaceSubcategoryUpdateResult = null;
@@ -335,6 +337,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $marketplaceTab = 'products';
                 $marketplaceEditProductId = 0;
             } else {
+                foreach ($rows as $candidateRow) {
+                    $duplicateProductQuery = $pdo->prepare("SELECT id FROM marketplace_products
+                        WHERE category_id <=> ? AND subcategory_id <=> ?
+                          AND LOWER(TRIM(product_name)) = LOWER(?)
+                          AND LOWER(TRIM(COALESCE(brand, ''))) = LOWER(?)
+                          AND LOWER(TRIM(COALESCE(model, ''))) = LOWER(?)
+                          AND TRIM(COALESCE(description, '')) = ?
+                        LIMIT 1");
+                    $duplicateProductQuery->execute([$candidateRow[8] ?: null,$candidateRow[9] ?: null,$candidateRow[0],$candidateRow[2],$candidateRow[3],$candidateRow[7]]);
+                    if ($duplicateProductQuery->fetchColumn()) {
+                        $marketplaceDuplicateProduct = true;
+                        $marketplaceProductInputRows = array_map(static fn($row) => [
+                            'category_id'=>$row[8], 'subcategory_id'=>$row[9], 'product_name'=>$row[0],
+                            'brand'=>$row[2], 'model'=>$row[3], 'description'=>$row[7]
+                        ], $rows);
+                        throw new RuntimeException('DUPLICATE_PRODUCT_MATCH');
+                    }
+                }
                 $reservedCodes = [];
                 foreach ($rows as &$row) {
                     do {
@@ -375,7 +395,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                             if (!isset($allowedImageTypes[$mime]) || !in_array($originalExtension, $allowedImageTypes[$mime], true)) throw new RuntimeException('Product photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
                             $safeProductName = trim((string)preg_replace('/[^A-Za-z0-9]+/', '_', $row[0]), '_');
                             if ($safeProductName === '') $safeProductName = 'product';
-                            $photoFilename = $newProductId . '_' . $safeProductName . '.' . $originalExtension;
+                            $photoFilename = $row[1] . '_' . $safeProductName . '.' . $originalExtension;
                             $destinationPath = $uploadDirectory . '/' . $photoFilename;
                             if (!move_uploaded_file($temporaryPath, $destinationPath)) throw new RuntimeException('The photo for "' . $row[0] . '" could not be saved.');
                             $uploadedProductFiles[] = $destinationPath;
@@ -435,7 +455,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $marketplaceTab = 'inventory';
         }
     } catch (Throwable $exception) {
-        if (($action ?? '') === 'marketplace_save_category' && $exception instanceof PDOException && (string)$exception->getCode() === '23000') {
+        if (($action ?? '') === 'marketplace_save_product' && $exception instanceof RuntimeException && $exception->getMessage() === 'DUPLICATE_PRODUCT_MATCH') {
+            $marketplaceDuplicateProduct = true;
+            if (!$marketplaceProductInputRows) $marketplaceProductInputRows = [[
+                'category_id'=>(int)($_POST['category_id'][0]??0), 'subcategory_id'=>(int)($_POST['subcategory_id'][0]??0),
+                'product_name'=>trim((string)($_POST['product_name'][0]??'')), 'brand'=>trim((string)($_POST['brand'][0]??'')),
+                'model'=>trim((string)($_POST['model'][0]??'')), 'description'=>trim((string)($_POST['description'][0]??''))
+            ]];
+            $marketplaceError = '';
+        } elseif (($action ?? '') === 'marketplace_save_category' && $exception instanceof PDOException && (string)$exception->getCode() === '23000') {
             $marketplaceDuplicateCategoryName = trim((string)($_POST['category_name'] ?? ''));
             $marketplaceCategoryInputName = $marketplaceDuplicateCategoryName;
             $marketplaceCategoryInputDescription = trim((string)($_POST['category_description'] ?? ''));
@@ -666,12 +694,12 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product">
    <div id="marketplace-product-entry-rows">
     <div class="marketplace-product-entry-row">
-     <div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>"><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>"><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
-      <label>Product Name *<input name="product_name[]" maxlength="220" required></label>
+     <div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>" <?=((int)($marketplaceProductInputRows[0]['category_id']??0)===(int)$category['id'])?'selected':''?>><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>" <?=((int)($marketplaceProductInputRows[0]['subcategory_id']??0)===(int)$subcategory['id'])?'selected':''?>><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
+      <label>Product Name *<input name="product_name[]" maxlength="220" required value="<?=e((string)($marketplaceProductInputRows[0]['product_name']??''))?>"></label>
      
-     <label>Brand *<input name="brand[]" maxlength="140" required></label>
-     <label>Model<input name="model[]" maxlength="140"></label>
-     <label class="wide">Description<textarea name="description[]"></textarea></label><label>Upload Photo (JPG, JPEG, WEBP, PNG, AVIF · under 5 MB)<input type="file" name="product_photo[]" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif"></label>
+     <label>Brand *<input name="brand[]" maxlength="140" required value="<?=e((string)($marketplaceProductInputRows[0]['brand']??''))?>"></label>
+     <label>Model<input name="model[]" maxlength="140" value="<?=e((string)($marketplaceProductInputRows[0]['model']??''))?>"></label>
+     <label class="wide">Description<textarea name="description[]"><?=e((string)($marketplaceProductInputRows[0]['description']??''))?></textarea></label><label>Upload Photo (JPG, JPEG, WEBP, PNG, AVIF · under 5 MB)<input type="file" name="product_photo[]" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif"></label>
      <div class="marketplace-product-row-actions"><button type="button" class="btn light marketplace-product-remove-row">Remove</button></div>
     </div>
    </div>
@@ -679,6 +707,15 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   </form>
  </div>
 </div>
+<?php if($marketplaceDuplicateProduct): ?>
+<div class="marketplace-category-delete-success-overlay" id="marketplace-product-duplicate-modal">
+ <section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-duplicate-title">
+  <h2 id="marketplace-product-duplicate-title">Duplicate Product</h2>
+  <p>The product you are about to add already exist in the database. Please create a new one.</p>
+  <button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-duplicate-close">OK</button>
+ </section>
+</div>
+<?php endif; ?>
 <?php if($marketplaceCreatedProducts !== null): ?>
 <div class="marketplace-category-delete-success-overlay" id="marketplace-product-created-modal">
  <section class="marketplace-category-delete-success-card marketplace-product-created-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-created-title">
@@ -698,6 +735,8 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 (()=>{
  const modal=document.getElementById('marketplace-product-add-modal');
  const form=document.getElementById('marketplace-product-add-form');
+ const duplicateModal=document.getElementById('marketplace-product-duplicate-modal');
+ if(duplicateModal&&modal){modal.hidden=true;document.getElementById('marketplace-product-duplicate-close')?.addEventListener('click',()=>{duplicateModal.hidden=true;modal.hidden=false;form?.querySelector('input[name="product_name[]"]')?.focus();});}
  const rows=document.getElementById('marketplace-product-entry-rows');
  const add=document.getElementById('marketplace-product-add-row');
  const initialRowMarkup=rows?.querySelector('.marketplace-product-entry-row')?.outerHTML||'';
