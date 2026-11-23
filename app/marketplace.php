@@ -666,12 +666,12 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product">
    <div id="marketplace-product-entry-rows">
     <div class="marketplace-product-entry-row">
-     <div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>"><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>"><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
-      <label>Product Name *<input name="product_name[]" maxlength="220" required></label>
+     <div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>" <?=((int)($marketplaceProductInputRows[0]['category_id']??0)===(int)$category['id'])?'selected':''?>><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>" <?=((int)($marketplaceProductInputRows[0]['subcategory_id']??0)===(int)$subcategory['id'])?'selected':''?>><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
+      <label>Product Name *<input name="product_name[]" maxlength="220" required value="<?=e((string)($marketplaceProductInputRows[0]['product_name']??''))?>"></label>
      
-     <label>Brand *<input name="brand[]" maxlength="140" required></label>
-     <label>Model<input name="model[]" maxlength="140"></label>
-     <label class="wide">Description<textarea name="description[]"></textarea></label><label>Upload Photo (JPG, JPEG, WEBP, PNG, AVIF · under 5 MB)<input type="file" name="product_photo[]" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif"></label>
+     <label>Brand *<input name="brand[]" maxlength="140" required value="<?=e((string)($marketplaceProductInputRows[0]['brand']??''))?>"></label>
+     <label>Model<input name="model[]" maxlength="140" value="<?=e((string)($marketplaceProductInputRows[0]['model']??''))?>"></label>
+     <label class="wide">Description<textarea name="description[]"><?=e((string)($marketplaceProductInputRows[0]['description']??''))?></textarea></label><label>Upload Photo (JPG, JPEG, WEBP, PNG, AVIF · under 5 MB)<input type="file" name="product_photo[]" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif"></label>
      <div class="marketplace-product-row-actions"><button type="button" class="btn light marketplace-product-remove-row">Remove</button></div>
     </div>
    </div>
@@ -679,6 +679,15 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   </form>
  </div>
 </div>
+<?php if($marketplaceDuplicateProduct): ?>
+<div class="marketplace-category-delete-success-overlay" id="marketplace-product-duplicate-modal">
+ <section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-duplicate-title">
+  <h2 id="marketplace-product-duplicate-title">Duplicate Product</h2>
+  <p>The product you are about to add already exist in the database. Please create a new one.</p>
+  <button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-duplicate-close">OK</button>
+ </section>
+</div>
+<?php endif; ?>
 <?php if($marketplaceCreatedProducts !== null): ?>
 <div class="marketplace-category-delete-success-overlay" id="marketplace-product-created-modal">
  <section class="marketplace-category-delete-success-card marketplace-product-created-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-created-title">
@@ -698,6 +707,8 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 (()=>{
  const modal=document.getElementById('marketplace-product-add-modal');
  const form=document.getElementById('marketplace-product-add-form');
+ const duplicateModal=document.getElementById('marketplace-product-duplicate-modal');
+ if(duplicateModal&&modal){modal.hidden=true;document.getElementById('marketplace-product-duplicate-close')?.addEventListener('click',()=>{duplicateModal.hidden=true;modal.hidden=false;form?.querySelector('input[name="product_name[]"]')?.focus();});}
  const rows=document.getElementById('marketplace-product-entry-rows');
  const add=document.getElementById('marketplace-product-add-row');
  const initialRowMarkup=rows?.querySelector('.marketplace-product-entry-row')?.outerHTML||'';
