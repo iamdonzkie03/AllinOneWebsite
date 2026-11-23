@@ -1110,7 +1110,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  <div class="admin-panel-head"><h2>Inventory</h2></div>
  <div class="marketplace-toolbar"><span class="muted">Inventory records, stock quantities, pricing and status.</span></div>
  <?php if(!$marketplaceInventory): ?><div class="marketplace-empty">No inventory records have been created yet. Add an inventory record from the Products page.</div><?php else: ?>
- <div class="table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer's Name</th><th>Supply Chain Type</th><th>Quantity in Stock</th><th>Tax</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+ <div class="table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer's Name</th><th>Supply Chain Type</th><th>Quantity in Stock</th><th>All Taxes</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>
  <?php foreach($marketplaceInventory as $item): ?>
  <tr>
   <td><?php if($item['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$item['photo_path'])?>" alt="<?=e($item['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td>
