@@ -440,10 +440,21 @@ $date = static function($value): string { $time=strtotime((string)$value); retur
  .marketplace-category-page-actions,.marketplace-product-page-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.marketplace-category-page-actions .btn,.marketplace-product-page-actions .btn{white-space:nowrap}
 
 /* Match the Products Edit action to the My Account Edit control. */
-.marketplace-actions .marketplace-product-edit-open{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif;letter-spacing:.02em;line-height:1;text-decoration:none;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}
-.marketplace-actions .marketplace-product-edit-open:hover{background:rgba(154,55,81,.28);border-color:rgba(226,157,175,.7);transform:translateY(-1px)}
-.marketplace-actions .marketplace-product-edit-open:focus-visible{outline:2px solid #e17a8d;outline-offset:2px}
-.marketplace-actions{align-items:center;gap:7px}
+/* Mirror the exact My Account Edit control values; !important prevents generic table/action rules from overriding them. */
+table.marketplace-table .marketplace-actions > a.marketplace-product-edit-open{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ min-height:28px!important;height:28px!important;box-sizing:border-box!important;
+ padding:5px 13px!important;border:1px solid rgba(208,139,158,.38)!important;border-radius:999px!important;
+ background:rgba(125,45,67,.16)!important;color:#f0c4cf!important;
+ font:600 10px Ubuntu,sans-serif!important;letter-spacing:.02em!important;line-height:1!important;
+ text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+ transition:background .18s ease,border-color .18s ease,transform .18s ease!important;
+}
+table.marketplace-table .marketplace-actions > a.marketplace-product-edit-open:hover{
+ background:rgba(154,55,81,.28)!important;border-color:rgba(226,157,175,.7)!important;transform:translateY(-1px)!important;
+}
+table.marketplace-table .marketplace-actions > a.marketplace-product-edit-open:focus-visible{outline:2px solid #e17a8d!important;outline-offset:2px!important}
+table.marketplace-table .marketplace-actions{display:flex!important;align-items:center!important;gap:7px!important}
 .marketplace-category-table .marketplace-category-actions{white-space:nowrap}.marketplace-category-table .marketplace-category-actions .content-manager-action{margin-right:6px}.marketplace-category-table .marketplace-category-add-subcategory-open{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 13px;border:1px solid #fff;border-radius:999px;background:#fff;color:#571d2d;font:600 10px Ubuntu,sans-serif;line-height:1;cursor:pointer}.marketplace-category-table .marketplace-category-add-subcategory-open:hover{background:#f0f0f0;border-color:#f0f0f0;color:#421522} .marketplace-subcategory-name-highlight{color:#c62828;font-weight:800;}.marketplace-subcategory-new-name{color:#22a565;font-weight:800;}
 #marketplace-subcategory-update-success-modal .marketplace-category-delete-success-card p strong.marketplace-category-old-name{color:#e34b62!important;-webkit-text-fill-color:#e34b62!important;font-weight:800!important;}
 #marketplace-subcategory-update-success-modal .marketplace-category-delete-success-card p strong.marketplace-subcategory-new-name{color:#22a565!important;-webkit-text-fill-color:#22a565!important;font-weight:800!important;}
