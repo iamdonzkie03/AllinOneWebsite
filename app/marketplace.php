@@ -1140,7 +1140,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Batch Number *<input name="batch_number" required maxlength="100" value=""></label>
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
-   <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="0.00"></label>
+   <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value=""></label>
    <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value=""></label>
    <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value=""></label>
    <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value=""></label>
@@ -1150,7 +1150,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="0.00" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=($statusOption==='Low Stock')?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
    <input type="hidden" name="sold" value="0">
-   <div class="wide"><button class="btn" type="submit">Save Inventory</button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a></div>
+   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save Changes</button></div>
   </form>
  </div>
 </div>
@@ -1165,7 +1165,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Batch Number *<input name="batch_number" required maxlength="100" value="<?=e((string)($marketplaceInventoryForm['batch_number']??$marketplaceInventoryForm['sku']))?>"></label>
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
-   <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="<?=e($quantityFormat($marketplaceInventoryForm['stock_on_hand']))?>"></label>
+   <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="<?=((float)$marketplaceInventoryForm['stock_on_hand']>0)?e($quantityFormat($marketplaceInventoryForm['stock_on_hand'])):''?>"></label>
    <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value="<?=((float)($marketplaceInventoryForm['vat_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['vat_rate'])):''?>"></label>
    <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['percentage_tax_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['percentage_tax_rate'])):''?>"></label>
    <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['income_tax_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['income_tax_rate'])):''?>"></label>
@@ -1175,7 +1175,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="<?=e(number_format((float)($marketplaceInventoryForm['selling_price']??$marketplaceInventoryForm['unit_price']), 2, '.', ','))?>" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=((string)($marketplaceInventoryForm['status']??'Low Stock')===$statusOption)?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
    <input type="hidden" name="sold" value="<?=e((string)$marketplaceInventoryForm['sold'])?>">
-   <div class="wide"><button class="btn" type="submit">Update Inventory</button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a></div>
+   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save Changes</button></div>
   </form>
  </div>
 </div>
