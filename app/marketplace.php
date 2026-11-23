@@ -86,6 +86,7 @@ foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
 }
 $pdo->exec("UPDATE marketplace_inventory SET batch_number=sku WHERE batch_number IS NULL OR batch_number=''");
 $pdo->exec("UPDATE marketplace_inventory SET selling_price=unit_price WHERE selling_price=0 AND unit_price<>0");
+$pdo->exec("UPDATE marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id SET i.supply_chain_type=p.supply_chain_entity WHERE i.supply_chain_type IS NULL OR i.supply_chain_type=''");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_purchases (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  purchase_order_no VARCHAR(80) NOT NULL,
@@ -428,7 +429,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     $subcategoryCheck->execute([$subcategoryId, $categoryId]);
                     if (!$subcategoryCheck->fetchColumn()) throw new RuntimeException('Choose a subcategory that belongs to the selected category.');
                 }
-                if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Type.');
+                if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
                 $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId,(int)$index];
             }
             if (!$rows) throw new RuntimeException('Add at least one product with a Product Name.');
@@ -615,7 +616,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $manufacturer = trim((string)($_POST['manufacturer'] ?? ''));
             $supplyEntity = trim((string)($_POST['supply_chain_type'] ?? ''));
             $country = trim((string)($_POST['country_of_origin'] ?? ''));
-            if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
+            if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Type.');
             $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
             $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
             if ($inventoryId > 0) {
