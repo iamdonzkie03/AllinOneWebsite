@@ -115,6 +115,8 @@ $marketplaceNotice = '';
 $marketplaceError = '';
 $marketplaceCreatedCategoryName = null;
 $marketplaceCreatedProducts = null;
+$marketplaceDuplicateProduct = null;
+$marketplaceProductInputRows = [];
 $marketplaceDuplicateCategoryName = null;
 $marketplaceCategoryUpdateResult = null;
 $marketplaceSubcategoryUpdateResult = null;
@@ -335,6 +337,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $marketplaceTab = 'products';
                 $marketplaceEditProductId = 0;
             } else {
+                foreach ($rows as $candidateRow) {
+                    $duplicateProductQuery = $pdo->prepare("SELECT id FROM marketplace_products
+                        WHERE category_id <=> ? AND subcategory_id <=> ?
+                          AND LOWER(TRIM(product_name)) = LOWER(?)
+                          AND LOWER(TRIM(COALESCE(brand, ''))) = LOWER(?)
+                          AND LOWER(TRIM(COALESCE(model, ''))) = LOWER(?)
+                          AND TRIM(COALESCE(description, '')) = ?
+                        LIMIT 1");
+                    $duplicateProductQuery->execute([$candidateRow[8] ?: null,$candidateRow[9] ?: null,$candidateRow[0],$candidateRow[2],$candidateRow[3],$candidateRow[7]]);
+                    if ($duplicateProductQuery->fetchColumn()) {
+                        $marketplaceDuplicateProduct = true;
+                        $marketplaceProductInputRows = array_map(static fn($row) => [
+                            'category_id'=>$row[8], 'subcategory_id'=>$row[9], 'product_name'=>$row[0],
+                            'brand'=>$row[2], 'model'=>$row[3], 'description'=>$row[7]
+                        ], $rows);
+                        throw new RuntimeException('DUPLICATE_PRODUCT_MATCH');
+                    }
+                }
                 $reservedCodes = [];
                 foreach ($rows as &$row) {
                     do {
@@ -375,7 +395,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                             if (!isset($allowedImageTypes[$mime]) || !in_array($originalExtension, $allowedImageTypes[$mime], true)) throw new RuntimeException('Product photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
                             $safeProductName = trim((string)preg_replace('/[^A-Za-z0-9]+/', '_', $row[0]), '_');
                             if ($safeProductName === '') $safeProductName = 'product';
-                            $photoFilename = $newProductId . '_' . $safeProductName . '.' . $originalExtension;
+                            $photoFilename = $row[1] . '_' . $safeProductName . '.' . $originalExtension;
                             $destinationPath = $uploadDirectory . '/' . $photoFilename;
                             if (!move_uploaded_file($temporaryPath, $destinationPath)) throw new RuntimeException('The photo for "' . $row[0] . '" could not be saved.');
                             $uploadedProductFiles[] = $destinationPath;
@@ -435,7 +455,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $marketplaceTab = 'inventory';
         }
     } catch (Throwable $exception) {
-        if (($action ?? '') === 'marketplace_save_category' && $exception instanceof PDOException && (string)$exception->getCode() === '23000') {
+        if (($action ?? '') === 'marketplace_save_product' && $exception instanceof RuntimeException && $exception->getMessage() === 'DUPLICATE_PRODUCT_MATCH') {
+            $marketplaceDuplicateProduct = true;
+            if (!$marketplaceProductInputRows) $marketplaceProductInputRows = [[
+                'category_id'=>(int)($_POST['category_id'][0]??0), 'subcategory_id'=>(int)($_POST['subcategory_id'][0]??0),
+                'product_name'=>trim((string)($_POST['product_name'][0]??'')), 'brand'=>trim((string)($_POST['brand'][0]??'')),
+                'model'=>trim((string)($_POST['model'][0]??'')), 'description'=>trim((string)($_POST['description'][0]??''))
+            ]];
+            $marketplaceError = '';
+        } elseif (($action ?? '') === 'marketplace_save_category' && $exception instanceof PDOException && (string)$exception->getCode() === '23000') {
             $marketplaceDuplicateCategoryName = trim((string)($_POST['category_name'] ?? ''));
             $marketplaceCategoryInputName = $marketplaceDuplicateCategoryName;
             $marketplaceCategoryInputDescription = trim((string)($_POST['category_description'] ?? ''));
