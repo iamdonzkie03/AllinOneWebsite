@@ -72,6 +72,20 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_inventory (
  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  CONSTRAINT fk_marketplace_inventory_product FOREIGN KEY (product_id) REFERENCES marketplace_products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$marketplaceInventoryColumns = [
+    'batch_number' => "VARCHAR(100) NULL AFTER sku",
+    'supply_chain_type' => "VARCHAR(40) NULL AFTER batch_number",
+    'selling_price' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER retail_price",
+    'status' => "VARCHAR(30) NOT NULL DEFAULT 'Low Stock' AFTER selling_price",
+];
+foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
+    $columnCheck = $pdo->query("SHOW COLUMNS FROM marketplace_inventory LIKE " . $pdo->quote($columnName));
+    if (!$columnCheck->fetch(PDO::FETCH_ASSOC)) {
+        $pdo->exec("ALTER TABLE marketplace_inventory ADD COLUMN " . $columnName . " " . $columnDefinition);
+    }
+}
+$pdo->exec("UPDATE marketplace_inventory SET batch_number=sku WHERE batch_number IS NULL OR batch_number=''");
+$pdo->exec("UPDATE marketplace_inventory SET selling_price=unit_price WHERE selling_price=0 AND unit_price<>0");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_purchases (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  purchase_order_no VARCHAR(80) NOT NULL,
@@ -144,7 +158,8 @@ $marketplaceEditInventoryId = max(0, (int)($_GET['edit_inventory'] ?? 0));
 $marketplaceViewInventoryId = max(0, (int)($_GET['view_inventory'] ?? 0));
 $marketplaceInventoryReadOnly = $marketplaceViewInventoryId > 0 && $marketplaceEditInventoryId === 0;
 $marketplaceAddInventoryProductId = max(0, (int)($_GET['add_inventory_product'] ?? 0));
-$marketplaceSupplyEntities = ['Importer', 'Distributor', 'Manufacturer', 'Retailer', 'Vendor'];
+$marketplaceSupplyEntities = ['Manufacturer', 'Importer', 'Distributor', 'Retailer', 'Vendor'];
+$marketplaceInventoryStatuses = ['On Hold', 'Cancelled', 'Low Stock'];
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_POST['action'] ?? ''), 'marketplace_')) {
     try {
@@ -413,7 +428,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     $subcategoryCheck->execute([$subcategoryId, $categoryId]);
                     if (!$subcategoryCheck->fetchColumn()) throw new RuntimeException('Choose a subcategory that belongs to the selected category.');
                 }
-                if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
+                if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Type.');
                 $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId,(int)$index];
             }
             if (!$rows) throw new RuntimeException('Add at least one product with a Product Name.');
@@ -582,30 +597,34 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
         } elseif ($action === 'marketplace_save_inventory') {
             $inventoryId = max(0, (int)($_POST['inventory_id'] ?? 0));
             $productId = max(0, (int)($_POST['inventory_product_id'] ?? 0));
-            $sku = trim((string)($_POST['sku'] ?? ''));
+            $batchNumber = trim((string)($_POST['batch_number'] ?? ''));
+            $sku = $batchNumber;
             $stock = max(0, (int)($_POST['stock_on_hand'] ?? 0));
             $sold = max(0, (int)($_POST['sold'] ?? 0));
             $tax = max(0, (float)($_POST['tax_rate'] ?? 0));
-            $unitPrice = max(0, (float)($_POST['unit_price'] ?? 0));
+            $unitPrice = max(0, (float)($_POST['selling_price'] ?? 0));
             $retailPrice = max(0, (float)($_POST['retail_price'] ?? 0));
+            $sellingPrice = $unitPrice;
+            $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
             $productCheck = $pdo->prepare('SELECT id FROM marketplace_products WHERE id=? LIMIT 1');
             $productCheck->execute([$productId]);
             if (!$productCheck->fetchColumn()) throw new RuntimeException('Select a valid product before saving inventory.');
-            if ($sku === '') throw new RuntimeException('Please enter an SKU.');
+            if ($batchNumber === '') throw new RuntimeException('Please enter a Batch Number.');
+            if (!in_array($status, $marketplaceInventoryStatuses, true)) throw new RuntimeException('Choose a valid inventory status.');
             if ($sold > $stock) throw new RuntimeException('Sold quantity cannot exceed Stock on Hand.');
             $manufacturer = trim((string)($_POST['manufacturer'] ?? ''));
-            $supplyEntity = trim((string)($_POST['supply_chain_entity'] ?? ''));
+            $supplyEntity = trim((string)($_POST['supply_chain_type'] ?? ''));
             $country = trim((string)($_POST['country_of_origin'] ?? ''));
             if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
             $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
             $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
             if ($inventoryId > 0) {
-                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,stock_on_hand=?,sold=?,tax_rate=?,unit_price=?,retail_price=? WHERE id=?');
-                $stmt->execute([$productId,$sku,$stock,$sold,$tax,$unitPrice,$retailPrice,$inventoryId]);
+                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=? WHERE id=?');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$unitPrice,$retailPrice,$sellingPrice,$status,$inventoryId]);
                 $marketplaceNotice = 'Inventory record successfully updated.';
             } else {
-                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,stock_on_hand,sold,tax_rate,unit_price,retail_price,latest_loaded) VALUES(?,?,?,?,?,?,?,NOW())');
-                $stmt->execute([$productId,$sku,$stock,$sold,$tax,$unitPrice,$retailPrice]);
+                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,unit_price,retail_price,selling_price,status,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW())');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$unitPrice,$retailPrice,$sellingPrice,$status]);
                 $marketplaceNotice = 'Inventory record successfully created.';
             }
             $marketplaceTab = 'inventory';
@@ -652,7 +671,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
 }
 
 $marketplaceCategories = $pdo->query('SELECT id,parent_id,name,description,created_at FROM marketplace_categories ORDER BY COALESCE(parent_id,id) DESC, (parent_id IS NULL) DESC, created_at DESC, id DESC')->fetchAll(PDO::FETCH_ASSOC);
-$marketplaceProducts = $pdo->query("SELECT p.*,c.name AS category_name,sc.name AS subcategory_name,i.id AS inventory_id,i.sku,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.latest_loaded,i.created_at AS inventory_created_at,i.updated_at AS inventory_updated_at FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceProducts = $pdo->query("SELECT p.*,c.name AS category_name,sc.name AS subcategory_name,i.id AS inventory_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at AS inventory_created_at,i.updated_at AS inventory_updated_at FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceAddInventoryProduct = null;
 if ($marketplaceAddInventoryProductId > 0) {
     foreach ($marketplaceProducts as $candidateProduct) {
@@ -662,7 +681,7 @@ if ($marketplaceAddInventoryProductId > 0) {
         }
     }
 }
-$marketplaceInventory = $pdo->query("SELECT i.*,p.product_name,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id LEFT JOIN marketplace_categories c ON c.id=p.category_id ORDER BY i.updated_at DESC,i.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceInventory = $pdo->query("SELECT i.*,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY i.updated_at DESC,i.id DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceTotalIncome = (float)$pdo->query('SELECT COALESCE(SUM(net_income),0) FROM marketplace_purchases')->fetchColumn();
 $marketplaceProductCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_products')->fetchColumn();
 $marketplaceInventoryCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_inventory')->fetchColumn();
@@ -713,7 +732,7 @@ $numberToWords = static function(int $number): string {
  <div><div class="eyebrow">Community commerce</div><h1 class="admin-heading">Marketplace</h1><p class="muted">Manage products, stock, categories, purchases and invoices.</p></div>
 </div>
 <style>
-.marketplace-product-delete-confirm-card,.marketplace-product-delete-success-card{width:min(680px,calc(100vw - 36px));max-height:min(82vh,760px);overflow:auto}
+.marketplace-inventory-table{min-width:1180px}.marketplace-inventory-table th,.marketplace-inventory-table td{vertical-align:top}.marketplace-inventory-product{min-width:245px;max-width:320px}.marketplace-inventory-product strong{display:block;color:var(--text);margin-bottom:5px}.marketplace-inventory-product small{display:block;white-space:normal;line-height:1.45;margin-top:2px}.marketplace-inventory-status{display:inline-block;padding:4px 8px;border-radius:5px;background:rgba(160,35,48,.12);font-size:11px;font-weight:700;white-space:nowrap}.marketplace-inventory-actions{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:76px}.marketplace-add-stock-form{display:flex;gap:4px;align-items:center}.marketplace-add-stock-form input{width:58px;min-width:0;padding:7px 5px}.marketplace-inventory-actions .btn{justify-content:center}.marketplace-product-delete-confirm-card,.marketplace-product-delete-success-card{width:min(680px,calc(100vw - 36px));max-height:min(82vh,760px);overflow:auto}
 .marketplace-product-delete-confirm-card #marketplace-products-delete-confirm-title{font-size:24px;line-height:1.25;margin:0 0 14px}.marketplace-product-delete-confirm-card p,.marketplace-product-delete-success-card p{color:#e8dfe2;line-height:1.65}.marketplace-product-delete-list{margin:14px 0 18px;color:#f3e9ec}.marketplace-product-delete-list.is-single-product{display:grid;gap:9px;padding:0;text-align:center}.marketplace-product-delete-list.is-single-product .marketplace-product-delete-detail{justify-content:center;text-align:center;width:100%}.marketplace-product-delete-detail{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;line-height:1.6}.marketplace-product-delete-list.is-multiple-products{padding:0;margin:14px 0 18px}.marketplace-product-delete-table-wrap{display:flex;justify-content:center;align-items:flex-start;width:100%;max-width:100%;text-align:left}.marketplace-product-delete-table{width:min(450px,100%);max-width:100%;margin:0;border:0;border-collapse:collapse;border-spacing:0;table-layout:fixed;color:#f3e9ec;text-align:left}.marketplace-product-delete-table tr,.marketplace-product-delete-table th,.marketplace-product-delete-table td{border:0!important;background:transparent!important}.marketplace-product-delete-table th{padding:5px 6px;text-align:left;vertical-align:middle;font-size:12px;font-weight:800;color:#f3e9ec;line-height:1.4}.marketplace-product-delete-table td{padding:5px 6px;text-align:left;vertical-align:middle;line-height:1.6;overflow-wrap:anywhere}.marketplace-product-delete-table th:first-child,.marketplace-product-delete-table .marketplace-delete-row-number{width:28px;text-align:right;white-space:nowrap;color:#f3e9ec;font-size:10px}.marketplace-product-delete-table th:nth-child(2),.marketplace-product-delete-table .marketplace-delete-product-id-cell{width:42%;text-align:left;font-size:12px}.marketplace-product-delete-table th:nth-child(3),.marketplace-product-delete-table .marketplace-delete-product-name-cell{width:58%;text-align:left;font-size:12px}.marketplace-product-delete-table .marketplace-delete-name{font-size:12px;font-weight:900}.marketplace-product-delete-table .marketplace-delete-code{font-size:12px;font-weight:900}.marketplace-product-delete-list li>span,.marketplace-product-delete-detail>span{color:#f3e9ec}.marketplace-delete-name{color:#ed526b!important;font-weight:900}.marketplace-delete-code,.marketplace-delete-count{color:#f1c94b!important;font-weight:900}.marketplace-product-delete-success-card{text-align:center}.marketplace-product-delete-success-card p{margin:12px 0 20px}.marketplace-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 20px;padding:7px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.025)}
 .marketplace-tabs a{padding:10px 14px;border-radius:9px;color:#c9bdc1;font-size:12px;font-weight:700}
 .marketplace-tabs a.active{background:linear-gradient(110deg,rgba(142,30,52,.55),rgba(142,30,52,.18));color:#fff;box-shadow:inset 0 0 0 1px rgba(210,92,111,.25)}
@@ -1037,10 +1056,26 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 <?php elseif($marketplaceTab==='inventory'): ?>
 <section class="panel admin-panel">
  <div class="admin-panel-head"><h2>Inventory</h2></div>
- <div class="marketplace-toolbar"><span class="muted">Stock Level is calculated from Stock on Hand less Sold.</span></div>
- <?php if(!$marketplaceInventory): ?><div class="marketplace-empty">No inventory records have been created yet. Use Add Inventory in the Products table to create a record.</div><?php else: ?>
- <div class="table-wrap"><table class="marketplace-table"><thead><tr><th>Product Photo</th><th>Product Name / Details</th><th>SKU</th><th>Stock on Hand</th><th>Sold</th><th>Stock Level</th><th>Tax</th><th>Unit Price</th><th>Retail</th><th>Latest Loaded</th><th>Date Created</th><th>Last Updated</th><th>Actions</th></tr></thead><tbody>
- <?php foreach($marketplaceInventory as $item): $stockLevel=max(0,(int)$item['stock_on_hand']-(int)$item['sold']); ?><tr><td><?php if($item['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$item['photo_path'])?>" alt="<?=e($item['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td><td><strong><?=e($item['product_name'])?></strong><small><?=e($item['category_name'])?> · <?=e((string)$item['brand'])?> · <?=e((string)$item['model'])?></small><small><?=e((string)$item['description'])?></small><small>Manufacturer: <?=e((string)($item['manufacturer']??''))?> · Supply Chain Entity: <?=e((string)($item['supply_chain_entity']??''))?> · Country of Origin: <?=e((string)($item['country_of_origin']??''))?></small></td><td><?=e($item['sku'])?></td><td><?=(int)$item['stock_on_hand']?></td><td><?=(int)$item['sold']?></td><td><?=$stockLevel?></td><td><?=number_format((float)$item['tax_rate'],3)?>%</td><td><?=$money($item['unit_price'])?></td><td><?=$money($item['retail_price'])?></td><td><?=$date($item['latest_loaded'])?></td><td><?=$date($item['created_at'])?></td><td><?=$date($item['updated_at'])?></td><td><div class="marketplace-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;view_inventory=<?=(int)$item['id']?>">View</a><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;edit_inventory=<?=(int)$item['id']?>">Edit</a><form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="number" name="load_quantity" min="1" required placeholder="Qty" style="width:55px"><button class="btn light" type="submit">Add</button></form></div></td></tr><?php endforeach; ?>
+ <div class="marketplace-toolbar"><span class="muted">Inventory records, stock quantities, pricing and status.</span></div>
+ <?php if(!$marketplaceInventory): ?><div class="marketplace-empty">No inventory records have been created yet. Add an inventory record from the Products page.</div><?php else: ?>
+ <div class="table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer's Name</th><th>Supply Chain Type</th><th>Quantity in Stock</th><th>Tax</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+ <?php foreach($marketplaceInventory as $item): ?>
+ <tr>
+  <td><?php if($item['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$item['photo_path'])?>" alt="<?=e($item['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td>
+  <td class="marketplace-inventory-product"><strong><?=e($item['product_name'])?></strong><small>Product ID: <?=e((string)($item['product_code']??''))?></small><small>Category: <?=e((string)($item['category_name']??''))?></small><small>Subcategory: <?=e((string)($item['subcategory_name']??''))?></small><small>Brand: <?=e((string)($item['brand']??''))?></small><small>Model: <?=e((string)($item['model']??''))?></small><small>Description: <?=e((string)($item['description']??''))?></small></td>
+  <td><?=e((string)($item['batch_number']??$item['sku']))?></td>
+  <td><?=e((string)($item['manufacturer']??''))?></td>
+  <td><?=e((string)($item['supply_chain_type']??''))?></td>
+  <td><?=(int)$item['stock_on_hand']?></td>
+  <td><?=number_format((float)$item['tax_rate'],3)?>%</td>
+  <td><?=$money($item['retail_price'])?></td>
+  <td><?=$money($item['selling_price']??$item['unit_price'])?></td>
+  <td><span class="marketplace-inventory-status"><?=e((string)($item['status']??'Low Stock'))?></span></td>
+  <td><div class="marketplace-actions marketplace-inventory-actions">
+   <form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="number" name="load_quantity" min="1" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form>
+   <a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;edit_inventory=<?=(int)$item['id']?>">Edit</a>
+  </div></td>
+ </tr><?php endforeach; ?>
  </tbody></table></div><?php endif; ?>
 </section>
 <?php if($marketplaceAddInventoryProduct): ?>
@@ -1050,15 +1085,15 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   <form class="marketplace-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory">
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_inventory"><input type="hidden" name="inventory_id" value="0">
    <label>Product *<select name="inventory_product_id" required><option value="<?=(int)$marketplaceAddInventoryProduct['id']?>" selected><?=e($marketplaceAddInventoryProduct['product_name'])?></option></select></label>
-   <label>SKU *<input name="sku" required maxlength="100" value=""></label>
-   <label>Manufacturer<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
-   <label>Supply Chain Entity<select name="supply_chain_entity"><option value="">Select entity</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
-   <label>Country of Origin<input name="country_of_origin" maxlength="120" value="<?=e((string)($marketplaceAddInventoryProduct['country_of_origin']??''))?>"></label>
-   <label>Stock on Hand<input type="number" name="stock_on_hand" min="0" required value="0"></label>
-   <label>Sold<input type="number" name="sold" min="0" required value="0"></label>
+   <label>Batch Number *<input name="batch_number" required maxlength="100" value=""></label>
+   <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
+   <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
+   <label>Quantity in Stock<input type="number" name="stock_on_hand" min="0" required value="0"></label>
    <label>Tax (%)<input type="number" name="tax_rate" min="0" step="0.001" value="0"></label>
-   <label>Unit Price (₱)<input type="number" name="unit_price" min="0" step="0.01" value="0"></label>
-   <label>Retail (₱)<input type="number" name="retail_price" min="0" step="0.01" value="0"></label>
+   <label>Retail Price (₱)<input type="number" name="retail_price" min="0" step="0.01" value="0"></label>
+   <label>Selling Price (₱)<input type="number" name="selling_price" min="0" step="0.01" value="0"></label>
+   <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=($statusOption==='Low Stock')?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
+   <input type="hidden" name="sold" value="0">
    <div class="wide"><button class="btn" type="submit">Save Inventory</button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a></div>
   </form>
  </div>
@@ -1071,15 +1106,15 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   <form class="marketplace-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory">
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_inventory"><input type="hidden" name="inventory_id" value="<?=(int)$marketplaceInventoryForm['id']?>">
    <label>Product *<select name="inventory_product_id" required><?php foreach($marketplaceProducts as $product): ?><option value="<?=(int)$product['id']?>" <?=((int)$marketplaceInventoryForm['product_id']===(int)$product['id'])?'selected':''?>><?=e($product['product_name'])?></option><?php endforeach; ?></select></label>
-   <label>SKU *<input name="sku" required maxlength="100" value="<?=e((string)$marketplaceInventoryForm['sku'])?>"></label>
-   <label>Manufacturer<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
-   <label>Supply Chain Entity<select name="supply_chain_entity"><option value="">Select entity</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
-   <label>Country of Origin<input name="country_of_origin" maxlength="120" value="<?=e((string)($marketplaceInventoryForm['country_of_origin']??''))?>"></label>
-   <label>Stock on Hand<input type="number" name="stock_on_hand" min="0" required value="<?=e((string)$marketplaceInventoryForm['stock_on_hand'])?>"></label>
-   <label>Sold<input type="number" name="sold" min="0" required value="<?=e((string)$marketplaceInventoryForm['sold'])?>"></label>
+   <label>Batch Number *<input name="batch_number" required maxlength="100" value="<?=e((string)($marketplaceInventoryForm['batch_number']??$marketplaceInventoryForm['sku']))?>"></label>
+   <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
+   <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
+   <label>Quantity in Stock<input type="number" name="stock_on_hand" min="0" required value="<?=e((string)$marketplaceInventoryForm['stock_on_hand'])?>"></label>
    <label>Tax (%)<input type="number" name="tax_rate" min="0" step="0.001" value="<?=e((string)$marketplaceInventoryForm['tax_rate'])?>"></label>
-   <label>Unit Price (₱)<input type="number" name="unit_price" min="0" step="0.01" value="<?=e((string)$marketplaceInventoryForm['unit_price'])?>"></label>
-   <label>Retail (₱)<input type="number" name="retail_price" min="0" step="0.01" value="<?=e((string)$marketplaceInventoryForm['retail_price'])?>"></label>
+   <label>Retail Price (₱)<input type="number" name="retail_price" min="0" step="0.01" value="<?=e((string)$marketplaceInventoryForm['retail_price'])?>"></label>
+   <label>Selling Price (₱)<input type="number" name="selling_price" min="0" step="0.01" value="<?=e((string)($marketplaceInventoryForm['selling_price']??$marketplaceInventoryForm['unit_price']))?>"></label>
+   <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=((string)($marketplaceInventoryForm['status']??'Low Stock')===$statusOption)?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
+   <input type="hidden" name="sold" value="<?=e((string)$marketplaceInventoryForm['sold'])?>">
    <div class="wide"><button class="btn" type="submit">Update Inventory</button> <a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a></div>
   </form>
  </div>
