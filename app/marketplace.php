@@ -116,6 +116,7 @@ $marketplaceError = '';
 $marketplaceCreatedCategoryName = null;
 $marketplaceCreatedProducts = null;
 $marketplaceDuplicateProduct = null;
+$marketplaceProductEditSuccess = null;
 $marketplaceProductInputRows = [];
 $marketplaceDuplicateCategoryName = null;
 $marketplaceCategoryUpdateResult = null;
@@ -417,19 +418,85 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             if (!$rows) throw new RuntimeException('Add at least one product with a Product Name.');
             $productId = max(0, (int)($_POST['product_id'] ?? 0));
             if ($productId > 0) {
-                $existingCode = $pdo->prepare('SELECT product_code FROM marketplace_products WHERE id=?');
-                $existingCode->execute([$productId]);
-                $currentCode = $existingCode->fetchColumn();
-                if ($currentCode === false) throw new RuntimeException('The product to update could not be found.');
+                $existingProductQuery = $pdo->prepare('SELECT p.*,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id WHERE p.id=? LIMIT 1');
+                $existingProductQuery->execute([$productId]);
+                $existingProduct = $existingProductQuery->fetch(PDO::FETCH_ASSOC);
+                if (!$existingProduct) throw new RuntimeException('The product to update could not be found.');
                 $row = $rows[0];
-                if (array_key_exists('category_id', $_POST)) {
-                    $update = $pdo->prepare('UPDATE marketplace_products SET category_id=?,product_name=?,brand=?,model=?,description=? WHERE id=?');
-                    $update->execute([$row[8] ?: null,$row[0],$row[2] ?: null,$row[3] ?: null,$row[7] ?: null,$productId]);
-                } else {
-                    $update = $pdo->prepare('UPDATE marketplace_products SET product_name=?,brand=?,model=?,description=? WHERE id=?');
-                    $update->execute([$row[0],$row[2] ?: null,$row[3] ?: null,$row[7] ?: null,$productId]);
+                $newCategoryId = $row[8] > 0 ? $row[8] : null;
+                $newSubcategoryId = $row[9] > 0 ? $row[9] : null;
+                $newCategoryName = null;
+                $newSubcategoryName = null;
+                if ($newCategoryId !== null) {
+                    $categoryNameQuery = $pdo->prepare('SELECT name FROM marketplace_categories WHERE id=? AND parent_id IS NULL LIMIT 1');
+                    $categoryNameQuery->execute([$newCategoryId]);
+                    $newCategoryName = $categoryNameQuery->fetchColumn() ?: null;
+                    if ($newCategoryName === null) throw new RuntimeException('Choose a valid product category.');
                 }
-                $marketplaceNotice = 'Marketplace product successfully updated.';
+                if ($newSubcategoryId !== null) {
+                    $subcategoryNameQuery = $pdo->prepare('SELECT name FROM marketplace_categories WHERE id=? AND parent_id=? LIMIT 1');
+                    $subcategoryNameQuery->execute([$newSubcategoryId,$newCategoryId]);
+                    $newSubcategoryName = $subcategoryNameQuery->fetchColumn() ?: null;
+                    if ($newSubcategoryName === null) throw new RuntimeException('Choose a subcategory that belongs to the selected category.');
+                }
+                $photoUploads = $_FILES['product_photo'] ?? [];
+                $photoError = (int)($photoUploads['error'] ?? UPLOAD_ERR_NO_FILE);
+                $newPhotoPath = (string)($existingProduct['photo_path'] ?? '');
+                $newPhotoFile = null;
+                $oldPhotoFile = null;
+                if ($photoError !== UPLOAD_ERR_NO_FILE) {
+                    if ($photoError !== UPLOAD_ERR_OK) throw new RuntimeException('The product photo could not be uploaded.');
+                    $temporaryPath = (string)($photoUploads['tmp_name'] ?? '');
+                    $fileSize = (int)($photoUploads['size'] ?? 0);
+                    if ($fileSize < 1 || $fileSize >= 5 * 1024 * 1024 || !is_uploaded_file($temporaryPath)) throw new RuntimeException('The product photo must be a valid image smaller than 5 MB.');
+                    $imageInfo = @getimagesize($temporaryPath);
+                    $mime = strtolower((string)($imageInfo['mime'] ?? ''));
+                    $extension = strtolower(pathinfo((string)($photoUploads['name'] ?? ''), PATHINFO_EXTENSION));
+                    $allowedImageTypes = ['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'image/avif'=>['avif']];
+                    if (!isset($allowedImageTypes[$mime]) || !in_array($extension, $allowedImageTypes[$mime], true)) throw new RuntimeException('Product photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
+                    $uploadDirectory = dirname(__DIR__) . '/public/uploads/products';
+                    if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory,0755,true) && !is_dir($uploadDirectory)) throw new RuntimeException('The product photo upload folder could not be created.');
+                    $safeProductName = trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');
+                    if ($safeProductName === '') $safeProductName = 'product';
+                    $photoFilename = (string)$existingProduct['product_code'] . '_' . $safeProductName . '.' . $extension;
+                    $destinationPath = $uploadDirectory . '/' . $photoFilename;
+                    if (!move_uploaded_file($temporaryPath,$destinationPath)) throw new RuntimeException('The new product photo could not be saved.');
+                    $newPhotoFile = $destinationPath;
+                    $newPhotoPath = 'uploads/products/' . $photoFilename;
+                    $oldPhotoRelative = (string)($existingProduct['photo_path'] ?? '');
+                    if ($oldPhotoRelative !== '') {
+                        $oldFilename = basename(str_replace('\\','/',$oldPhotoRelative));
+                        $oldPhotoFile = $uploadDirectory . DIRECTORY_SEPARATOR . $oldFilename;
+                    }
+                }
+                try {
+                    $update = $pdo->prepare('UPDATE marketplace_products SET category_id=?,subcategory_id=?,product_name=?,brand=?,model=?,description=?,photo_path=? WHERE id=?');
+                    $update->execute([$newCategoryId,$newSubcategoryId,$row[0],$row[2] ?: null,$row[3] ?: null,$row[7] ?: null,$newPhotoPath !== '' ? $newPhotoPath : null,$productId]);
+                } catch (Throwable $updateError) {
+                    if ($newPhotoFile !== null && is_file($newPhotoFile)) @unlink($newPhotoFile);
+                    throw $updateError;
+                }
+                if ($newPhotoFile !== null && $oldPhotoFile !== null && is_file($oldPhotoFile) && realpath($oldPhotoFile) !== realpath($newPhotoFile)) @unlink($oldPhotoFile);
+                $categoryChanged = (int)($existingProduct['category_id'] ?? 0) !== (int)($newCategoryId ?? 0);
+                $subcategoryChanged = (int)($existingProduct['subcategory_id'] ?? 0) !== (int)($newSubcategoryId ?? 0);
+                $nameChanged = (string)$existingProduct['product_name'] !== $row[0];
+                $modelChanged = (string)($existingProduct['model'] ?? '') !== $row[3];
+                $descriptionChanged = (string)($existingProduct['description'] ?? '') !== $row[7];
+                $photoChanged = $newPhotoFile !== null;
+                if ($categoryChanged || $subcategoryChanged) {
+                    $marketplaceProductEditSuccess = ['type'=>'category','old_category'=>(string)($existingProduct['category_name'] ?? 'Uncategorized'),'new_category'=>(string)($newCategoryName ?? 'Uncategorized'),'subcategory'=>(string)($newSubcategoryName ?? 'None')];
+                } elseif ($nameChanged) {
+                    $marketplaceProductEditSuccess = ['type'=>'name','old_name'=>(string)$existingProduct['product_name'],'new_name'=>$row[0]];
+                } elseif ($modelChanged) {
+                    $marketplaceProductEditSuccess = ['type'=>'model','old_model'=>(string)($existingProduct['model'] ?? ''),'new_model'=>$row[3],'product_name'=>$row[0]];
+                } elseif ($descriptionChanged) {
+                    $marketplaceProductEditSuccess = ['type'=>'description','product_name'=>$row[0]];
+                } elseif ($photoChanged) {
+                    $marketplaceProductEditSuccess = ['type'=>'photo','product_name'=>$row[0]];
+                } else {
+                    $marketplaceProductEditSuccess = ['type'=>'details','product_name'=>$row[0]];
+                }
+                $marketplaceNotice = '';
                 $marketplaceTab = 'products';
                 $marketplaceEditProductId = 0;
             } else {
