@@ -1206,7 +1206,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   const clean=value=>{
    let raw=String(value).replace(/,/g,'').replace(/[^0-9.]/g,'');
    const dot=raw.indexOf('.');
-   if(dot!==-1)raw=raw.slice(0,dot+1)+raw.slice(dot+1).replace(/\\./g,'');
+   if(dot!==-1)raw=raw.slice(0,dot+1)+raw.slice(dot+1).replace(/\./g,'');
    if(dot!==-1)raw=raw.slice(0,dot+1)+raw.slice(dot+1,dot+1+decimals);
    return raw;
   };
@@ -1214,7 +1214,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    const raw=clean(value);
    if(raw==='')return '';
    const parts=raw.split('.');
-   const integer=(parts[0]||'0').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');
+   const integer=(parts[0]||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',');
    return integer+(parts.length>1?'.'+parts[1].padEnd(decimals,'0').slice(0,decimals):'.'+'0'.repeat(decimals));
   };
   const formatWhileTyping=()=>{
@@ -1224,7 +1224,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    if(raw===''){field.value='';return;}
    const parts=raw.split('.');
    const integer=(parts[0]||'0');
-   const grouped=isTax?integer:integer.replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');
+   const grouped=isTax?integer:integer.replace(/\B(?=(\d{3})+(?!\d))/g,',');
    const next=grouped+(parts.length>1?'.'+parts[1]:'');
    field.value=next;
    let caret=0,seen=0;
