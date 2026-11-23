@@ -148,10 +148,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $deletedNamesQuery = $pdo->prepare("SELECT name FROM marketplace_categories WHERE id IN ($placeholders) ORDER BY name ASC");
             $deletedNamesQuery->execute($selectedIds);
             $selectedCategoryNames = $deletedNamesQuery->fetchAll(PDO::FETCH_COLUMN);
-            $usedQuery = $pdo->prepare("SELECT COUNT(DISTINCT c.id) FROM marketplace_categories c INNER JOIN marketplace_products p ON p.category_id=c.id WHERE c.id IN ($placeholders)");
+            $usedQuery = $pdo->prepare("SELECT COUNT(DISTINCT c.id) FROM marketplace_categories c INNER JOIN marketplace_products p ON (p.category_id=c.id OR p.subcategory_id=c.id) WHERE c.id IN ($placeholders)");
             $usedQuery->execute($selectedIds);
             $usedCount = (int)$usedQuery->fetchColumn();
-            $deleteQuery = $pdo->prepare("DELETE FROM marketplace_categories WHERE id IN ($placeholders) AND id NOT IN (SELECT category_id FROM marketplace_products)");
+            $deleteQuery = $pdo->prepare("DELETE FROM marketplace_categories WHERE id IN ($placeholders) AND id NOT IN (SELECT category_id FROM marketplace_products) AND id NOT IN (SELECT subcategory_id FROM marketplace_products WHERE subcategory_id IS NOT NULL)");
             $deleteQuery->execute($selectedIds);
             $deletedCount = $deleteQuery->rowCount();
             if ($deletedCount > 0 && $usedCount === 0 && $deletedCount === count($selectedIds)) {
@@ -311,7 +311,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     if (!$subcategoryCheck->fetchColumn()) throw new RuntimeException('Choose a subcategory that belongs to the selected category.');
                 }
                 if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
-                $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId];
+                $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId,(int)$index];
             }
             if (!$rows) throw new RuntimeException('Add at least one product with a Product Name.');
             $productId = max(0, (int)($_POST['product_id'] ?? 0));
@@ -358,11 +358,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     foreach ($rows as $index => $row) {
                         $insert->execute([$row[8] ?: null,$row[9] ?: null,$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null]);
                         $newProductId = (int)$pdo->lastInsertId();
-                        $uploadError = (int)($productPhotoUploads['error'][$index] ?? UPLOAD_ERR_NO_FILE);
+                        $uploadIndex = (int)($row[10] ?? $index);
+                        $uploadError = (int)($productPhotoUploads['error'][$uploadIndex] ?? UPLOAD_ERR_NO_FILE);
                         if ($uploadError !== UPLOAD_ERR_NO_FILE) {
                             if ($uploadError !== UPLOAD_ERR_OK) throw new RuntimeException('The photo for "' . $row[0] . '" could not be uploaded.');
-                            $temporaryPath = (string)($productPhotoUploads['tmp_name'][$index] ?? '');
-                            $fileSize = (int)($productPhotoUploads['size'][$index] ?? 0);
+                            $temporaryPath = (string)($productPhotoUploads['tmp_name'][$uploadIndex] ?? '');
+                            $fileSize = (int)($productPhotoUploads['size'][$uploadIndex] ?? 0);
                             if ($fileSize < 1 || $fileSize > 5 * 1024 * 1024 || !is_uploaded_file($temporaryPath)) throw new RuntimeException('Each product photo must be a valid image no larger than 5 MB.');
                             $imageInfo = @getimagesize($temporaryPath);
                             $mime = (string)($imageInfo['mime'] ?? '');
