@@ -861,7 +861,7 @@ if ($isCreatorSignedIn) {
 <?php else: ?>
 <?php if (!$marketplaceProducts): ?><div class="panel empty-state"><span class="empty-mark">◇</span><h3>No products available yet.</h3><p class="muted">Products added through the Products tab will appear here automatically.</p></div>
 <?php else: ?><div class="zc-marketplace-products">
-<?php foreach($marketplaceProducts as $marketplaceProduct): $marketplaceProductHref=$isPublicUserSignedIn?'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id']:'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id'].'#sign-in-modal'; ?>
+<?php foreach($marketplaceProducts as $marketplaceProduct): $marketplaceProductHref=$isPublicUserSignedIn?'index.php?session_context=creator&amp;module=marketplace&amp;product_id='.(int)$marketplaceProduct['id']:'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id'].'#sign-in-modal'; ?>
 <a class="zc-marketplace-product-card" href="<?=$marketplaceProductHref?>" aria-label="<?= $isPublicUserSignedIn ? 'View ' : 'Sign in to view ' ?><?=e((string)$marketplaceProduct['product_name'])?>">
 <div class="zc-marketplace-product-photo"><?php if(!empty($marketplaceProduct['photo_path'])): ?><img src="public/<?=e(ltrim((string)$marketplaceProduct['photo_path'],'/'))?>" alt="<?=e((string)$marketplaceProduct['product_name'])?>"><?php else: ?>◇<?php endif; ?></div>
 <div class="zc-marketplace-product-info"><span class="zc-marketplace-product-category"><?=e((string)($marketplaceProduct['category_name']??'Marketplace Product'))?></span><h2><?=e((string)$marketplaceProduct['product_name'])?></h2>
