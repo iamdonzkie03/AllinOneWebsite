@@ -885,10 +885,10 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-cart-remove{border:0;background:none;color:#e49aa5;font-size:11px;cursor:pointer}
 .zc-marketplace-product-card{position:relative}
 .zc-marketplace-product-card-link{display:flex;flex-direction:column;min-width:0;flex:1;color:inherit;text-decoration:none}
-.zc-marketplace-add-cart{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;margin:0 10px 10px;padding:8px 10px;border:1px solid rgba(226,174,111,.42);border-radius:8px;background:linear-gradient(135deg,rgba(146,48,66,.55),rgba(89,35,49,.65));color:#ffedcf;font:700 10px Arial,sans-serif;letter-spacing:.35px;cursor:pointer;transition:background .16s,border-color .16s}
-.zc-marketplace-add-cart:hover{border-color:#e5bd7e;background:linear-gradient(135deg,#873044,#57202e)}
-.zc-marketplace-add-cart.is-added{border-color:rgba(134,239,172,.78);background:linear-gradient(135deg,#166534,#14532d);color:#f0fdf4;box-shadow:0 4px 12px rgba(22,101,52,.22)}
-.zc-marketplace-add-cart.is-added:hover{border-color:#bbf7d0;background:linear-gradient(135deg,#15803d,#166534)}
+.zc-marketplace-add-cart{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;margin:0 10px 10px;padding:8px 10px;border:1px solid #93c5fd;border-radius:8px;background:linear-gradient(135deg,#bfdbfe,#93c5fd);color:#17324d;font:700 10px Arial,sans-serif;letter-spacing:.35px;cursor:pointer;transition:background .16s,border-color .16s}
+.zc-marketplace-add-cart:hover{border-color:#60a5fa;background:linear-gradient(135deg,#93c5fd,#60a5fa)}
+.zc-marketplace-add-cart.is-added{border-color:#9f344d;background:linear-gradient(135deg,#7f1d3a,#58152b);color:#fff1f2;box-shadow:0 4px 12px rgba(88,21,43,.24)}
+.zc-marketplace-add-cart.is-added:hover{border-color:#c66a7d;background:linear-gradient(135deg,#922b49,#6b1932)}
 .zc-marketplace-add-cart .zc-marketplace-added-check{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .zc-marketplace-no-results{grid-column:1/-1;padding:28px 16px;border:1px dashed rgba(226,174,111,.3);border-radius:12px;color:#d3c2c8;text-align:center;font-size:13px}
 @media(max-width:520px){.zc-marketplace-tools{gap:8px}.zc-marketplace-search input{height:44px}.zc-marketplace-cart-toggle{height:44px;padding:0 11px}.zc-marketplace-cart-dropdown{right:0}.zc-marketplace-add-cart{margin:0 7px 7px;min-height:34px}}
