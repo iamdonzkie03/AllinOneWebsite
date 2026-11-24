@@ -889,7 +889,7 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-add-cart:hover{border-color:#60a5fa;background:linear-gradient(135deg,#93c5fd,#60a5fa)}
 .zc-marketplace-add-cart.is-added{border-color:#9f344d;background:linear-gradient(135deg,#7f1d3a,#58152b);color:#fff1f2;box-shadow:0 4px 12px rgba(88,21,43,.24)}
 .zc-marketplace-add-cart.is-added:hover{border-color:#c66a7d;background:linear-gradient(135deg,#922b49,#6b1932)}
-.zc-marketplace-add-cart .zc-marketplace-added-check{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.zc-marketplace-add-cart .zc-marketplace-add-icon{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}\n.zc-marketplace-add-cart .zc-marketplace-added-check{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .zc-marketplace-no-results{grid-column:1/-1;padding:28px 16px;border:1px dashed rgba(226,174,111,.3);border-radius:12px;color:#d3c2c8;text-align:center;font-size:13px}
 @media(max-width:520px){.zc-marketplace-tools{gap:8px}.zc-marketplace-search input{height:44px}.zc-marketplace-cart-toggle{height:44px;padding:0 11px}.zc-marketplace-cart-dropdown{right:0}.zc-marketplace-add-cart{margin:0 7px 7px;min-height:34px}}
 .zc-marketplace-product-card[hidden]{display:none!important}
@@ -951,7 +951,7 @@ document.addEventListener('DOMContentLoaded',function(){
    const inCart=cart.some(function(item){return String(item.id)===String(button.getAttribute('data-product-id'));});
    button.classList.toggle('is-added',inCart);
    button.setAttribute('aria-pressed',inCart?'true':'false');
-   button.innerHTML=inCart?'<svg class="zc-marketplace-added-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3.2 3.2L13 4.5"></path></svg><span>Remove from Cart</span>':'<span>Add to Cart</span>';
+   button.innerHTML=inCart?'<svg class="zc-marketplace-added-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3.2 3.2L13 4.5"></path></svg><span>Remove from Cart</span>':'<svg class="zc-marketplace-add-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg><span>Add to Cart</span>';
   });
  }
  function renderCart(){
