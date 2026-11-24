@@ -252,3 +252,48 @@ a.story-read-link:focus-visible{
 @media(max-width:760px){
   .home-hero{background-position:center;background-size:cover}
 }
+
+
+/* Public navigation header panel: requested dark red, ivory, gold, white and yellow palette. */
+#public-site-header{
+  background:
+    radial-gradient(ellipse at 12% 0%,rgba(255,255,255,.16),transparent 38%),
+    radial-gradient(ellipse at 88% 100%,rgba(255,218,112,.2),transparent 34%),
+    linear-gradient(110deg,#350710 0%,#650d1c 34%,#8b1728 58%,#4b0a17 82%,#24070e 100%) !important;
+  border-bottom:1px solid rgba(255,222,150,.62) !important;
+  box-shadow:0 8px 28px rgba(20,0,5,.22);
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+}
+#public-site-header .header-text-bar{
+  background:linear-gradient(90deg,rgba(30,5,11,.48),rgba(255,255,255,.08),rgba(30,5,11,.42)) !important;
+  border-bottom:1px solid rgba(255,231,184,.24);
+}
+#public-site-header .header-text-inner{color:#fff3df}
+#public-site-header .nav{
+  background:
+    linear-gradient(115deg,rgba(255,255,255,.055),transparent 42%,rgba(255,218,112,.07));
+}
+#public-site-header .brand{color:#fff8e9}
+#public-site-header .navlinks{color:#fff3df}
+#public-site-header .navlinks>a:not(.btn),
+#public-site-header .navlinks>span{color:#fff3df}
+#public-site-header .navlinks>a:not(.btn):hover{color:#ffdf75 !important}
+#public-site-header .navlinks .btn{
+  background:linear-gradient(135deg,#ffe6a0,#d8b477) !important;
+  border-color:#fff0c2 !important;
+  color:#4b0a17 !important;
+}
+#public-site-header .creator-account-trigger{
+  background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,220,130,.12));
+  border-color:rgba(255,229,170,.58);
+  color:#fff8e9;
+}
+#public-site-header .creator-account-avatar{border-color:rgba(255,239,205,.7)}
+#public-site-header .creator-account-dropdown{
+  background:linear-gradient(145deg,#650d1c,#26070e);
+  border-color:rgba(255,220,150,.42);
+}
+@media(max-width:760px){
+  #public-site-header .nav{background:transparent}
+}
