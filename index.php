@@ -842,7 +842,7 @@ if ($isCreatorSignedIn) {
 <style id="zc-marketplace-product-page-styles">
 .zc-marketplace-category-panel{margin:0 0 24px;padding:20px;border:1px solid rgba(235,205,177,.2);border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.105),rgba(255,255,255,.035));box-shadow:0 18px 42px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
 .zc-marketplace-category-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.zc-marketplace-category-panel-head h2{margin:0;color:#fff4e8;font:600 22px/1.2 Georgia,serif;letter-spacing:1.2px;text-transform:uppercase}
+.zc-marketplace-category-panel-head h2{margin:0;color:#fff4e8;font-family:inherit;font-size:22px;font-weight:700;line-height:1.2;letter-spacing:1.2px;text-transform:uppercase}
 .zc-marketplace-category-panel-head p{display:none}
 .zc-marketplace-category-all{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:7px 15px;border:1px solid rgba(226,174,111,.48);border-radius:999px;background:linear-gradient(135deg,rgba(226,174,111,.2),rgba(146,48,66,.3));box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 4px 12px rgba(0,0,0,.16);color:#fff1d8;font:700 10px/1 Arial,sans-serif;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:background .16s,border-color .16s,transform .16s}
 .zc-marketplace-category-all:hover{transform:translateY(-1px);border-color:rgba(239,198,137,.85);background:linear-gradient(135deg,rgba(226,174,111,.32),rgba(146,48,66,.42))}
@@ -850,7 +850,7 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-category-carousel{position:relative}
 .zc-marketplace-category-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,132px);grid-auto-columns:8.333333%;gap:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scroll-snap-type:x mandatory;scrollbar-width:none}
 .zc-marketplace-category-grid::-webkit-scrollbar{display:none}
-.zc-marketplace-category-tile{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;min-width:0;padding:11px 4px 7px;border:0;border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);border-radius:0;background:rgba(16,12,16,.22);color:#f8edf0;text-align:center;text-decoration:none;cursor:pointer;scroll-snap-align:start;transition:background .16s,border-color .16s}
+.zc-marketplace-category-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;padding:8px 4px;border:0;border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);border-radius:0;background:rgba(16,12,16,.22);color:#f8edf0;text-align:center;text-decoration:none;cursor:pointer;scroll-snap-align:start;transition:background .16s,border-color .16s}
 .zc-marketplace-category-tile:hover,.zc-marketplace-category-tile.is-active{background:rgba(146,48,66,.24);border-color:rgba(226,174,111,.42)}
 .zc-marketplace-category-icon{display:flex;align-items:center;justify-content:center;flex:0 0 46px;width:46px;height:46px;margin:0 auto;border:1px solid rgba(234,196,147,.32);border-radius:50%;background:linear-gradient(145deg,rgba(231,185,120,.2),rgba(174,54,78,.18));box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 5px 16px rgba(0,0,0,.16);color:#f0c994;font-size:23px}
 .zc-marketplace-category-icon iconify-icon{font-size:23px}
