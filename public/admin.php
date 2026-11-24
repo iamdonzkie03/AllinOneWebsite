@@ -6478,11 +6478,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    picker?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String(item===choice)));
    return;
   }
-  if(!target.closest('#mega-panel-modal [data-icon-picker]'))document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
+  if(!target.closest('#mega-panel-modal [data-icon-picker]'))document.querySelectorAll('#mega-panel-modal [data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
  });
  document.addEventListener('keydown',event=>{
   if(event.key!=='Escape')return;
-  document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
+  document.querySelectorAll('#mega-panel-modal [data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
  });
  let panelModalPreviousFocus=null;
  // Keep the dialog outside the Page Management tab and form layout.
