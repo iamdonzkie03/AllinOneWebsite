@@ -1159,7 +1159,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  });
  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeAll();});
  window.addEventListener('resize',()=>document.querySelectorAll('.marketplace-category-icon-popup').forEach(popup=>positionPopup(popup,popup._marketplacePicker)));
- window.addEventListener('scroll',closeAll,true);
+ window.addEventListener('scroll',event=>{const target=event.target;if(target instanceof Element&&target.closest('.marketplace-category-icon-popup'))return;closeAll();},true);
 })();
 (()=>{
  const root=document.querySelector('.marketplace-category-panel');if(!root)return;
