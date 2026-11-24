@@ -96,6 +96,15 @@ foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
 $pdo->exec("UPDATE marketplace_inventory SET batch_number=sku WHERE batch_number IS NULL OR batch_number=''");
 // Convert all pre-existing percentage-point tax values to decimal fractions exactly once.
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_schema_migrations (migration_key VARCHAR(120) NOT NULL PRIMARY KEY, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$inventoryBackfillMigration = $pdo->prepare("SELECT migration_key FROM marketplace_schema_migrations WHERE migration_key=? LIMIT 1");
+$inventoryBackfillMigration->execute(['inventory_records_for_existing_products_v1']);
+if (!$inventoryBackfillMigration->fetchColumn()) {
+    // Seed one incomplete inventory record for every product that predates this workflow.
+    // The migration marker prevents deleted inventory records from being recreated on later requests.
+    $pdo->exec("INSERT INTO marketplace_inventory(product_id,sku,stock_on_hand,sold,tax_rate,unit_price,retail_price,selling_price,status) SELECT p.id,CONCAT('INV-PROD-',p.id),0,0,0,0,0,0,'Low Stock' FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id WHERE i.id IS NULL");
+    $markInventoryBackfill = $pdo->prepare("INSERT INTO marketplace_schema_migrations(migration_key) VALUES(?)");
+    $markInventoryBackfill->execute(['inventory_records_for_existing_products_v1']);
+}
 $taxFormatMigration = $pdo->prepare("SELECT migration_key FROM marketplace_schema_migrations WHERE migration_key=? LIMIT 1");
 $taxFormatMigration->execute(['inventory_tax_rates_to_decimal_fractions_v1']);
 if (!$taxFormatMigration->fetchColumn()) {
@@ -595,9 +604,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 try {
                     $insert = $pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,NULL)');
                     $photoUpdate = $pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?');
+                    $insertInventoryPlaceholder = $pdo->prepare("INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,unit_price,retail_price,selling_price,status) VALUES(?,?,NULL,NULL,0,0,0,0,0,0,'Low Stock')");
                     foreach ($rows as $index => $row) {
                         $insert->execute([$row[8] ?: null,$row[9] ?: null,$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null]);
                         $newProductId = (int)$pdo->lastInsertId();
+                        // Create an inventory row immediately, even while its stock and pricing details are incomplete.
+                        $insertInventoryPlaceholder->execute([$newProductId, 'INV-PROD-' . $newProductId]);
                         $uploadIndex = (int)($row[10] ?? $index);
                         $uploadError = (int)($productPhotoUploads['error'][$uploadIndex] ?? UPLOAD_ERR_NO_FILE);
                         if ($uploadError !== UPLOAD_ERR_NO_FILE) {
@@ -1231,14 +1243,14 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   const boxes=()=>Array.from(table.querySelectorAll('.marketplace-inventory-select'));
   const selected=()=>boxes().filter(box=>box.checked);
   const escapeText=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-  const sync=()=>{const chosen=selected(),disabled=chosen.length===0;if(deleteButton){deleteButton.disabled=disabled;deleteButton.setAttribute('aria-disabled',String(disabled));}if(selectAll){const filtered=rows.filter(row=>!row.hidden).map(row=>row.querySelector('.marketplace-inventory-select')).filter(Boolean),checked=filtered.filter(box=>box.checked).length;selectAll.checked=filtered.length>0&&checked===filtered.length;selectAll.indeterminate=checked>0&&checked<filtered.length;selectAll.disabled=filtered.length===0;}boxes().forEach(box=>box.closest('tr')?.classList.toggle('is-selected',box.checked));};
+  const sync=()=>{const chosen=selected(),disabled=chosen.length===0;if(deleteButton){deleteButton.disabled=disabled;deleteButton.setAttribute('aria-disabled',String(disabled));}if(selectAll){const allBoxes=rows.map(row=>row.querySelector('.marketplace-inventory-select')).filter(Boolean),checked=allBoxes.filter(box=>box.checked).length;selectAll.checked=allBoxes.length>0&&checked===allBoxes.length;selectAll.indeterminate=checked>0&&checked<allBoxes.length;selectAll.disabled=allBoxes.length===0;}boxes().forEach(box=>box.closest('tr')?.classList.toggle('is-selected',box.checked));};
   const close=()=>{if(modal)modal.hidden=true;};
   const prepare=()=>{const chosen=selected().map(box=>box.closest('tr')).filter(Boolean);if(!chosen.length)return;const count=chosen.length;if(copy)copy.innerHTML='<p>Are you sure you want to delete the selected inventory record'+(count===1?'?':'s?')+' This will permanently remove the selected inventory data. The associated product records will remain in the Products page.</p>';if(list){list.classList.toggle('is-single-product',count===1);list.classList.toggle('is-multiple-products',count>1);list.innerHTML=count===1?'<div class="marketplace-product-delete-detail"><span>Product Name:</span> <strong class="marketplace-delete-name">'+escapeText(chosen[0].dataset.inventoryName)+'</strong></div><div class="marketplace-product-delete-detail"><span>Product ID:</span> <strong class="marketplace-delete-code">'+escapeText(chosen[0].dataset.inventoryCode)+'</strong></div>':'<div class="marketplace-product-delete-table-wrap"><table class="marketplace-product-delete-table"><thead><tr><th scope="col" aria-label="Row number"></th><th scope="col">Product ID</th><th scope="col">Product Name</th></tr></thead><tbody>'+chosen.map((row,index)=>'<tr><td class="marketplace-delete-row-number">'+(index+1)+'.</td><td class="marketplace-delete-product-id-cell"><strong class="marketplace-delete-code">'+escapeText(row.dataset.inventoryCode)+'</strong></td><td class="marketplace-delete-product-name-cell"><strong class="marketplace-delete-name">'+escapeText(row.dataset.inventoryName)+'</strong></td></tr>').join('')+'</tbody></table></div>';}if(modal)modal.hidden=false;};
   deleteButton?.addEventListener('click',event=>{event.preventDefault();prepare();});
   cancelButton?.addEventListener('click',close);
   confirmButton?.addEventListener('click',()=>{if(!selected().length){close();sync();return;}confirmed=true;close();bulkForm?.requestSubmit();});
   bulkForm?.addEventListener('submit',event=>{if(!confirmed){event.preventDefault();prepare();return;}confirmed=false;selected().forEach(box=>{const input=document.createElement('input');input.type='hidden';input.name='selected_inventory[]';input.value=box.value;bulkForm.append(input);});});
-  selectAll?.addEventListener('change',()=>{rows.filter(row=>!row.hidden).forEach(row=>{const box=row.querySelector('.marketplace-inventory-select');if(box)box.checked=selectAll.checked;});sync();});
+  selectAll?.addEventListener('change',()=>{rows.forEach(row=>{const box=row.querySelector('.marketplace-inventory-select');if(box)box.checked=selectAll.checked;});sync();});
   table.addEventListener('change',event=>{if(event.target instanceof HTMLInputElement&&event.target.matches('.marketplace-inventory-select'))sync();});
   document.getElementById('marketplace-inventory-filter')?.addEventListener('input',sync);
   document.getElementById('marketplace-inventory-delete-success-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=inventory';});
