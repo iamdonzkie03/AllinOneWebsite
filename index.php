@@ -319,11 +319,11 @@ if ($moduleSlug === 'marketplace') {
     if (!$marketplaceCategoryIconColumn->fetch(PDO::FETCH_ASSOC)) {
         $pdo->exec("ALTER TABLE marketplace_categories ADD COLUMN icon VARCHAR(120) NOT NULL DEFAULT 'tabler:category' AFTER parent_id");
     }
-    $marketplaceProducts = $pdo->query("SELECT p.id,p.category_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $marketplaceProducts = $pdo->query("SELECT p.id,p.category_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name,i.stock_on_hand,i.sold,i.status AS inventory_status,GREATEST(COALESCE(i.stock_on_hand,0)-COALESCE(i.sold,0),0) AS remaining_stock FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
     $marketplaceCategoryGroups = $pdo->query("SELECT c.id,c.name,c.icon,COUNT(DISTINCT p.id) AS product_count FROM marketplace_categories c LEFT JOIN marketplace_products p ON (p.category_id=c.id OR p.subcategory_id=c.id) WHERE c.parent_id IS NULL GROUP BY c.id,c.name,c.icon HAVING COUNT(DISTINCT p.id)>0 ORDER BY c.name")->fetchAll(PDO::FETCH_ASSOC);
     $requestedMarketplaceProductId = max(0, (int)($_GET['product_id'] ?? 0));
     if ($requestedMarketplaceProductId > 0 && $isPublicUserSignedIn) {
-        $marketplaceProductStmt = $pdo->prepare("SELECT p.id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id WHERE p.id=? LIMIT 1");
+        $marketplaceProductStmt = $pdo->prepare("SELECT p.id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name,i.stock_on_hand,i.sold,i.status AS inventory_status,GREATEST(COALESCE(i.stock_on_hand,0)-COALESCE(i.sold,0),0) AS remaining_stock FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id WHERE p.id=? LIMIT 1");
         $marketplaceProductStmt->execute([$requestedMarketplaceProductId]);
         $selectedMarketplaceProduct = $marketplaceProductStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
@@ -920,6 +920,11 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-product-description{color:#d2c3c8;line-height:1.8;white-space:pre-wrap}
 .zc-marketplace-product-detail dl{display:grid;grid-template-columns:130px 1fr;gap:9px 14px;font-size:12px}
 .zc-marketplace-product-detail dt{color:#d8b477;font-weight:700}.zc-marketplace-product-detail dd{margin:0;color:#f4e9ed}
+.zc-marketplace-detail-stock{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:18px 0;padding:13px 15px;border:1px solid rgba(216,180,119,.25);border-radius:10px;background:rgba(255,255,255,.045)}
+.zc-marketplace-detail-stock>div{display:flex;flex-direction:column;gap:4px}.zc-marketplace-stock-label{color:#cbb9bf;font-size:11px}.zc-marketplace-detail-stock strong{color:#fff4e8;font-size:20px;font-weight:800}
+.zc-marketplace-detail-status{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:800;white-space:nowrap;background:#9ca3af;color:#202124}
+.zc-marketplace-detail-status.status-available{background:#22c55e;color:#082b15}.zc-marketplace-detail-status.status-reserved{background:#fef08a;color:#574500}.zc-marketplace-detail-status.status-on-order{background:#bfdbfe;color:#12345b}.zc-marketplace-detail-status.status-low-stock{background:#f97316;color:#321600}.zc-marketplace-detail-status.status-on-hold{background:#9ca3af;color:#202124}.zc-marketplace-detail-status.status-quarantined{background:#a855f7;color:#fff}.zc-marketplace-detail-status.status-damaged-rejected{background:#111827;color:#fff}.zc-marketplace-detail-status.status-out-of-stock{background:#dc2626;color:#fff}.zc-marketplace-detail-status.status-dead-stock{background:#783f04;color:#fff}
+.zc-marketplace-detail-cart{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-top:14px}.zc-marketplace-detail-cart label{display:flex;flex-direction:column;gap:6px;color:#d8b477;font-size:11px;font-weight:700}.zc-marketplace-detail-cart input{width:100px;height:42px;padding:0 10px;border:1px solid rgba(226,174,111,.35);border-radius:8px;background:#171116;color:#fff4e8;font:13px Arial,sans-serif}.zc-marketplace-detail-cart .zc-marketplace-add-cart{flex:1;min-width:160px;height:42px}.zc-marketplace-detail-cart .zc-marketplace-add-cart:disabled{opacity:.5;cursor:not-allowed}
 .zc-marketplace-signin-note{margin:0 0 20px;padding:15px 18px;border:1px solid rgba(216,180,119,.3);border-radius:10px;background:rgba(216,180,119,.07);color:#f4e9df;font-size:13px}
 @media(max-width:1100px){.zc-marketplace-products{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:760px){.zc-marketplace-products{grid-template-columns:repeat(3,minmax(0,1fr))}.zc-marketplace-product-detail{grid-template-columns:1fr}}
@@ -1012,7 +1017,14 @@ document.addEventListener('DOMContentLoaded',function(){
     cart=cart.filter(function(item){return String(item.id)!==String(id);});
    }else{
     const name=button.getAttribute('data-product-name')||'Marketplace product';const photo=button.getAttribute('data-product-photo')||'';
-    cart.push({id:id,name:name,photo:photo,quantity:1});
+    const detailQuantity=document.getElementById('zc-marketplace-detail-quantity');
+    const requestedQuantity=detailQuantity?Math.max(1,Math.floor(Number(detailQuantity.value)||1)):1;
+    const stockLimit=Number(button.getAttribute('data-stock-remaining'));
+    const quantity=Number.isFinite(stockLimit)?Math.min(requestedQuantity,Math.max(0,Math.floor(stockLimit))):requestedQuantity;
+    if(quantity<1){if(detailQuantity){detailQuantity.setCustomValidity('No remaining stock is available.');detailQuantity.reportValidity();}return;}
+    if(detailQuantity&&requestedQuantity>stockLimit){detailQuantity.setCustomValidity('Quantity cannot exceed remaining stocks.');detailQuantity.reportValidity();return;}
+    if(detailQuantity)detailQuantity.setCustomValidity('');
+    cart.push({id:id,name:name,photo:photo,quantity:quantity});
    }
    saveCart();renderCart();
   });
@@ -1077,12 +1089,18 @@ document.addEventListener('DOMContentLoaded',function(){
 
 <?php endif; ?>
 <?php if ($selectedMarketplaceProduct): ?>
-<div class="section-head"><div><p class="eyebrow">ZC MARKETPLACE · PRODUCT</p><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
+<div class="section-head"><div><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
 <div class="zc-marketplace-product-detail">
 <div><?php if (!empty($selectedMarketplaceProduct['photo_path'])): ?><img src="public/<?=e(ltrim((string)$selectedMarketplaceProduct['photo_path'],'/'))?>" alt="<?=e((string)$selectedMarketplaceProduct['product_name'])?>"><?php else: ?><div class="zc-marketplace-product-photo">◇</div><?php endif; ?></div>
 <div><span class="zc-marketplace-product-category"><?=e((string)($selectedMarketplaceProduct['category_name'] ?? 'Marketplace Product'))?><?=!empty($selectedMarketplaceProduct['subcategory_name'])?' · '.e((string)$selectedMarketplaceProduct['subcategory_name']):''?></span><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2>
 <dl><dt>Product ID</dt><dd><?=e((string)$selectedMarketplaceProduct['product_code'])?></dd><?php if(!empty($selectedMarketplaceProduct['brand'])): ?><dt>Brand</dt><dd><?=e((string)$selectedMarketplaceProduct['brand'])?></dd><?php endif; ?><?php if(!empty($selectedMarketplaceProduct['model'])): ?><dt>Model</dt><dd><?=e((string)$selectedMarketplaceProduct['model'])?></dd><?php endif; ?></dl>
 <?php if(trim((string)($selectedMarketplaceProduct['description']??''))!==''): ?><p class="zc-marketplace-product-description"><?=nl2br(e((string)$selectedMarketplaceProduct['description']))?></p><?php endif; ?>
+<?php $detailRemaining=max(0,(float)($selectedMarketplaceProduct['remaining_stock']??0));$detailStatus=trim((string)($selectedMarketplaceProduct['inventory_status']??''))?:'Out of Stock';$detailAvailable=$detailRemaining>0&&$detailStatus==='Available';$detailStatusClass='status-'.strtolower(preg_replace('/[^a-z0-9]+/','-', $detailStatus)); ?>
+<div class="zc-marketplace-detail-stock"><div><span class="zc-marketplace-stock-label">Total remaining stocks available</span><strong><?=e(number_format($detailRemaining,2,'.',','))?></strong></div><span class="zc-marketplace-detail-status <?=e($detailStatusClass)?>"><?=e($detailStatus)?></span></div>
+<div class="zc-marketplace-detail-cart" data-detail-cart>
+<label for="zc-marketplace-detail-quantity">Quantity to add</label><input id="zc-marketplace-detail-quantity" type="number" min="1" max="<?=e((string)$detailRemaining)?>" step="1" value="1" <?=!$detailAvailable?'disabled':''?>>
+<button type="button" class="zc-marketplace-add-cart" data-product-id="<?= (int)$selectedMarketplaceProduct['id'] ?>" data-product-name="<?=e((string)$selectedMarketplaceProduct['product_name'])?>" data-product-photo="<?=!empty($selectedMarketplaceProduct['photo_path'])?'public/'.e(ltrim((string)$selectedMarketplaceProduct['photo_path'],'/')):''?>" data-stock-remaining="<?=e((string)$detailRemaining)?>" <?=!$detailAvailable?'disabled':''?>>Add to Cart</button>
+</div>
 </div></div>
 <?php else: ?>
 <?php if ($marketplaceProducts): ?>
