@@ -1005,20 +1005,6 @@ document.addEventListener('DOMContentLoaded',function(){
 </div></div>
 <?php else: ?>
 <?php if ($marketplaceProducts): ?>
-<div class="zc-marketplace-category-panel" aria-label="Product categories">
- <div class="zc-marketplace-category-panel-head"><div><h2>Categories</h2><p>Browse the marketplace by category</p></div><button class="zc-marketplace-category-all is-active" type="button" data-marketplace-filter="all" aria-pressed="true">All Products</button></div>
- <div class="zc-marketplace-category-carousel">
-  <button class="zc-marketplace-category-arrow prev" type="button" aria-label="Scroll categories left" hidden>‹</button>
-  <div class="zc-marketplace-category-grid">
-  <?php foreach($marketplaceCategoryGroups as $marketplaceCategory): ?>
-  <?php $categoryIcon=(string)($marketplaceCategory['icon']??'tabler:category'); if(!preg_match('/^tabler:[a-z0-9-]{1,80}$/',$categoryIcon))$categoryIcon='tabler:category'; ?>
-  <button class="zc-marketplace-category-tile" type="button" data-marketplace-filter="<?=e((string)$marketplaceCategory['id'])?>" aria-pressed="false"><span class="zc-marketplace-category-icon"><iconify-icon icon="<?=e($categoryIcon)?>"></iconify-icon></span><span class="zc-marketplace-category-label"><strong><?=e((string)$marketplaceCategory['name'])?></strong><small><?=number_format((int)$marketplaceCategory['product_count'])?> <?=((int)$marketplaceCategory['product_count']===1?'item':'items')?></small></span></button>
-  <?php endforeach; ?>
-  </div>
-  <button class="zc-marketplace-category-arrow next" type="button" aria-label="Scroll categories right">›</button>
- </div>
-</div>
-<?php endif; ?>
 <div class="zc-marketplace-tools" aria-label="Search products and shopping cart">
  <label class="zc-marketplace-search">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
@@ -1035,6 +1021,21 @@ document.addEventListener('DOMContentLoaded',function(){
   </div>
  </div>
 </div>
+<div class="zc-marketplace-category-panel" aria-label="Product categories">
+ <div class="zc-marketplace-category-panel-head"><div><h2>Categories</h2><p>Browse the marketplace by category</p></div><button class="zc-marketplace-category-all is-active" type="button" data-marketplace-filter="all" aria-pressed="true">All Products</button></div>
+ <div class="zc-marketplace-category-carousel">
+  <button class="zc-marketplace-category-arrow prev" type="button" aria-label="Scroll categories left" hidden>‹</button>
+  <div class="zc-marketplace-category-grid">
+  <?php foreach($marketplaceCategoryGroups as $marketplaceCategory): ?>
+  <?php $categoryIcon=(string)($marketplaceCategory['icon']??'tabler:category'); if(!preg_match('/^tabler:[a-z0-9-]{1,80}$/',$categoryIcon))$categoryIcon='tabler:category'; ?>
+  <button class="zc-marketplace-category-tile" type="button" data-marketplace-filter="<?=e((string)$marketplaceCategory['id'])?>" aria-pressed="false"><span class="zc-marketplace-category-icon"><iconify-icon icon="<?=e($categoryIcon)?>"></iconify-icon></span><span class="zc-marketplace-category-label"><strong><?=e((string)$marketplaceCategory['name'])?></strong><small><?=number_format((int)$marketplaceCategory['product_count'])?> <?=((int)$marketplaceCategory['product_count']===1?'item':'items')?></small></span></button>
+  <?php endforeach; ?>
+  </div>
+  <button class="zc-marketplace-category-arrow next" type="button" aria-label="Scroll categories right">›</button>
+ </div>
+</div>
+<?php endif; ?>
+
 <?php if (!$marketplaceProducts): ?><div class="panel empty-state"><span class="empty-mark">◇</span><h3>No products available yet.</h3><p class="muted">Products added through the Products tab will appear here automatically.</p></div>
 <?php else: ?><div class="zc-marketplace-products">
 <?php foreach($marketplaceProducts as $marketplaceProduct): $marketplaceProductHref=$isPublicUserSignedIn?'index.php?session_context=creator&amp;module=marketplace&amp;product_id='.(int)$marketplaceProduct['id']:'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id'].'#sign-in-modal'; ?>
