@@ -315,6 +315,10 @@ $marketplaceProducts = [];
 $marketplaceCategoryGroups = [];
 $selectedMarketplaceProduct = null;
 if ($moduleSlug === 'marketplace') {
+    $marketplaceCategoryIconColumn = $pdo->query("SHOW COLUMNS FROM marketplace_categories LIKE 'icon'");
+    if (!$marketplaceCategoryIconColumn->fetch(PDO::FETCH_ASSOC)) {
+        $pdo->exec("ALTER TABLE marketplace_categories ADD COLUMN icon VARCHAR(120) NOT NULL DEFAULT 'tabler:category' AFTER parent_id");
+    }
     $marketplaceProducts = $pdo->query("SELECT p.id,p.category_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
     $marketplaceCategoryGroups = $pdo->query("SELECT c.id,c.name,c.icon,COUNT(DISTINCT p.id) AS product_count FROM marketplace_categories c LEFT JOIN marketplace_products p ON (p.category_id=c.id OR p.subcategory_id=c.id) WHERE c.parent_id IS NULL GROUP BY c.id,c.name,c.icon HAVING COUNT(DISTINCT p.id)>0 ORDER BY c.name")->fetchAll(PDO::FETCH_ASSOC);
     $requestedMarketplaceProductId = max(0, (int)($_GET['product_id'] ?? 0));
