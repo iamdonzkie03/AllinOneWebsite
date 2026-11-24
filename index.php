@@ -759,6 +759,11 @@ $publicForumAttachmentUrl = static function(string $path): string {
 .zc-marketplace-copy h2{margin:0 0 12px;color:#fff;font:700 clamp(28px,3.2vw,40px)/1.15 Georgia,serif;letter-spacing:-.6px}
 .zc-marketplace-copy h2 span{color:#e05260}
 .zc-marketplace-copy p{width:100%;max-width:none;margin:0;color:#d3c2c8;font-size:14px;line-height:1.8}
+/* Keep homepage Marketplace typography identical for guest and signed-in sessions. */
+.zc-marketplace-copy .zc-marketplace-eyebrow{font-family:inherit!important;font-size:10px!important;font-weight:800!important;line-height:1.5!important;letter-spacing:2px!important;color:#d79aa5!important;text-transform:uppercase!important}
+.zc-marketplace-copy h2{font-family:Georgia,serif!important;font-size:clamp(28px,3.2vw,40px)!important;font-weight:700!important;line-height:1.15!important;letter-spacing:-.6px!important;color:#fff!important}
+.zc-marketplace-copy h2 span{color:#e05260!important}
+.zc-marketplace-copy > p:last-child{font-family:inherit!important;font-size:14px!important;font-weight:400!important;line-height:1.8!important;letter-spacing:normal!important;color:#d3c2c8!important}
 .zc-marketplace-action{display:inline-flex;align-items:center;justify-content:center;gap:12px;flex:0 0 auto;min-height:48px;padding:0 22px;border:1px solid #d6a36b;border-radius:5px;background:linear-gradient(135deg,#9f263d,#68182d);color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:.45px;box-shadow:0 9px 25px rgba(0,0,0,.22);transition:transform .2s,border-color .2s,background .2s}
 .zc-marketplace-action{align-self:flex-start}
 .zc-marketplace-action:hover{transform:translateY(-2px);border-color:#f0c994;background:linear-gradient(135deg,#b8324b,#7b1e36);color:#fff}
