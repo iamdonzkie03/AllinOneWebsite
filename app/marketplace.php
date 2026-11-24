@@ -96,6 +96,15 @@ foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
 $pdo->exec("UPDATE marketplace_inventory SET batch_number=sku WHERE batch_number IS NULL OR batch_number=''");
 // Convert all pre-existing percentage-point tax values to decimal fractions exactly once.
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_schema_migrations (migration_key VARCHAR(120) NOT NULL PRIMARY KEY, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$inventoryBackfillMigration = $pdo->prepare("SELECT migration_key FROM marketplace_schema_migrations WHERE migration_key=? LIMIT 1");
+$inventoryBackfillMigration->execute(['inventory_records_for_existing_products_v1']);
+if (!$inventoryBackfillMigration->fetchColumn()) {
+    // Seed one incomplete inventory record for every product that predates this workflow.
+    // The migration marker prevents deleted inventory records from being recreated on later requests.
+    $pdo->exec("INSERT INTO marketplace_inventory(product_id,sku,stock_on_hand,sold,tax_rate,unit_price,retail_price,selling_price,status) SELECT p.id,CONCAT('INV-PROD-',p.id),0,0,0,0,0,0,'Low Stock' FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id WHERE i.id IS NULL");
+    $markInventoryBackfill = $pdo->prepare("INSERT INTO marketplace_schema_migrations(migration_key) VALUES(?)");
+    $markInventoryBackfill->execute(['inventory_records_for_existing_products_v1']);
+}
 $taxFormatMigration = $pdo->prepare("SELECT migration_key FROM marketplace_schema_migrations WHERE migration_key=? LIMIT 1");
 $taxFormatMigration->execute(['inventory_tax_rates_to_decimal_fractions_v1']);
 if (!$taxFormatMigration->fetchColumn()) {
@@ -1189,7 +1198,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  <div class="table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-inventory-select-all" aria-label="Select all inventory records"></th><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer's Name</th><th>Supply Chain Type</th><th>Quantity in Stock</th><th>All Taxes</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-inventory-tbody">
  <?php foreach($marketplaceInventory as $item): ?>
  <tr data-inventory-id="<?=!empty($item['id'])?(int)$item['id']:''?>" data-inventory-name="<?=e((string)$item['product_name'])?>" data-inventory-code="<?=e((string)($item['product_code']??''))?>">
-  <td class="marketplace-product-select-cell"><input type="checkbox" class="marketplace-inventory-select" name="selected_inventory[]" value="<?=(int)($item['id']??0)?>" aria-label="Select <?=e((string)$item['product_name'])?> inventory record"></td>
+  <td class="marketplace-product-select-cell"><?php if(!empty($item['id'])): ?><input type="checkbox" class="marketplace-inventory-select" name="selected_inventory[]" value="<?=(int)$item['id']?>" aria-label="Select <?=e((string)$item['product_name'])?> inventory record"><?php endif; ?></td>
   <td><?php if($item['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$item['photo_path'])?>" alt="<?=e($item['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td>
   <td class="marketplace-inventory-product"><strong><?=e($item['product_name'])?></strong><small>Product ID: <?=e((string)($item['product_code']??''))?></small><small>Category: <?=e((string)($item['category_name']??''))?></small><small>Subcategory: <?=e((string)($item['subcategory_name']??''))?></small><small>Brand: <?=e((string)($item['brand']??''))?></small><small>Model: <?=e((string)($item['model']??''))?></small><small>Description: <?=e((string)($item['description']??''))?></small></td>
   <td><?=e((string)($item['batch_number']??$item['sku']??'—'))?></td>
