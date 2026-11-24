@@ -150,6 +150,7 @@ $marketplaceCreatedCategoryName = null;
 $marketplaceCreatedProducts = null;
 $marketplaceDuplicateProduct = null;
 $marketplaceProductEditSuccess = null;
+$marketplaceInventoryUpdateSuccess = null;
 $marketplaceProductInputRows = [];
 $marketplaceDuplicateCategoryName = null;
 $marketplaceCategoryUpdateResult = null;
@@ -630,9 +631,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $sellingPrice = round($retailPrice * (1 + $tax), 2);
             $unitPrice = $sellingPrice;
             $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
-            $productCheck = $pdo->prepare('SELECT id FROM marketplace_products WHERE id=? LIMIT 1');
+            $productCheck = $pdo->prepare('SELECT id,product_name,product_code FROM marketplace_products WHERE id=? LIMIT 1');
             $productCheck->execute([$productId]);
-            if (!$productCheck->fetchColumn()) throw new RuntimeException('Select a valid product before saving inventory.');
+            $selectedInventoryProduct = $productCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$selectedInventoryProduct) throw new RuntimeException('Select a valid product before saving inventory.');
             if ($batchNumber === '') throw new RuntimeException('Please enter a Batch Number.');
             if (!in_array($status, $marketplaceInventoryStatuses, true)) throw new RuntimeException('Choose a valid inventory status.');
             if ($sold > $stock) throw new RuntimeException('Sold quantity cannot exceed Stock on Hand.');
@@ -648,7 +650,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             if ($inventoryId > 0) {
                 $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=? WHERE id=?');
                 $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$inventoryId]);
-                $marketplaceNotice = 'Inventory record successfully updated.';
+                $marketplaceNotice = '';
+                $marketplaceInventoryUpdateSuccess = [
+                    'product_name' => (string)$selectedInventoryProduct['product_name'],
+                    'product_id' => (string)($selectedInventoryProduct['product_code'] ?? '')
+                ];
             } else {
                 $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
                 $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status]);
@@ -801,6 +807,7 @@ $numberToWords = static function(int $number): string {
 /* Keep Edit Inventory visually consistent with the Add Inventory modal. */
 #marketplace-inventory-edit-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;box-sizing:border-box}
 #marketplace-inventory-edit-modal .marketplace-form{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+#marketplace-inventory-edit-modal .marketplace-form input[readonly]{background:#29252a!important;color:#999!important;cursor:not-allowed}
 #marketplace-inventory-edit-modal .marketplace-form>label{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:6px!important;text-align:left!important;min-width:0}
 #marketplace-inventory-edit-modal .marketplace-form>label>input,#marketplace-inventory-edit-modal .marketplace-form>label>select,#marketplace-inventory-edit-modal .marketplace-form>label>textarea{display:block;width:100%;box-sizing:border-box;margin:0}
 #marketplace-inventory-edit-modal .marketplace-form>label:nth-of-type(1){grid-column:1/4}
@@ -1078,7 +1085,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  document.getElementById('marketplace-product-add-cancel')?.addEventListener('click',close);
  rows?.querySelectorAll('.marketplace-product-entry-row').forEach(bindRemove);
  add?.addEventListener('click',()=>{const clone=rows.querySelector('.marketplace-product-entry-row').cloneNode(true);clone.querySelectorAll('input,textarea').forEach(field=>{field.value='';});clone.querySelectorAll('select').forEach(field=>{field.selectedIndex=0;});rows.append(clone);bindRemove(clone);clone.querySelector('input')?.focus();});
- document.getElementById('marketplace-product-created-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});document.getElementById('marketplace-product-edit-success-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});
+ document.getElementById('marketplace-product-created-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});document.getElementById('marketplace-product-edit-success-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});document.getElementById('marketplace-inventory-update-success-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=inventory';});
  const productEditModal=document.getElementById('marketplace-product-edit-modal');const productEditFields={id:document.getElementById('marketplace-product-edit-id'),name:document.getElementById('marketplace-product-edit-name'),code:document.getElementById('marketplace-product-edit-code'),brand:document.getElementById('marketplace-product-edit-brand'),model:document.getElementById('marketplace-product-edit-model'),description:document.getElementById('marketplace-product-edit-description'),photo:document.getElementById('marketplace-product-edit-current-photo'),photoInput:document.getElementById('marketplace-product-edit-photo-input'),photoPreview:document.getElementById('marketplace-product-edit-photo-preview'),photoEmpty:document.getElementById('marketplace-product-edit-photo-empty'),currentPreview:document.getElementById('marketplace-product-edit-current-preview'),currentEmpty:document.getElementById('marketplace-product-edit-current-empty'),category:document.getElementById('marketplace-product-edit-category'),subcategory:document.getElementById('marketplace-product-edit-subcategory')};document.querySelectorAll('.marketplace-product-edit-open').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();const d=link.dataset;productEditFields.id.value=d.productId||'';productEditFields.name.value=d.productName||'';productEditFields.code.value=link.closest('tr')?.querySelector('td:nth-child(3) strong')?.textContent?.trim()||'';productEditFields.brand.value=d.productBrand||'';productEditFields.model.value=d.productModel||'';productEditFields.description.value=d.productDescription||'';productEditFields.photo.textContent=d.productPhoto?'Current photo: '+d.productPhoto.split('/').pop():'No photo currently uploaded.';productEditFields.photoInput.value='';if(d.productPhoto){productEditFields.currentPreview.src=d.productPhoto;productEditFields.currentPreview.hidden=false;productEditFields.currentEmpty.hidden=true;}else{productEditFields.currentPreview.removeAttribute('src');productEditFields.currentPreview.hidden=true;productEditFields.currentEmpty.hidden=false;}productEditFields.photoPreview.removeAttribute('src');productEditFields.photoPreview.hidden=true;productEditFields.photoEmpty.hidden=false;productEditFields.category.value=link.dataset.productCategoryId||'';productEditFields.subcategory.value=link.dataset.productSubcategoryId||'';const syncEditSubcategory=()=>{const parentId=productEditFields.category.value;let count=0;Array.from(productEditFields.subcategory.options).forEach(option=>{if(!option.value){option.hidden=false;return;}const match=option.dataset.parentId===parentId;option.hidden=!match;if(match)count++;});productEditFields.subcategory.disabled=!parentId||count===0;if(!parentId||count===0){productEditFields.subcategory.value='';productEditFields.subcategory.options[0].textContent=parentId?'No subcategories available':'Select category first';}else{productEditFields.subcategory.options[0].textContent='Select subcategory';if(productEditFields.subcategory.selectedOptions[0]?.dataset.parentId!==parentId)productEditFields.subcategory.value='';}};syncEditSubcategory();productEditFields.category.onchange=syncEditSubcategory;productEditModal.hidden=false;productEditFields.name.focus();}));document.getElementById('marketplace-product-edit-cancel')?.addEventListener('click',()=>{if(productEditModal)productEditModal.hidden=true;});productEditFields.photoInput?.addEventListener('change',()=>{const file=productEditFields.photoInput.files?.[0];if(!file)return;const previewUrl=URL.createObjectURL(file);productEditFields.photoPreview.src=previewUrl;productEditFields.photoPreview.hidden=false;productEditFields.photoEmpty.hidden=true;});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&productEditModal&&!productEditModal.hidden)productEditModal.hidden=true;});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
  // Products filter and pagination: same client-side behavior as Registered User Accounts.
@@ -1210,7 +1217,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   <h2 id="marketplace-inventory-edit-title">Edit Inventory</h2>
   <form class="marketplace-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory">
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_inventory"><input type="hidden" name="inventory_id" value="<?=(int)$marketplaceInventoryForm['id']?>">
-   <label>Product *<select name="inventory_product_id" required><?php foreach($marketplaceProducts as $product): ?><option value="<?=(int)$product['id']?>" <?=((int)$marketplaceInventoryForm['product_id']===(int)$product['id'])?'selected':''?>><?=e($product['product_name'])?></option><?php endforeach; ?></select></label>
+   <label>Product Name *<input type="text" value="<?=e((string)($marketplaceInventoryForm['product_name'] ?? ''))?>" readonly aria-readonly="true"><input type="hidden" name="inventory_product_id" value="<?=(int)$marketplaceInventoryForm['product_id']?>"></label>
    <label>Batch Number *<input name="batch_number" required maxlength="100" value="<?=e((string)($marketplaceInventoryForm['batch_number']??$marketplaceInventoryForm['sku']))?>"></label>
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
@@ -1224,11 +1231,12 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="<?=e(number_format((float)($marketplaceInventoryForm['selling_price']??$marketplaceInventoryForm['unit_price']), 2, '.', ','))?>" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=((string)($marketplaceInventoryForm['status']??'Low Stock')===$statusOption)?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
    <input type="hidden" name="sold" value="<?=e((string)$marketplaceInventoryForm['sold'])?>">
-   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save Changes</button></div>
+   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Update Inventory</button></div>
   </form>
  </div>
 </div>
 <?php endif; ?>
+<?php if($marketplaceInventoryUpdateSuccess !== null): ?><div class="marketplace-category-delete-success-overlay" id="marketplace-inventory-update-success-modal"><section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-inventory-update-success-title"><div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div><h2 id="marketplace-inventory-update-success-title">Update Inventory Successful</h2><p>Inventory records of <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceInventoryUpdateSuccess['product_name'])?></strong> with product ID <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceInventoryUpdateSuccess['product_id'])?></strong> has been successfully updated.</p><button class="marketplace-category-delete-success-ok" type="button" id="marketplace-inventory-update-success-close">OK</button></section></div><?php endif; ?>
 <script>
 (function(){
  const taxFields=['vat_rate','percentage_tax_rate','income_tax_rate','withholding_tax_rate','other_tax_rate'];
