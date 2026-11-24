@@ -946,7 +946,12 @@ document.addEventListener('DOMContentLoaded',function(){
   });
   if(noResults)noResults.hidden=!cards.length||visible>0;
  }
- if(search)search.addEventListener('input',applyProductFilters);
+ const searchStorageKey='zcMarketplaceLiveSearch';
+  if(search){try{const savedSearch=sessionStorage.getItem(searchStorageKey);if(savedSearch!==null)search.value=savedSearch;}catch(error){}
+   search.addEventListener('input',function(){try{sessionStorage.setItem(searchStorageKey,search.value);}catch(error){}applyProductFilters();});
+   search.addEventListener('keydown',function(event){if(event.key==='Enter'&&!cards.length){event.preventDefault();const target=new URL('index.php',window.location.href);target.searchParams.set('session_context','creator');target.searchParams.set('module','marketplace');if(search.value.trim())target.searchParams.set('search',search.value.trim());window.location.href=target.toString();}});
+   const requestedSearch=new URLSearchParams(window.location.search).get('search');if(requestedSearch!==null){search.value=requestedSearch;try{sessionStorage.setItem(searchStorageKey,search.value);}catch(error){}}
+  }
  function saveCart(){try{localStorage.setItem('zcMarketplaceCart',JSON.stringify(cart));}catch(error){}}
  function updateAddCartButtons(){
   document.querySelectorAll('.zc-marketplace-add-cart').forEach(function(button){
@@ -1014,16 +1019,6 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 </script>
 <section class="section zc-marketplace-product-section"><div class="wrap">
-<?php if ($selectedMarketplaceProduct): ?>
-<div class="section-head"><div><p class="eyebrow">ZC MARKETPLACE · PRODUCT</p><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
-<div class="zc-marketplace-product-detail">
-<div><?php if (!empty($selectedMarketplaceProduct['photo_path'])): ?><img src="public/<?=e(ltrim((string)$selectedMarketplaceProduct['photo_path'],'/'))?>" alt="<?=e((string)$selectedMarketplaceProduct['product_name'])?>"><?php else: ?><div class="zc-marketplace-product-photo">◇</div><?php endif; ?></div>
-<div><span class="zc-marketplace-product-category"><?=e((string)($selectedMarketplaceProduct['category_name'] ?? 'Marketplace Product'))?><?=!empty($selectedMarketplaceProduct['subcategory_name'])?' · '.e((string)$selectedMarketplaceProduct['subcategory_name']):''?></span><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2>
-<dl><dt>Product ID</dt><dd><?=e((string)$selectedMarketplaceProduct['product_code'])?></dd><?php if(!empty($selectedMarketplaceProduct['brand'])): ?><dt>Brand</dt><dd><?=e((string)$selectedMarketplaceProduct['brand'])?></dd><?php endif; ?><?php if(!empty($selectedMarketplaceProduct['model'])): ?><dt>Model</dt><dd><?=e((string)$selectedMarketplaceProduct['model'])?></dd><?php endif; ?></dl>
-<?php if(trim((string)($selectedMarketplaceProduct['description']??''))!==''): ?><p class="zc-marketplace-product-description"><?=nl2br(e((string)$selectedMarketplaceProduct['description']))?></p><?php endif; ?>
-</div></div>
-<?php else: ?>
-<?php if ($marketplaceProducts): ?>
 <div class="zc-marketplace-tools" aria-label="Search products and shopping cart">
  <label class="zc-marketplace-search">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
@@ -1053,6 +1048,17 @@ document.addEventListener('DOMContentLoaded',function(){
   <button class="zc-marketplace-category-arrow next" type="button" aria-label="Scroll categories right">›</button>
  </div>
 </div>
+<?php if ($selectedMarketplaceProduct): ?>
+<div class="section-head"><div><p class="eyebrow">ZC MARKETPLACE · PRODUCT</p><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
+<div class="zc-marketplace-product-detail">
+<div><?php if (!empty($selectedMarketplaceProduct['photo_path'])): ?><img src="public/<?=e(ltrim((string)$selectedMarketplaceProduct['photo_path'],'/'))?>" alt="<?=e((string)$selectedMarketplaceProduct['product_name'])?>"><?php else: ?><div class="zc-marketplace-product-photo">◇</div><?php endif; ?></div>
+<div><span class="zc-marketplace-product-category"><?=e((string)($selectedMarketplaceProduct['category_name'] ?? 'Marketplace Product'))?><?=!empty($selectedMarketplaceProduct['subcategory_name'])?' · '.e((string)$selectedMarketplaceProduct['subcategory_name']):''?></span><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2>
+<dl><dt>Product ID</dt><dd><?=e((string)$selectedMarketplaceProduct['product_code'])?></dd><?php if(!empty($selectedMarketplaceProduct['brand'])): ?><dt>Brand</dt><dd><?=e((string)$selectedMarketplaceProduct['brand'])?></dd><?php endif; ?><?php if(!empty($selectedMarketplaceProduct['model'])): ?><dt>Model</dt><dd><?=e((string)$selectedMarketplaceProduct['model'])?></dd><?php endif; ?></dl>
+<?php if(trim((string)($selectedMarketplaceProduct['description']??''))!==''): ?><p class="zc-marketplace-product-description"><?=nl2br(e((string)$selectedMarketplaceProduct['description']))?></p><?php endif; ?>
+</div></div>
+<?php else: ?>
+<?php if ($marketplaceProducts): ?>
+
 <?php endif; ?>
 
 <?php if (!$marketplaceProducts): ?><div class="panel empty-state"><span class="empty-mark">◇</span><h3>No products available yet.</h3><p class="muted">Products added through the Products tab will appear here automatically.</p></div>
