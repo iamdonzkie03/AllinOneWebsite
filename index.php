@@ -887,6 +887,9 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-product-card-link{display:flex;flex-direction:column;min-width:0;flex:1;color:inherit;text-decoration:none}
 .zc-marketplace-add-cart{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;margin:0 10px 10px;padding:8px 10px;border:1px solid rgba(226,174,111,.42);border-radius:8px;background:linear-gradient(135deg,rgba(146,48,66,.55),rgba(89,35,49,.65));color:#ffedcf;font:700 10px Arial,sans-serif;letter-spacing:.35px;cursor:pointer;transition:background .16s,border-color .16s}
 .zc-marketplace-add-cart:hover{border-color:#e5bd7e;background:linear-gradient(135deg,#873044,#57202e)}
+.zc-marketplace-add-cart.is-added{border-color:rgba(134,239,172,.78);background:linear-gradient(135deg,#166534,#14532d);color:#f0fdf4;box-shadow:0 4px 12px rgba(22,101,52,.22)}
+.zc-marketplace-add-cart.is-added:hover{border-color:#bbf7d0;background:linear-gradient(135deg,#15803d,#166534)}
+.zc-marketplace-add-cart .zc-marketplace-added-check{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .zc-marketplace-no-results{grid-column:1/-1;padding:28px 16px;border:1px dashed rgba(226,174,111,.3);border-radius:12px;color:#d3c2c8;text-align:center;font-size:13px}
 @media(max-width:520px){.zc-marketplace-tools{gap:8px}.zc-marketplace-search input{height:44px}.zc-marketplace-cart-toggle{height:44px;padding:0 11px}.zc-marketplace-cart-dropdown{right:0}.zc-marketplace-add-cart{margin:0 7px 7px;min-height:34px}}
 .zc-marketplace-product-card[hidden]{display:none!important}
@@ -943,12 +946,20 @@ document.addEventListener('DOMContentLoaded',function(){
  }
  if(search)search.addEventListener('input',applyProductFilters);
  function saveCart(){try{localStorage.setItem('zcMarketplaceCart',JSON.stringify(cart));}catch(error){}}
+ function updateAddCartButtons(){
+  document.querySelectorAll('.zc-marketplace-add-cart').forEach(function(button){
+   const inCart=cart.some(function(item){return String(item.id)===String(button.getAttribute('data-product-id'));});
+   button.classList.toggle('is-added',inCart);
+   button.setAttribute('aria-pressed',inCart?'true':'false');
+   button.innerHTML=inCart?'<svg class="zc-marketplace-added-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3.2 3.2L13 4.5"></path></svg><span>Added to Cart</span>':'<span>Add to Cart</span>';
+  });
+ }
  function renderCart(){
   const total=cart.reduce(function(sum,item){return sum+(Number(item.quantity)||0);},0);
   if(cartCount)cartCount.textContent=String(total);
   if(!cartItems)return;
   cartItems.replaceChildren();
-  if(!cart.length){const empty=document.createElement('div');empty.className='zc-marketplace-cart-empty';empty.textContent='Your cart is empty.';cartItems.appendChild(empty);return;}
+  if(!cart.length){const empty=document.createElement('div');empty.className='zc-marketplace-cart-empty';empty.textContent='Your cart is empty.';cartItems.appendChild(empty);updateAddCartButtons();return;}
   cart.forEach(function(item){
    const row=document.createElement('div');row.className='zc-marketplace-cart-item';
    if(item.photo){const img=document.createElement('img');img.src=item.photo;img.alt='';row.appendChild(img);}
@@ -956,6 +967,7 @@ document.addEventListener('DOMContentLoaded',function(){
    const info=document.createElement('div');const name=document.createElement('div');name.className='zc-marketplace-cart-item-name';name.textContent=item.name;const qty=document.createElement('div');qty.className='zc-marketplace-cart-item-qty';qty.textContent='Quantity: '+item.quantity;info.append(name,qty);row.appendChild(info);
    const remove=document.createElement('button');remove.type='button';remove.className='zc-marketplace-cart-remove';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+item.name+' from cart');remove.addEventListener('click',function(){cart=cart.filter(function(entry){return String(entry.id)!==String(item.id);});saveCart();renderCart();});row.appendChild(remove);cartItems.appendChild(row);
   });
+  updateAddCartButtons();
  }
  renderCart();
  if(cartToggle&&cartDropdown){
@@ -969,7 +981,7 @@ document.addEventListener('DOMContentLoaded',function(){
    const id=button.getAttribute('data-product-id');const name=button.getAttribute('data-product-name')||'Marketplace product';const photo=button.getAttribute('data-product-photo')||'';
    const existing=cart.find(function(item){return String(item.id)===String(id);});
    if(existing)existing.quantity=(Number(existing.quantity)||1)+1;else cart.push({id:id,name:name,photo:photo,quantity:1});
-   saveCart();renderCart();button.textContent='Added to Cart ✓';window.setTimeout(function(){button.textContent='Add to Cart';},1200);
+   saveCart();renderCart();
   });
  });
  if(!panel){applyProductFilters();return;}
