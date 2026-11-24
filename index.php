@@ -1160,10 +1160,10 @@ document.addEventListener('DOMContentLoaded',function(){
 </div></footer>
 <script>
 (() => {
-  if (modal && window.location.hash === '#sign-in-modal') { modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
   const modal = document.getElementById('sign-in-modal');
   const openButton = document.getElementById('open-sign-in');
   const closeButton = document.getElementById('close-sign-in');
+  if (modal && window.location.hash === '#sign-in-modal') { modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
   const loginField = document.getElementById('signin-login');
   const loginLabel = document.getElementById('signin-login-label');
   const methodRadios = document.querySelectorAll('input[name="login_method"]');
