@@ -164,6 +164,7 @@ $marketplaceCreatedProducts = null;
 $marketplaceDuplicateProduct = null;
 $marketplaceProductEditSuccess = null;
 $marketplaceInventoryUpdateSuccess = null;
+$marketplaceInventoryCreateSuccess = null;
 $marketplaceProductInputRows = [];
 $marketplaceDuplicateCategoryName = null;
 $marketplaceCategoryUpdateResult = null;
@@ -687,7 +688,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             } else {
                 $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
                 $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status]);
-                $marketplaceNotice = 'Inventory record successfully created.';
+                $marketplaceNotice = '';
+                $marketplaceInventoryCreateSuccess = [
+                    'product_name' => (string)$selectedInventoryProduct['product_name'],
+                    'product_id' => (string)($selectedInventoryProduct['product_code'] ?? '')
+                ];
             }
             $marketplaceTab = 'inventory';
             $marketplaceEditInventoryId = 0;
@@ -743,7 +748,7 @@ if ($marketplaceAddInventoryProductId > 0) {
         }
     }
 }
-$marketplaceInventory = $pdo->query("SELECT p.id AS linked_product_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name,i.id,i.product_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at,i.updated_at FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceInventory = $pdo->query("SELECT p.id AS linked_product_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name,i.id,i.product_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at,i.updated_at FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY COALESCE(i.created_at,p.created_at) DESC,COALESCE(i.id,p.id) DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceTotalIncome = (float)$pdo->query('SELECT COALESCE(SUM(net_income),0) FROM marketplace_purchases')->fetchColumn();
 $marketplaceProductCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_products')->fetchColumn();
 $marketplaceInventoryCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_inventory')->fetchColumn();
@@ -1310,6 +1315,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  </div>
 </div>
 <?php endif; ?>
+<?php if($marketplaceInventoryCreateSuccess !== null): ?><div class="marketplace-category-delete-success-overlay" id="marketplace-inventory-create-success-modal"><section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-inventory-create-success-title"><div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div><h2 id="marketplace-inventory-create-success-title">Add Inventory Successful</h2><p>Inventory records of <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceInventoryCreateSuccess['product_name'])?></strong> with product ID <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceInventoryCreateSuccess['product_id'])?></strong> has been successfully updated.</p><a class="marketplace-category-delete-success-ok" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">OK</a></section></div><?php endif; ?>
 <?php if($marketplaceInventoryUpdateSuccess !== null): ?><div class="marketplace-category-delete-success-overlay" id="marketplace-inventory-update-success-modal"><section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-inventory-update-success-title"><div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div><h2 id="marketplace-inventory-update-success-title">Update Inventory Successful</h2><p>Inventory records of <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceInventoryUpdateSuccess['product_name'])?></strong> with product ID <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceInventoryUpdateSuccess['product_id'])?></strong> has been successfully updated.</p><a class="marketplace-category-delete-success-ok" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">OK</a></section></div><?php endif; ?>
 <script>
 (function(){
