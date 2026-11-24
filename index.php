@@ -259,7 +259,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['form_action'] ?? '
         unset($loginUser['password_hash']);
         $_SESSION['user'] = $loginUser;
         $_SESSION['login_progress'] = true;
-        $_SESSION['login_redirect'] = ($targetContext === 'admin' ? 'public/admin.php' : 'index.php?session_context=creator');
+        $marketplaceReturn = (string)($_GET['module'] ?? '') === 'marketplace';
+        $marketplaceProductReturnId = $marketplaceReturn ? max(0, (int)($_GET['product_id'] ?? 0)) : 0;
+        $_SESSION['login_redirect'] = ($targetContext === 'admin')
+            ? 'public/admin.php'
+            : ($marketplaceReturn
+                ? 'index.php?module=marketplace' . ($marketplaceProductReturnId > 0 ? '&product_id=' . $marketplaceProductReturnId : '')
+                : 'index.php?session_context=creator');
         header('Location: index.php?session_context=' . $targetContext);
         exit;
     }
@@ -1082,7 +1088,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <div class="eyebrow">Welcome back</div><h2 id="signin-title">Sign in</h2>
 <?php if ((string)($_GET['email_verified'] ?? '') === '1'): ?><p class="signin-success" role="status">Your new email address has been verified. Please sign in again.</p><?php elseif ((string)($_GET['registered'] ?? '') === '1'): ?><p class="signin-success" role="status">Your email is verified and your password is set. You can now sign in.</p><?php endif; ?>
 <?php if ($loginError !== ''): ?><p class="signin-error" role="alert"><?=e($loginError)?></p><?php endif; ?>
-<form method="post" action="index.php"><input type="hidden" name="csrf" value="<?=e(signin_csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
+<form method="post" action="<?= (string)($_GET['module'] ?? '') === 'marketplace' ? 'index.php?module=marketplace' . ((int)($_GET['product_id'] ?? 0) > 0 ? '&amp;product_id=' . (int)$_GET['product_id'] : '') : 'index.php' ?>"><input type="hidden" name="csrf" value="<?=e(signin_csrf_token())?>"><input type="hidden" name="form_action" value="sign_in">
 <fieldset style="border:0;padding:0;margin:0"><legend style="font-size:13px;font-weight:600">Sign in using</legend><div class="signin-methods">
 <label><input type="radio" name="login_method" value="email" <?= $loginMethod !== 'mobile' ? 'checked' : '' ?>> Email</label>
 <label><input type="radio" name="login_method" value="mobile" <?= $loginMethod === 'mobile' ? 'checked' : '' ?>> Contact/Mobile No.</label>
