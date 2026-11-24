@@ -732,7 +732,7 @@ if ($marketplaceEditInventoryId > 0 || $marketplaceViewInventoryId > 0) {
     $targetId=$marketplaceEditInventoryId > 0 ? $marketplaceEditInventoryId : $marketplaceViewInventoryId;
     $stmt=$pdo->prepare('SELECT * FROM marketplace_inventory WHERE id=? LIMIT 1');$stmt->execute([$targetId]);$marketplaceInventoryForm=$stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($marketplaceInventoryForm) {
-        $inventoryProductMeta = $pdo->prepare('SELECT manufacturer,supply_chain_entity,country_of_origin FROM marketplace_products WHERE id=? LIMIT 1');
+        $inventoryProductMeta = $pdo->prepare('SELECT product_name,manufacturer,supply_chain_entity,country_of_origin FROM marketplace_products WHERE id=? LIMIT 1');
         $inventoryProductMeta->execute([(int)$marketplaceInventoryForm['product_id']]);
         $marketplaceInventoryForm = array_merge($marketplaceInventoryForm, $inventoryProductMeta->fetch(PDO::FETCH_ASSOC) ?: []);
     }
