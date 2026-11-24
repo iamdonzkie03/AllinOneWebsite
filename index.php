@@ -753,7 +753,7 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <style id="zc-marketplace-section-styles">
 .zc-marketplace-section{position:relative;padding:54px 0 58px;background:linear-gradient(115deg,rgba(67,13,28,.82),rgba(17,12,16,.96) 58%,rgba(50,12,24,.78));border-top:1px solid rgba(215,154,165,.14);border-bottom:1px solid rgba(215,154,165,.14);overflow:hidden}
 .zc-marketplace-section:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 85% 50%,rgba(185,55,78,.17),transparent 44%)}
-.zc-marketplace-inner{position:relative;display:flex;align-items:center;justify-content:space-between;gap:34px;width:min(1200px,calc(100% - 44px))}
+.zc-marketplace-inner{position:relative;display:flex;align-items:flex-start;flex-direction:column;justify-content:flex-start;gap:22px;width:min(1200px,calc(100% - 44px))}
 .zc-marketplace-copy{width:100%;max-width:none;flex:1 1 auto}
 .zc-marketplace-eyebrow{margin:0 0 10px;color:#d79aa5;font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
 .zc-marketplace-copy h2{margin:0 0 12px;color:#fff;font:700 clamp(28px,3.2vw,40px)/1.15 Georgia,serif;letter-spacing:-.6px}
