@@ -951,7 +951,7 @@ document.addEventListener('DOMContentLoaded',function(){
    const inCart=cart.some(function(item){return String(item.id)===String(button.getAttribute('data-product-id'));});
    button.classList.toggle('is-added',inCart);
    button.setAttribute('aria-pressed',inCart?'true':'false');
-   button.innerHTML=inCart?'<svg class="zc-marketplace-added-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3.2 3.2L13 4.5"></path></svg><span>Added to Cart</span>':'<span>Add to Cart</span>';
+   button.innerHTML=inCart?'<svg class="zc-marketplace-added-check" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3.2 3.2L13 4.5"></path></svg><span>Remove from Cart</span>':'<span>Add to Cart</span>';
   });
  }
  function renderCart(){
@@ -978,9 +978,14 @@ document.addEventListener('DOMContentLoaded',function(){
  if(cartClear)cartClear.addEventListener('click',function(){cart=[];saveCart();renderCart();});
  document.querySelectorAll('.zc-marketplace-add-cart').forEach(function(button){
   button.addEventListener('click',function(){
-   const id=button.getAttribute('data-product-id');const name=button.getAttribute('data-product-name')||'Marketplace product';const photo=button.getAttribute('data-product-photo')||'';
+   const id=button.getAttribute('data-product-id');
    const existing=cart.find(function(item){return String(item.id)===String(id);});
-   if(existing)existing.quantity=(Number(existing.quantity)||1)+1;else cart.push({id:id,name:name,photo:photo,quantity:1});
+   if(existing){
+    cart=cart.filter(function(item){return String(item.id)!==String(id);});
+   }else{
+    const name=button.getAttribute('data-product-name')||'Marketplace product';const photo=button.getAttribute('data-product-photo')||'';
+    cart.push({id:id,name:name,photo:photo,quantity:1});
+   }
    saveCart();renderCart();
   });
  });
