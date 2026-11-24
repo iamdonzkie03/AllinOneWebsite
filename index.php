@@ -319,11 +319,11 @@ if ($moduleSlug === 'marketplace') {
     if (!$marketplaceCategoryIconColumn->fetch(PDO::FETCH_ASSOC)) {
         $pdo->exec("ALTER TABLE marketplace_categories ADD COLUMN icon VARCHAR(120) NOT NULL DEFAULT 'tabler:category' AFTER parent_id");
     }
-    $marketplaceProducts = $pdo->query("SELECT p.id,p.category_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $marketplaceProducts = $pdo->query("SELECT p.id,p.category_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name,i.stock_on_hand,i.sold,i.status AS inventory_status,GREATEST(COALESCE(i.stock_on_hand,0)-COALESCE(i.sold,0),0) AS remaining_stock FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
     $marketplaceCategoryGroups = $pdo->query("SELECT c.id,c.name,c.icon,COUNT(DISTINCT p.id) AS product_count FROM marketplace_categories c LEFT JOIN marketplace_products p ON (p.category_id=c.id OR p.subcategory_id=c.id) WHERE c.parent_id IS NULL GROUP BY c.id,c.name,c.icon HAVING COUNT(DISTINCT p.id)>0 ORDER BY c.name")->fetchAll(PDO::FETCH_ASSOC);
     $requestedMarketplaceProductId = max(0, (int)($_GET['product_id'] ?? 0));
     if ($requestedMarketplaceProductId > 0 && $isPublicUserSignedIn) {
-        $marketplaceProductStmt = $pdo->prepare("SELECT p.id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id WHERE p.id=? LIMIT 1");
+        $marketplaceProductStmt = $pdo->prepare("SELECT p.id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name,i.stock_on_hand,i.sold,i.status AS inventory_status,GREATEST(COALESCE(i.stock_on_hand,0)-COALESCE(i.sold,0),0) AS remaining_stock FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id WHERE p.id=? LIMIT 1");
         $marketplaceProductStmt->execute([$requestedMarketplaceProductId]);
         $selectedMarketplaceProduct = $marketplaceProductStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
@@ -1012,7 +1012,14 @@ document.addEventListener('DOMContentLoaded',function(){
     cart=cart.filter(function(item){return String(item.id)!==String(id);});
    }else{
     const name=button.getAttribute('data-product-name')||'Marketplace product';const photo=button.getAttribute('data-product-photo')||'';
-    cart.push({id:id,name:name,photo:photo,quantity:1});
+    const detailQuantity=document.getElementById('zc-marketplace-detail-quantity');
+    const requestedQuantity=detailQuantity?Math.max(1,Math.floor(Number(detailQuantity.value)||1)):1;
+    const stockLimit=Number(button.getAttribute('data-stock-remaining'));
+    const quantity=Number.isFinite(stockLimit)?Math.min(requestedQuantity,Math.max(0,Math.floor(stockLimit))):requestedQuantity;
+    if(quantity<1){if(detailQuantity){detailQuantity.setCustomValidity('No remaining stock is available.');detailQuantity.reportValidity();}return;}
+    if(detailQuantity&&requestedQuantity>stockLimit){detailQuantity.setCustomValidity('Quantity cannot exceed remaining stocks.');detailQuantity.reportValidity();return;}
+    if(detailQuantity)detailQuantity.setCustomValidity('');
+    cart.push({id:id,name:name,photo:photo,quantity:quantity});
    }
    saveCart();renderCart();
   });
@@ -1077,12 +1084,18 @@ document.addEventListener('DOMContentLoaded',function(){
 
 <?php endif; ?>
 <?php if ($selectedMarketplaceProduct): ?>
-<div class="section-head"><div><p class="eyebrow">ZC MARKETPLACE · PRODUCT</p><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
+<div class="section-head"><div><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
 <div class="zc-marketplace-product-detail">
 <div><?php if (!empty($selectedMarketplaceProduct['photo_path'])): ?><img src="public/<?=e(ltrim((string)$selectedMarketplaceProduct['photo_path'],'/'))?>" alt="<?=e((string)$selectedMarketplaceProduct['product_name'])?>"><?php else: ?><div class="zc-marketplace-product-photo">◇</div><?php endif; ?></div>
 <div><span class="zc-marketplace-product-category"><?=e((string)($selectedMarketplaceProduct['category_name'] ?? 'Marketplace Product'))?><?=!empty($selectedMarketplaceProduct['subcategory_name'])?' · '.e((string)$selectedMarketplaceProduct['subcategory_name']):''?></span><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2>
 <dl><dt>Product ID</dt><dd><?=e((string)$selectedMarketplaceProduct['product_code'])?></dd><?php if(!empty($selectedMarketplaceProduct['brand'])): ?><dt>Brand</dt><dd><?=e((string)$selectedMarketplaceProduct['brand'])?></dd><?php endif; ?><?php if(!empty($selectedMarketplaceProduct['model'])): ?><dt>Model</dt><dd><?=e((string)$selectedMarketplaceProduct['model'])?></dd><?php endif; ?></dl>
 <?php if(trim((string)($selectedMarketplaceProduct['description']??''))!==''): ?><p class="zc-marketplace-product-description"><?=nl2br(e((string)$selectedMarketplaceProduct['description']))?></p><?php endif; ?>
+<?php $detailRemaining=max(0,(float)($selectedMarketplaceProduct['remaining_stock']??0));$detailStatus=trim((string)($selectedMarketplaceProduct['inventory_status']??''))?:'Out of Stock';$detailAvailable=$detailRemaining>0&&$detailStatus==='Available';$detailStatusClass='status-'.strtolower(preg_replace('/[^a-z0-9]+/','-', $detailStatus)); ?>
+<div class="zc-marketplace-detail-stock"><div><span class="zc-marketplace-stock-label">Total remaining stocks available</span><strong><?=e(number_format($detailRemaining,2,'.',','))?></strong></div><span class="zc-marketplace-detail-status <?=e($detailStatusClass)?>"><?=e($detailStatus)?></span></div>
+<div class="zc-marketplace-detail-cart" data-detail-cart>
+<label for="zc-marketplace-detail-quantity">Quantity to add</label><input id="zc-marketplace-detail-quantity" type="number" min="1" max="<?=e((string)$detailRemaining)?>" step="1" value="1" <?=!$detailAvailable?'disabled':''?>>
+<button type="button" class="zc-marketplace-add-cart" data-product-id="<?= (int)$selectedMarketplaceProduct['id'] ?>" data-product-name="<?=e((string)$selectedMarketplaceProduct['product_name'])?>" data-product-photo="<?=!empty($selectedMarketplaceProduct['photo_path'])?'public/'.e(ltrim((string)$selectedMarketplaceProduct['photo_path'],'/')):''?>" data-stock-remaining="<?=e((string)$detailRemaining)?>" <?=!$detailAvailable?'disabled':''?>>Add to Cart</button>
+</div>
 </div></div>
 <?php else: ?>
 <?php if ($marketplaceProducts): ?>
