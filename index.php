@@ -863,6 +863,32 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-category-arrow.prev{right:auto;left:0}
 .zc-marketplace-category-arrow[hidden]{display:none}
 .zc-marketplace-category-empty{padding:16px;color:#d3c2c8;font-size:12px}
+.zc-marketplace-tools{display:flex;align-items:stretch;gap:12px;margin:-8px 0 20px}
+.zc-marketplace-search{position:relative;display:flex;align-items:center;flex:1;min-width:0}
+.zc-marketplace-search svg{position:absolute;left:16px;width:18px;height:18px;color:#d8b477;pointer-events:none}
+.zc-marketplace-search input{width:100%;height:48px;padding:0 16px 0 46px;border:1px solid rgba(226,174,111,.34);border-radius:12px;outline:none;background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(16,12,16,.55));box-shadow:inset 0 1px 0 rgba(255,255,255,.08);color:#fff4e8;font:13px Arial,sans-serif}
+.zc-marketplace-search input::placeholder{color:#bcaeb3}
+.zc-marketplace-search input:focus{border-color:#d8b477;box-shadow:0 0 0 3px rgba(216,180,119,.12)}
+.zc-marketplace-cart{position:relative;flex:0 0 auto}
+.zc-marketplace-cart-toggle{display:flex;align-items:center;justify-content:center;gap:9px;min-width:58px;height:48px;padding:0 15px;border:1px solid rgba(226,174,111,.48);border-radius:12px;background:linear-gradient(135deg,rgba(146,48,66,.5),rgba(16,12,16,.8));color:#fff1d8;cursor:pointer;box-shadow:0 5px 16px rgba(0,0,0,.18)}
+.zc-marketplace-cart-toggle svg{width:21px;height:21px}
+.zc-marketplace-cart-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#d8b477;color:#24151a;font:700 11px Arial,sans-serif}
+.zc-marketplace-cart-dropdown{position:absolute;z-index:20;top:calc(100% + 9px);right:0;width:min(360px,calc(100vw - 32px));max-height:420px;overflow:auto;padding:14px;border:1px solid rgba(226,174,111,.34);border-radius:14px;background:linear-gradient(150deg,#271820,#100e12);box-shadow:0 18px 44px rgba(0,0,0,.42)}
+.zc-marketplace-cart-dropdown[hidden]{display:none}
+.zc-marketplace-cart-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;color:#fff4e8;font:700 13px Arial,sans-serif}
+.zc-marketplace-cart-clear{border:0;background:none;color:#e4b96e;font:700 10px Arial,sans-serif;cursor:pointer}
+.zc-marketplace-cart-empty{padding:18px 8px;text-align:center;color:#c7b7bd;font-size:12px}
+.zc-marketplace-cart-item{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,.09)}
+.zc-marketplace-cart-item img,.zc-marketplace-cart-thumb{width:48px;height:48px;object-fit:cover;border-radius:8px;background:#3a2029}
+.zc-marketplace-cart-item-name{overflow:hidden;color:#fff4e8;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.zc-marketplace-cart-item-qty{margin-top:4px;color:#c7b7bd;font-size:10px}
+.zc-marketplace-cart-remove{border:0;background:none;color:#e49aa5;font-size:11px;cursor:pointer}
+.zc-marketplace-product-card{position:relative}
+.zc-marketplace-product-card-link{display:flex;flex-direction:column;min-width:0;flex:1;color:inherit;text-decoration:none}
+.zc-marketplace-add-cart{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;margin:0 10px 10px;padding:8px 10px;border:1px solid rgba(226,174,111,.42);border-radius:8px;background:linear-gradient(135deg,rgba(146,48,66,.55),rgba(89,35,49,.65));color:#ffedcf;font:700 10px Arial,sans-serif;letter-spacing:.35px;cursor:pointer;transition:background .16s,border-color .16s}
+.zc-marketplace-add-cart:hover{border-color:#e5bd7e;background:linear-gradient(135deg,#873044,#57202e)}
+.zc-marketplace-no-results{grid-column:1/-1;padding:28px 16px;border:1px dashed rgba(226,174,111,.3);border-radius:12px;color:#d3c2c8;text-align:center;font-size:13px}
+@media(max-width:520px){.zc-marketplace-tools{gap:8px}.zc-marketplace-search input{height:44px}.zc-marketplace-cart-toggle{height:44px;padding:0 11px}.zc-marketplace-cart-dropdown{right:0}.zc-marketplace-add-cart{margin:0 7px 7px;min-height:34px}}
 .zc-marketplace-product-card[hidden]{display:none!important}
 .zc-marketplace-products{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
 .zc-marketplace-product-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid rgba(215,154,165,.24);border-radius:12px;background:linear-gradient(155deg,#21151b,#100e12);box-shadow:0 10px 24px rgba(0,0,0,.18);color:#f7edf0;text-decoration:none;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
@@ -888,8 +914,65 @@ if ($isCreatorSignedIn) {
 <script>
 document.addEventListener('DOMContentLoaded',function(){
  const panel=document.querySelector('.zc-marketplace-category-panel');
- if(!panel)return;
  const cards=Array.from(document.querySelectorAll('.zc-marketplace-product-card'));
+ const search=document.getElementById('zc-marketplace-live-search');
+ const cartToggle=document.getElementById('zc-marketplace-cart-toggle');
+ const cartDropdown=document.getElementById('zc-marketplace-cart-dropdown');
+ const cartCount=document.getElementById('zc-marketplace-cart-count');
+ const cartItems=document.getElementById('zc-marketplace-cart-items');
+ const cartClear=document.getElementById('zc-marketplace-cart-clear');
+ let activeCategory='all';
+ let cart=[];
+ try{cart=JSON.parse(localStorage.getItem('zcMarketplaceCart')||'[]');if(!Array.isArray(cart))cart=[];}catch(error){cart=[];}
+ const noResults=document.createElement('div');
+ noResults.className='zc-marketplace-no-results';
+ noResults.textContent='No products match your search.';
+ noResults.hidden=true;
+ const productGrid=document.querySelector('.zc-marketplace-products');
+ if(productGrid)productGrid.appendChild(noResults);
+ function applyProductFilters(){
+  const term=(search&&search.value||'').trim().toLocaleLowerCase();
+  let visible=0;
+  cards.forEach(function(card){
+   const categoryMatch=activeCategory==='all'||(card.getAttribute('data-marketplace-category-id')||'')===activeCategory;
+   const searchMatch=!term||(card.getAttribute('data-search-text')||'').includes(term);
+   card.hidden=!(categoryMatch&&searchMatch);
+   if(!card.hidden)visible++;
+  });
+  if(noResults)noResults.hidden=!cards.length||visible>0;
+ }
+ if(search)search.addEventListener('input',applyProductFilters);
+ function saveCart(){try{localStorage.setItem('zcMarketplaceCart',JSON.stringify(cart));}catch(error){}}
+ function renderCart(){
+  const total=cart.reduce(function(sum,item){return sum+(Number(item.quantity)||0);},0);
+  if(cartCount)cartCount.textContent=String(total);
+  if(!cartItems)return;
+  cartItems.replaceChildren();
+  if(!cart.length){const empty=document.createElement('div');empty.className='zc-marketplace-cart-empty';empty.textContent='Your cart is empty.';cartItems.appendChild(empty);return;}
+  cart.forEach(function(item){
+   const row=document.createElement('div');row.className='zc-marketplace-cart-item';
+   if(item.photo){const img=document.createElement('img');img.src=item.photo;img.alt='';row.appendChild(img);}
+   else{const thumb=document.createElement('span');thumb.className='zc-marketplace-cart-thumb';row.appendChild(thumb);}
+   const info=document.createElement('div');const name=document.createElement('div');name.className='zc-marketplace-cart-item-name';name.textContent=item.name;const qty=document.createElement('div');qty.className='zc-marketplace-cart-item-qty';qty.textContent='Quantity: '+item.quantity;info.append(name,qty);row.appendChild(info);
+   const remove=document.createElement('button');remove.type='button';remove.className='zc-marketplace-cart-remove';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+item.name+' from cart');remove.addEventListener('click',function(){cart=cart.filter(function(entry){return String(entry.id)!==String(item.id);});saveCart();renderCart();});row.appendChild(remove);cartItems.appendChild(row);
+  });
+ }
+ renderCart();
+ if(cartToggle&&cartDropdown){
+  cartToggle.addEventListener('click',function(){const opening=cartDropdown.hidden;cartDropdown.hidden=!opening;cartToggle.setAttribute('aria-expanded',opening?'true':'false');});
+  document.addEventListener('click',function(event){if(!event.target.closest('.zc-marketplace-cart')){cartDropdown.hidden=true;cartToggle.setAttribute('aria-expanded','false');}});
+  document.addEventListener('keydown',function(event){if(event.key==='Escape'){cartDropdown.hidden=true;cartToggle.setAttribute('aria-expanded','false');}});
+ }
+ if(cartClear)cartClear.addEventListener('click',function(){cart=[];saveCart();renderCart();});
+ document.querySelectorAll('.zc-marketplace-add-cart').forEach(function(button){
+  button.addEventListener('click',function(){
+   const id=button.getAttribute('data-product-id');const name=button.getAttribute('data-product-name')||'Marketplace product';const photo=button.getAttribute('data-product-photo')||'';
+   const existing=cart.find(function(item){return String(item.id)===String(id);});
+   if(existing)existing.quantity=(Number(existing.quantity)||1)+1;else cart.push({id:id,name:name,photo:photo,quantity:1});
+   saveCart();renderCart();button.textContent='Added to Cart ✓';window.setTimeout(function(){button.textContent='Add to Cart';},1200);
+  });
+ });
+ if(!panel){applyProductFilters();return;}
  const grid=panel.querySelector('.zc-marketplace-category-grid');
  const previous=panel.querySelector('.zc-marketplace-category-arrow.prev');
  const next=panel.querySelector('.zc-marketplace-category-arrow.next');
@@ -901,9 +984,9 @@ document.addEventListener('DOMContentLoaded',function(){
  }
  panel.querySelectorAll('[data-marketplace-filter]').forEach(function(button){
   button.addEventListener('click',function(){
-   const filter=button.getAttribute('data-marketplace-filter')||'all';
+   activeCategory=button.getAttribute('data-marketplace-filter')||'all';
    panel.querySelectorAll('[data-marketplace-filter]').forEach(function(item){const active=item===button;item.classList.toggle('is-active',active);item.setAttribute('aria-pressed',active?'true':'false');});
-   cards.forEach(function(card){card.hidden=filter!=='all'&&(card.getAttribute('data-marketplace-category-id')||'')!==filter;});
+   applyProductFilters();
   });
  });
  if(previous&&grid)previous.addEventListener('click',function(){grid.scrollBy({left:-grid.clientWidth*.85,behavior:'smooth'});});
@@ -936,15 +1019,34 @@ document.addEventListener('DOMContentLoaded',function(){
  </div>
 </div>
 <?php endif; ?>
+<div class="zc-marketplace-tools" aria-label="Search products and shopping cart">
+ <label class="zc-marketplace-search">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+  <input type="search" id="zc-marketplace-live-search" placeholder="Search products, brands, categories..." autocomplete="off" aria-label="Search marketplace products">
+ </label>
+ <div class="zc-marketplace-cart">
+  <button type="button" class="zc-marketplace-cart-toggle" id="zc-marketplace-cart-toggle" aria-label="Shopping cart" aria-expanded="false" aria-controls="zc-marketplace-cart-dropdown">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+   <span class="zc-marketplace-cart-count" id="zc-marketplace-cart-count">0</span>
+  </button>
+  <div class="zc-marketplace-cart-dropdown" id="zc-marketplace-cart-dropdown" hidden>
+   <div class="zc-marketplace-cart-head"><span>Shopping Cart</span><button type="button" class="zc-marketplace-cart-clear" id="zc-marketplace-cart-clear">Clear all</button></div>
+   <div id="zc-marketplace-cart-items"><div class="zc-marketplace-cart-empty">Your cart is empty.</div></div>
+  </div>
+ </div>
+</div>
 <?php if (!$marketplaceProducts): ?><div class="panel empty-state"><span class="empty-mark">◇</span><h3>No products available yet.</h3><p class="muted">Products added through the Products tab will appear here automatically.</p></div>
 <?php else: ?><div class="zc-marketplace-products">
 <?php foreach($marketplaceProducts as $marketplaceProduct): $marketplaceProductHref=$isPublicUserSignedIn?'index.php?session_context=creator&amp;module=marketplace&amp;product_id='.(int)$marketplaceProduct['id']:'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id'].'#sign-in-modal'; ?>
-<a class="zc-marketplace-product-card" data-marketplace-category="<?=e((string)($marketplaceProduct['category_name']??''))?>" data-marketplace-category-id="<?=e((string)($marketplaceProduct['category_id']??''))?>" href="<?=$marketplaceProductHref?>" aria-label="<?= $isPublicUserSignedIn ? 'View ' : 'Sign in to view ' ?><?=e((string)$marketplaceProduct['product_name'])?>">
+<article class="zc-marketplace-product-card" data-marketplace-category="<?=e((string)($marketplaceProduct['category_name']??''))?>" data-marketplace-category-id="<?=e((string)($marketplaceProduct['category_id']??''))?>" data-search-text="<?=e(mb_strtolower(trim((string)$marketplaceProduct['product_name'].' '.(string)($marketplaceProduct['brand']??'').' '.(string)($marketplaceProduct['model']??'').' '.(string)($marketplaceProduct['category_name']??'').' '.(string)($marketplaceProduct['description']??''))))?>">
+<a class="zc-marketplace-product-card-link" href="<?=$marketplaceProductHref?>" aria-label="<?= $isPublicUserSignedIn ? 'View ' : 'Sign in to view ' ?><?=e((string)$marketplaceProduct['product_name'])?>">
 <div class="zc-marketplace-product-photo"><?php if(!empty($marketplaceProduct['photo_path'])): ?><img src="public/<?=e(ltrim((string)$marketplaceProduct['photo_path'],'/'))?>" alt="<?=e((string)$marketplaceProduct['product_name'])?>"><?php else: ?>◇<?php endif; ?></div>
 <div class="zc-marketplace-product-info"><span class="zc-marketplace-product-category"><?=e((string)($marketplaceProduct['category_name']??'Marketplace Product'))?></span><h2><?=e((string)$marketplaceProduct['product_name'])?></h2>
 <?php if(!empty($marketplaceProduct['brand'])||!empty($marketplaceProduct['model'])): ?><span class="zc-marketplace-product-meta"><?=e(trim((string)($marketplaceProduct['brand']??'').' '.(string)($marketplaceProduct['model']??'')))?></span><?php endif; ?>
 <?php if(!empty($marketplaceProduct['description'])): ?><span class="zc-marketplace-product-meta"><?=e(mb_strimwidth((string)$marketplaceProduct['description'],0,125,'…'))?></span><?php endif; ?>
 <span class="zc-marketplace-product-open"><?=$isPublicUserSignedIn?'View Product ↗':'Sign in to view product ↗'?></span></div></a>
+<button type="button" class="zc-marketplace-add-cart" data-product-id="<?= (int)$marketplaceProduct['id'] ?>" data-product-name="<?=e((string)$marketplaceProduct['product_name'])?>" data-product-photo="<?=!empty($marketplaceProduct['photo_path'])?'public/'.e(ltrim((string)$marketplaceProduct['photo_path'],'/')):''?>">Add to Cart</button>
+</article>
 <?php endforeach; ?></div><?php endif; ?>
 <?php endif; ?>
 </div></section>
