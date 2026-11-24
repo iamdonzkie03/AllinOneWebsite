@@ -732,6 +732,31 @@ $publicForumAttachmentUrl = static function(string $path): string {
 <div class="hero-art home-art home-art-photo" role="img" aria-label="Zamboanga heritage image"><?php if(!empty($bannerSection['photo'])): ?><img class="hero-photo" src="<?=e($sectionImageSrc((string)$bannerSection['photo']))?>" alt="<?=e($bannerSection['heading']??'Zamboanga')?>"><?php else: ?><img class="hero-photo" src="public/assets/images/Sunset%20Vinta%20by%20the%20Historic%20Fort.png" alt="Sunset vinta sailing by the historic fort in Zamboanga"><?php endif; ?></div>
 </div></section>
 
+<style id="zc-marketplace-section-styles">
+.zc-marketplace-section{position:relative;padding:54px 0 58px;background:linear-gradient(115deg,rgba(67,13,28,.82),rgba(17,12,16,.96) 58%,rgba(50,12,24,.78));border-top:1px solid rgba(215,154,165,.14);border-bottom:1px solid rgba(215,154,165,.14);overflow:hidden}
+.zc-marketplace-section:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 85% 50%,rgba(185,55,78,.17),transparent 44%)}
+.zc-marketplace-inner{position:relative;display:flex;align-items:center;justify-content:space-between;gap:34px}
+.zc-marketplace-copy{max-width:760px}
+.zc-marketplace-eyebrow{margin:0 0 10px;color:#d79aa5;font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+.zc-marketplace-copy h2{margin:0 0 12px;color:#fff;font:700 clamp(28px,3.2vw,40px)/1.15 Georgia,serif;letter-spacing:-.6px}
+.zc-marketplace-copy h2 span{color:#e05260}
+.zc-marketplace-copy p{max-width:680px;margin:0;color:#d3c2c8;font-size:14px;line-height:1.8}
+.zc-marketplace-action{display:inline-flex;align-items:center;justify-content:center;gap:12px;flex:0 0 auto;min-height:48px;padding:0 22px;border:1px solid #d6a36b;border-radius:5px;background:linear-gradient(135deg,#9f263d,#68182d);color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:.45px;box-shadow:0 9px 25px rgba(0,0,0,.22);transition:transform .2s,border-color .2s,background .2s}
+.zc-marketplace-action:hover{transform:translateY(-2px);border-color:#f0c994;background:linear-gradient(135deg,#b8324b,#7b1e36);color:#fff}
+.zc-marketplace-action span{font-size:18px;line-height:1}
+@media(max-width:700px){.zc-marketplace-section{padding:38px 0}.zc-marketplace-inner{align-items:flex-start;flex-direction:column;gap:22px}.zc-marketplace-action{width:100%;box-sizing:border-box}}
+</style>
+<section class="zc-marketplace-section" id="zc-marketplace" aria-labelledby="zc-marketplace-title">
+ <div class="wrap zc-marketplace-inner">
+  <div class="zc-marketplace-copy">
+   <p class="zc-marketplace-eyebrow">Discover · Support · Shop Local</p>
+   <h2 id="zc-marketplace-title">ZC <span>Marketplace</span></h2>
+   <p>Explore products and offerings from the Zamboanga community. Find something you love and support local creativity and enterprise.</p>
+  </div>
+  <a class="zc-marketplace-action" href="?module=marketplace">Explore Marketplace <span aria-hidden="true">↗</span></a>
+ </div>
+</section>
+
 <?php $slideSection=$publicSections['slideshow']??[]; $slidePhotos=(array)($slideSection['photos']??[]); ?>
 <section class="section culture-section" id="zamboanga"><div class="wrap">
 <div class="section-head"><div><div class="eyebrow"><?=$renderBannerRichText((string)($slideSection['main_title']??'A living heritage'))?></div><h2><?=$renderBannerRichText((string)($slideSection['heading']??'Discover the story of Zamboanga City'))?></h2><div class="muted slideshow-section-subtitle"><?=$renderBannerRichText((string)($slideSection['subtitle']??'From historic landmarks to maritime traditions and a vibrant, multilingual culture.'))?></div></div><div class="slide-counter" aria-live="polite"><span id="slide-current">01</span> / <?=str_pad((string)max(1,count($slidePhotos)),2,'0',STR_PAD_LEFT)?></div></div>
