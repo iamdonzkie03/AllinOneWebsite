@@ -6461,16 +6461,16 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    count.textContent=visible.toLocaleString()+' of '+panelIconChoices.length.toLocaleString()+' icons';
   });
  };
- document.querySelectorAll('[data-icon-picker]').forEach(populatePanelIconPicker);
+ document.querySelectorAll('#mega-panel-modal [data-icon-picker]').forEach(populatePanelIconPicker);
  document.addEventListener('click',event=>{
   const target=event.target instanceof Element?event.target:null;if(!target)return;
-  const trigger=target.closest('[data-icon-picker-trigger]');
+  const trigger=target.closest('#mega-panel-modal [data-icon-picker-trigger]');
   if(trigger){
    const picker=trigger.closest('[data-icon-picker]');const popup=picker?.querySelector('[data-icon-picker-popup]');if(!picker||!popup)return;
-   document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(other=>{if(other!==popup){other.hidden=true;other.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');}});
+   document.querySelectorAll('#mega-panel-modal [data-icon-picker-popup]:not([hidden])').forEach(other=>{if(other!==popup){other.hidden=true;other.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');}});
    popup.hidden=!popup.hidden;trigger.setAttribute('aria-expanded',String(!popup.hidden));return;
   }
-  const choice=target.closest('[data-icon-value]');
+  const choice=target.closest('#mega-panel-modal [data-icon-picker] [data-icon-value]');
   if(choice){
    const picker=choice.closest('[data-icon-picker]');const hidden=picker?.querySelector('input[type="hidden"]');const current=picker?.querySelector('.panel-icon-current');const popup=picker?.querySelector('[data-icon-picker-popup]');const button=picker?.querySelector('[data-icon-picker-trigger]');
    if(hidden)hidden.value='tabler:'+(choice.dataset.iconValue||'laptop');if(current)renderPanelLucide(current,choice.dataset.iconValue||'laptop');createPanelLucideIcons();
@@ -6478,11 +6478,11 @@ $megaPreviewPanels = (array)($sectionsSettings['mega_menu']['panels'] ?? []);
    picker?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String(item===choice)));
    return;
   }
-  if(!target.closest('[data-icon-picker]'))document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
+  if(!target.closest('#mega-panel-modal [data-icon-picker]'))document.querySelectorAll('#mega-panel-modal [data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
  });
  document.addEventListener('keydown',event=>{
   if(event.key!=='Escape')return;
-  document.querySelectorAll('[data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
+  document.querySelectorAll('#mega-panel-modal [data-icon-picker-popup]:not([hidden])').forEach(popup=>{popup.hidden=true;popup.closest('[data-icon-picker]')?.querySelector('[data-icon-picker-trigger]')?.setAttribute('aria-expanded','false');});
  });
  let panelModalPreviousFocus=null;
  // Keep the dialog outside the Page Management tab and form layout.
