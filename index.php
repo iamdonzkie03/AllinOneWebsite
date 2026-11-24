@@ -821,7 +821,7 @@ if ($isCreatorSignedIn) {
 <section class="section module-page-head"><div class="wrap">
   <p class="eyebrow"><?= $moduleSlug === 'marketplace' ? 'DISCOVER · SUPPORT · SHOP LOCAL' : 'EXPLORE THE MODULE' ?></p>
   <h1><?= $moduleSlug === 'marketplace' ? 'ZC Marketplace' : e((string)($activeModule['name'] ?? 'Module not found')) ?></h1>
-  <?php if ($activeModule && trim((string)$activeModule['description']) !== ''): ?><p class="muted"><?=e($moduleSlug === 'marketplace' ? 'Discover products, local makers, services and listings. Select a product to view its details. Sign in is required to open a product.' : (string)$activeModule['description'])?></p><?php endif; ?>
+  <?php if ($activeModule && trim((string)$activeModule['description']) !== ''): ?><p class="muted"><?=e($moduleSlug === 'marketplace' ? ($isCreatorSignedIn ? 'Discover products, local makers, services and listings. Select a product to view its details.' : 'Explore products and offerings from the Zamboanga community. Find something you love and support local creativity and enterprise. Sign in is required to open a product.') : (string)$activeModule['description'])?></p><?php endif; ?>
   <?php if ($moduleSlug !== 'marketplace'): ?><p><a class="btn light" href="index.php#modules">← Back to Explore modules</a></p><?php endif; ?>
 </div></section>
 <?php endif; ?>
