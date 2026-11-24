@@ -1060,6 +1060,7 @@ document.addEventListener('DOMContentLoaded',function(){
   </div>
  </div>
 </div>
+<?php if (!$selectedMarketplaceProduct): ?>
 <div class="zc-marketplace-category-panel" aria-label="Product categories">
  <div class="zc-marketplace-category-panel-head"><div><h2>Categories</h2><p>Browse the marketplace by category</p></div><button class="zc-marketplace-category-all is-active" type="button" data-marketplace-filter="all" aria-pressed="true">All Products</button></div>
  <div class="zc-marketplace-category-carousel">
@@ -1073,6 +1074,8 @@ document.addEventListener('DOMContentLoaded',function(){
   <button class="zc-marketplace-category-arrow next" type="button" aria-label="Scroll categories right">›</button>
  </div>
 </div>
+
+<?php endif; ?>
 <?php if ($selectedMarketplaceProduct): ?>
 <div class="section-head"><div><p class="eyebrow">ZC MARKETPLACE · PRODUCT</p><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
 <div class="zc-marketplace-product-detail">
