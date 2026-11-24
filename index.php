@@ -847,7 +847,7 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-category-all{padding:7px 13px;border:1px solid #dedede;border-radius:3px;background:#fff;color:#555;font:500 12px Arial,sans-serif;cursor:pointer}
 .zc-marketplace-category-all:hover,.zc-marketplace-category-all.is-active{border-color:#b9b9b9;background:#f4f4f4;color:#222}
 .zc-marketplace-category-carousel{position:relative}
-.zc-marketplace-category-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,188px);grid-auto-columns:minmax(0,1fr);grid-auto-columns:150px;gap:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scroll-snap-type:x mandatory;scrollbar-width:none}
+.zc-marketplace-category-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,188px);grid-auto-columns:10%;gap:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scroll-snap-type:x mandatory;scrollbar-width:none}
 .zc-marketplace-category-grid::-webkit-scrollbar{display:none}
 .zc-marketplace-category-tile{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;min-width:0;padding:25px 9px 12px;border:0;border-right:1px solid #ededed;border-bottom:1px solid #ededed;border-radius:0;background:#fff;color:#111;text-align:center;text-decoration:none;cursor:pointer;scroll-snap-align:start;transition:background .16s}
 .zc-marketplace-category-tile:hover,.zc-marketplace-category-tile.is-active{background:#f8f8f8}
