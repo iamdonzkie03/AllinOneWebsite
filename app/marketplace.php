@@ -1080,6 +1080,8 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  });
  const hue=name=>{let hash=0;for(const char of String(name||'category').replace(/^tabler:/,''))hash=(hash*31+char.charCodeAt(0))>>>0;return hash%360;};
  const render=(element,name)=>{if(!element)return;element.replaceChildren();const clean=String(name||'tabler:category').replace(/^tabler:/,'');const icon=document.createElement('iconify-icon');icon.setAttribute('icon','tabler:'+clean);icon.setAttribute('aria-hidden','true');element.style.color='hsl('+hue(clean)+' 92% 70%)';element.append(icon);};
+ const setMarketplaceCategoryIcon=(picker,value)=>{if(!picker)return;const clean=/^tabler:[a-z0-9-]{1,80}$/.test(value)?value:'tabler:category';const input=picker.querySelector('input[name="category_icon"]');if(input)input.value=clean;render(picker.querySelector('.panel-icon-current'),clean);const label=picker.querySelector('.panel-icon-trigger-label');if(label)label.textContent=clean.slice(6).replace(/-/g,' ');const popup=picker.querySelector('[data-icon-picker-popup]')||[...document.querySelectorAll('.marketplace-category-icon-popup')].find(item=>item._marketplacePicker===picker);popup?.querySelectorAll('[data-icon-value]').forEach(item=>item.setAttribute('aria-pressed',String('tabler:'+item.dataset.iconValue===clean)));};
+ window.setMarketplaceCategoryIcon=setMarketplaceCategoryIcon;
  const pickers=[...document.querySelectorAll('.marketplace-category-modal [data-icon-picker]')];
  const closePicker=popup=>{
   if(!popup)return;
