@@ -864,11 +864,20 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-category-arrow[hidden]{display:none}
 .zc-marketplace-category-empty{padding:16px;color:#d3c2c8;font-size:12px}
 .zc-marketplace-tools{display:flex;align-items:stretch;gap:12px;margin:-8px 0 20px}
-.zc-marketplace-search{position:relative;display:flex;align-items:center;flex:1;min-width:0}
-.zc-marketplace-search svg{position:absolute;left:16px;width:18px;height:18px;color:#d8b477;pointer-events:none}
+.zc-marketplace-search{position:relative;display:flex;align-items:center;flex:1;min-width:0;gap:8px}
+.zc-marketplace-search-field{position:relative;display:flex;align-items:center;flex:1;min-width:0}
+.zc-marketplace-search-field>svg{position:absolute;left:16px;width:18px;height:18px;color:#d8b477;pointer-events:none}
 .zc-marketplace-search input{width:100%;height:48px;padding:0 16px 0 46px;border:1px solid rgba(226,174,111,.34);border-radius:12px;outline:none;background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(16,12,16,.55));box-shadow:inset 0 1px 0 rgba(255,255,255,.08);color:#fff4e8;font:13px Arial,sans-serif}
 .zc-marketplace-search input::placeholder{color:#bcaeb3}
 .zc-marketplace-search input:focus{border-color:#d8b477;box-shadow:0 0 0 3px rgba(216,180,119,.12)}
+.zc-marketplace-search-button{height:48px;padding:0 20px;border:1px solid #a8793e;border-radius:12px;background:linear-gradient(135deg,#e6c17c,#b88645);color:#24151a;font:700 12px Arial,sans-serif;cursor:pointer;white-space:nowrap}
+.zc-marketplace-search-suggestions{position:absolute;z-index:30;top:calc(100% + 7px);left:0;right:0;max-height:340px;overflow:auto;padding:6px;border:1px solid rgba(226,174,111,.35);border-radius:12px;background:linear-gradient(150deg,#271820,#100e12);box-shadow:0 16px 38px rgba(0,0,0,.45)}
+.zc-marketplace-search-suggestions[hidden]{display:none}
+.zc-marketplace-search-suggestion{display:flex;align-items:center;gap:10px;width:100%;padding:9px;border:0;border-radius:8px;background:transparent;color:#fff4e8;text-align:left;cursor:pointer}
+.zc-marketplace-search-suggestion:hover,.zc-marketplace-search-suggestion:focus{outline:none;background:rgba(216,180,119,.13)}
+.zc-marketplace-search-suggestion img,.zc-marketplace-search-suggestion-thumb{width:42px;height:42px;flex:0 0 42px;object-fit:cover;border-radius:7px;background:#4b101b}
+.zc-marketplace-search-suggestion strong{display:block;font-size:12px}
+.zc-marketplace-search-suggestion small{display:block;margin-top:3px;color:#c7b7bd;font-size:10px}
 .zc-marketplace-cart{position:relative;flex:0 0 auto}
 .zc-marketplace-cart-toggle{display:flex;align-items:center;justify-content:center;gap:9px;min-width:58px;height:48px;padding:0 15px;border:1px solid rgba(226,174,111,.48);border-radius:12px;background:linear-gradient(135deg,rgba(146,48,66,.5),rgba(16,12,16,.8));color:#fff1d8;cursor:pointer;box-shadow:0 5px 16px rgba(0,0,0,.18)}
 .zc-marketplace-cart-toggle svg{width:21px;height:21px}
@@ -893,7 +902,7 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-add-cart .zc-marketplace-add-icon{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
 .zc-marketplace-add-cart .zc-marketplace-added-check{display:inline-block!important;width:13px!important;height:13px!important;min-width:13px!important;max-width:13px!important;min-height:13px!important;max-height:13px!important;flex:0 0 13px!important;vertical-align:middle;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .zc-marketplace-no-results{grid-column:1/-1;padding:28px 16px;border:1px dashed rgba(226,174,111,.3);border-radius:12px;color:#d3c2c8;text-align:center;font-size:13px}
-@media(max-width:520px){.zc-marketplace-tools{gap:8px}.zc-marketplace-search input{height:44px}.zc-marketplace-cart-toggle{height:44px;padding:0 11px}.zc-marketplace-cart-dropdown{right:0}.zc-marketplace-add-cart{width:calc(100% - 14px);height:34px;min-height:34px;flex-basis:34px;margin:0 7px 7px}}
+@media(max-width:520px){.zc-marketplace-tools{gap:8px}.zc-marketplace-search{gap:6px}.zc-marketplace-search input{height:44px}.zc-marketplace-search-button{height:44px;padding:0 12px;font-size:11px}.zc-marketplace-cart-toggle{height:44px;padding:0 11px}.zc-marketplace-cart-dropdown{right:0}.zc-marketplace-add-cart{width:calc(100% - 14px);height:34px;min-height:34px;flex-basis:34px;margin:0 7px 7px}}
 .zc-marketplace-product-card[hidden]{display:none!important}
 .zc-marketplace-products{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
 .zc-marketplace-product-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid rgba(215,154,165,.24);border-radius:12px;background:linear-gradient(155deg,#21151b,#100e12);box-shadow:0 10px 24px rgba(0,0,0,.18);color:#f7edf0;text-decoration:none;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
@@ -916,6 +925,7 @@ if ($isCreatorSignedIn) {
 @media(max-width:760px){.zc-marketplace-products{grid-template-columns:repeat(3,minmax(0,1fr))}.zc-marketplace-product-detail{grid-template-columns:1fr}}
 @media(max-width:520px){.zc-marketplace-products{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.zc-marketplace-product-photo{height:125px}.zc-marketplace-product-info{padding:10px}.zc-marketplace-product-info h2{font-size:16px}.zc-marketplace-product-detail{padding:16px}}
 </style>
+<script>window.zcMarketplaceSearchRecords=<?=json_encode(array_map(static function(array $product): array { $signed=isset($_SESSION['user'])&&is_array($_SESSION['user'])&&(string)($_SESSION['user']['role']??'')==='creator';$id=(int)$product['id'];return ['id'=>$id,'name'=>(string)$product['product_name'],'brand'=>(string)($product['brand']??''),'model'=>(string)($product['model']??''),'category'=>(string)($product['category_name']??''),'photo'=>!empty($product['photo_path'])?'public/'.ltrim((string)$product['photo_path'],'/'):'','search'=>mb_strtolower(trim((string)$product['product_name'].' '.(string)($product['brand']??'').' '.(string)($product['model']??'').' '.(string)($product['category_name']??'').' '.(string)($product['description']??''))),'href'=>$signed?'index.php?session_context=creator&module=marketplace&product_id='.$id:'index.php?module=marketplace&product_id='.$id.'#sign-in-modal'];},$marketplaceProducts),JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT)?>;</script>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
  const panel=document.querySelector('.zc-marketplace-category-panel');
@@ -935,23 +945,34 @@ document.addEventListener('DOMContentLoaded',function(){
  noResults.hidden=true;
  const productGrid=document.querySelector('.zc-marketplace-products');
  if(productGrid)productGrid.appendChild(noResults);
- function applyProductFilters(){
-  const term=(search&&search.value||'').trim().toLocaleLowerCase();
-  let visible=0;
-  cards.forEach(function(card){
-   const categoryMatch=activeCategory==='all'||(card.getAttribute('data-marketplace-category-id')||'')===activeCategory;
-   const searchMatch=!term||(card.getAttribute('data-search-text')||'').includes(term);
-   card.hidden=!(categoryMatch&&searchMatch);
-   if(!card.hidden)visible++;
-  });
+ const suggestions=document.getElementById('zc-marketplace-search-suggestions');
+ const searchButton=document.getElementById('zc-marketplace-search-button');
+ const searchStorageKey='zcMarketplaceLiveSearch';
+ const searchRecords=Array.isArray(window.zcMarketplaceSearchRecords)?window.zcMarketplaceSearchRecords:[];
+ function applyProductFilters(termValue){
+  const term=String(termValue===undefined?(search&&search.value||''):termValue).trim().toLocaleLowerCase();let visible=0;
+  cards.forEach(function(card){const categoryMatch=activeCategory==='all'||(card.getAttribute('data-marketplace-category-id')||'')===activeCategory;const searchMatch=!term||(card.getAttribute('data-search-text')||'').includes(term);card.hidden=!(categoryMatch&&searchMatch);if(!card.hidden)visible++;});
   if(noResults)noResults.hidden=!cards.length||visible>0;
  }
- const searchStorageKey='zcMarketplaceLiveSearch';
-  if(search){try{const savedSearch=sessionStorage.getItem(searchStorageKey);if(savedSearch!==null)search.value=savedSearch;}catch(error){}
-   search.addEventListener('input',function(){try{sessionStorage.setItem(searchStorageKey,search.value);}catch(error){}applyProductFilters();});
-   search.addEventListener('keydown',function(event){if(event.key==='Enter'&&!cards.length){event.preventDefault();const target=new URL('index.php',window.location.href);target.searchParams.set('session_context','creator');target.searchParams.set('module','marketplace');if(search.value.trim())target.searchParams.set('search',search.value.trim());window.location.href=target.toString();}});
-   const requestedSearch=new URLSearchParams(window.location.search).get('search');if(requestedSearch!==null){search.value=requestedSearch;try{sessionStorage.setItem(searchStorageKey,search.value);}catch(error){}}
-  }
+ function showSuggestions(){
+  if(!search||!suggestions)return;const term=search.value.trim().toLocaleLowerCase();suggestions.replaceChildren();if(!term){suggestions.hidden=true;return;}
+  const matches=searchRecords.filter(function(record){return record.search.includes(term);}).slice(0,8);
+  matches.forEach(function(record){const option=document.createElement('button');option.type='button';option.className='zc-marketplace-search-suggestion';
+   if(record.photo){const img=document.createElement('img');img.src=record.photo;img.alt='';option.appendChild(img);}else{const thumb=document.createElement('span');thumb.className='zc-marketplace-search-suggestion-thumb';option.appendChild(thumb);}
+   const info=document.createElement('span');const name=document.createElement('strong');name.textContent=record.name;const meta=document.createElement('small');meta.textContent=[record.brand,record.model,record.category].filter(Boolean).join(' · ')||'Marketplace product';info.append(name,meta);option.appendChild(info);
+   option.addEventListener('click',function(){try{sessionStorage.setItem(searchStorageKey,search.value);}catch(error){}window.location.href=record.href;});suggestions.appendChild(option);
+  });suggestions.hidden=matches.length===0;
+ }
+ function submitProductSearch(){if(!search)return;const term=search.value.trim();try{sessionStorage.setItem(searchStorageKey,term);}catch(error){}
+  if(cards.length){applyProductFilters(term);if(suggestions)suggestions.hidden=true;return;}
+  const target=new URL('index.php',window.location.href);target.searchParams.set('session_context','creator');target.searchParams.set('module','marketplace');if(term)target.searchParams.set('search',term);window.location.href=target.toString();
+ }
+ if(search){const requestedSearch=new URLSearchParams(window.location.search).get('search');if(requestedSearch!==null)search.value=requestedSearch;else{try{const savedSearch=sessionStorage.getItem(searchStorageKey);if(savedSearch!==null)search.value=savedSearch;}catch(error){}}
+  search.addEventListener('input',showSuggestions);search.addEventListener('focus',showSuggestions);search.addEventListener('keydown',function(event){if(event.key==='Enter'){event.preventDefault();submitProductSearch();}else if(event.key==='Escape'&&suggestions)suggestions.hidden=true;});
+ }
+ if(searchButton)searchButton.addEventListener('click',submitProductSearch);
+ document.addEventListener('click',function(event){if(suggestions&&!event.target.closest('.zc-marketplace-search'))suggestions.hidden=true;});
+ if(new URLSearchParams(window.location.search).has('search'))applyProductFilters(new URLSearchParams(window.location.search).get('search'));
  function saveCart(){try{localStorage.setItem('zcMarketplaceCart',JSON.stringify(cart));}catch(error){}}
  function updateAddCartButtons(){
   document.querySelectorAll('.zc-marketplace-add-cart').forEach(function(button){
@@ -1020,10 +1041,14 @@ document.addEventListener('DOMContentLoaded',function(){
 </script>
 <section class="section zc-marketplace-product-section"><div class="wrap">
 <div class="zc-marketplace-tools" aria-label="Search products and shopping cart">
- <label class="zc-marketplace-search">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
-  <input type="search" id="zc-marketplace-live-search" placeholder="Search products, brands, categories..." autocomplete="off" aria-label="Search marketplace products">
- </label>
+ <div class="zc-marketplace-search" role="search">
+  <div class="zc-marketplace-search-field">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+   <input type="search" id="zc-marketplace-live-search" placeholder="Search products, brands, categories..." autocomplete="off" aria-label="Search marketplace products" aria-controls="zc-marketplace-search-suggestions" aria-autocomplete="list">
+   <div class="zc-marketplace-search-suggestions" id="zc-marketplace-search-suggestions" role="listbox" hidden></div>
+  </div>
+  <button type="button" class="zc-marketplace-search-button" id="zc-marketplace-search-button">Search</button>
+ </div>
  <div class="zc-marketplace-cart">
   <button type="button" class="zc-marketplace-cart-toggle" id="zc-marketplace-cart-toggle" aria-label="Shopping cart" aria-expanded="false" aria-controls="zc-marketplace-cart-dropdown">
    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
