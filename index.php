@@ -765,10 +765,10 @@ $publicForumAttachmentUrl = static function(string $path): string {
 .zc-marketplace-copy h2 span{color:#e05260!important}
 .zc-marketplace-copy > p:last-child{font-family:inherit!important;font-size:14px!important;font-weight:400!important;line-height:1.8!important;letter-spacing:normal!important;color:#d3c2c8!important}
 .zc-marketplace-action{display:inline-flex;align-items:center;justify-content:center;gap:12px;flex:0 0 auto;min-height:48px;padding:0 22px;border:1px solid #d6a36b;border-radius:5px;background:linear-gradient(135deg,#9f263d,#68182d);color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:.45px;box-shadow:0 9px 25px rgba(0,0,0,.22);transition:transform .2s,border-color .2s,background .2s}
-.zc-marketplace-action{align-self:flex-start}
+.zc-marketplace-action{align-self:flex-end}
 .zc-marketplace-action:hover{transform:translateY(-2px);border-color:#f0c994;background:linear-gradient(135deg,#b8324b,#7b1e36);color:#fff}
 .zc-marketplace-action span{font-size:18px;line-height:1}
-@media(max-width:700px){.zc-marketplace-section{padding:38px 0}.zc-marketplace-inner{align-items:flex-start;flex-direction:column;gap:22px}.zc-marketplace-action{width:100%;box-sizing:border-box}}
+@media(max-width:700px){.zc-marketplace-section{padding:38px 0}.zc-marketplace-inner{align-items:stretch;flex-direction:column;gap:22px}.zc-marketplace-action{width:auto;max-width:100%;box-sizing:border-box;align-self:flex-end}}
 </style>
 <section class="zc-marketplace-section" id="zc-marketplace" aria-labelledby="zc-marketplace-title">
  <div class="wrap zc-marketplace-inner">
