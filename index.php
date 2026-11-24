@@ -813,10 +813,10 @@ if ($isCreatorSignedIn) {
 
 <?php if ($moduleView && !$activeForumPanel): ?>
 <section class="section module-page-head"><div class="wrap">
-  <p class="eyebrow">EXPLORE THE MODULE</p>
+  <p class="eyebrow"><?= $moduleSlug === 'marketplace' ? 'DISCOVER · SUPPORT · SHOP LOCAL' : 'EXPLORE THE MODULE' ?></p>
   <h1><?= $moduleSlug === 'marketplace' ? 'ZC Marketplace' : e((string)($activeModule['name'] ?? 'Module not found')) ?></h1>
-  <?php if ($activeModule && trim((string)$activeModule['description']) !== ''): ?><p class="muted"><?=e((string)$activeModule['description'])?></p><?php endif; ?>
-  <p><a class="btn light" href="index.php#modules">← Back to Explore modules</a></p>
+  <?php if ($activeModule && trim((string)$activeModule['description']) !== ''): ?><p class="muted"><?=e($moduleSlug === 'marketplace' ? 'Discover products, local makers, services and listings. Select a product to view its details. Sign in is required to open a product.' : (string)$activeModule['description'])?></p><?php endif; ?>
+  <?php if ($moduleSlug !== 'marketplace'): ?><p><a class="btn light" href="index.php#modules">← Back to Explore modules</a></p><?php endif; ?>
 </div></section>
 <?php endif; ?>
 
@@ -853,7 +853,6 @@ if ($isCreatorSignedIn) {
 <?php if(trim((string)($selectedMarketplaceProduct['description']??''))!==''): ?><p class="zc-marketplace-product-description"><?=nl2br(e((string)$selectedMarketplaceProduct['description']))?></p><?php endif; ?>
 </div></div>
 <?php else: ?>
-<div class="section-head"><div><p class="eyebrow">DISCOVER · SUPPORT · SHOP LOCAL</p><h2>Products from our community</h2><p class="muted">Select a product to view its details. Sign in is required to open a product.</p></div></div>
 <?php if (!$marketplaceProducts): ?><div class="panel empty-state"><span class="empty-mark">◇</span><h3>No products available yet.</h3><p class="muted">Products added through the Products tab will appear here automatically.</p></div>
 <?php else: ?><div class="zc-marketplace-products">
 <?php foreach($marketplaceProducts as $marketplaceProduct): $marketplaceProductHref=$isPublicUserSignedIn?'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id']:'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id'].'#sign-in-modal'; ?>
