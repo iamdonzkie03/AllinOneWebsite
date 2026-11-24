@@ -822,16 +822,16 @@ if ($isCreatorSignedIn) {
 
 <?php if ($moduleView && $moduleSlug === 'marketplace' && !$activeForumPanel): ?>
 <style id="zc-marketplace-product-page-styles">
-.zc-marketplace-products{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
-.zc-marketplace-product-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid rgba(215,154,165,.24);border-radius:15px;background:linear-gradient(155deg,#21151b,#100e12);box-shadow:0 14px 34px rgba(0,0,0,.2);color:#f7edf0;text-decoration:none;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
-.zc-marketplace-product-card:hover{transform:translateY(-4px);border-color:rgba(226,174,111,.7);box-shadow:0 18px 40px rgba(0,0,0,.3)}
-.zc-marketplace-product-photo{height:220px;background:linear-gradient(135deg,#4b101b,#171116);display:flex;align-items:center;justify-content:center;overflow:hidden;color:#d8b477;font-size:42px}
+.zc-marketplace-products{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.zc-marketplace-product-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid rgba(215,154,165,.24);border-radius:12px;background:linear-gradient(155deg,#21151b,#100e12);box-shadow:0 10px 24px rgba(0,0,0,.18);color:#f7edf0;text-decoration:none;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.zc-marketplace-product-card:hover{transform:translateY(-3px);border-color:rgba(226,174,111,.7);box-shadow:0 14px 30px rgba(0,0,0,.26)}
+.zc-marketplace-product-photo{height:155px;background:linear-gradient(135deg,#4b101b,#171116);display:flex;align-items:center;justify-content:center;overflow:hidden;color:#d8b477;font-size:34px}
 .zc-marketplace-product-photo img{width:100%;height:100%;object-fit:cover;display:block}
-.zc-marketplace-product-info{padding:17px;display:flex;flex-direction:column;gap:8px;flex:1}
-.zc-marketplace-product-info h2{margin:0;color:#fff4e8;font:500 22px/1.2 Georgia,serif}
-.zc-marketplace-product-category{color:#e1b96e;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
-.zc-marketplace-product-meta{color:#bcaeb3;font-size:11px;line-height:1.55}
-.zc-marketplace-product-open{margin-top:auto;padding-top:12px;color:#ffcf75;font-size:11px;font-weight:800;letter-spacing:.5px}
+.zc-marketplace-product-info{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.zc-marketplace-product-info h2{margin:0;color:#fff4e8;font:500 18px/1.2 Georgia,serif}
+.zc-marketplace-product-category{color:#e1b96e;font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
+.zc-marketplace-product-meta{color:#bcaeb3;font-size:10px;line-height:1.45}
+.zc-marketplace-product-open{margin-top:auto;padding-top:9px;color:#ffcf75;font-size:10px;font-weight:800;letter-spacing:.4px}
 .zc-marketplace-product-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;padding:24px;border:1px solid rgba(215,154,165,.3);border-radius:16px;background:linear-gradient(145deg,#21151b,#100e12)}
 .zc-marketplace-product-detail img{width:100%;max-height:440px;object-fit:contain;border-radius:10px;background:#0c0a0d}
 .zc-marketplace-product-detail h2{font:500 34px/1.1 Georgia,serif;color:#fff4e8;margin:8px 0 14px}
@@ -839,9 +839,9 @@ if ($isCreatorSignedIn) {
 .zc-marketplace-product-detail dl{display:grid;grid-template-columns:130px 1fr;gap:9px 14px;font-size:12px}
 .zc-marketplace-product-detail dt{color:#d8b477;font-weight:700}.zc-marketplace-product-detail dd{margin:0;color:#f4e9ed}
 .zc-marketplace-signin-note{margin:0 0 20px;padding:15px 18px;border:1px solid rgba(216,180,119,.3);border-radius:10px;background:rgba(216,180,119,.07);color:#f4e9df;font-size:13px}
-@media(max-width:1000px){.zc-marketplace-products{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:760px){.zc-marketplace-products{grid-template-columns:repeat(2,minmax(0,1fr))}.zc-marketplace-product-detail{grid-template-columns:1fr}}
-@media(max-width:520px){.zc-marketplace-products{grid-template-columns:1fr}.zc-marketplace-product-photo{height:240px}.zc-marketplace-product-detail{padding:16px}}
+@media(max-width:1100px){.zc-marketplace-products{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){.zc-marketplace-products{grid-template-columns:repeat(3,minmax(0,1fr))}.zc-marketplace-product-detail{grid-template-columns:1fr}}
+@media(max-width:520px){.zc-marketplace-products{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.zc-marketplace-product-photo{height:125px}.zc-marketplace-product-info{padding:10px}.zc-marketplace-product-info h2{font-size:16px}.zc-marketplace-product-detail{padding:16px}}
 </style>
 <section class="section zc-marketplace-product-section"><div class="wrap">
 <?php if ($selectedMarketplaceProduct): ?>
