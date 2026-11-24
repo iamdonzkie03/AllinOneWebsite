@@ -312,9 +312,11 @@ if (!(int)$subcategoryColumnCheck->fetchColumn()) {
 }
 $isPublicUserSignedIn = is_array($currentPublicUser) && (int)($currentPublicUser['id'] ?? 0) > 0;
 $marketplaceProducts = [];
+$marketplaceCategoryGroups = [];
 $selectedMarketplaceProduct = null;
 if ($moduleSlug === 'marketplace') {
     $marketplaceProducts = $pdo->query("SELECT p.id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY p.created_at DESC,p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $marketplaceCategoryGroups = $pdo->query("SELECT c.id,c.name,COUNT(DISTINCT p.id) AS product_count FROM marketplace_categories c LEFT JOIN marketplace_products p ON (p.category_id=c.id OR p.subcategory_id=c.id) WHERE c.parent_id IS NULL GROUP BY c.id,c.name HAVING COUNT(DISTINCT p.id)>0 ORDER BY c.name")->fetchAll(PDO::FETCH_ASSOC);
     $requestedMarketplaceProductId = max(0, (int)($_GET['product_id'] ?? 0));
     if ($requestedMarketplaceProductId > 0 && $isPublicUserSignedIn) {
         $marketplaceProductStmt = $pdo->prepare("SELECT p.id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.created_at,c.name AS category_name,sc.name AS subcategory_name FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id WHERE p.id=? LIMIT 1");
@@ -834,6 +836,20 @@ if ($isCreatorSignedIn) {
 
 <?php if ($moduleView && $moduleSlug === 'marketplace' && !$activeForumPanel): ?>
 <style id="zc-marketplace-product-page-styles">
+.zc-marketplace-category-panel{margin:0 0 24px;padding:20px;border:1px solid rgba(235,205,177,.2);border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.105),rgba(255,255,255,.035));box-shadow:0 18px 42px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.zc-marketplace-category-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.zc-marketplace-category-panel-head h2{margin:0;color:#fff4e8;font:600 22px/1.2 Georgia,serif}
+.zc-marketplace-category-panel-head p{margin:5px 0 0;color:#cbb9bd;font-size:11px}
+.zc-marketplace-category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:11px}
+.zc-marketplace-category-tile{display:flex;align-items:center;gap:11px;min-width:0;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:13px;background:rgba(16,12,16,.38);color:#f8edf0;text-align:left;text-decoration:none;cursor:pointer;transition:transform .18s,border-color .18s,background .18s}
+.zc-marketplace-category-tile:hover,.zc-marketplace-category-tile.is-active{transform:translateY(-2px);border-color:rgba(226,174,111,.72);background:rgba(146,48,66,.24)}
+.zc-marketplace-category-icon{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;border:1px solid rgba(234,196,147,.32);border-radius:12px;background:linear-gradient(145deg,rgba(231,185,120,.2),rgba(174,54,78,.18));box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 5px 16px rgba(0,0,0,.16);color:#f0c994;font-size:22px}
+.zc-marketplace-category-icon iconify-icon{font-size:22px}
+.zc-marketplace-category-label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.zc-marketplace-category-label strong{overflow:hidden;color:#fff4e8;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.zc-marketplace-category-label small{color:#c9b6bb;font-size:10px}
+.zc-marketplace-category-empty{padding:16px;color:#d3c2c8;font-size:12px}
+.zc-marketplace-product-card[hidden]{display:none!important}
 .zc-marketplace-products{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
 .zc-marketplace-product-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid rgba(215,154,165,.24);border-radius:12px;background:linear-gradient(155deg,#21151b,#100e12);box-shadow:0 10px 24px rgba(0,0,0,.18);color:#f7edf0;text-decoration:none;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
 .zc-marketplace-product-card:hover{transform:translateY(-3px);border-color:rgba(226,174,111,.7);box-shadow:0 14px 30px rgba(0,0,0,.26)}
@@ -855,6 +871,20 @@ if ($isCreatorSignedIn) {
 @media(max-width:760px){.zc-marketplace-products{grid-template-columns:repeat(3,minmax(0,1fr))}.zc-marketplace-product-detail{grid-template-columns:1fr}}
 @media(max-width:520px){.zc-marketplace-products{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.zc-marketplace-product-photo{height:125px}.zc-marketplace-product-info{padding:10px}.zc-marketplace-product-info h2{font-size:16px}.zc-marketplace-product-detail{padding:16px}}
 </style>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+ const panel=document.querySelector('.zc-marketplace-category-panel');
+ if(!panel)return;
+ const cards=Array.from(document.querySelectorAll('.zc-marketplace-product-card'));
+ panel.querySelectorAll('[data-marketplace-filter]').forEach(function(button){
+  button.addEventListener('click',function(){
+   const filter=button.getAttribute('data-marketplace-filter')||'all';
+   panel.querySelectorAll('[data-marketplace-filter]').forEach(function(item){const active=item===button;item.classList.toggle('is-active',active);item.setAttribute('aria-pressed',active?'true':'false');});
+   cards.forEach(function(card){const category=card.querySelector('.zc-marketplace-product-category');const name=category?category.textContent.trim():'';card.hidden=filter!=='all'&&name!==button.querySelector('strong').textContent.trim();});
+  });
+ });
+});
+</script>
 <section class="section zc-marketplace-product-section"><div class="wrap">
 <?php if ($selectedMarketplaceProduct): ?>
 <div class="section-head"><div><p class="eyebrow">ZC MARKETPLACE · PRODUCT</p><h2><?=e((string)$selectedMarketplaceProduct['product_name'])?></h2></div><a class="btn light" href="index.php?session_context=creator&amp;module=marketplace">← Back to ZC Marketplace</a></div>
@@ -865,10 +895,22 @@ if ($isCreatorSignedIn) {
 <?php if(trim((string)($selectedMarketplaceProduct['description']??''))!==''): ?><p class="zc-marketplace-product-description"><?=nl2br(e((string)$selectedMarketplaceProduct['description']))?></p><?php endif; ?>
 </div></div>
 <?php else: ?>
+<?php if ($marketplaceProducts): ?>
+<div class="zc-marketplace-category-panel" aria-label="Product categories">
+ <div class="zc-marketplace-category-panel-head"><div><h2>Categories of Products</h2><p>Browse the marketplace by category</p></div></div>
+ <div class="zc-marketplace-category-grid">
+  <button class="zc-marketplace-category-tile is-active" type="button" data-marketplace-filter="all" aria-pressed="true"><span class="zc-marketplace-category-icon"><iconify-icon icon="tabler:apps"></iconify-icon></span><span class="zc-marketplace-category-label"><strong>All Products</strong><small><?=count($marketplaceProducts)?> items</small></span></button>
+  <?php foreach($marketplaceCategoryGroups as $marketplaceCategory): ?>
+  <?php $categoryNameLower=mb_strtolower((string)$marketplaceCategory['name']); $categoryIcon='category'; if(preg_match('/art|craft|handmade|design|fashion|apparel|clothing|accessor/',$categoryNameLower)){$categoryIcon='palette';}elseif(preg_match('/food|drink|beverage|grocery|bakery/',$categoryNameLower)){$categoryIcon='tools-kitchen-2';}elseif(preg_match('/photo|camera|electronic|gadget|computer|mobile|phone/',$categoryNameLower)){$categoryIcon='device-camera-phone';}elseif(preg_match('/home|furniture|house|decor|garden/',$categoryNameLower)){$categoryIcon='home';}elseif(preg_match('/beauty|health|wellness|personal care/',$categoryNameLower)){$categoryIcon='heart';}elseif(preg_match('/service|repair|professional/',$categoryNameLower)){$categoryIcon='briefcase';}elseif(preg_match('/book|school|education|stationery/',$categoryNameLower)){$categoryIcon='book-2';}elseif(preg_match('/sport|fitness|outdoor/',$categoryNameLower)){$categoryIcon='ball-basketball';} ?>
+  <button class="zc-marketplace-category-tile" type="button" data-marketplace-filter="<?=e((string)$marketplaceCategory['id'])?>" aria-pressed="false"><span class="zc-marketplace-category-icon"><iconify-icon icon="tabler:<?=e($categoryIcon)?>"></iconify-icon></span><span class="zc-marketplace-category-label"><strong><?=e((string)$marketplaceCategory['name'])?></strong><small><?=number_format((int)$marketplaceCategory['product_count'])?> <?=((int)$marketplaceCategory['product_count']===1?'item':'items')?></small></span></button>
+  <?php endforeach; ?>
+ </div>
+</div>
+<?php endif; ?>
 <?php if (!$marketplaceProducts): ?><div class="panel empty-state"><span class="empty-mark">◇</span><h3>No products available yet.</h3><p class="muted">Products added through the Products tab will appear here automatically.</p></div>
 <?php else: ?><div class="zc-marketplace-products">
 <?php foreach($marketplaceProducts as $marketplaceProduct): $marketplaceProductHref=$isPublicUserSignedIn?'index.php?session_context=creator&amp;module=marketplace&amp;product_id='.(int)$marketplaceProduct['id']:'index.php?module=marketplace&amp;product_id='.(int)$marketplaceProduct['id'].'#sign-in-modal'; ?>
-<a class="zc-marketplace-product-card" href="<?=$marketplaceProductHref?>" aria-label="<?= $isPublicUserSignedIn ? 'View ' : 'Sign in to view ' ?><?=e((string)$marketplaceProduct['product_name'])?>">
+<a class="zc-marketplace-product-card" data-marketplace-category="<?=e((string)($marketplaceProduct['category_name']??''))?>" data-marketplace-category-id="<?=e((string)($marketplaceProduct['category_name']??''))?>" href="<?=$marketplaceProductHref?>" aria-label="<?= $isPublicUserSignedIn ? 'View ' : 'Sign in to view ' ?><?=e((string)$marketplaceProduct['product_name'])?>">
 <div class="zc-marketplace-product-photo"><?php if(!empty($marketplaceProduct['photo_path'])): ?><img src="public/<?=e(ltrim((string)$marketplaceProduct['photo_path'],'/'))?>" alt="<?=e((string)$marketplaceProduct['product_name'])?>"><?php else: ?>◇<?php endif; ?></div>
 <div class="zc-marketplace-product-info"><span class="zc-marketplace-product-category"><?=e((string)($marketplaceProduct['category_name']??'Marketplace Product'))?></span><h2><?=e((string)$marketplaceProduct['product_name'])?></h2>
 <?php if(!empty($marketplaceProduct['brand'])||!empty($marketplaceProduct['model'])): ?><span class="zc-marketplace-product-meta"><?=e(trim((string)($marketplaceProduct['brand']??'').' '.(string)($marketplaceProduct['model']??'')))?></span><?php endif; ?>
