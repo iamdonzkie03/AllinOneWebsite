@@ -963,6 +963,33 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 @media(max-width:560px){.marketplace-products-table th,.marketplace-products-table td{padding:7px 4px;font-size:9px}.marketplace-products-table th:nth-child(7),.marketplace-products-table td:nth-child(7){width:20%}.marketplace-products-table th:nth-child(8),.marketplace-products-table td:nth-child(8){width:19%}.marketplace-products-table .marketplace-actions{flex-direction:column;align-items:stretch!important}.marketplace-products-table .marketplace-actions a,.marketplace-products-table .marketplace-actions button{justify-content:center;text-align:center}}
 .marketplace-products-table tbody tr[hidden]{display:none!important}
 @media(max-width:680px){.marketplace-products-controls{align-items:stretch;flex-direction:column}.marketplace-products-controls .marketplace-products-filter{max-width:none}.marketplace-products-controls .marketplace-products-page-size{align-self:flex-start}.marketplace-products-pagination{align-items:flex-start;flex-direction:column}.marketplace-products-pagination-bottom{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,auto)!important;align-items:center!important;justify-content:stretch!important;width:100%!important}.marketplace-products-pagination-bottom > #marketplace-products-page-info-bottom{grid-column:1;grid-row:1;justify-self:start!important;text-align:left!important}.marketplace-products-pagination-bottom > .gallery-page-controls{grid-column:2;grid-row:1;justify-self:end!important;justify-content:flex-end!important;width:max-content!important;max-width:100%!important;flex-wrap:wrap!important}.marketplace-products-pagination .gallery-page-controls{gap:5px}.marketplace-products-pagination .gallery-page-number{min-width:28px}}
+
+/* Inventory table: fit every column inside the panel without a horizontal scrollbar. */
+.marketplace-inventory-table-wrap{width:100%;max-width:100%;overflow-x:hidden!important;overflow-y:visible;box-sizing:border-box}
+.marketplace-inventory-table{width:100%!important;min-width:0!important;max-width:100%;table-layout:fixed;border-collapse:collapse}
+.marketplace-inventory-table th,.marketplace-inventory-table td{padding:7px 4px!important;font-size:9px!important;line-height:1.4;overflow-wrap:anywhere;word-break:normal}
+.marketplace-inventory-table th{font-size:8px!important;letter-spacing:0!important;white-space:normal}
+.marketplace-inventory-table .marketplace-product-select-cell{width:3%;padding-left:3px!important;padding-right:3px!important}
+.marketplace-inventory-table th:nth-child(2),.marketplace-inventory-table td:nth-child(2){width:7%}
+.marketplace-inventory-table th:nth-child(3),.marketplace-inventory-table td:nth-child(3){width:19%}
+.marketplace-inventory-table th:nth-child(4),.marketplace-inventory-table td:nth-child(4){width:8%}
+.marketplace-inventory-table th:nth-child(5),.marketplace-inventory-table td:nth-child(5){width:11%}
+.marketplace-inventory-table th:nth-child(6),.marketplace-inventory-table td:nth-child(6){width:7%}
+.marketplace-inventory-table th:nth-child(7),.marketplace-inventory-table td:nth-child(7){width:14%}
+.marketplace-inventory-table th:nth-child(8),.marketplace-inventory-table td:nth-child(8){width:8%}
+.marketplace-inventory-table th:nth-child(9),.marketplace-inventory-table td:nth-child(9){width:8%}
+.marketplace-inventory-table th:nth-child(10),.marketplace-inventory-table td:nth-child(10){width:7%}
+.marketplace-inventory-table th:nth-child(11),.marketplace-inventory-table td:nth-child(11){width:8%}
+.marketplace-inventory-table .marketplace-photo{width:100%;max-width:44px;height:auto;aspect-ratio:1;object-fit:cover}
+.marketplace-inventory-product{min-width:0!important;max-width:none!important}
+.marketplace-inventory-product strong,.marketplace-inventory-product small,.marketplace-inventory-taxes small{white-space:normal!important;overflow-wrap:anywhere;word-break:break-word}
+.marketplace-inventory-taxes{min-width:0!important}
+.marketplace-inventory-taxes small{font-size:8px;line-height:1.35;margin-bottom:3px}
+.marketplace-inventory-status{max-width:100%;white-space:normal;overflow-wrap:anywhere;padding:4px 5px;font-size:8px}
+.marketplace-inventory-actions{min-width:0!important;display:flex;flex-direction:column;align-items:stretch;gap:4px;white-space:normal}
+.marketplace-inventory-actions .btn,.marketplace-add-stock-form .btn{width:100%;min-width:0;box-sizing:border-box;padding:5px 3px!important;font-size:8px!important}
+.marketplace-add-stock-form{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:3px}
+.marketplace-add-stock-form input{width:100%;box-sizing:border-box;padding:5px 3px;font-size:8px}
 </style>
 <nav class="marketplace-tabs" aria-label="Marketplace sections">
 <?php foreach (['overview'=>'Overview','products'=>'Products','inventory'=>'Inventory','purchases'=>'Purchases','invoices'=>'Invoices'] as $key=>$label): ?>
@@ -1201,7 +1228,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  <?php if(!$marketplaceInventory): ?><div class="marketplace-empty">No inventory records have been created yet. Add an inventory record from the Products page.</div><?php else: ?>
  <div class="marketplace-products-controls"><label class="marketplace-products-filter">Filter inventory<input type="search" id="marketplace-inventory-filter" placeholder="Search inventory details..." aria-label="Search inventory"></label><label class="marketplace-products-page-size">Show<select id="marketplace-inventory-page-size" aria-label="Inventory records per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
  <div class="marketplace-products-pagination marketplace-products-pagination-top"><span class="muted" id="marketplace-inventory-page-info-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-inventory-first-top">First</button><button type="button" class="btn light" id="marketplace-inventory-prev-top">Previous</button><span id="marketplace-inventory-page-numbers-top" class="gallery-page-numbers" aria-label="Inventory page numbers"></span><button type="button" class="btn light" id="marketplace-inventory-next-top">Next</button><button type="button" class="btn light" id="marketplace-inventory-last-top">Last</button></div><div class="admin-panel-head marketplace-products-bulk-toolbar" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="button" id="marketplace-inventory-delete-selected" disabled aria-disabled="true">Delete Selected</button></div></div>
- <div class="table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-inventory-select-all" aria-label="Select all inventory records"></th><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer</th><th>Quantity in Stock</th><th>All Taxes</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-inventory-tbody">
+ <div class="table-wrap marketplace-inventory-table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-inventory-select-all" aria-label="Select all inventory records"></th><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer</th><th>Quantity in Stock</th><th>All Taxes</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-inventory-tbody">
  <?php foreach($marketplaceInventory as $item): ?>
  <tr data-inventory-id="<?=!empty($item['id'])?(int)$item['id']:''?>" data-inventory-name="<?=e((string)$item['product_name'])?>" data-inventory-code="<?=e((string)($item['product_code']??''))?>">
   <td class="marketplace-product-select-cell"><?php if(!empty($item['id'])): ?><input type="checkbox" class="marketplace-inventory-select" name="selected_inventory[]" value="<?=(int)$item['id']?>" aria-label="Select <?=e((string)$item['product_name'])?> inventory record"><?php endif; ?></td>
