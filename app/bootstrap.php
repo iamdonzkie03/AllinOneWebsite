@@ -19,7 +19,13 @@ if (in_array($requestedContext, ['admin', 'creator', 'public'], true)) {
 } elseif (in_array($scriptName, ['workspace.php', 'content-edit.php', 'content-delete.php'], true)) {
     $sessionContext = 'creator';
 } else {
-    $sessionContext = 'public';
+    // Public-facing pages share the creator session by default. This keeps an
+    // authenticated creator signed in while navigating between the homepage,
+    // Marketplace, stories, articles, and other public modules even when a link
+    // does not explicitly carry session_context=creator. The administrator
+    // session remains isolated on admin routes, and callers may still request
+    // an explicit public session with session_context=public.
+    $sessionContext = 'creator';
 }
 
 function configure_app_session(string $context): void {
