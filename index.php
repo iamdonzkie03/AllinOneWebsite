@@ -840,6 +840,8 @@ if ($isCreatorSignedIn) {
 
 <?php if ($moduleView && $moduleSlug === 'marketplace' && !$activeForumPanel): ?>
 <style id="zc-marketplace-product-page-styles">
+.module-page-head.marketplace-module-page-head{padding-bottom:0}
+.zc-marketplace-product-section{padding-top:12px}
 .zc-marketplace-category-panel{margin:0 0 24px;padding:20px;border:1px solid rgba(235,205,177,.2);border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.105),rgba(255,255,255,.035));box-shadow:0 18px 42px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
 .zc-marketplace-category-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .zc-marketplace-category-panel-head h2{margin:0;color:#fff4e8;font-family:inherit;font-size:22px;font-weight:700;line-height:1.2;letter-spacing:1.2px;text-transform:uppercase}
