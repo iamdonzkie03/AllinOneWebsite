@@ -96,13 +96,19 @@ foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
 $pdo->exec("UPDATE marketplace_inventory SET batch_number=sku WHERE batch_number IS NULL OR batch_number=''");
 // Convert all pre-existing percentage-point tax values to decimal fractions exactly once.
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_schema_migrations (migration_key VARCHAR(120) NOT NULL PRIMARY KEY, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$inventoryPlaceholderMigration = $pdo->prepare("SELECT migration_key FROM marketplace_schema_migrations WHERE migration_key=? LIMIT 1");
-$inventoryPlaceholderMigration->execute(['inventory_records_for_existing_products_v1']);
-if ($inventoryPlaceholderMigration->fetchColumn()) {
-    // Remove only untouched auto-generated placeholders created by the previous behavior.
-    $pdo->exec("DELETE FROM marketplace_inventory WHERE sku=CONCAT('INV-PROD-',product_id) AND batch_number IS NULL AND supply_chain_type IS NULL AND stock_on_hand=0 AND sold=0 AND tax_rate=0 AND vat_rate=0 AND percentage_tax_rate=0 AND income_tax_rate=0 AND withholding_tax_rate=0 AND other_tax_rate=0 AND unit_price=0 AND retail_price=0 AND selling_price=0 AND status='Low Stock'");
-    $pdo->exec("DELETE FROM marketplace_schema_migrations WHERE migration_key='inventory_records_for_existing_products_v1'");
-}
+// Remove untouched placeholder inventory rows created by the previous auto-create behavior.
+// This cleanup is intentionally idempotent and does not depend on a migration marker:
+// the batch_number normalization above may already have copied the generated SKU into batch_number.
+$pdo->exec("DELETE FROM marketplace_inventory
+    WHERE sku=CONCAT('INV-PROD-',product_id)
+      AND (batch_number IS NULL OR batch_number='' OR batch_number=sku)
+      AND (supply_chain_type IS NULL OR supply_chain_type='')
+      AND stock_on_hand=0 AND sold=0 AND tax_rate=0
+      AND vat_rate=0 AND percentage_tax_rate=0 AND income_tax_rate=0
+      AND withholding_tax_rate=0 AND other_tax_rate=0
+      AND unit_price=0 AND retail_price=0 AND selling_price=0
+      AND status='Low Stock'");
+$pdo->exec("DELETE FROM marketplace_schema_migrations WHERE migration_key='inventory_records_for_existing_products_v1'");
 $taxFormatMigration = $pdo->prepare("SELECT migration_key FROM marketplace_schema_migrations WHERE migration_key=? LIMIT 1");
 $taxFormatMigration->execute(['inventory_tax_rates_to_decimal_fractions_v1']);
 if (!$taxFormatMigration->fetchColumn()) {
