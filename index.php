@@ -840,18 +840,25 @@ if ($isCreatorSignedIn) {
 
 <?php if ($moduleView && $moduleSlug === 'marketplace' && !$activeForumPanel): ?>
 <style id="zc-marketplace-product-page-styles">
-.zc-marketplace-category-panel{margin:0 0 24px;padding:20px;border:1px solid rgba(235,205,177,.2);border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.105),rgba(255,255,255,.035));box-shadow:0 18px 42px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
-.zc-marketplace-category-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
-.zc-marketplace-category-panel-head h2{margin:0;color:#fff4e8;font:600 22px/1.2 Georgia,serif}
-.zc-marketplace-category-panel-head p{margin:5px 0 0;color:#cbb9bd;font-size:11px}
-.zc-marketplace-category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:11px}
-.zc-marketplace-category-tile{display:flex;align-items:center;gap:11px;min-width:0;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:13px;background:rgba(16,12,16,.38);color:#f8edf0;text-align:left;text-decoration:none;cursor:pointer;transition:transform .18s,border-color .18s,background .18s}
-.zc-marketplace-category-tile:hover,.zc-marketplace-category-tile.is-active{transform:translateY(-2px);border-color:rgba(226,174,111,.72);background:rgba(146,48,66,.24)}
-.zc-marketplace-category-icon{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;border:1px solid rgba(234,196,147,.32);border-radius:12px;background:linear-gradient(145deg,rgba(231,185,120,.2),rgba(174,54,78,.18));box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 5px 16px rgba(0,0,0,.16);color:#f0c994;font-size:22px}
-.zc-marketplace-category-icon iconify-icon{font-size:22px}
-.zc-marketplace-category-label{display:flex;flex-direction:column;gap:4px;min-width:0}
-.zc-marketplace-category-label strong{overflow:hidden;color:#fff4e8;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
-.zc-marketplace-category-label small{color:#c9b6bb;font-size:10px}
+.zc-marketplace-category-panel{position:relative;margin:0 0 24px;padding:0 0 2px;overflow:hidden;border:1px solid #e9e9e9;border-radius:2px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.035)}
+.zc-marketplace-category-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:0 24px;border-bottom:1px solid #ededed;background:#fff}
+.zc-marketplace-category-panel-head h2{margin:0;color:#555;font:500 19px/1.2 Arial,sans-serif;letter-spacing:.1px;text-transform:uppercase}
+.zc-marketplace-category-panel-head p{display:none}
+.zc-marketplace-category-all{padding:7px 13px;border:1px solid #dedede;border-radius:3px;background:#fff;color:#555;font:500 12px Arial,sans-serif;cursor:pointer}
+.zc-marketplace-category-all:hover,.zc-marketplace-category-all.is-active{border-color:#b9b9b9;background:#f4f4f4;color:#222}
+.zc-marketplace-category-carousel{position:relative}
+.zc-marketplace-category-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,188px);grid-auto-columns:10%;gap:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scroll-snap-type:x mandatory;scrollbar-width:none}
+.zc-marketplace-category-grid::-webkit-scrollbar{display:none}
+.zc-marketplace-category-tile{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px;min-width:0;padding:25px 9px 12px;border:0;border-right:1px solid #ededed;border-bottom:1px solid #ededed;border-radius:0;background:#fff;color:#111;text-align:center;text-decoration:none;cursor:pointer;scroll-snap-align:start;transition:background .16s}
+.zc-marketplace-category-tile:hover,.zc-marketplace-category-tile.is-active{background:#f8f8f8}
+.zc-marketplace-category-icon{display:flex;align-items:center;justify-content:center;flex:0 0 72px;width:72px;height:72px;margin:0 auto 0;border:0;border-radius:50%;background:#f3f3f5;color:#222;font-size:42px}
+.zc-marketplace-category-icon iconify-icon{font-size:43px}
+.zc-marketplace-category-label{display:block;width:100%;min-width:0}
+.zc-marketplace-category-label strong{display:-webkit-box;overflow:hidden;color:#111;font:400 16px/1.45 Arial,sans-serif;text-overflow:ellipsis;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal}
+.zc-marketplace-category-label small{display:none}
+.zc-marketplace-category-arrow{position:absolute;z-index:2;top:50%;right:0;display:flex;align-items:center;justify-content:center;width:36px;height:36px;transform:translateY(-50%);border:0;border-radius:50%;background:#fff;color:#777;box-shadow:0 1px 8px rgba(0,0,0,.18);font:28px/1 Arial,sans-serif;cursor:pointer}
+.zc-marketplace-category-arrow.prev{right:auto;left:0}
+.zc-marketplace-category-arrow[hidden]{display:none}
 .zc-marketplace-category-empty{padding:16px;color:#d3c2c8;font-size:12px}
 .zc-marketplace-product-card[hidden]{display:none!important}
 .zc-marketplace-products{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
@@ -880,6 +887,15 @@ document.addEventListener('DOMContentLoaded',function(){
  const panel=document.querySelector('.zc-marketplace-category-panel');
  if(!panel)return;
  const cards=Array.from(document.querySelectorAll('.zc-marketplace-product-card'));
+ const grid=panel.querySelector('.zc-marketplace-category-grid');
+ const previous=panel.querySelector('.zc-marketplace-category-arrow.prev');
+ const next=panel.querySelector('.zc-marketplace-category-arrow.next');
+ function updateCategoryArrows(){
+  if(!grid||!previous||!next)return;
+  const maxScroll=Math.max(0,grid.scrollWidth-grid.clientWidth);
+  previous.hidden=grid.scrollLeft<=2;
+  next.hidden=maxScroll-grid.scrollLeft<=2;
+ }
  panel.querySelectorAll('[data-marketplace-filter]').forEach(function(button){
   button.addEventListener('click',function(){
    const filter=button.getAttribute('data-marketplace-filter')||'all';
@@ -887,6 +903,9 @@ document.addEventListener('DOMContentLoaded',function(){
    cards.forEach(function(card){card.hidden=filter!=='all'&&(card.getAttribute('data-marketplace-category-id')||'')!==filter;});
   });
  });
+ if(previous&&grid)previous.addEventListener('click',function(){grid.scrollBy({left:-grid.clientWidth*.85,behavior:'smooth'});});
+ if(next&&grid)next.addEventListener('click',function(){grid.scrollBy({left:grid.clientWidth*.85,behavior:'smooth'});});
+ if(grid){grid.addEventListener('scroll',updateCategoryArrows,{passive:true});window.addEventListener('resize',updateCategoryArrows);updateCategoryArrows();}
 });
 </script>
 <section class="section zc-marketplace-product-section"><div class="wrap">
@@ -901,13 +920,16 @@ document.addEventListener('DOMContentLoaded',function(){
 <?php else: ?>
 <?php if ($marketplaceProducts): ?>
 <div class="zc-marketplace-category-panel" aria-label="Product categories">
- <div class="zc-marketplace-category-panel-head"><div><h2>Categories of Products</h2><p>Browse the marketplace by category</p></div></div>
- <div class="zc-marketplace-category-grid">
-  <button class="zc-marketplace-category-tile is-active" type="button" data-marketplace-filter="all" aria-pressed="true"><span class="zc-marketplace-category-icon"><iconify-icon icon="tabler:apps"></iconify-icon></span><span class="zc-marketplace-category-label"><strong>All Products</strong><small><?=count($marketplaceProducts)?> items</small></span></button>
+ <div class="zc-marketplace-category-panel-head"><div><h2>Categories</h2><p>Browse the marketplace by category</p></div><button class="zc-marketplace-category-all is-active" type="button" data-marketplace-filter="all" aria-pressed="true">All Products</button></div>
+ <div class="zc-marketplace-category-carousel">
+  <button class="zc-marketplace-category-arrow prev" type="button" aria-label="Scroll categories left" hidden>‹</button>
+  <div class="zc-marketplace-category-grid">
   <?php foreach($marketplaceCategoryGroups as $marketplaceCategory): ?>
   <?php $categoryIcon=(string)($marketplaceCategory['icon']??'tabler:category'); if(!preg_match('/^tabler:[a-z0-9-]{1,80}$/',$categoryIcon))$categoryIcon='tabler:category'; ?>
   <button class="zc-marketplace-category-tile" type="button" data-marketplace-filter="<?=e((string)$marketplaceCategory['id'])?>" aria-pressed="false"><span class="zc-marketplace-category-icon"><iconify-icon icon="<?=e($categoryIcon)?>"></iconify-icon></span><span class="zc-marketplace-category-label"><strong><?=e((string)$marketplaceCategory['name'])?></strong><small><?=number_format((int)$marketplaceCategory['product_count'])?> <?=((int)$marketplaceCategory['product_count']===1?'item':'items')?></small></span></button>
   <?php endforeach; ?>
+  </div>
+  <button class="zc-marketplace-category-arrow next" type="button" aria-label="Scroll categories right">›</button>
  </div>
 </div>
 <?php endif; ?>
