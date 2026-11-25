@@ -1092,7 +1092,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-add-stock-form input{width:100%;box-sizing:border-box;padding:5px 3px;font-size:8px}
 </style>
 <nav class="marketplace-tabs" aria-label="Marketplace sections">
-<?php foreach (['overview'=>'Overview','products'=>'Master Catalog','inventory'=>'Stock Levels & Locations','purchases'=>'Purchase Orders & Receiving','invoices'=>'Sales Billing & Outflow'] as $key=>$label): ?>
+<?php foreach (['overview'=>'Overview','products'=>'Products','inventory'=>'Inventory','purchases'=>'Purchases','invoices'=>'Invoices'] as $key=>$label): ?>
 <a class="<?=($marketplaceTab===$key || ($marketplaceTab==='category' && $key==='products'))?'active':''?>" href="admin.php?section=marketplace&amp;marketplace_tab=<?=$key?>"><?=$label?></a>
 <?php endforeach; ?>
 </nav>
