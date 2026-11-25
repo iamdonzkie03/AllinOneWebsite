@@ -534,7 +534,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 // Tax inputs are percentage points (20 means 20%); store decimal fractions.
                 $vat=max(0,(float)str_replace(',','',str_replace('%','',(string)($vatRates[$index]??''))))/100; $percentageTax=max(0,(float)str_replace(',','',str_replace('%','',(string)($percentageTaxRates[$index]??''))))/100; $income=max(0,(float)str_replace(',','',str_replace('%','',(string)($incomeTaxRates[$index]??''))))/100;
                 $withholding=max(0,(float)str_replace(',','',str_replace('%','',(string)($withholdingTaxRates[$index]??''))))/100; $other=max(0,(float)str_replace(',','',str_replace('%','',(string)($otherTaxRates[$index]??''))))/100;
-                $discountType=(string)($discountTypes[$index]??'none'); $discountValue=max(0,(float)str_replace(',','',(string)($discountValues[$index]??'')));
+                $discountType=(string)($discountTypes[$index]??'none'); $discountRaw=str_replace(',','',str_replace('%','',(string)($discountValues[$index]??''))); $discountValue=max(0,(float)$discountRaw); if($discountType==='percent')$discountValue/=100;
                 $batch=trim((string)($batchNumbers[$index]??'')); $weight=trim((string)($weights[$index]??''));
                 $weightUnit=trim((string)(($_POST['weight_unit'][$index]??''))); $length=trim((string)($_POST['length'][$index]??'')); $width=trim((string)($_POST['width'][$index]??'')); $dimensionUnit=trim((string)($_POST['dimension_unit'][$index]??''));
                 $height=trim((string)($heights[$index]??'')); $depth=trim((string)($depths[$index]??''));
@@ -1474,7 +1474,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   const panel=row.querySelector('.marketplace-product-panel[data-panel-index="2"]');if(!panel)return;
   const retail=panel.querySelector('[name="retail_price[]"]'),selling=panel.querySelector('.marketplace-add-selling-price'),discountType=panel.querySelector('[name="discount_type[]"]'),discountValue=panel.querySelector('[name="discount_value[]"]');
   const taxFields=['vat_rate[]','percentage_tax_rate[]','income_tax_rate[]','withholding_tax_rate[]','other_tax_rate[]'].map(name=>panel.querySelector('[name="'+name+'"]')).filter(Boolean);
-  const formatField=field=>{if(taxFields.includes(field)){field.value=formatTaxPercent(field.value);return;}const grouped=field.dataset.format==='currency'||(field===discountValue&&discountType.value==='fixed');field.value=cleanNumericInput(field.value,grouped);};
+  const formatField=field=>{if(taxFields.includes(field)||(field===discountValue&&discountType.value==='percent')){field.value=formatTaxPercent(field.value);return;}const grouped=field===retail||(field===discountValue&&discountType.value==='fixed');field.value=cleanNumericInput(field.value,grouped);};
   const recalculate=()=>{
    const rawRetail=retail.value.trim();if(!rawRetail){selling.value='';return;}
    const base=parseNumeric(rawRetail),taxRate=taxFields.reduce((sum,field)=>sum+parseNumeric(field.value)/100,0);
@@ -1484,9 +1484,9 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   };
   [retail,...taxFields,discountValue].forEach(field=>{
    field.addEventListener('input',()=>{formatField(field);recalculate();});
-   field.addEventListener('blur',()=>{field.value=taxFields.includes(field)?formatTaxPercent(field.value):formatFixed(field.value,field.dataset.format==='currency');recalculate();});
+   field.addEventListener('blur',()=>{field.value=(taxFields.includes(field)||(field===discountValue&&discountType.value==='percent'))?formatTaxPercent(field.value):formatFixed(field.value,field===retail||(field===discountValue&&discountType.value==='fixed'));recalculate();});
   });
-  discountType.addEventListener('change',()=>{discountValue.dataset.format=discountType.value==='fixed'?'currency':'rate';discountValue.value=cleanNumericInput(discountValue.value,discountType.value==='fixed');recalculate();});
+  discountType.addEventListener('change',()=>{discountValue.dataset.format=discountType.value==='fixed'?'currency':'rate';discountValue.value=discountType.value==='percent'?formatTaxPercent(discountValue.value):cleanNumericInput(discountValue.value,discountType.value==='fixed');recalculate();});
   recalculate();
  };
  const initProductTabs=row=>{
