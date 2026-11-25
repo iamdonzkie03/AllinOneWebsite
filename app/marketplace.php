@@ -457,20 +457,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             }
             $uploadDirectory=realpath(dirname(__DIR__).'/public/uploads/products');
             if($uploadDirectory!==false){
+                $productFoldersToDelete=[];
                 foreach($photoPathsToDelete as $photoPath){
                     $relativePath=ltrim(str_replace('\\','/', $photoPath), '/');
                     $file=$uploadDirectory.DIRECTORY_SEPARATOR.str_replace('/',DIRECTORY_SEPARATOR,preg_replace('~^uploads/products/~','',$relativePath));
                     $realFile=realpath($file);
-                    if($realFile!==false&&str_starts_with($realFile,$uploadDirectory.DIRECTORY_SEPARATOR)&&is_file($realFile)) @unlink($realFile);
-                }
-                foreach($productsToDelete as $deletedProduct){
-                    $folderName=(int)$deletedProduct['id'].'_'.trim((string)preg_replace('/[^A-Za-z0-9]+/','_',(string)$deletedProduct['product_name']),'_');
-                    $folder=$uploadDirectory.DIRECTORY_SEPARATOR.$folderName;
-                    if(is_dir($folder)){
-                        $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($folder,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);
-                        foreach($iterator as $item)$item->isDir()?@rmdir($item->getPathname()):@unlink($item->getPathname());
-                        @rmdir($folder);
+                    if($realFile!==false&&str_starts_with($realFile,$uploadDirectory.DIRECTORY_SEPARATOR)&&is_file($realFile)){
+                        $candidateFolder=dirname($realFile);
+                        if($candidateFolder!==$uploadDirectory)$productFoldersToDelete[$candidateFolder]=true;
+                        else @unlink($realFile);
                     }
+                }
+                foreach(array_keys($productFoldersToDelete) as $folder){
+                    if(!str_starts_with($folder,$uploadDirectory.DIRECTORY_SEPARATOR)||!is_dir($folder))continue;
+                    $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($folder,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);
+                    foreach($iterator as $item)$item->isDir()?@rmdir($item->getPathname()):@unlink($item->getPathname());
+                    @rmdir($folder);
                 }
             }
             $marketplaceDeletedProductDetails=$productsToDelete;
