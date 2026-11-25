@@ -1131,6 +1131,11 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-inventory-actions .btn,.marketplace-add-stock-form .btn{width:100%;min-width:0;box-sizing:border-box;padding:5px 3px!important;font-size:8px!important}
 .marketplace-add-stock-form{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:3px}
 .marketplace-add-stock-form input{width:100%;box-sizing:border-box;padding:5px 3px;font-size:8px}
+
+/* Keep the Add Product dialog compact and show only the selected tab panel. */
+#marketplace-product-add-modal .marketplace-product-add-card{width:min(650px,94vw)!important;max-width:650px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
+#marketplace-product-add-modal .marketplace-product-fieldset[hidden]{display:none!important}
+#marketplace-product-add-modal .marketplace-product-fieldset:not([hidden]){display:block!important;grid-column:1/-1!important}
 </style>
 <nav class="marketplace-tabs" aria-label="Marketplace sections">
 <?php foreach (['overview'=>'Overview','products'=>'Products','inventory'=>'Inventory','purchases'=>'Purchases','invoices'=>'Invoices'] as $key=>$label): ?>
