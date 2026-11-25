@@ -1466,7 +1466,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 
  const productTabNames=['Product Details','Product Variations','Pricing, Taxes & Discounts','Physical and Tracking Attributes','Photos'];
  const parseNumeric=value=>{const parsed=Number(String(value??'').replace(/[,%]/g,'').trim());return Number.isFinite(parsed)?parsed:0;};
- const formatGrouped=value=>{if(value==='')return '';const parts=value.split('.');parts[0]=(parts[0]||'0').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');return parts.join('.');};
+ const formatGrouped=value=>{if(value==='')return '';const parts=value.split('.');parts[0]=(parts[0]||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',');return parts.join('.');};
  const cleanNumericInput=(value,grouped)=>{let clean=String(value??'').replace(/,/g,'').replace(/[^0-9.]/g,'');if(clean==='')return '';const dot=clean.indexOf('.');if(dot!==-1)clean=clean.slice(0,dot+1)+clean.slice(dot+1).replace(/\\./g,'');let [whole='',fraction]=clean.split('.');whole=whole.replace(/^0+(?=\\d)/,'');if(whole==='')whole='0';if(fraction!==undefined)fraction=fraction.slice(0,2);return (grouped?formatGrouped(whole+(fraction!==undefined?'.'+fraction:'')):whole+(fraction!==undefined?'.'+fraction:''));};
  const formatTaxPercent=value=>{const clean=cleanNumericInput(String(value??'').replace(/%/g,''),false);return clean===''?'':clean+'%';};
  const formatFixed=(value,grouped)=>{if(value==='')return '';const amount=parseNumeric(value);return grouped?amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):amount.toFixed(2);};
