@@ -702,8 +702,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                             $tagFile=$readNestedUpload($productTagPhotoUploads,[$uploadIndex,$tagType,$tagIndex]);$tagPath=null;
                             if((int)($tagFile['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
                                 $tagSlug=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$tagValue),'_');if($tagSlug==='')$tagSlug='tag';
-                                $savedTag=$saveProductImage($tagFile,$folder,'tagged_'.$newProductId.'-'.$safeName.'-'.$tagType.'-'.$tagSlug.'-'.$tagIndex);
-                                if($savedTag!==null){$tagPath='uploads/products/'.$folderName.'/'.basename($savedTag);$uploadedProductFiles[]=$savedTag;}
+                                $taggedPhotoFolder=$folder.'/Tagged Photos';
+                                if(!is_dir($taggedPhotoFolder)&&!mkdir($taggedPhotoFolder,0755,true)&&!is_dir($taggedPhotoFolder))throw new RuntimeException('The tagged-photo folder could not be created.');
+                                $savedTag=$saveProductImage($tagFile,$taggedPhotoFolder,'tagged_'.$newProductId.'-'.$safeName.'-'.$tagType.'-'.$tagSlug.'-'.$tagIndex);
+                                if($savedTag!==null){$tagPath='uploads/products/'.$folderName.'/Tagged Photos/'.basename($savedTag);$uploadedProductFiles[]=$savedTag;}
                             }
                             $tagInsert->execute([$newProductId,$tagType,$tagValue,$tagPath,$tagOrder++]);
                         }
