@@ -1135,7 +1135,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 /* Keep the Add Product dialog compact and show only the selected tab panel. */
 #marketplace-product-add-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
 #marketplace-product-add-modal .marketplace-product-panel[hidden]{display:none!important}
-#marketplace-product-add-modal .marketplace-product-fieldset:not([hidden]){display:block!important;grid-column:1/-1!important}
+#marketplace-product-add-modal .marketplace-product-panel:not([hidden]){display:block!important;grid-column:1/-1!important}
 
 /* Tab panels are plain sections (not bordered fieldsets); strictly hide inactive content. */
 #marketplace-product-add-modal .marketplace-product-panel{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:0;border:0;border-radius:0;background:transparent}
@@ -1335,12 +1335,12 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 @media(max-width:700px){.marketplace-product-attribute-grid{grid-template-columns:1fr}}
 /* Add Product: arrange related fieldsets in paired columns. */
 #marketplace-product-add-modal .marketplace-product-entry-row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:start!important;gap:14px!important}
-#marketplace-product-add-modal .marketplace-product-fieldset{display:block!important;box-sizing:border-box;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;border:1px solid rgba(218,174,185,.25);border-radius:13px;padding:16px;background:rgba(30,18,24,.32)}
-#marketplace-product-add-modal .marketplace-product-fieldset:nth-of-type(5){grid-column:1/-1}
+#marketplace-product-add-modal .marketplace-product-panel{display:block!important;box-sizing:border-box;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;border:1px solid rgba(218,174,185,.25);border-radius:13px;padding:16px;background:rgba(30,18,24,.32)}
+#marketplace-product-add-modal .marketplace-product-panel:nth-of-type(5){grid-column:1/-1}
 #marketplace-product-add-modal .marketplace-product-row-actions{grid-column:1/-1}
 #marketplace-product-add-modal .marketplace-product-category-group>.marketplace-field-label{font:12px Ubuntu,sans-serif;color:#d7cbd0;line-height:normal}
-#marketplace-product-add-modal .marketplace-product-fieldset legend{padding:0 9px;color:#f0c4ce;font-weight:800;font-size:13px}
-#marketplace-product-add-modal .marketplace-product-fieldset>.wide{width:100%;max-width:100%;box-sizing:border-box}
+#marketplace-product-add-modal .marketplace-product-panel legend{padding:0 9px;color:#f0c4ce;font-weight:800;font-size:13px}
+#marketplace-product-add-modal .marketplace-product-panel>.wide{width:100%;max-width:100%;box-sizing:border-box}
 #marketplace-product-add-modal .marketplace-product-attribute-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr))}
 #marketplace-product-add-modal .marketplace-product-commercial-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr));box-sizing:border-box}
 #marketplace-product-add-modal .marketplace-add-variation{margin-top:4px}
@@ -1349,20 +1349,20 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 #marketplace-product-add-modal .marketplace-product-tabs{display:flex;flex-wrap:wrap;gap:7px;grid-column:1/-1;width:100%;padding:0 0 12px;border-bottom:1px solid rgba(218,174,185,.2)}
 #marketplace-product-add-modal .marketplace-product-tab{border:1px solid rgba(218,174,185,.25);border-radius:9px;padding:9px 13px;background:rgba(255,255,255,.035);color:#d8c4cc;font:600 12px Ubuntu,sans-serif;cursor:pointer}
 #marketplace-product-add-modal .marketplace-product-tab[aria-selected="true"]{background:linear-gradient(135deg,#76283e,#a43c55);border-color:#c16b80;color:#fff;box-shadow:0 4px 14px #0003}
-#marketplace-product-add-modal .marketplace-product-fieldset[hidden]{display:none!important}
-#marketplace-product-add-modal .marketplace-product-fieldset:not([hidden]){grid-column:1/-1!important}
+#marketplace-product-add-modal .marketplace-product-panel[hidden]{display:none!important}
+#marketplace-product-add-modal .marketplace-product-panel:not([hidden]){grid-column:1/-1!important}
 @media(max-width:600px){#marketplace-product-add-modal .marketplace-product-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}#marketplace-product-add-modal .marketplace-product-tab{width:100%}}
-@media(max-width:700px){#marketplace-product-add-modal .marketplace-product-entry-row{grid-template-columns:minmax(0,1fr)!important}#marketplace-product-add-modal .marketplace-product-fieldset:nth-of-type(5),#marketplace-product-add-modal .marketplace-product-row-actions{grid-column:1}#marketplace-product-add-modal .marketplace-product-attribute-grid,#marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:1fr}}
+@media(max-width:700px){#marketplace-product-add-modal .marketplace-product-entry-row{grid-template-columns:minmax(0,1fr)!important}#marketplace-product-add-modal .marketplace-product-panel:nth-of-type(5),#marketplace-product-add-modal .marketplace-product-row-actions{grid-column:1}#marketplace-product-add-modal .marketplace-product-attribute-grid,#marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:1fr}}
 
 /* Add Product fieldset field placement. */
-#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;gap:12px}
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>.marketplace-product-category-group,
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(1),
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label.wide{grid-column:1/-1}
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(2),
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(3),
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(4){grid-column:auto}
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type textarea[name="description[]"]{min-height:140px;height:140px;resize:vertical}
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]:not([hidden]){display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;gap:12px}
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]>.marketplace-product-category-group,
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(1),
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]>label.wide{grid-column:1/-1}
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(2),
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(3),
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(4){grid-column:auto}
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"] textarea[name="description[]"]{min-height:140px;height:140px;resize:vertical}
 #marketplace-product-add-modal .marketplace-product-attribute-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 #marketplace-product-add-modal .marketplace-product-tag-field[data-tag-type="type"]{order:3}
 #marketplace-product-add-modal .marketplace-product-tag-field[data-tag-type="storage"]{order:4}
@@ -1379,7 +1379,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 #marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(9){grid-column:1/3;grid-row:3}
 #marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(10){grid-column:3/5;grid-row:3}
 @media(max-width:900px){
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type{grid-template-columns:repeat(2,minmax(0,1fr))}
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]{grid-template-columns:repeat(2,minmax(0,1fr))}
 #marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 #marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(1){grid-column:1;grid-row:1}
 #marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(2){grid-column:2;grid-row:1}
@@ -1393,12 +1393,15 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 #marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(10){grid-column:2;grid-row:5}
 }
 @media(max-width:700px){
-#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type{grid-template-columns:minmax(0,1fr)}
+#marketplace-product-add-modal .marketplace-product-panel[data-panel-index="0"]{grid-template-columns:minmax(0,1fr)}
 #marketplace-product-add-modal .marketplace-product-attribute-grid{grid-template-columns:1fr!important}
 #marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:1fr!important}
 #marketplace-product-add-modal .marketplace-product-commercial-grid>label{grid-column:1!important;grid-row:auto!important}
 }
 
+
+/* Final hidden-state rule overrides every panel layout declaration. */
+#marketplace-product-add-modal .marketplace-product-panel[hidden]{display:none!important}
 </style>
 <div class="account-status-modal marketplace-category-modal" id="marketplace-product-add-modal" hidden>
 <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-add-title">
@@ -1406,20 +1409,20 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 <form id="marketplace-product-add-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products">
 <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product">
 <div id="marketplace-product-entry-rows"><div class="marketplace-product-entry-row" data-row-index="0">
-<div class="marketplace-product-panel marketplace-product-fieldset" data-panel-index="0">
+<div class="marketplace-product-panel" data-panel-index="0">
 <div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>" <?=((int)($marketplaceProductInputRows[0]['category_id']??0)===(int)$category['id'])?'selected':''?>><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>" <?=((int)($marketplaceProductInputRows[0]['subcategory_id']??0)===(int)$subcategory['id'])?'selected':''?>><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
 <label>Product Name *<input name="product_name[]" maxlength="220" required value="<?=e((string)($marketplaceProductInputRows[0]['product_name']??''))?>"></label>
 <label>Brand *<input name="brand[]" maxlength="140" required value="<?=e((string)($marketplaceProductInputRows[0]['brand']??''))?>"></label>
 <label>Model<input name="model[]" maxlength="140" value="<?=e((string)($marketplaceProductInputRows[0]['model']??''))?>"></label><label>UOM<select name="uom[]"><option value="">Select UOM</option><?php foreach($marketplaceUoms as $uomOption): ?><option value="<?=e($uomOption)?>"><?=e($uomOption)?></option><?php endforeach; ?></select></label>
 <label class="wide">Description<textarea name="description[]"><?=e((string)($marketplaceProductInputRows[0]['description']??''))?></textarea></label></div>
-<div class="marketplace-product-panel marketplace-product-fieldset" data-panel-index="1">
+<div class="marketplace-product-panel" data-panel-index="1">
 <div class="wide marketplace-product-attribute-grid"><?php foreach(['colors'=>'Colors','sizes'=>'Sizes','storage'=>'Storage','type'=>'Type','others'=>'Others'] as $tagKey=>$tagLabel): ?><div class="marketplace-product-tag-field" data-tag-field="<?=$tagKey?>"><label><?=$tagLabel?><input type="text" class="marketplace-product-tag-input" data-tag-type="<?=$tagKey?>" placeholder="Enter a variation value" autocomplete="off"></label><button type="button" class="btn light marketplace-add-variation" data-variation-type="<?=$tagKey?>">+ Add <?=e(rtrim($tagLabel, 's'))?></button><div class="marketplace-product-tag-chips" aria-live="polite"></div></div><?php endforeach; ?></div>
 </div>
-<div class="marketplace-product-panel marketplace-product-fieldset" data-panel-index="2"><div class="wide marketplace-product-commercial-grid"><label>Retail Price (₱)<input name="retail_price[]" type="number" min="0" step="0.01" value="0"></label><label>Value-Added Tax (%)<input name="vat_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Withholding Tax (%)<input name="withholding_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Percentage Tax (%)<input name="percentage_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Income Tax (%)<input name="income_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Other Tax (%)<input name="other_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Discount<select name="discount_type[]"><option value="none">No Discount</option><option value="percent">Percentage (%)</option><option value="fixed">Fixed Peso (₱)</option></select></label><label>Discount Value<input name="discount_value[]" type="number" min="0" step="0.01" value="0"></label><label>Selling Price (₱)<input class="marketplace-add-selling-price" type="text" value="0.00" readonly></label><label>Status<select name="product_status[]"><option>Active</option><option>Discontinued</option><option>Draft</option></select></label></div>
+<div class="marketplace-product-panel" data-panel-index="2"><div class="wide marketplace-product-commercial-grid"><label>Retail Price (₱)<input name="retail_price[]" type="number" min="0" step="0.01" value="0"></label><label>Value-Added Tax (%)<input name="vat_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Withholding Tax (%)<input name="withholding_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Percentage Tax (%)<input name="percentage_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Income Tax (%)<input name="income_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Other Tax (%)<input name="other_tax_rate[]" type="number" min="0" step="0.01" value="0"></label><label>Discount<select name="discount_type[]"><option value="none">No Discount</option><option value="percent">Percentage (%)</option><option value="fixed">Fixed Peso (₱)</option></select></label><label>Discount Value<input name="discount_value[]" type="number" min="0" step="0.01" value="0"></label><label>Selling Price (₱)<input class="marketplace-add-selling-price" type="text" value="0.00" readonly></label><label>Status<select name="product_status[]"><option>Active</option><option>Discontinued</option><option>Draft</option></select></label></div>
 </div>
-<div class="marketplace-product-panel marketplace-product-fieldset" data-panel-index="3"><div class="wide marketplace-product-commercial-grid"><label>Weight<input name="weight[]" type="number" min="0" step="0.001"></label><label>Weight Measurement<select name="weight_unit[]"><option value="">Select unit</option><?php foreach($marketplaceWeightUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Length<input name="length[]" type="number" min="0" step="0.001"></label><label>Width<input name="width[]" type="number" min="0" step="0.001"></label><label>Dimension Measurement<select name="dimension_unit[]"><option value="">Select unit</option><?php foreach($marketplaceDimensionUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Lot No. / Batch No.<input name="batch_number[]" maxlength="100"></label></div>
+<div class="marketplace-product-panel" data-panel-index="3"><div class="wide marketplace-product-commercial-grid"><label>Weight<input name="weight[]" type="number" min="0" step="0.001"></label><label>Weight Measurement<select name="weight_unit[]"><option value="">Select unit</option><?php foreach($marketplaceWeightUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Length<input name="length[]" type="number" min="0" step="0.001"></label><label>Width<input name="width[]" type="number" min="0" step="0.001"></label><label>Dimension Measurement<select name="dimension_unit[]"><option value="">Select unit</option><?php foreach($marketplaceDimensionUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Lot No. / Batch No.<input name="batch_number[]" maxlength="100"></label></div>
 </div><input type="hidden" name="product_tags[]" class="marketplace-product-tags-json" value="{&quot;colors&quot;:[],&quot;sizes&quot;:[],&quot;storage&quot;:[],&quot;type&quot;:[],&quot;others&quot;:[]}">
-<div class="marketplace-product-panel marketplace-product-fieldset" data-panel-index="4"><div class="wide marketplace-product-main-photos"><label>Upload Main Photos *<input type="file" name="product_photos[0][]" class="marketplace-product-main-photo-input" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif" multiple required></label><small>Required: upload 1 to 5 main photos. JPG, JPEG, WEBP, PNG or AVIF; each file under 5 MB.</small><small class="marketplace-product-main-photo-names">No photos selected.</small></div>
+<div class="marketplace-product-panel" data-panel-index="4"><div class="wide marketplace-product-main-photos"><label>Upload Main Photos *<input type="file" name="product_photos[0][]" class="marketplace-product-main-photo-input" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif" multiple required></label><small>Required: upload 1 to 5 main photos. JPG, JPEG, WEBP, PNG or AVIF; each file under 5 MB.</small><small class="marketplace-product-main-photo-names">No photos selected.</small></div>
 </div>
 <div class="marketplace-product-row-actions"><button type="button" class="btn light marketplace-product-remove-row">Remove</button></div>
 </div></div>
