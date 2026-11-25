@@ -531,9 +531,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $country = trim((string)($countries[$index] ?? ''));
                 $description = trim((string)($descriptions[$index] ?? ''));
                 $uom=trim((string)($uoms[$index]??'')); $retail=max(0,(float)str_replace(',','',(string)($retailPrices[$index]??'')));
-                // Tax and percentage-discount inputs are decimal fractions (0.10 = 10%).
-                $vat=max(0,(float)str_replace(',','',(string)($vatRates[$index]??''))); $percentageTax=max(0,(float)str_replace(',','',(string)($percentageTaxRates[$index]??''))); $income=max(0,(float)str_replace(',','',(string)($incomeTaxRates[$index]??'')));
-                $withholding=max(0,(float)str_replace(',','',(string)($withholdingTaxRates[$index]??''))); $other=max(0,(float)str_replace(',','',(string)($otherTaxRates[$index]??'')));
+                // Tax inputs are percentage points (20 means 20%); store decimal fractions.
+                $vat=max(0,(float)str_replace(',','',str_replace('%','',(string)($vatRates[$index]??''))))/100; $percentageTax=max(0,(float)str_replace(',','',str_replace('%','',(string)($percentageTaxRates[$index]??''))))/100; $income=max(0,(float)str_replace(',','',str_replace('%','',(string)($incomeTaxRates[$index]??''))))/100;
+                $withholding=max(0,(float)str_replace(',','',str_replace('%','',(string)($withholdingTaxRates[$index]??''))))/100; $other=max(0,(float)str_replace(',','',str_replace('%','',(string)($otherTaxRates[$index]??''))))/100;
                 $discountType=(string)($discountTypes[$index]??'none'); $discountValue=max(0,(float)str_replace(',','',(string)($discountValues[$index]??'')));
                 $batch=trim((string)($batchNumbers[$index]??'')); $weight=trim((string)($weights[$index]??''));
                 $weightUnit=trim((string)(($_POST['weight_unit'][$index]??''))); $length=trim((string)($_POST['length'][$index]??'')); $width=trim((string)($_POST['width'][$index]??'')); $dimensionUnit=trim((string)($_POST['dimension_unit'][$index]??''));
@@ -776,11 +776,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $sku = $batchNumber;
             $stock = max(0, (float)str_replace(',', '', (string)($_POST['stock_on_hand'] ?? 0)));
             $sold = max(0, (int)($_POST['sold'] ?? 0));
-            $vatRate = max(0, (float)str_replace(',', '', (string)($_POST['vat_rate'] ?? 0)));
-            $percentageTaxRate = max(0, (float)str_replace(',', '', (string)($_POST['percentage_tax_rate'] ?? 0)));
-            $incomeTaxRate = max(0, (float)str_replace(',', '', (string)($_POST['income_tax_rate'] ?? 0)));
-            $withholdingTaxRate = max(0, (float)str_replace(',', '', (string)($_POST['withholding_tax_rate'] ?? 0)));
-            $otherTaxRate = max(0, (float)str_replace(',', '', (string)($_POST['other_tax_rate'] ?? 0)));
+            $vatRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['vat_rate'] ?? 0)))) / 100;
+            $percentageTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['percentage_tax_rate'] ?? 0)))) / 100;
+            $incomeTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['income_tax_rate'] ?? 0)))) / 100;
+            $withholdingTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['withholding_tax_rate'] ?? 0)))) / 100;
+            $otherTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['other_tax_rate'] ?? 0)))) / 100;
             $tax = $vatRate + $percentageTaxRate + $incomeTaxRate + $withholdingTaxRate + $otherTaxRate;
             $retailPrice = max(0, (float)str_replace(',', '', (string)($_POST['retail_price'] ?? 0)));
             $sellingPrice = round($retailPrice * (1 + $tax), 2);
@@ -900,7 +900,7 @@ if ($marketplaceEditInventoryId > 0 || $marketplaceViewInventoryId > 0) {
 }
 $money = static fn($value): string => '₱' . number_format((float)$value, 2);
 $quantityFormat = static fn($value): string => number_format((float)$value, 2, '.', ',');
-$taxFormat = static fn($value): string => number_format((float)$value, 2, '.', '');
+$taxFormat = static fn($value): string => number_format((float)$value * 100, 2, '.', '') . '%';
 $date = static function($value): string { $time=strtotime((string)$value); return $time ? date('M d, Y · h:i A',$time) : '—'; };
 $numberToWords = static function(int $number): string {
     if ($number <= 0) return 'Zero';
@@ -1424,7 +1424,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 <div class="marketplace-product-panel" data-panel-index="1">
 <div class="wide marketplace-product-attribute-grid"><?php foreach(['colors'=>'Colors','sizes'=>'Sizes','storage'=>'Storage','type'=>'Type','others'=>'Others'] as $tagKey=>$tagLabel): ?><div class="marketplace-product-tag-field" data-tag-field="<?=$tagKey?>"><label><?=$tagLabel?><input type="text" class="marketplace-product-tag-input" data-tag-type="<?=$tagKey?>" placeholder="Enter a variation value" autocomplete="off"></label><button type="button" class="btn light marketplace-add-variation" data-variation-type="<?=$tagKey?>">+ Add <?=e(rtrim($tagLabel, 's'))?></button><div class="marketplace-product-tag-chips" aria-live="polite"></div></div><?php endforeach; ?></div>
 </div>
-<div class="marketplace-product-panel" data-panel-index="2"><div class="wide marketplace-product-commercial-grid"><label>Retail Price (₱) *<input class="marketplace-price-input" name="retail_price[]" type="text" inputmode="decimal" data-format="currency" autocomplete="off" required></label><label>Value-Added Tax (0.10 = 10%)<input class="marketplace-rate-input" name="vat_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Withholding Tax (0.10 = 10%)<input class="marketplace-rate-input" name="withholding_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Percentage Tax (0.10 = 10%)<input class="marketplace-rate-input" name="percentage_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Income Tax (0.10 = 10%)<input class="marketplace-rate-input" name="income_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Other Tax (0.10 = 10%)<input class="marketplace-rate-input" name="other_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Discount<select name="discount_type[]" class="marketplace-discount-type"><option value="none">No Discount</option><option value="percent">Percentage (%)</option><option value="fixed">Fixed Peso (₱)</option></select></label><label>Discount Value<input class="marketplace-discount-value" name="discount_value[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Selling Price (₱) *<input class="marketplace-add-selling-price" type="text" value="" readonly required aria-readonly="true" tabindex="-1" style="background:#eeeeee!important;color:#666!important;cursor:not-allowed"></label><label>Status *<select name="product_status[]" required><option>Active</option><option>Discontinued</option><option>Draft</option></select></label></div>
+<div class="marketplace-product-panel" data-panel-index="2"><div class="wide marketplace-product-commercial-grid"><label>Retail Price (₱) *<input class="marketplace-price-input" name="retail_price[]" type="text" inputmode="decimal" data-format="currency" autocomplete="off" required></label><label>Value-Added Tax (%)<input class="marketplace-rate-input" name="vat_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Withholding Tax (%)<input class="marketplace-rate-input" name="withholding_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Percentage Tax (%)<input class="marketplace-rate-input" name="percentage_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Income Tax (%)<input class="marketplace-rate-input" name="income_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Other Tax (%)<input class="marketplace-rate-input" name="other_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Discount<select name="discount_type[]" class="marketplace-discount-type"><option value="none">No Discount</option><option value="percent">Percentage (%)</option><option value="fixed">Fixed Peso (₱)</option></select></label><label>Discount Value<input class="marketplace-discount-value" name="discount_value[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Selling Price (₱) *<input class="marketplace-add-selling-price" type="text" value="" readonly required aria-readonly="true" tabindex="-1" style="background:#eeeeee!important;color:#666!important;cursor:not-allowed"></label><label>Status *<select name="product_status[]" required><option>Active</option><option>Discontinued</option><option>Draft</option></select></label></div>
 </div>
 <div class="marketplace-product-panel" data-panel-index="3"><div class="wide marketplace-product-commercial-grid"><label>Weight<input name="weight[]" type="number" min="0" step="0.001"></label><label>Weight Measurement<select name="weight_unit[]"><option value="">Select unit</option><?php foreach($marketplaceWeightUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Length<input name="length[]" type="number" min="0" step="0.001"></label><label>Width<input name="width[]" type="number" min="0" step="0.001"></label><label>Dimension Measurement<select name="dimension_unit[]"><option value="">Select unit</option><?php foreach($marketplaceDimensionUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Lot No. / Batch No.<input name="batch_number[]" maxlength="100"></label></div>
 </div><input type="hidden" name="product_tags[]" class="marketplace-product-tags-json" value="{&quot;colors&quot;:[],&quot;sizes&quot;:[],&quot;storage&quot;:[],&quot;type&quot;:[],&quot;others&quot;:[]}">
@@ -1465,25 +1465,26 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  const rows=document.getElementById('marketplace-product-entry-rows'),initialRowMarkup=rows?.querySelector('.marketplace-product-entry-row')?.outerHTML||'',tagTypes=['colors','sizes','storage','type','others'];
 
  const productTabNames=['Product Details','Product Variations','Pricing, Taxes & Discounts','Physical and Tracking Attributes','Photos'];
- const parseNumeric=value=>{const parsed=Number(String(value??'').replace(/,/g,'').trim());return Number.isFinite(parsed)?parsed:0;};
- const formatGrouped=value=>{if(value==='')return '';const parts=value.split('.');parts[0]=(parts[0]||'0').replace(/\B(?=(\d{3})+(?!\d))/g,',');return parts.join('.');};
- const cleanNumericInput=(value,grouped)=>{let clean=String(value??'').replace(/,/g,'').replace(/[^0-9.]/g,'');if(clean==='')return '';const dot=clean.indexOf('.');if(dot!==-1)clean=clean.slice(0,dot+1)+clean.slice(dot+1).replace(/\./g,'');let [whole='',fraction]=clean.split('.');whole=whole.replace(/^0+(?=\d)/,'');if(whole==='')whole='0';if(fraction!==undefined)fraction=fraction.slice(0,2);return (grouped?formatGrouped(whole+(fraction!==undefined?'.'+fraction:'')):whole+(fraction!==undefined?'.'+fraction:''));};
+ const parseNumeric=value=>{const parsed=Number(String(value??'').replace(/[,%]/g,'').trim());return Number.isFinite(parsed)?parsed:0;};
+ const formatGrouped=value=>{if(value==='')return '';const parts=value.split('.');parts[0]=(parts[0]||'0').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');return parts.join('.');};
+ const cleanNumericInput=(value,grouped)=>{let clean=String(value??'').replace(/,/g,'').replace(/[^0-9.]/g,'');if(clean==='')return '';const dot=clean.indexOf('.');if(dot!==-1)clean=clean.slice(0,dot+1)+clean.slice(dot+1).replace(/\\./g,'');let [whole='',fraction]=clean.split('.');whole=whole.replace(/^0+(?=\\d)/,'');if(whole==='')whole='0';if(fraction!==undefined)fraction=fraction.slice(0,2);return (grouped?formatGrouped(whole+(fraction!==undefined?'.'+fraction:'')):whole+(fraction!==undefined?'.'+fraction:''));};
+ const formatTaxPercent=value=>{const clean=cleanNumericInput(String(value??'').replace(/%/g,''),false);return clean===''?'':clean+'%';};
  const formatFixed=(value,grouped)=>{if(value==='')return '';const amount=parseNumeric(value);return grouped?amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):amount.toFixed(2);};
  const bindPricing=row=>{
   const panel=row.querySelector('.marketplace-product-panel[data-panel-index="2"]');if(!panel)return;
   const retail=panel.querySelector('[name="retail_price[]"]'),selling=panel.querySelector('.marketplace-add-selling-price'),discountType=panel.querySelector('[name="discount_type[]"]'),discountValue=panel.querySelector('[name="discount_value[]"]');
   const taxFields=['vat_rate[]','percentage_tax_rate[]','income_tax_rate[]','withholding_tax_rate[]','other_tax_rate[]'].map(name=>panel.querySelector('[name="'+name+'"]')).filter(Boolean);
-  const formatField=field=>{const grouped=field.dataset.format==='currency'||(field===discountValue&&discountType.value==='fixed');field.value=cleanNumericInput(field.value,grouped);};
+  const formatField=field=>{if(taxFields.includes(field)){field.value=formatTaxPercent(field.value);return;}const grouped=field.dataset.format==='currency'||(field===discountValue&&discountType.value==='fixed');field.value=cleanNumericInput(field.value,grouped);};
   const recalculate=()=>{
    const rawRetail=retail.value.trim();if(!rawRetail){selling.value='';return;}
-   const base=parseNumeric(rawRetail),taxRate=taxFields.reduce((sum,field)=>sum+parseNumeric(field.value),0);
+   const base=parseNumeric(rawRetail),taxRate=taxFields.reduce((sum,field)=>sum+parseNumeric(field.value)/100,0);
    const discount=parseNumeric(discountValue.value),taxed=base*(1+taxRate);
    const discountAmount=discountType.value==='percent'?taxed*discount:(discountType.value==='fixed'?discount:0);
    selling.value=Math.max(0,taxed-discountAmount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   };
   [retail,...taxFields,discountValue].forEach(field=>{
    field.addEventListener('input',()=>{formatField(field);recalculate();});
-   field.addEventListener('blur',()=>{field.value=formatFixed(field.value,field.dataset.format==='currency');recalculate();});
+   field.addEventListener('blur',()=>{field.value=taxFields.includes(field)?formatTaxPercent(field.value):formatFixed(field.value,field.dataset.format==='currency');recalculate();});
   });
   discountType.addEventListener('change',()=>{discountValue.dataset.format=discountType.value==='fixed'?'currency':'rate';discountValue.value=cleanNumericInput(discountValue.value,discountType.value==='fixed');recalculate();});
   recalculate();
@@ -1694,11 +1695,11 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="<?=((float)$marketplaceInventoryForm['stock_on_hand']>0)?e($quantityFormat($marketplaceInventoryForm['stock_on_hand'])):''?>"></label>
-   <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value="<?=((float)($marketplaceInventoryForm['vat_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['vat_rate'])):''?>"></label>
-   <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['percentage_tax_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['percentage_tax_rate'])):''?>"></label>
-   <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['income_tax_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['income_tax_rate'])):''?>"></label>
-   <label>Withholding Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="withholding_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['withholding_tax_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['withholding_tax_rate'])):''?>"></label>
-   <label>Other Taxes (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="other_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['other_tax_rate']??0)>0)?e($taxFormat($marketplaceInventoryForm['other_tax_rate'])):''?>"></label>
+   <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value="<?=((float)($marketplaceInventoryForm['vat_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['vat_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
+   <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['percentage_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['percentage_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
+   <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['income_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['income_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
+   <label>Withholding Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="withholding_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['withholding_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['withholding_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
+   <label>Other Taxes (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="other_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['other_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['other_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
    <label>Retail Price (₱) — Before Taxes<input class="marketplace-retail-price marketplace-formatted-number" type="text" inputmode="decimal" data-decimals="2" name="retail_price" min="0" value="<?=((float)$marketplaceInventoryForm['retail_price']>0)?e(number_format((float)$marketplaceInventoryForm['retail_price'], 2, '.', ',')):''?>"></label>
    <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="<?=e(number_format((float)($marketplaceInventoryForm['selling_price']??$marketplaceInventoryForm['unit_price']), 2, '.', ','))?>" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
    <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=((string)($marketplaceInventoryForm['status']??'Low Stock')===$statusOption)?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
@@ -1720,8 +1721,8 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   function recalculate(){
    const totalRate=taxFields.reduce(function(sum,name){
     const field=form.querySelector('[name="'+name+'"]');
-    const value=field?Number(String(field.value).replace(/,/g,'')):0;
-    return sum+(Number.isFinite(value)&&value>0?value:0);
+    const value=field?Number(String(field.value).replace(/[,%]/g,'')):0;
+    return sum+(Number.isFinite(value)&&value>0?value/100:0);
    },0);
    const base=Math.max(0,Number(String(retail.value).replace(/,/g,''))||0);
    selling.value=(Math.round((base*(1+totalRate)+Number.EPSILON)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1731,24 +1732,24 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   recalculate();
  });
  document.querySelectorAll('.marketplace-tax-formatted').forEach(function(field){
-  // Tax inputs accept percentage points as digits: 12 becomes 0.12 and 100 becomes 1.00.
-  const formatTaxInput=function(){
-   const digits=String(field.value).replace(/[^0-9]/g,'');
-   if(!digits){field.value='';return;}
-   const cents=Math.min(10000,Number(digits)||0);
-   field.value=(cents/100).toFixed(2);
-   field.setSelectionRange(field.value.length,field.value.length);
-  };
-  field.addEventListener('input',formatTaxInput);
-  field.addEventListener('focus',function(){field.value=String(field.value).replace(/,/g,'');});
-  field.addEventListener('blur',function(){
-   if(field.value==='')return;
-   const value=Number(field.value);
-   field.value=Number.isFinite(value)?Math.min(1,Math.max(0,value)).toFixed(2):'';
+   const formatTaxInput=function(){
+    let value=String(field.value).replace(/%/g,'').replace(/[^0-9.]/g,'');
+    const dot=value.indexOf('.');
+    if(dot!==-1)value=value.slice(0,dot+1)+value.slice(dot+1).replace(/\\./g,'').slice(0,2);
+    field.value=value===''?'':value+'%';
+    field.setSelectionRange(field.value.length,field.value.length);
+   };
+   field.addEventListener('input',formatTaxInput);
+   field.addEventListener('blur',function(){
+    if(field.value==='')return;
+    const value=Number(String(field.value).replace('%',''));
+    field.value=Number.isFinite(value)?Math.min(100,Math.max(0,value)).toFixed(2)+'%':'';
+   });
+   if(field.value!==''){
+    const value=Number(String(field.value).replace('%',''));
+    field.value=Number.isFinite(value)?Math.min(100,Math.max(0,value)).toFixed(2)+'%':'';
+   }
   });
-  field.form?.addEventListener('submit',function(){if(field.value!==''){const value=Number(field.value);field.value=Number.isFinite(value)?Math.min(1,Math.max(0,value)).toFixed(2):'0.00';}});
-  if(field.value!==''){const value=Number(String(field.value).replace(/,/g,''));field.value=Number.isFinite(value)?Math.min(1,Math.max(0,value)).toFixed(2):'';}
- });
  document.querySelectorAll('.marketplace-formatted-number').forEach(function(field){
   const decimals=Number(field.dataset.decimals||2);
   const clean=value=>{
