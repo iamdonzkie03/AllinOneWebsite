@@ -1319,6 +1319,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 #marketplace-product-add-modal .marketplace-product-fieldset{display:block!important;box-sizing:border-box;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;border:1px solid rgba(218,174,185,.25);border-radius:13px;padding:16px;background:rgba(30,18,24,.32)}
 #marketplace-product-add-modal .marketplace-product-fieldset:nth-of-type(5){grid-column:1/-1}
 #marketplace-product-add-modal .marketplace-product-row-actions{grid-column:1/-1}
+#marketplace-product-add-modal .marketplace-product-category-group>.marketplace-field-label{font:12px Ubuntu,sans-serif;color:#d7cbd0;line-height:normal}
 #marketplace-product-add-modal .marketplace-product-fieldset legend{padding:0 9px;color:#f0c4ce;font-weight:800;font-size:13px}
 #marketplace-product-add-modal .marketplace-product-fieldset>.wide{width:100%;max-width:100%;box-sizing:border-box}
 #marketplace-product-add-modal .marketplace-product-attribute-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr))}
