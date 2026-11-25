@@ -60,6 +60,21 @@ foreach ($marketplaceProductColumns as $columnName => $columnDefinition) {
         $pdo->exec("ALTER TABLE marketplace_products ADD COLUMN " . $columnName . " " . $columnDefinition);
     }
 }
+$pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_product_photos (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, product_id BIGINT UNSIGNED NOT NULL,
+ photo_path VARCHAR(500) NOT NULL, sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_marketplace_product_photo_product FOREIGN KEY (product_id) REFERENCES marketplace_products(id) ON DELETE CASCADE,
+ INDEX idx_marketplace_product_photos_product(product_id,sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_product_tags (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, product_id BIGINT UNSIGNED NOT NULL,
+ tag_type VARCHAR(20) NOT NULL, tag_value VARCHAR(140) NOT NULL, photo_path VARCHAR(500) NULL,
+ sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_marketplace_product_tag_product FOREIGN KEY (product_id) REFERENCES marketplace_products(id) ON DELETE CASCADE,
+ UNIQUE KEY uq_marketplace_product_tag(product_id,tag_type,tag_value),
+ INDEX idx_marketplace_product_tags_product(product_id,tag_type,sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $productCodeIndex = $pdo->query("SHOW INDEX FROM marketplace_products WHERE Key_name = 'uq_marketplace_product_code'")->fetch(PDO::FETCH_ASSOC);
 if (!$productCodeIndex) $pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY uq_marketplace_product_code (product_code)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_inventory (
@@ -475,7 +490,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $supplyEntity = trim((string)($supplyEntities[$index] ?? ''));
                 $country = trim((string)($countries[$index] ?? ''));
                 $description = trim((string)($descriptions[$index] ?? ''));
-                if ($name === '' && $categoryId === 0 && $brand === '' && $model === '' && $manufacturer === '' && $supplyEntity === '' && $country === '' && $description === '') continue;
+                $decodedProductTags = json_decode((string)($_POST['product_tags'][$index] ?? '{}'), true);
+                if (!is_array($decodedProductTags)) throw new RuntimeException('The product tags could not be read. Please review the tag fields.');
+                $productTags = [];
+                foreach (['colors','sizes','storage','type','others'] as $tagType) {
+                    $values = $decodedProductTags[$tagType] ?? [];
+                    if (!is_array($values)) $values = [];
+                    $productTags[$tagType] = [];
+                    foreach ($values as $tagValue) {
+                        $tagValue = trim((string)$tagValue);
+                        if ($tagValue !== '' && !in_array($tagValue, $productTags[$tagType], true)) {
+                            if (mb_strlen($tagValue) > 140) throw new RuntimeException('Each product tag must be 140 characters or fewer.');
+                            $productTags[$tagType][] = $tagValue;
+                        }
+                    }
+                }
+                if ($name === '' && $categoryId === 0 && $brand === '' && $model === '' && $manufacturer === '' && $supplyEntity === '' && $country === '' && $description === '' && !array_filter($productTags)) continue;
                 if ($name === '') throw new RuntimeException('Product Name is required for every product row.');
                 if (!$isProductEdit && $categoryId < 1) throw new RuntimeException('Category is required for every product row.');
                 if ($brand === '') throw new RuntimeException('Brand is required for every product row.');
@@ -491,7 +521,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     if (!$subcategoryCheck->fetchColumn()) throw new RuntimeException('Choose a subcategory that belongs to the selected category.');
                 }
                 if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
-                $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId,(int)$index];
+                $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId,(int)$index,$productTags];
             }
             if (!$rows) throw new RuntimeException('Add at least one product with a Product Name.');
             $productId = max(0, (int)($_POST['product_id'] ?? 0));
@@ -613,42 +643,70 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 }
                 unset($row);
                 $uploadedProductFiles = [];
-                $productPhotoUploads = $_FILES['product_photo'] ?? [];
+                $createdProductFolders = [];
+                $productPhotoUploads = $_FILES['product_photos'] ?? [];
+                $productTagPhotoUploads = $_FILES['product_tag_photos'] ?? [];
                 $uploadDirectory = dirname(__DIR__) . '/public/uploads/products';
-                $uploadUrlDirectory = 'uploads/products';
                 if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true) && !is_dir($uploadDirectory)) throw new RuntimeException('The product photo upload folder could not be created.');
+                $readNestedUpload = static function(array $files, array $keys): array {
+                    $entry = [];
+                    foreach (['name','type','tmp_name','error','size'] as $field) {
+                        $value = $files[$field] ?? null;
+                        foreach ($keys as $key) { if (!is_array($value) || !array_key_exists($key,$value)) { $value=null; break; } $value=$value[$key]; }
+                        $entry[$field]=$value;
+                    }
+                    return $entry;
+                };
+                $saveProductImage = static function(array $file,string $directory,string $filenameBase): ?string {
+                    $error=(int)($file['error']??UPLOAD_ERR_NO_FILE);
+                    if($error===UPLOAD_ERR_NO_FILE)return null;
+                    if($error!==UPLOAD_ERR_OK)throw new RuntimeException('A product image could not be uploaded.');
+                    $tmp=(string)($file['tmp_name']??'');$size=(int)($file['size']??0);
+                    if($size<1||$size>=5*1024*1024||!is_uploaded_file($tmp))throw new RuntimeException('Each product image must be a valid image smaller than 5 MB.');
+                    $info=@getimagesize($tmp);$mime=strtolower((string)($info['mime']??''));$ext=strtolower(pathinfo((string)($file['name']??''),PATHINFO_EXTENSION));
+                    $allowed=['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'image/avif'=>['avif']];
+                    if(!isset($allowed[$mime])||!in_array($ext,$allowed[$mime],true))throw new RuntimeException('Product photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
+                    $destination=$directory.'/'.$filenameBase.'.'.$ext;if(!move_uploaded_file($tmp,$destination))throw new RuntimeException('A product image could not be saved.');return $destination;
+                };
                 $pdo->beginTransaction();
                 try {
-                    $insert = $pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,NULL)');
-                    $photoUpdate = $pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?');
-                    foreach ($rows as $index => $row) {
-                        $insert->execute([$row[8] ?: null,$row[9] ?: null,$row[0],$row[1],$row[2] ?: null,$row[3] ?: null,$row[4] ?: null,$row[5] ?: null,$row[6] ?: null,$row[7] ?: null]);
-                        $newProductId = (int)$pdo->lastInsertId();
-                        $uploadIndex = (int)($row[10] ?? $index);
-                        $uploadError = (int)($productPhotoUploads['error'][$uploadIndex] ?? UPLOAD_ERR_NO_FILE);
-                        if ($uploadError !== UPLOAD_ERR_NO_FILE) {
-                            if ($uploadError !== UPLOAD_ERR_OK) throw new RuntimeException('The photo for "' . $row[0] . '" could not be uploaded.');
-                            $temporaryPath = (string)($productPhotoUploads['tmp_name'][$uploadIndex] ?? '');
-                            $fileSize = (int)($productPhotoUploads['size'][$uploadIndex] ?? 0);
-                            if ($fileSize < 1 || $fileSize >= 5 * 1024 * 1024 || !is_uploaded_file($temporaryPath)) throw new RuntimeException('Each product photo must be a valid image smaller than 5 MB.');
-                            $imageInfo = @getimagesize($temporaryPath);
-                            $mime = strtolower((string)($imageInfo['mime'] ?? ''));
-                            $originalExtension = strtolower(pathinfo((string)($productPhotoUploads['name'][$uploadIndex] ?? ''), PATHINFO_EXTENSION));
-                            $allowedImageTypes = ['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'image/avif'=>['avif']];
-                            if (!isset($allowedImageTypes[$mime]) || !in_array($originalExtension, $allowedImageTypes[$mime], true)) throw new RuntimeException('Product photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
-                            $safeProductName = trim((string)preg_replace('/[^A-Za-z0-9]+/', '_', $row[0]), '_');
-                            if ($safeProductName === '') $safeProductName = 'product';
-                            $photoFilename = $row[1] . '_' . $safeProductName . '.' . $originalExtension;
-                            $destinationPath = $uploadDirectory . '/' . $photoFilename;
-                            if (!move_uploaded_file($temporaryPath, $destinationPath)) throw new RuntimeException('The photo for "' . $row[0] . '" could not be saved.');
-                            $uploadedProductFiles[] = $destinationPath;
-                            $photoUpdate->execute([$uploadUrlDirectory . '/' . $photoFilename, $newProductId]);
+                    $insert=$pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,NULL)');
+                    $photoUpdate=$pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?');
+                    $photoInsert=$pdo->prepare('INSERT INTO marketplace_product_photos(product_id,photo_path,sort_order) VALUES(?,?,?)');
+                    $tagInsert=$pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,?,?)');
+                    foreach($rows as $index=>$row){
+                        $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null]);
+                        $newProductId=(int)$pdo->lastInsertId();$uploadIndex=(int)($row[10]??$index);
+                        $safeName=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');if($safeName==='')$safeName='product';
+                        $folderName=$newProductId.'_'.$safeName;$folder=$uploadDirectory.'/'.$folderName;
+                        if(!is_dir($folder)&&!mkdir($folder,0755,true)&&!is_dir($folder))throw new RuntimeException('The product-specific photo folder could not be created.');
+                        $createdProductFolders[]=$folder;$count=0;$firstPath=null;
+                        for($photoIndex=0;$photoIndex<5;$photoIndex++){
+                            $file=$readNestedUpload($productPhotoUploads,[$uploadIndex,$photoIndex]);if((int)($file['error']??UPLOAD_ERR_NO_FILE)===UPLOAD_ERR_NO_FILE)continue;
+                            $base=$newProductId.'-'.$safeName.($count>0?'-'.($count+1):'');$saved=$saveProductImage($file,$folder,$base);if($saved===null)continue;
+                            $relative='uploads/products/'.$folderName.'/'.basename($saved);$photoInsert->execute([$newProductId,$relative,$count]);
+                            if($firstPath===null)$firstPath=$relative;$uploadedProductFiles[]=$saved;$count++;
+                        }
+                        if($count<1)throw new RuntimeException('At least one main photo is required for "'.$row[0].'".');
+                        $photoUpdate->execute([$firstPath,$newProductId]);$tagOrder=0;
+                        foreach(($row[11]??[]) as $tagType=>$values)foreach($values as $tagIndex=>$tagValue){
+                            $tagFile=$readNestedUpload($productTagPhotoUploads,[$uploadIndex,$tagType,$tagIndex]);$tagPath=null;
+                            if((int)($tagFile['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
+                                $tagSlug=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$tagValue),'_');if($tagSlug==='')$tagSlug='tag';
+                                $savedTag=$saveProductImage($tagFile,$folder,'tagged_'.$newProductId.'-'.$safeName.'-'.$tagType.'-'.$tagSlug);
+                                if($savedTag!==null){$tagPath='uploads/products/'.$folderName.'/'.basename($savedTag);$uploadedProductFiles[]=$savedTag;}
+                            }
+                            $tagInsert->execute([$newProductId,$tagType,$tagValue,$tagPath,$tagOrder++]);
                         }
                     }
                     $pdo->commit();
-                } catch (Throwable $insertError) {
-                    if ($pdo->inTransaction()) $pdo->rollBack();
-                    foreach ($uploadedProductFiles as $uploadedFile) if (is_file($uploadedFile)) @unlink($uploadedFile);
+                } catch(Throwable $insertError) {
+                    if($pdo->inTransaction())$pdo->rollBack();
+                    foreach($uploadedProductFiles as $file)if(is_file($file))@unlink($file);
+                    foreach($createdProductFolders as $folder)if(is_dir($folder)){
+                        $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($folder,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);
+                        foreach($iterator as $item)$item->isDir()?@rmdir($item->getPathname()):@unlink($item->getPathname());@rmdir($folder);
+                    }
                     throw $insertError;
                 }
                 $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1]], $rows);
@@ -1191,26 +1249,36 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 </section>
 <div class="account-status-modal users-delete-confirm-modal marketplace-product-delete-confirm-overlay" id="marketplace-products-delete-confirm-modal" hidden><div class="account-status-modal-card marketplace-product-delete-confirm-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="marketplace-products-delete-confirm-title">Delete Confirmation Notice</h2><div id="marketplace-products-delete-confirm-copy"><p>Are you sure you want to delete the selected product?</p></div><div id="marketplace-products-delete-confirm-list" class="marketplace-product-delete-list"></div><div class="users-delete-modal-actions"><button type="button" class="btn light" id="marketplace-products-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="marketplace-products-delete-confirm">Delete</button></div></div></div><?php if($marketplaceDeletedProductCount>0): ?><div class="account-status-modal users-delete-success-modal marketplace-product-delete-success-overlay" id="marketplace-products-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-success-title"><div class="account-status-modal-card marketplace-product-delete-success-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="marketplace-products-delete-success-title">Delete Product Successful</h2><p><?php if($marketplaceDeletedProductCount===1): $deletedProduct=$marketplaceDeletedProductDetails[0]; ?>The product <strong class="marketplace-delete-name"><?=e((string)$deletedProduct['product_name'])?></strong> with product ID <strong class="marketplace-delete-code"><?=e((string)($deletedProduct['product_code']??''))?></strong> has been successfully deleted<?php else: ?><strong class="marketplace-delete-count"><?=e($numberToWords($marketplaceDeletedProductCount))?> (<?=number_format($marketplaceDeletedProductCount)?>)</strong> selected products have been successfully deleted<?php endif; ?>.</p><button type="button" class="btn" id="marketplace-products-delete-success-close">OK</button></div></div><?php endif; ?><div class="account-status-modal marketplace-category-modal" id="marketplace-product-edit-modal" hidden><div class="account-status-modal-card marketplace-product-add-card marketplace-product-edit-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-title"><h2 id="marketplace-product-edit-title">Edit Product</h2><form class="marketplace-form marketplace-product-edit-form" id="marketplace-product-edit-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product"><input type="hidden" name="product_id" id="marketplace-product-edit-id"><div class="marketplace-product-category-group"><div class="marketplace-product-category-label">Category *</div><div class="marketplace-product-category-selects"><select name="category_id" id="marketplace-product-edit-category" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>"><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id" id="marketplace-product-edit-subcategory" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>"><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div><label class="marketplace-edit-row"><span>Product Name *</span><input name="product_name" id="marketplace-product-edit-name" required maxlength="220"></label><label class="marketplace-edit-row"><span>Product ID</span><input id="marketplace-product-edit-code" readonly aria-readonly="true" style="background:#29252a;color:#999;cursor:not-allowed"></label><label class="marketplace-edit-row"><span>Brand *</span><input name="brand" id="marketplace-product-edit-brand" required maxlength="140"></label><label class="marketplace-edit-row"><span>Model *</span><input name="model" id="marketplace-product-edit-model" required maxlength="140"></label><label class="marketplace-edit-row marketplace-edit-description-row"><span>Description</span><textarea name="description" id="marketplace-product-edit-description"></textarea></label><div class="marketplace-product-edit-photo-layout"><div class="marketplace-product-edit-photo-field"><div class="marketplace-edit-upload-row"><span class="marketplace-edit-row-label">Upload Photo</span><div class="marketplace-edit-upload-control"><input type="file" name="product_photo" id="marketplace-product-edit-photo-input" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif"><small>Upload Photo (JPG, JPEG, WEBP, PNG, AVIF · under 5 MB)</small><small id="marketplace-product-edit-current-photo"></small></div></div><div class="marketplace-product-edit-photo-previews"><div class="marketplace-product-edit-photo-current"><span class="marketplace-field-label">Current Photo Preview</span><div class="marketplace-product-edit-photo-preview-wrap"><img id="marketplace-product-edit-current-preview" class="marketplace-product-edit-photo-preview" alt="Current product photo" hidden><span id="marketplace-product-edit-current-empty">No current photo.</span></div></div><div class="marketplace-product-edit-photo-current"><span class="marketplace-field-label">New Photo Preview</span><div class="marketplace-product-edit-photo-preview-wrap"><img id="marketplace-product-edit-photo-preview" class="marketplace-product-edit-photo-preview" alt="New photo preview" hidden><span id="marketplace-product-edit-photo-empty">No new photo selected.</span></div></div></div></div></div><div class="wide marketplace-category-modal-actions"><button class="btn light" type="button" id="marketplace-product-edit-cancel">Cancel</button><button class="btn" type="submit">Update Product</button></div></form></div></div>
 <?php if($marketplaceProductEditSuccess !== null): ?><div class="marketplace-category-delete-success-overlay" id="marketplace-product-edit-success-modal"><section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-success-title"><div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div><h2 id="marketplace-product-edit-success-title">Edit Product Successful</h2><p><?php if($marketplaceProductEditSuccess['type']==='category'): ?>The category <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['old_category'])?></strong> has been successfully changed to <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceProductEditSuccess['new_category'])?></strong>. The subcategory has been reselected to <strong style="color:#22a565;font-weight:900"><?=e($marketplaceProductEditSuccess['subcategory'])?></strong>.<?php elseif($marketplaceProductEditSuccess['type']==='name'): ?>The product name <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['old_name'])?></strong> has been successfully changed to <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceProductEditSuccess['new_name'])?></strong>.<?php elseif($marketplaceProductEditSuccess['type']==='model'): ?>The model <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['old_model'])?></strong> of <strong style="color:#22a565;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> has been successfully changed to <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceProductEditSuccess['new_model'])?></strong>.<?php elseif($marketplaceProductEditSuccess['type']==='description'): ?>The description of <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> has been successfully updated.<?php elseif($marketplaceProductEditSuccess['type']==='photo'): ?>The photo of <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> has been successfully updated.<?php else: ?>The product <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> and its details have been successfully updated.<?php endif; ?></p><button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-edit-success-close">OK</button></section></div><?php endif; ?>
+<style>
+.marketplace-product-attribute-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.marketplace-product-tag-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.marketplace-product-tag-field input[type=text]{width:100%}
+.marketplace-product-tag-chips{display:flex;flex-wrap:wrap;gap:7px}
+.marketplace-product-tag-chip{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(232,190,200,.2);border-radius:9px;background:rgba(126,34,53,.18);color:#f8eaf0;font-size:12px}
+.marketplace-product-tag-chip button{border:0;background:transparent;color:#f3a5b5;cursor:pointer;font-size:15px;line-height:1}
+.marketplace-product-tag-photo{display:block;max-width:190px;font-size:11px;color:#cdbdc2}
+.marketplace-product-main-photos{display:flex;flex-direction:column;gap:7px}
+.marketplace-product-main-photos small{color:#cdbdc2}
+@media(max-width:700px){.marketplace-product-attribute-grid{grid-template-columns:1fr}}
+</style>
 <div class="account-status-modal marketplace-category-modal" id="marketplace-product-add-modal" hidden>
- <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-add-title">
-  <h2 id="marketplace-product-add-title">Add Product</h2>
-  <form id="marketplace-product-add-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products">
-   <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product">
-   <div id="marketplace-product-entry-rows">
-    <div class="marketplace-product-entry-row">
-     <div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>" <?=((int)($marketplaceProductInputRows[0]['category_id']??0)===(int)$category['id'])?'selected':''?>><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>" <?=((int)($marketplaceProductInputRows[0]['subcategory_id']??0)===(int)$subcategory['id'])?'selected':''?>><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
-      <label>Product Name *<input name="product_name[]" maxlength="220" required value="<?=e((string)($marketplaceProductInputRows[0]['product_name']??''))?>"></label>
-     
-     <label>Brand *<input name="brand[]" maxlength="140" required value="<?=e((string)($marketplaceProductInputRows[0]['brand']??''))?>"></label>
-     <label>Model<input name="model[]" maxlength="140" value="<?=e((string)($marketplaceProductInputRows[0]['model']??''))?>"></label>
-     <label class="wide">Description<textarea name="description[]"><?=e((string)($marketplaceProductInputRows[0]['description']??''))?></textarea></label><label>Upload Photo (JPG, JPEG, WEBP, PNG, AVIF · under 5 MB)<input type="file" name="product_photo[]" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif"></label>
-     <div class="marketplace-product-row-actions"><button type="button" class="btn light marketplace-product-remove-row">Remove</button></div>
-    </div>
-   </div>
-   <div class="marketplace-product-modal-footer"><button type="button" class="btn light" id="marketplace-product-add-row">Add Row</button><div><button type="button" class="btn light" id="marketplace-product-add-cancel">Cancel</button> <button type="submit" class="btn">Add</button></div></div>
-  </form>
- </div>
-</div>
+<div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-add-title">
+<h2 id="marketplace-product-add-title">Add Product</h2>
+<form id="marketplace-product-add-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products">
+<input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product">
+<div id="marketplace-product-entry-rows"><div class="marketplace-product-entry-row" data-row-index="0">
+<div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>" <?=((int)($marketplaceProductInputRows[0]['category_id']??0)===(int)$category['id'])?'selected':''?>><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>" <?=((int)($marketplaceProductInputRows[0]['subcategory_id']??0)===(int)$subcategory['id'])?'selected':''?>><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
+<label>Product Name *<input name="product_name[]" maxlength="220" required value="<?=e((string)($marketplaceProductInputRows[0]['product_name']??''))?>"></label>
+<label>Brand *<input name="brand[]" maxlength="140" required value="<?=e((string)($marketplaceProductInputRows[0]['brand']??''))?>"></label>
+<label>Model<input name="model[]" maxlength="140" value="<?=e((string)($marketplaceProductInputRows[0]['model']??''))?>"></label>
+<label class="wide">Description<textarea name="description[]"><?=e((string)($marketplaceProductInputRows[0]['description']??''))?></textarea></label>
+<div class="wide marketplace-product-attribute-grid"><?php foreach(['colors'=>'Colors','sizes'=>'Sizes','storage'=>'Storage','type'=>'Type','others'=>'Others'] as $tagKey=>$tagLabel): ?><div class="marketplace-product-tag-field" data-tag-field="<?=$tagKey?>"><label><?=$tagLabel?><input type="text" class="marketplace-product-tag-input" data-tag-type="<?=$tagKey?>" placeholder="Type a value, then add a comma" autocomplete="off"></label><div class="marketplace-product-tag-chips" aria-live="polite"></div></div><?php endforeach; ?></div>
+<input type="hidden" name="product_tags[]" class="marketplace-product-tags-json" value="{&quot;colors&quot;:[],&quot;sizes&quot;:[],&quot;storage&quot;:[],&quot;type&quot;:[],&quot;others&quot;:[]}">
+<div class="wide marketplace-product-main-photos"><label>Upload Main Photos *<input type="file" name="product_photos[0][]" class="marketplace-product-main-photo-input" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif" multiple required></label><small>Required: upload 1 to 5 main photos. JPG, JPEG, WEBP, PNG or AVIF; each file under 5 MB.</small><small class="marketplace-product-main-photo-names">No photos selected.</small></div>
+<div class="marketplace-product-row-actions"><button type="button" class="btn light marketplace-product-remove-row">Remove</button></div>
+</div></div>
+<div class="marketplace-product-modal-footer"><button type="button" class="btn light" id="marketplace-product-add-row">Add Row</button><div><button type="button" class="btn light" id="marketplace-product-add-cancel">Cancel</button> <button type="submit" class="btn">Add</button></div></div>
+</form></div></div>
 <?php if($marketplaceDuplicateProduct): ?>
 <div class="marketplace-category-delete-success-overlay" id="marketplace-product-duplicate-modal">
  <section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-duplicate-title">
@@ -1237,35 +1305,23 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 <?php endif; ?>
 <script>
 (()=>{
- const modal=document.getElementById('marketplace-product-add-modal');
- const form=document.getElementById('marketplace-product-add-form');
- const duplicateModal=document.getElementById('marketplace-product-duplicate-modal');
- if(duplicateModal&&modal){modal.hidden=true;document.getElementById('marketplace-product-duplicate-close')?.addEventListener('click',()=>{duplicateModal.hidden=true;modal.hidden=false;form?.querySelector('input[name="product_name[]"]')?.focus();});}
- const rows=document.getElementById('marketplace-product-entry-rows');
- const add=document.getElementById('marketplace-product-add-row');
- const initialRowMarkup=rows?.querySelector('.marketplace-product-entry-row')?.outerHTML||'';
- const bindSubcategory=container=>{
-  const category=container.querySelector('.marketplace-product-category'),subcategory=container.querySelector('.marketplace-product-subcategory');
-  if(!category||!subcategory)return;
-  const sync=()=>{const parentId=category.value;let available=0;Array.from(subcategory.options).forEach(option=>{if(!option.value){option.hidden=false;return;}const matches=option.dataset.parentId===parentId;option.hidden=!matches;if(matches)available++;});if(!parentId||available===0){subcategory.value='';subcategory.disabled=true;subcategory.options[0].textContent=parentId?'No subcategories available':'Select category first';}else{subcategory.disabled=false;subcategory.options[0].textContent='Select subcategory';if(subcategory.selectedOptions[0]?.dataset.parentId!==parentId)subcategory.value='';}};
-  category.addEventListener('change',sync);sync();
- };
- const bindRemove=container=>{
-  container.querySelector('.marketplace-product-remove-row')?.addEventListener('click',()=>{if(rows.children.length>1)container.remove();else{container.querySelectorAll('input,textarea').forEach(field=>{field.value='';});container.querySelectorAll('select').forEach(field=>field.selectedIndex=0);bindSubcategory(container);}});
-  bindSubcategory(container);
- };
- const resetForm=()=>{
-  if(!rows)return;
-  form?.reset();
-  rows.innerHTML=initialRowMarkup;
-  rows.querySelectorAll('.marketplace-product-entry-row').forEach(bindRemove);
- };
+ const modal=document.getElementById('marketplace-product-add-modal'),form=document.getElementById('marketplace-product-add-form'),duplicateModal=document.getElementById('marketplace-product-duplicate-modal');
+ if(duplicateModal&&modal)document.getElementById('marketplace-product-duplicate-close')?.addEventListener('click',()=>{duplicateModal.hidden=true;modal.hidden=false;form?.querySelector('input[name="product_name[]"]')?.focus();});
+ const rows=document.getElementById('marketplace-product-entry-rows'),add=document.getElementById('marketplace-product-add-row'),initialRowMarkup=rows?.querySelector('.marketplace-product-entry-row')?.outerHTML||'',tagTypes=['colors','sizes','storage','type','others'];
+ const syncTagsJson=row=>{const data={};tagTypes.forEach(type=>{const input=row.querySelector('[data-tag-type="'+type+'"]');try{data[type]=JSON.parse(input?.dataset.values||'[]');}catch(_){data[type]=[];}});const hidden=row.querySelector('.marketplace-product-tags-json');if(hidden)hidden.value=JSON.stringify(data);};
+ const renderTagChips=(row,type)=>{const field=row.querySelector('[data-tag-field="'+type+'"]'),input=field?.querySelector('.marketplace-product-tag-input'),list=field?.querySelector('.marketplace-product-tag-chips');if(!input||!list)return;let values=[];try{values=JSON.parse(input.dataset.values||'[]');}catch(_){}list.innerHTML='';values.forEach((value,index)=>{const chip=document.createElement('span');chip.className='marketplace-product-tag-chip';const label=document.createElement('span');label.textContent=value;chip.append(label);const photo=document.createElement('input');photo.type='file';photo.accept='.jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif';photo.className='marketplace-product-tag-photo';photo.title='Optional photo for '+value;photo.name='product_tag_photos['+Number(row.dataset.rowIndex||0)+']['+type+']['+index+']';chip.append(photo);const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='Remove '+value;remove.addEventListener('click',()=>{input.dataset.values=JSON.stringify(values.filter((_,i)=>i!==index));renderTagChips(row,type);syncTagsJson(row);});chip.append(remove);list.append(chip);});};
+ const addTag=(row,input,value)=>{const clean=value.trim().replace(/,/g,'');if(!clean)return;let values=[];try{values=JSON.parse(input.dataset.values||'[]');}catch(_){}if(!values.some(item=>item.toLowerCase()===clean.toLowerCase()))values.push(clean);input.dataset.values=JSON.stringify(values);renderTagChips(row,input.dataset.tagType);syncTagsJson(row);};
+ const bindTags=row=>{row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>{input.dataset.values=input.dataset.values||'[]';input.addEventListener('input',()=>{if(input.value.includes(',')){const parts=input.value.split(',');parts.slice(0,-1).forEach(value=>addTag(row,input,value));input.value=parts[parts.length-1];}});input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addTag(row,input,input.value);input.value='';}});input.addEventListener('blur',()=>{if(input.value.trim()){addTag(row,input,input.value);input.value='';}});renderTagChips(row,input.dataset.tagType);});syncTagsJson(row);};
+ const reindexRows=()=>{Array.from(rows?.querySelectorAll('.marketplace-product-entry-row')||[]).forEach((row,index)=>{row.dataset.rowIndex=String(index);const photos=row.querySelector('.marketplace-product-main-photo-input');if(photos)photos.name='product_photos['+index+'][]';row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>renderTagChips(row,input.dataset.tagType));});};
+ const bindSubcategory=row=>{const category=row.querySelector('.marketplace-product-category'),subcategory=row.querySelector('.marketplace-product-subcategory');if(!category||!subcategory)return;const sync=()=>{const parentId=category.value;let available=0;Array.from(subcategory.options).forEach(option=>{if(!option.value){option.hidden=false;return;}const matches=option.dataset.parentId===parentId;option.hidden=!matches;if(matches)available++;});if(!parentId||available===0){subcategory.value='';subcategory.disabled=true;subcategory.options[0].textContent=parentId?'No subcategories available':'Select category first';}else{subcategory.disabled=false;subcategory.options[0].textContent='Select subcategory';if(subcategory.selectedOptions[0]?.dataset.parentId!==parentId)subcategory.value='';}};category.addEventListener('change',sync);sync();};
+ const bindRemove=row=>{row.querySelector('.marketplace-product-remove-row')?.addEventListener('click',()=>{if(rows.children.length>1){row.remove();reindexRows();}else{row.querySelectorAll('input[type=text],textarea,input[type=file]').forEach(field=>field.value='');row.querySelectorAll('.marketplace-product-tag-input').forEach(field=>{field.dataset.values='[]';renderTagChips(row,field.dataset.tagType);});row.querySelectorAll('select').forEach(field=>field.selectedIndex=0);const names=row.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent='No photos selected.';bindSubcategory(row);syncTagsJson(row);}});bindSubcategory(row);bindTags(row);const photos=row.querySelector('.marketplace-product-main-photo-input');photos?.addEventListener('change',()=>{const files=Array.from(photos.files||[]),names=row.querySelector('.marketplace-product-main-photo-names');if(files.length>5){photos.setCustomValidity('You can upload a maximum of 5 main photos.');photos.reportValidity();photos.value='';if(names)names.textContent='No photos selected.';return;}photos.setCustomValidity(files.length?'':'At least one main photo is required.');if(names)names.textContent=files.length?files.length+' photo(s): '+files.map(file=>file.name).join(', '):'No photos selected.';});};
+ const resetForm=()=>{if(!rows)return;form?.reset();rows.innerHTML=initialRowMarkup;rows.querySelectorAll('.marketplace-product-entry-row').forEach((row,index)=>{row.dataset.rowIndex=String(index);row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>input.dataset.values='[]');bindRemove(row);});reindexRows();};
  const close=()=>{resetForm();if(modal)modal.hidden=true;};
  document.getElementById('marketplace-product-add-open')?.addEventListener('click',()=>{resetForm();if(modal)modal.hidden=false;});
  document.getElementById('marketplace-product-add-cancel')?.addEventListener('click',close);
  rows?.querySelectorAll('.marketplace-product-entry-row').forEach(bindRemove);
- add?.addEventListener('click',()=>{const clone=rows.querySelector('.marketplace-product-entry-row').cloneNode(true);clone.querySelectorAll('input,textarea').forEach(field=>{field.value='';});clone.querySelectorAll('select').forEach(field=>{field.selectedIndex=0;});rows.append(clone);bindRemove(clone);clone.querySelector('input')?.focus();});
- document.getElementById('marketplace-product-created-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});document.getElementById('marketplace-product-edit-success-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});
+ add?.addEventListener('click',()=>{const clone=rows.querySelector('.marketplace-product-entry-row').cloneNode(true);clone.querySelectorAll('input,textarea').forEach(field=>{field.value='';if(field.classList.contains('marketplace-product-tag-input'))field.dataset.values='[]';});clone.querySelectorAll('.marketplace-product-tag-chips').forEach(list=>list.innerHTML='');clone.querySelectorAll('select').forEach(field=>field.selectedIndex=0);rows.append(clone);bindRemove(clone);reindexRows();clone.querySelector('input')?.focus();});
+document.getElementById('marketplace-product-created-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});document.getElementById('marketplace-product-edit-success-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});
  const productEditModal=document.getElementById('marketplace-product-edit-modal');const productEditFields={id:document.getElementById('marketplace-product-edit-id'),name:document.getElementById('marketplace-product-edit-name'),code:document.getElementById('marketplace-product-edit-code'),brand:document.getElementById('marketplace-product-edit-brand'),model:document.getElementById('marketplace-product-edit-model'),description:document.getElementById('marketplace-product-edit-description'),photo:document.getElementById('marketplace-product-edit-current-photo'),photoInput:document.getElementById('marketplace-product-edit-photo-input'),photoPreview:document.getElementById('marketplace-product-edit-photo-preview'),photoEmpty:document.getElementById('marketplace-product-edit-photo-empty'),currentPreview:document.getElementById('marketplace-product-edit-current-preview'),currentEmpty:document.getElementById('marketplace-product-edit-current-empty'),category:document.getElementById('marketplace-product-edit-category'),subcategory:document.getElementById('marketplace-product-edit-subcategory')};document.querySelectorAll('.marketplace-product-edit-open').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();const d=link.dataset;productEditFields.id.value=d.productId||'';productEditFields.name.value=d.productName||'';productEditFields.code.value=link.closest('tr')?.querySelector('td:nth-child(3) strong')?.textContent?.trim()||'';productEditFields.brand.value=d.productBrand||'';productEditFields.model.value=d.productModel||'';productEditFields.description.value=d.productDescription||'';productEditFields.photo.textContent=d.productPhoto?'Current photo: '+d.productPhoto.split('/').pop():'No photo currently uploaded.';productEditFields.photoInput.value='';if(d.productPhoto){productEditFields.currentPreview.src=d.productPhoto;productEditFields.currentPreview.hidden=false;productEditFields.currentEmpty.hidden=true;}else{productEditFields.currentPreview.removeAttribute('src');productEditFields.currentPreview.hidden=true;productEditFields.currentEmpty.hidden=false;}productEditFields.photoPreview.removeAttribute('src');productEditFields.photoPreview.hidden=true;productEditFields.photoEmpty.hidden=false;productEditFields.category.value=link.dataset.productCategoryId||'';productEditFields.subcategory.value=link.dataset.productSubcategoryId||'';const syncEditSubcategory=()=>{const parentId=productEditFields.category.value;let count=0;Array.from(productEditFields.subcategory.options).forEach(option=>{if(!option.value){option.hidden=false;return;}const match=option.dataset.parentId===parentId;option.hidden=!match;if(match)count++;});productEditFields.subcategory.disabled=!parentId||count===0;if(!parentId||count===0){productEditFields.subcategory.value='';productEditFields.subcategory.options[0].textContent=parentId?'No subcategories available':'Select category first';}else{productEditFields.subcategory.options[0].textContent='Select subcategory';if(productEditFields.subcategory.selectedOptions[0]?.dataset.parentId!==parentId)productEditFields.subcategory.value='';}};syncEditSubcategory();productEditFields.category.onchange=syncEditSubcategory;productEditModal.hidden=false;productEditFields.name.focus();}));document.getElementById('marketplace-product-edit-cancel')?.addEventListener('click',()=>{if(productEditModal)productEditModal.hidden=true;});productEditFields.photoInput?.addEventListener('change',()=>{const file=productEditFields.photoInput.files?.[0];if(!file)return;const previewUrl=URL.createObjectURL(file);productEditFields.photoPreview.src=previewUrl;productEditFields.photoPreview.hidden=false;productEditFields.photoEmpty.hidden=true;});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&productEditModal&&!productEditModal.hidden)productEditModal.hidden=true;});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
  // Products filter and pagination: same client-side behavior as Registered User Accounts.
