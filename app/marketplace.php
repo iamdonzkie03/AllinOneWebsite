@@ -1328,6 +1328,51 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 #marketplace-product-add-modal .marketplace-product-tag-field{padding:10px;border:1px solid rgba(218,174,185,.12);border-radius:10px}
 @media(max-width:700px){#marketplace-product-add-modal .marketplace-product-entry-row{grid-template-columns:minmax(0,1fr)!important}#marketplace-product-add-modal .marketplace-product-fieldset:nth-of-type(5),#marketplace-product-add-modal .marketplace-product-row-actions{grid-column:1}#marketplace-product-add-modal .marketplace-product-attribute-grid,#marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:1fr}}
 
+/* Add Product fieldset field placement. */
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;gap:12px}
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>.marketplace-product-category-group,
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(1),
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label.wide{grid-column:1/-1}
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(2),
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(3),
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type>label:nth-of-type(4){grid-column:auto}
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type textarea[name="description[]"]{min-height:140px;height:140px;resize:vertical}
+#marketplace-product-add-modal .marketplace-product-attribute-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#marketplace-product-add-modal .marketplace-product-tag-field[data-tag-type="type"]{order:3}
+#marketplace-product-add-modal .marketplace-product-tag-field[data-tag-type="storage"]{order:4}
+#marketplace-product-add-modal .marketplace-product-tag-field[data-tag-type="others"]{order:5}
+#marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(1){grid-column:1;grid-row:1}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(2){grid-column:2;grid-row:1}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(4){grid-column:3;grid-row:1}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(3){grid-column:4;grid-row:1}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(5){grid-column:1;grid-row:2}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(6){grid-column:2;grid-row:2}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(7){grid-column:3;grid-row:2}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(8){grid-column:4;grid-row:2}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(9){grid-column:1/3;grid-row:3}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(10){grid-column:3/5;grid-row:3}
+@media(max-width:900px){
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type{grid-template-columns:repeat(2,minmax(0,1fr))}
+#marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(1){grid-column:1;grid-row:1}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(2){grid-column:2;grid-row:1}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(4){grid-column:1;grid-row:2}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(3){grid-column:2;grid-row:2}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(5){grid-column:1;grid-row:3}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(6){grid-column:2;grid-row:3}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(7){grid-column:1;grid-row:4}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(8){grid-column:2;grid-row:4}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(9){grid-column:1;grid-row:5}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label:nth-child(10){grid-column:2;grid-row:5}
+}
+@media(max-width:700px){
+#marketplace-product-add-modal fieldset.marketplace-product-fieldset:first-of-type{grid-template-columns:minmax(0,1fr)}
+#marketplace-product-add-modal .marketplace-product-attribute-grid{grid-template-columns:1fr!important}
+#marketplace-product-add-modal .marketplace-product-commercial-grid{grid-template-columns:1fr!important}
+#marketplace-product-add-modal .marketplace-product-commercial-grid>label{grid-column:1!important;grid-row:auto!important}
+}
+
 </style>
 <div class="account-status-modal marketplace-category-modal" id="marketplace-product-add-modal" hidden>
 <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-add-title">
