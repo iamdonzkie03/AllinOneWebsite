@@ -53,6 +53,20 @@ $marketplaceProductColumns = [
     'manufacturer' => "VARCHAR(180) NULL AFTER model",
     'supply_chain_entity' => "VARCHAR(180) NULL AFTER manufacturer",
     'country_of_origin' => "VARCHAR(120) NULL AFTER supply_chain_entity",
+    'uom' => "VARCHAR(40) NULL AFTER country_of_origin",
+    'retail_price' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER uom",
+    'vat_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER retail_price",
+    'income_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER vat_rate",
+    'withholding_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER income_tax_rate",
+    'other_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER withholding_tax_rate",
+    'discount_type' => "VARCHAR(12) NOT NULL DEFAULT 'none' AFTER other_tax_rate",
+    'discount_value' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER discount_type",
+    'selling_price' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER discount_value",
+    'batch_number' => "VARCHAR(100) NULL AFTER selling_price",
+    'weight' => "DECIMAL(14,3) NULL AFTER batch_number",
+    'height' => "DECIMAL(14,3) NULL AFTER weight",
+    'depth' => "DECIMAL(14,3) NULL AFTER height",
+    'product_status' => "VARCHAR(20) NOT NULL DEFAULT 'Active' AFTER depth",
 ];
 foreach ($marketplaceProductColumns as $columnName => $columnDefinition) {
     $columnCheck = $pdo->query("SHOW COLUMNS FROM marketplace_products LIKE " . $pdo->quote($columnName));
@@ -490,6 +504,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $supplyEntities = (array)($_POST['supply_chain_entity'] ?? []);
             $countries = (array)($_POST['country_of_origin'] ?? []);
             $descriptions = (array)($_POST['description'] ?? []);
+            $uoms=(array)($_POST['uom']??[]); $retailPrices=(array)($_POST['retail_price']??[]);
+            $vatRates=(array)($_POST['vat_rate']??[]); $incomeTaxRates=(array)($_POST['income_tax_rate']??[]);
+            $withholdingTaxRates=(array)($_POST['withholding_tax_rate']??[]); $otherTaxRates=(array)($_POST['other_tax_rate']??[]);
+            $discountTypes=(array)($_POST['discount_type']??[]); $discountValues=(array)($_POST['discount_value']??[]);
+            $batchNumbers=(array)($_POST['batch_number']??[]); $weights=(array)($_POST['weight']??[]);
+            $heights=(array)($_POST['height']??[]); $depths=(array)($_POST['depth']??[]);
+            $productStatuses=(array)($_POST['product_status']??[]);
             $rows = [];
             foreach ($productNames as $index => $rawName) {
                 $name = trim((string)$rawName);
@@ -501,6 +522,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $supplyEntity = trim((string)($supplyEntities[$index] ?? ''));
                 $country = trim((string)($countries[$index] ?? ''));
                 $description = trim((string)($descriptions[$index] ?? ''));
+                $uom=trim((string)($uoms[$index]??'')); $retail=max(0,(float)str_replace(',','',(string)($retailPrices[$index]??0)));
+                $vat=max(0,(float)($vatRates[$index]??0))/100; $income=max(0,(float)($incomeTaxRates[$index]??0))/100;
+                $withholding=max(0,(float)($withholdingTaxRates[$index]??0))/100; $other=max(0,(float)($otherTaxRates[$index]??0))/100;
+                $discountType=(string)($discountTypes[$index]??'none'); $discountValue=max(0,(float)str_replace(',','',(string)($discountValues[$index]??0)));
+                $batch=trim((string)($batchNumbers[$index]??'')); $weight=trim((string)($weights[$index]??''));
+                $height=trim((string)($heights[$index]??'')); $depth=trim((string)($depths[$index]??''));
+                $productStatus=(string)($productStatuses[$index]??'Active');
+                if(!in_array($discountType,['none','percent','fixed'],true)) throw new RuntimeException('Choose a valid discount type.');
+                if(!in_array($productStatus,['Active','Discontinued','Draft'],true)) throw new RuntimeException('Choose a valid product status.');
+                $taxed=$retail*(1+$vat+$income+$withholding+$other); $discount=$discountType==='percent'?$taxed*min(100,$discountValue)/100:($discountType==='fixed'?$discountValue:0); $selling=max(0,round($taxed-$discount,2));
                 $decodedProductTags = json_decode((string)($_POST['product_tags'][$index] ?? '{}'), true);
                 if (!is_array($decodedProductTags)) throw new RuntimeException('The product tags could not be read. Please review the tag fields.');
                 $productTags = [];
@@ -532,7 +563,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     if (!$subcategoryCheck->fetchColumn()) throw new RuntimeException('Choose a subcategory that belongs to the selected category.');
                 }
                 if ($supplyEntity !== '' && !in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Entity.');
-                $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId,(int)$index,$productTags];
+                $rows[] = [$name,'',$brand,$model,$manufacturer,$supplyEntity,$country,$description,$categoryId,$subcategoryId,(int)$index,$productTags,$uom,$retail,$vat,$income,$withholding,$other,$discountType,$discountValue,$selling,$batch,$weight,$height,$depth,$productStatus];
             }
             if (!$rows) throw new RuntimeException('Add at least one product with a Product Name.');
             $productId = max(0, (int)($_POST['product_id'] ?? 0));
@@ -681,12 +712,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 };
                 $pdo->beginTransaction();
                 try {
-                    $insert=$pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,NULL)');
+                    $insert=$pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,uom,retail_price,vat_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,discount_type,discount_value,selling_price,batch_number,weight,height,depth,product_status,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)');
                     $photoUpdate=$pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?');
                     $photoInsert=$pdo->prepare('INSERT INTO marketplace_product_photos(product_id,photo_path,sort_order) VALUES(?,?,?)');
                     $tagInsert=$pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,?,?)');
                     foreach($rows as $index=>$row){
-                        $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null]);
+                        $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null,$row[12]?:null,$row[13],$row[14],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[23]!==''?$row[23]:null,$row[24]!==''?$row[24]:null,$row[25]]);
                         $newProductId=(int)$pdo->lastInsertId();$uploadIndex=(int)($row[10]??$index);
                         $safeName=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');if($safeName==='')$safeName='product';
                         $folderName=$newProductId.'_'.$safeName;$folder=$uploadDirectory.'/'.$folderName;
