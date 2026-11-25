@@ -458,10 +458,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $uploadDirectory=realpath(dirname(__DIR__).'/public/uploads/products');
             if($uploadDirectory!==false){
                 foreach($photoPathsToDelete as $photoPath){
-                    $filename=basename(str_replace('\\\\','/',$photoPath));
-                    if($filename===''||$filename==='.'||$filename==='..') continue;
-                    $file=$uploadDirectory.DIRECTORY_SEPARATOR.$filename;
-                    if(is_file($file)) @unlink($file);
+                    $relativePath=ltrim(str_replace('\\','/', $photoPath), '/');
+                    $file=$uploadDirectory.DIRECTORY_SEPARATOR.str_replace('/',DIRECTORY_SEPARATOR,preg_replace('~^uploads/products/~','',$relativePath));
+                    $realFile=realpath($file);
+                    if($realFile!==false&&str_starts_with($realFile,$uploadDirectory.DIRECTORY_SEPARATOR)&&is_file($realFile)) @unlink($realFile);
+                }
+                foreach($productsToDelete as $deletedProduct){
+                    $folderName=(int)$deletedProduct['id'].'_'.trim((string)preg_replace('/[^A-Za-z0-9]+/','_',(string)$deletedProduct['product_name']),'_');
+                    $folder=$uploadDirectory.DIRECTORY_SEPARATOR.$folderName;
+                    if(is_dir($folder)){
+                        $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($folder,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);
+                        foreach($iterator as $item)$item->isDir()?@rmdir($item->getPathname()):@unlink($item->getPathname());
+                        @rmdir($folder);
+                    }
                 }
             }
             $marketplaceDeletedProductDetails=$productsToDelete;
@@ -680,7 +689,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                         $safeName=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');if($safeName==='')$safeName='product';
                         $folderName=$newProductId.'_'.$safeName;$folder=$uploadDirectory.'/'.$folderName;
                         if(!is_dir($folder)&&!mkdir($folder,0755,true)&&!is_dir($folder))throw new RuntimeException('The product-specific photo folder could not be created.');
-                        $createdProductFolders[]=$folder;$count=0;$firstPath=null;
+                        $createdProductFolders[]=$folder;$submittedMainPhotoNames=$productPhotoUploads['name'][$uploadIndex]??[];if(is_array($submittedMainPhotoNames)&&count(array_filter($submittedMainPhotoNames,static fn($name):bool=>trim((string)$name)!==''))>5)throw new RuntimeException('You can upload a maximum of 5 main photos per product.');$count=0;$firstPath=null;
                         for($photoIndex=0;$photoIndex<5;$photoIndex++){
                             $file=$readNestedUpload($productPhotoUploads,[$uploadIndex,$photoIndex]);if((int)($file['error']??UPLOAD_ERR_NO_FILE)===UPLOAD_ERR_NO_FILE)continue;
                             $base=$newProductId.'-'.$safeName.($count>0?'-'.($count+1):'');$saved=$saveProductImage($file,$folder,$base);if($saved===null)continue;
@@ -693,7 +702,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                             $tagFile=$readNestedUpload($productTagPhotoUploads,[$uploadIndex,$tagType,$tagIndex]);$tagPath=null;
                             if((int)($tagFile['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE){
                                 $tagSlug=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$tagValue),'_');if($tagSlug==='')$tagSlug='tag';
-                                $savedTag=$saveProductImage($tagFile,$folder,'tagged_'.$newProductId.'-'.$safeName.'-'.$tagType.'-'.$tagSlug);
+                                $savedTag=$saveProductImage($tagFile,$folder,'tagged_'.$newProductId.'-'.$safeName.'-'.$tagType.'-'.$tagSlug.'-'.$tagIndex);
                                 if($savedTag!==null){$tagPath='uploads/products/'.$folderName.'/'.basename($savedTag);$uploadedProductFiles[]=$savedTag;}
                             }
                             $tagInsert->execute([$newProductId,$tagType,$tagValue,$tagPath,$tagOrder++]);
@@ -1312,7 +1321,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  const renderTagChips=(row,type)=>{const field=row.querySelector('[data-tag-field="'+type+'"]'),input=field?.querySelector('.marketplace-product-tag-input'),list=field?.querySelector('.marketplace-product-tag-chips');if(!input||!list)return;let values=[];try{values=JSON.parse(input.dataset.values||'[]');}catch(_){}list.innerHTML='';values.forEach((value,index)=>{const chip=document.createElement('span');chip.className='marketplace-product-tag-chip';const label=document.createElement('span');label.textContent=value;chip.append(label);const photo=document.createElement('input');photo.type='file';photo.accept='.jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif';photo.className='marketplace-product-tag-photo';photo.title='Optional photo for '+value;photo.name='product_tag_photos['+Number(row.dataset.rowIndex||0)+']['+type+']['+index+']';chip.append(photo);const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='Remove '+value;remove.addEventListener('click',()=>{input.dataset.values=JSON.stringify(values.filter((_,i)=>i!==index));renderTagChips(row,type);syncTagsJson(row);});chip.append(remove);list.append(chip);});};
  const addTag=(row,input,value)=>{const clean=value.trim().replace(/,/g,'');if(!clean)return;let values=[];try{values=JSON.parse(input.dataset.values||'[]');}catch(_){}if(!values.some(item=>item.toLowerCase()===clean.toLowerCase()))values.push(clean);input.dataset.values=JSON.stringify(values);renderTagChips(row,input.dataset.tagType);syncTagsJson(row);};
  const bindTags=row=>{row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>{input.dataset.values=input.dataset.values||'[]';input.addEventListener('input',()=>{if(input.value.includes(',')){const parts=input.value.split(',');parts.slice(0,-1).forEach(value=>addTag(row,input,value));input.value=parts[parts.length-1];}});input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addTag(row,input,input.value);input.value='';}});input.addEventListener('blur',()=>{if(input.value.trim()){addTag(row,input,input.value);input.value='';}});renderTagChips(row,input.dataset.tagType);});syncTagsJson(row);};
- const reindexRows=()=>{Array.from(rows?.querySelectorAll('.marketplace-product-entry-row')||[]).forEach((row,index)=>{row.dataset.rowIndex=String(index);const photos=row.querySelector('.marketplace-product-main-photo-input');if(photos)photos.name='product_photos['+index+'][]';row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>renderTagChips(row,input.dataset.tagType));});};
+ const reindexRows=()=>{Array.from(rows?.querySelectorAll('.marketplace-product-entry-row')||[]).forEach((row,index)=>{row.dataset.rowIndex=String(index);const photos=row.querySelector('.marketplace-product-main-photo-input');if(photos)photos.name='product_photos['+index+'][]';row.querySelectorAll('.marketplace-product-tag-field').forEach(field=>{const type=field.dataset.tagField;field.querySelectorAll('.marketplace-product-tag-chip').forEach((chip,tagIndex)=>{const photo=chip.querySelector('input[type="file"]');if(photo)photo.name='product_tag_photos['+index+']['+type+']['+tagIndex+']';});});});};
  const bindSubcategory=row=>{const category=row.querySelector('.marketplace-product-category'),subcategory=row.querySelector('.marketplace-product-subcategory');if(!category||!subcategory)return;const sync=()=>{const parentId=category.value;let available=0;Array.from(subcategory.options).forEach(option=>{if(!option.value){option.hidden=false;return;}const matches=option.dataset.parentId===parentId;option.hidden=!matches;if(matches)available++;});if(!parentId||available===0){subcategory.value='';subcategory.disabled=true;subcategory.options[0].textContent=parentId?'No subcategories available':'Select category first';}else{subcategory.disabled=false;subcategory.options[0].textContent='Select subcategory';if(subcategory.selectedOptions[0]?.dataset.parentId!==parentId)subcategory.value='';}};category.addEventListener('change',sync);sync();};
  const bindRemove=row=>{row.querySelector('.marketplace-product-remove-row')?.addEventListener('click',()=>{if(rows.children.length>1){row.remove();reindexRows();}else{row.querySelectorAll('input[type=text],textarea,input[type=file]').forEach(field=>field.value='');row.querySelectorAll('.marketplace-product-tag-input').forEach(field=>{field.dataset.values='[]';renderTagChips(row,field.dataset.tagType);});row.querySelectorAll('select').forEach(field=>field.selectedIndex=0);const names=row.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent='No photos selected.';bindSubcategory(row);syncTagsJson(row);}});bindSubcategory(row);bindTags(row);const photos=row.querySelector('.marketplace-product-main-photo-input');photos?.addEventListener('change',()=>{const files=Array.from(photos.files||[]),names=row.querySelector('.marketplace-product-main-photo-names');if(files.length>5){photos.setCustomValidity('You can upload a maximum of 5 main photos.');photos.reportValidity();photos.value='';if(names)names.textContent='No photos selected.';return;}photos.setCustomValidity(files.length?'':'At least one main photo is required.');if(names)names.textContent=files.length?files.length+' photo(s): '+files.map(file=>file.name).join(', '):'No photos selected.';});};
  const resetForm=()=>{if(!rows)return;form?.reset();rows.innerHTML=initialRowMarkup;rows.querySelectorAll('.marketplace-product-entry-row').forEach((row,index)=>{row.dataset.rowIndex=String(index);row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>input.dataset.values='[]');bindRemove(row);});reindexRows();};
