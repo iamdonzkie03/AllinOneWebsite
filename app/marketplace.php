@@ -1133,7 +1133,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-add-stock-form input{width:100%;box-sizing:border-box;padding:5px 3px;font-size:8px}
 
 /* Keep the Add Product dialog compact and show only the selected tab panel. */
-#marketplace-product-add-modal .marketplace-product-add-card{width:min(650px,94vw)!important;max-width:650px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
+#marketplace-product-add-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
 #marketplace-product-add-modal .marketplace-product-fieldset[hidden]{display:none!important}
 #marketplace-product-add-modal .marketplace-product-fieldset:not([hidden]){display:block!important;grid-column:1/-1!important}
 </style>
