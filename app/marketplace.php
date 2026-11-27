@@ -1850,7 +1850,6 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   if(names)names.textContent=files.length?files.map(file=>file.name).join(', '):'No new photos selected.';
   const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');
   if(preview){preview.replaceChildren();files.forEach(file=>{const card=document.createElement('div');card.className='marketplace-edit-new-photo-card';const image=document.createElement('img');image.src=URL.createObjectURL(file);image.alt='New photo preview';image.onload=()=>URL.revokeObjectURL(image.src);const caption=document.createElement('small');caption.textContent=file.name;card.append(image,caption);preview.append(card);});}
-  if(files.length>0&&totalAfterSelection>=5)showMainPhotoLimitModal(message);
  });
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&productEditModal&&!productEditModal.hidden)productEditModal.hidden=true;});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
