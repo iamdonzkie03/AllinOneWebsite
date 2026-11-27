@@ -1823,7 +1823,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    const mark=document.createElement('div');mark.className='marketplace-category-delete-success-mark marketplace-category-duplicate-mark';mark.setAttribute('aria-hidden','true');mark.textContent='!';
    const title=document.createElement('h2');title.id='marketplace-edit-photo-limit-title';title.textContent='Photo Upload Limit Reached';
    const copy=document.createElement('p');copy.className='marketplace-edit-photo-limit-copy';
-   const ok=document.createElement('button');ok.type='button';ok.className='marketplace-category-delete-success-ok';ok.textContent='OK';ok.addEventListener('click',()=>{overlay.hidden=true;});
+   const ok=document.createElement('button');ok.type='button';ok.className='marketplace-category-delete-success-ok';ok.textContent='OK';ok.addEventListener('click',()=>{overlay.hidden=true;if(productEditModal)productEditModal.hidden=false;const photosTab=productEditRow?.querySelectorAll('.marketplace-product-tab')[4];photosTab?.click();productEditForm?.querySelector('.marketplace-product-main-photo-input')?.focus({preventScroll:true});});
    card.append(mark,title,copy,ok);overlay.append(card);document.body.append(overlay);
   }
   const copy=overlay.querySelector('.marketplace-edit-photo-limit-copy');if(copy)copy.textContent=message;
