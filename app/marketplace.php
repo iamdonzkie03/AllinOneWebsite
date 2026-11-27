@@ -1482,7 +1482,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   <td><div class="marketplace-actions"><details class="marketplace-product-row-view"><summary class="btn light">View</summary><div><strong><?=e($product['product_name'])?></strong><p><?=e((string)($product['description']??'—'))?></p><p>Product ID: <?=e((string)($product['product_code']??''))?></p><p>Category: <?=e((string)($product['category_name']??'Uncategorized'))?><?php if(!empty($product['subcategory_name'])): ?> / <?=e($product['subcategory_name'])?><?php endif; ?></p><p>Brand: <?=e((string)($product['brand']??'—'))?> · Model: <?=e((string)($product['model']??'—'))?></p><p>UOM: <?=e((string)($product['uom']??'—'))?> · Retail: <?=$money($product['retail_price']??0)?> · Selling: <?=$money($product['selling_price']??0)?></p></div></details><a href="#" class="btn marketplace-product-edit-open" data-product-id="<?=(int)$product['id']?>" data-product-name="<?=e($product['product_name'])?>" data-product-brand="<?=e((string)$product['brand'])?>" data-product-model="<?=e((string)$product['model'])?>" data-product-manufacturer="<?=e((string)($product['manufacturer']??''))?>" data-product-supply-entity="<?=e((string)($product['supply_chain_entity']??''))?>" data-product-country="<?=e((string)($product['country_of_origin']??''))?>" data-product-description="<?=e((string)$product['description'])?>" data-product-photo="<?=e((string)($product['photo_path']??''))?>" data-product-photos="<?=e(json_encode($marketplaceProductPhotosByProduct[(int)$product['id']]??[],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?>" data-product-variation-photos="<?=e(json_encode($marketplaceProductVariationPhotosByProduct[(int)$product['id']]??[],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?>" data-product-barcode="<?=e((string)($product['barcode_value']??''))?>" data-product-category-name="<?=e((string)($product['category_name']??'Uncategorized'))?>" data-product-subcategory-name="<?=e((string)($product['subcategory_name']??''))?>" data-product-selling-price="<?=e((string)($product['selling_price']??0))?>" data-product-category-id="<?=(int)($product['category_id']??0)?>" data-product-subcategory-id="<?=(int)($product['subcategory_id']??0)?>" data-product-uom="<?=e((string)($product['uom']??''))?>" data-product-retail-price="<?=e((string)($product['retail_price']??0))?>" data-product-vat-rate="<?=e((string)($product['vat_rate']??0))?>" data-product-percentage-tax-rate="<?=e((string)($product['percentage_tax_rate']??0))?>" data-product-income-tax-rate="<?=e((string)($product['income_tax_rate']??0))?>" data-product-withholding-tax-rate="<?=e((string)($product['withholding_tax_rate']??0))?>" data-product-other-tax-rate="<?=e((string)($product['other_tax_rate']??0))?>" data-product-discount-type="<?=e((string)($product['discount_type']??'none'))?>" data-product-discount-value="<?=e((string)($product['discount_value']??0))?>" data-product-status="<?=e((string)($product['product_status']??'Active'))?>" data-product-weight="<?=e((string)($product['weight']??''))?>" data-product-weight-unit="<?=e((string)($product['weight_unit']??''))?>" data-product-length="<?=e((string)($product['length']??''))?>" data-product-width="<?=e((string)($product['width']??''))?>" data-product-dimension-unit="<?=e((string)($product['dimension_unit']??''))?>" data-product-batch-number="<?=e((string)($product['batch_number']??''))?>" data-product-tags="<?=e(json_encode($marketplaceProductTagsByProduct[(int)$product['id']]??['colors'=>[],'sizes'=>[],'storage'=>[],'type'=>[],'others'=>[]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?>">Edit</a></div></td></tr><?php endforeach; ?>
  </tbody></table></div><div class="marketplace-products-pagination marketplace-products-pagination-bottom"><span class="muted" id="marketplace-products-page-info-bottom" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-products-first-bottom">First</button><button type="button" class="btn light" id="marketplace-products-prev-bottom">Previous</button><span id="marketplace-products-page-numbers-bottom" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="marketplace-products-next-bottom">Next</button><button type="button" class="btn light" id="marketplace-products-last-bottom">Last</button></div></div></form><?php endif; ?>
 </section>
-<div class="account-status-modal users-delete-confirm-modal marketplace-product-delete-confirm-overlay" id="marketplace-products-delete-confirm-modal" hidden><div class="account-status-modal-card marketplace-product-delete-confirm-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="marketplace-products-delete-confirm-title">Delete Confirmation Notice</h2><div id="marketplace-products-delete-confirm-copy"><p>Are you sure you want to delete the selected product?</p></div><div id="marketplace-products-delete-confirm-list" class="marketplace-product-delete-list"></div><div class="users-delete-modal-actions"><button type="button" class="btn light" id="marketplace-products-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="marketplace-products-delete-confirm">Delete</button></div></div></div><?php if($marketplaceDeletedProductCount>0): ?><div class="account-status-modal users-delete-success-modal marketplace-product-delete-success-overlay" id="marketplace-products-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-success-title"><div class="account-status-modal-card marketplace-product-delete-success-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="marketplace-products-delete-success-title">Delete Product Successful</h2><p><?php if($marketplaceDeletedProductCount===1): $deletedProduct=$marketplaceDeletedProductDetails[0]; ?>The product <strong class="marketplace-delete-name"><?=e((string)$deletedProduct['product_name'])?></strong> with product ID <strong class="marketplace-delete-code"><?=e((string)($deletedProduct['product_code']??''))?></strong> has been successfully deleted<?php else: ?><strong class="marketplace-delete-count"><?=e($numberToWords($marketplaceDeletedProductCount))?> (<?=number_format($marketplaceDeletedProductCount)?>)</strong> selected products have been successfully deleted<?php endif; ?>.</p><button type="button" class="btn" id="marketplace-products-delete-success-close">OK</button></div></div><?php endif; ?><div class="account-status-modal marketplace-category-modal" id="marketplace-product-view-modal" hidden><div class="account-status-modal-card marketplace-product-view-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-view-title"><div class="marketplace-product-view-head"><h2 id="marketplace-product-view-title">Product Details</h2><button type="button" class="marketplace-product-view-close" aria-label="Close">×</button></div><div id="marketplace-product-view-content" class="marketplace-product-view-content"></div><div class="marketplace-product-view-actions"><button type="button" class="btn light marketplace-product-view-close">Close</button></div></div></div>
+<div class="account-status-modal users-delete-confirm-modal marketplace-product-delete-confirm-overlay" id="marketplace-products-delete-confirm-modal" hidden><div class="account-status-modal-card marketplace-product-delete-confirm-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="marketplace-products-delete-confirm-title">Delete Confirmation Notice</h2><div id="marketplace-products-delete-confirm-copy"><p>Are you sure you want to delete the selected product?</p></div><div id="marketplace-products-delete-confirm-list" class="marketplace-product-delete-list"></div><div class="users-delete-modal-actions"><button type="button" class="btn light" id="marketplace-products-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="marketplace-products-delete-confirm">Delete</button></div></div></div><?php if($marketplaceDeletedProductCount>0): ?><div class="account-status-modal users-delete-success-modal marketplace-product-delete-success-overlay" id="marketplace-products-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-success-title"><div class="account-status-modal-card marketplace-product-delete-success-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="marketplace-products-delete-success-title">Delete Product Successful</h2><p><?php if($marketplaceDeletedProductCount===1): $deletedProduct=$marketplaceDeletedProductDetails[0]; ?>The product <strong class="marketplace-delete-name"><?=e((string)$deletedProduct['product_name'])?></strong> with product ID <strong class="marketplace-delete-code"><?=e((string)($deletedProduct['product_code']??''))?></strong> has been successfully deleted<?php else: ?><strong class="marketplace-delete-count"><?=e($numberToWords($marketplaceDeletedProductCount))?> (<?=number_format($marketplaceDeletedProductCount)?>)</strong> selected products have been successfully deleted<?php endif; ?>.</p><button type="button" class="btn" id="marketplace-products-delete-success-close">OK</button></div></div><?php endif; ?><div class="account-status-modal marketplace-category-modal" id="marketplace-product-view-modal" hidden><div class="account-status-modal-card marketplace-product-view-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-view-title"><div class="marketplace-product-view-head"><h2 id="marketplace-product-view-title">Product Information</h2></div><div id="marketplace-product-view-content" class="marketplace-product-view-content"></div><div class="marketplace-product-view-actions"><button type="button" class="btn light marketplace-product-view-close">Close</button></div></div></div>
 <div class="account-status-modal marketplace-category-modal" id="marketplace-product-edit-modal" hidden>
 <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-title">
 <h2 id="marketplace-product-edit-title">Edit Product</h2>
@@ -1509,6 +1509,36 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 </form></div></div>
 <?php if($marketplaceProductEditSuccess !== null): ?><div class="marketplace-category-delete-success-overlay" id="marketplace-product-edit-success-modal"><section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-success-title"><div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div><h2 id="marketplace-product-edit-success-title">Edit Product Successful</h2><p>Product data have been successfully updated. Redirecting you to the Master Catalog page.</p><button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-edit-success-close">OK</button></section></div><?php endif; ?>
 <style>
+/* Product Information view modal: five requested fieldsets and color hierarchy. */
+.marketplace-product-view-card{width:min(1100px,96vw)!important;max-width:1100px!important;max-height:90vh;overflow:auto!important}
+.marketplace-product-view-head h2{font-weight:800;color:#fff}
+.marketplace-product-view-close{border:0;background:transparent;color:#f0c4cf;font-size:25px;cursor:pointer}
+.marketplace-product-view-content{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a c" "b d" "e e";align-items:start;gap:14px}
+.marketplace-product-view-section{min-width:0;margin:0;padding:13px;border:1px solid rgba(232,190,200,.2);border-radius:10px;background:rgba(255,255,255,.025)}
+.marketplace-product-view-section legend{padding:0 7px;color:#4b9dff;font-size:14px;font-weight:900}
+.marketplace-product-view-section.view-slot-a{grid-area:a}
+.marketplace-product-view-section.view-slot-b{grid-area:b}
+.marketplace-product-view-section.view-slot-c{grid-area:c}
+.marketplace-product-view-section.view-slot-d{grid-area:d}
+.marketplace-product-view-section.view-slot-e{grid-area:e}
+.marketplace-product-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.marketplace-product-view-field{min-width:0;font-size:12px;overflow-wrap:anywhere}
+.marketplace-product-view-field b{display:block;margin-bottom:3px;color:#fff;font-size:11px;font-weight:800}
+.marketplace-product-view-field span{display:block;color:#f3d34a;font-weight:600;white-space:pre-wrap}
+.marketplace-product-view-variation-list{display:grid;grid-template-columns:1fr;gap:10px}
+.marketplace-product-view-variation-group{display:grid;grid-template-columns:105px minmax(0,1fr);align-items:start;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(232,190,200,.1)}
+.marketplace-product-view-variation-group:last-child{border-bottom:0;padding-bottom:0}
+.marketplace-product-view-variation-group>strong,.marketplace-product-view-photo-group>strong{color:#fff;font-size:11px;font-weight:800}
+.marketplace-product-view-variation-item{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#f3d34a;font-size:11px;font-weight:600}
+.marketplace-product-view-variation-item img{width:54px;height:48px;object-fit:cover;border-radius:6px;border:1px solid rgba(232,190,200,.2)}
+.marketplace-product-view-variation-item small,.marketplace-product-view-empty{color:#f3d34a;font-size:10px}
+.marketplace-product-view-photo-group+.marketplace-product-view-photo-group{margin-top:14px}
+.marketplace-product-view-photos{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.marketplace-product-view-photo{width:112px}
+.marketplace-product-view-photo img{display:block;width:112px;height:100px;object-fit:cover;border-radius:7px}
+.marketplace-product-view-photo small{display:block;margin-top:4px;color:#f3d34a;font-size:10px;overflow-wrap:anywhere}
+.marketplace-product-view-actions{display:flex;justify-content:flex-end;margin-top:16px}
+@media(max-width:700px){.marketplace-product-view-content{grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c" "d" "e"}.marketplace-product-view-grid{grid-template-columns:1fr}.marketplace-product-view-variation-group{grid-template-columns:90px minmax(0,1fr)}}
 .marketplace-product-view-card{width:min(900px,94vw)!important;max-width:900px!important;max-height:88vh;overflow:auto!important}.marketplace-product-view-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(232,190,200,.18);padding-bottom:12px;margin-bottom:16px}.marketplace-product-view-head h2{margin:0}.marketplace-product-view-close{border:0;background:transparent;color:#f0c4cf;font-size:25px;cursor:pointer}.marketplace-product-view-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.marketplace-product-view-section{padding:13px;border:1px solid rgba(232,190,200,.18);border-radius:10px;background:rgba(255,255,255,.025);min-width:0}.marketplace-product-view-section.wide{grid-column:1/-1}.marketplace-product-view-section h3{font-size:13px;margin:0 0 10px;color:#f0c4cf}.marketplace-product-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}.marketplace-product-view-field{font-size:11px;overflow-wrap:anywhere}.marketplace-product-view-field b{display:block;color:#bdaab1;font-size:10px;margin-bottom:2px}.marketplace-product-view-photos{display:flex;flex-wrap:wrap;gap:10px}.marketplace-product-view-photo{width:112px}.marketplace-product-view-photo img{width:112px;height:100px;object-fit:cover;border-radius:7px}.marketplace-product-view-photo small{display:block;font-size:10px;margin-top:4px;overflow-wrap:anywhere}.marketplace-product-view-actions{display:flex;justify-content:flex-end;margin-top:16px}@media(max-width:640px){.marketplace-product-view-content,.marketplace-product-view-grid{grid-template-columns:1fr}.marketplace-product-view-section.wide{grid-column:auto}}.marketplace-product-attribute-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.marketplace-product-commercial-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;grid-column:1/-1;padding:14px;border:1px solid rgba(232,190,200,.18);border-radius:12px;background:rgba(255,255,255,.025)}.marketplace-product-commercial-grid label{display:flex;flex-direction:column;gap:6px;color:#e8dce1;font-size:12px}.marketplace-product-commercial-grid input,.marketplace-product-commercial-grid select{width:100%;box-sizing:border-box}.marketplace-product-row-view{position:relative;display:inline-block}.marketplace-product-row-view summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif}.marketplace-product-row-view summary::-webkit-details-marker{display:none}.marketplace-product-row-view>div{position:absolute;z-index:20;right:0;top:calc(100% + 6px);width:280px;padding:12px;border:1px solid rgba(208,139,158,.35);border-radius:10px;background:#21171c;box-shadow:0 12px 30px #0008;white-space:normal;color:#f2e7eb;font-size:11px}.marketplace-product-row-view p{margin:6px 0;line-height:1.45}.marketplace-product-master-status{display:inline-block;padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}.marketplace-product-master-status.status-active{background:#166534;color:#dcfce7}.marketplace-product-master-status.status-discontinued{background:#7f1d1d;color:#fee2e2}.marketplace-product-master-status.status-draft{background:#854d0e;color:#fef3c7}.marketplace-products-table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important}
 .marketplace-products-table th:nth-child(1),.marketplace-products-table td:nth-child(1){width:3%;padding-left:3px!important;padding-right:3px!important}
 .marketplace-products-table th:nth-child(2),.marketplace-products-table td:nth-child(2){width:13%}
@@ -1891,26 +1921,106 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
  if(productEditRow){productEditRow.dataset.rowIndex='0';bindProductRow(productEditRow);}
  const viewModal=document.getElementById('marketplace-product-view-modal');
  const viewContent=document.getElementById('marketplace-product-view-content');
- const viewField=(label,value)=>{const el=document.createElement('div');el.className='marketplace-product-view-field';const b=document.createElement('b');b.textContent=label;const v=document.createElement('span');v.textContent=String(value??'').trim()||'—';el.append(b,v);return el;};
- const viewSection=(title,wide)=>{const el=document.createElement('section');el.className='marketplace-product-view-section'+(wide?' wide':'');const h=document.createElement('h3');h.textContent=title;el.append(h);return el;};
+ const viewField=(label,value)=>{
+  const el=document.createElement('div');el.className='marketplace-product-view-field';
+  const b=document.createElement('b');b.textContent=label;
+  const v=document.createElement('span');v.textContent=String(value??'').trim()||'—';
+  el.append(b,v);return el;
+ };
+ const viewSection=(title,slot)=>{
+  const el=document.createElement('fieldset');el.className='marketplace-product-view-section'+(slot?' '+slot:'');
+  const legend=document.createElement('legend');legend.textContent=title;el.append(legend);return el;
+ };
  const viewGrid=section=>{const el=document.createElement('div');el.className='marketplace-product-view-grid';section.append(el);return el;};
+ const viewNumber=value=>{
+  const n=Number(String(value??'').replace(/,/g,''));
+  return Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+ };
+ const viewRate=value=>{
+  const n=Number(String(value??'').replace(/%/g,''));
+  if(!Number.isFinite(n))return '—';
+  return (Number.isInteger(n)?String(n):String(Number(n.toFixed(2))))+'%';
+ };
  const openView=link=>{
   const d=link.dataset;let photos=[],variationPhotos=[],tags={};
   try{photos=JSON.parse(d.productPhotos||'[]');}catch(e){}
   try{variationPhotos=JSON.parse(d.productVariationPhotos||'[]');}catch(e){}
   try{tags=JSON.parse(d.productTags||'{}');}catch(e){}
   viewContent.replaceChildren();
-  const info=viewSection('Product Information');const ig=viewGrid(info);
-  [['Product Name',d.productName],['Product Code',d.productCode],['Barcode',d.productBarcode],['Category',d.productCategoryName],['Subcategory',d.productSubcategoryName],['Brand',d.productBrand],['Model',d.productModel],['Manufacturer',d.productManufacturer],['Supply Chain Entity',d.productSupplyEntity],['Country of Origin',d.productCountry],['Unit of Measurement',d.productUom],['Status',d.productStatus]].forEach(x=>ig.append(viewField(x[0],x[1])));viewContent.append(info);
-  const price=viewSection('Pricing, Taxes & Discounts');const pg=viewGrid(price);
-  [['Retail Price',d.productRetailPrice&&'₱'+d.productRetailPrice],['Selling Price',d.productSellingPrice&&'₱'+d.productSellingPrice],['Value-Added Tax',d.productVatRate+'%'],['Percentage Tax',d.productPercentageTaxRate+'%'],['Income Tax',d.productIncomeTaxRate+'%'],['Withholding Tax',d.productWithholdingTaxRate+'%'],['Other Taxes',d.productOtherTaxRate+'%'],['Discount Type',d.productDiscountType==='percent'?'Percentage (%)':d.productDiscountType==='fixed'?'Fixed Peso (₱)':'No Discount'],['Discount Amount',d.productDiscountType==='percent'?d.productDiscountValue+'%':d.productDiscountType==='fixed'?'₱'+d.productDiscountValue:'—']].forEach(x=>pg.append(viewField(x[0],x[1])));viewContent.append(price);
-  const physical=viewSection('Physical & Tracking Attributes');const ag=viewGrid(physical);
-  [['Weight',d.productWeight+' '+(d.productWeightUnit||'')],['Length',d.productLength+' '+(d.productDimensionUnit||'')],['Width',d.productWidth+' '+(d.productDimensionUnit||'')],['Batch Number',d.productBatchNumber]].forEach(x=>ag.append(viewField(x[0],x[1])));viewContent.append(physical);
-  const desc=viewSection('Description',true);desc.append(viewField('Product Description',d.productDescription));viewContent.append(desc);
-  const addPhotos=(title,items,caption)=>{const sec=viewSection(title,true);const wrap=document.createElement('div');wrap.className='marketplace-product-view-photos';items.forEach((p,i)=>{if(!p||!p.path)return;const card=document.createElement('div');card.className='marketplace-product-view-photo';const img=document.createElement('img');img.src=p.path;img.alt=title+' '+(i+1);const small=document.createElement('small');small.textContent=caption(p,i);card.append(img,small);wrap.append(card);});if(!wrap.children.length)wrap.textContent='No photos available.';sec.append(wrap);viewContent.append(sec);};
-  addPhotos('Main Photos',photos,(p,i)=>'Main Photo '+(i+1));addPhotos('Variation Photos',variationPhotos,p=>(p.type||'Variation')+': '+(p.value||''));
-  const variations=viewSection('Product Variations',true);const tg=viewGrid(variations);Object.entries(tags).forEach(([k,v])=>tg.append(viewField(k.charAt(0).toUpperCase()+k.slice(1),Array.isArray(v)?v.join(', '):v)));viewContent.append(variations);
-  viewModal.hidden=false;viewModal.querySelector('.marketplace-product-view-close')?.focus();
+
+  // A. Product details (upper-left)
+  const details=viewSection('A. Product Details','view-slot-a');
+  const detailsGrid=viewGrid(details);
+  const category=[d.productCategoryName,d.productSubcategoryName].filter(Boolean).join(' / ');
+  [['Category',category],['Product Name',d.productName],['Brand',d.productBrand],['Model',d.productModel],['UOM',d.productUom]].forEach(x=>detailsGrid.append(viewField(x[0],x[1])));
+  detailsGrid.append(viewField('Description',d.productDescription));
+  viewContent.append(details);
+
+  // B. Variations (lower-left), with the photo assigned to each variation value.
+  const variations=viewSection('B. Product Variations','view-slot-b');
+  const variationList=document.createElement('div');variationList.className='marketplace-product-view-variation-list';
+  [['sizes','Sizes'],['colors','Colors'],['type','Type'],['storage','Storage'],['others','Others']].forEach(([key,label])=>{
+   const group=document.createElement('div');group.className='marketplace-product-view-variation-group';
+   const heading=document.createElement('strong');heading.textContent=label;group.append(heading);
+   const values=Array.isArray(tags[key])?tags[key]:[];
+   if(!values.length){const empty=document.createElement('span');empty.className='marketplace-product-view-empty';empty.textContent='—';group.append(empty);}
+   values.forEach(value=>{
+    const item=document.createElement('div');item.className='marketplace-product-view-variation-item';
+    const name=document.createElement('span');name.textContent=String(value);item.append(name);
+    const photo=variationPhotos.find(p=>String(p.type||'').toLowerCase()===key&&String(p.value||'')===String(value));
+    if(photo&&photo.path){const img=document.createElement('img');img.src=photo.path;img.alt=label+' '+String(value);item.append(img);}
+    else {const noPhoto=document.createElement('small');noPhoto.textContent='No photo';item.append(noPhoto);}
+    group.append(item);
+   });
+   variationList.append(group);
+  });
+  variations.append(variationList);viewContent.append(variations);
+
+  // C. Pricing, taxes and discounts (upper-right)
+  const pricing=viewSection('C. Pricing, Taxes, and Discounts','view-slot-c');
+  const pricingGrid=viewGrid(pricing);
+  const discountType=d.productDiscountType||'none';
+  const discountValue=discountType==='percent'?viewRate(d.productDiscountValue):discountType==='fixed'?'₱'+viewNumber(d.productDiscountValue):'—';
+  [
+   ['Retail Price',d.productRetailPrice?'₱'+viewNumber(d.productRetailPrice):'—'],
+   ['Value-Added Tax (%)',viewRate(d.productVatRate)],
+   ['Percentage Tax (%)',viewRate(d.productPercentageTaxRate)],
+   ['Withholding Tax (%)',viewRate(d.productWithholdingTaxRate)],
+   ['Income Tax (%)',viewRate(d.productIncomeTaxRate)],
+   ['Other Tax (%)',viewRate(d.productOtherTaxRate)],
+   ['Discount Type',discountType==='percent'?'Percentage (%)':discountType==='fixed'?'Fixed Peso (₱)':'No Discount'],
+   ['Discount Value',discountValue],
+   ['Selling Price',d.productSellingPrice?'₱'+viewNumber(d.productSellingPrice):'—'],
+   ['Status',d.productStatus]
+  ].forEach(x=>pricingGrid.append(viewField(x[0],x[1])));
+  viewContent.append(pricing);
+
+  // D. Physical and tracking attributes (lower-right)
+  const physical=viewSection('D. Physical and Tracking Attributes','view-slot-d');
+  const physicalGrid=viewGrid(physical);
+  [
+   ['Weight',[d.productWeight,d.productWeightUnit].filter(Boolean).join(' ')],
+   ['Width',d.productWidth],
+   ['Length',d.productLength],
+   ['Dimension Measurement',d.productDimensionUnit],
+   ['Lot No. / Batch No.',d.productBatchNumber]
+  ].forEach(x=>physicalGrid.append(viewField(x[0],x[1])));
+  viewContent.append(physical);
+
+  // E. Photos: every main and variation photo uploaded for this product.
+  const allPhotos=viewSection('E. Photos','view-slot-e');
+  const photoGroups=[{title:'Main Photos',items:photos,caption:(p,i)=>'Main Photo '+(i+1)},{title:'Variation Photos',items:variationPhotos,caption:p=>(p.type||'Variation')+': '+(p.value||'')}];
+  photoGroups.forEach(group=>{
+   const sub=document.createElement('div');sub.className='marketplace-product-view-photo-group';
+   const heading=document.createElement('strong');heading.textContent=group.title;sub.append(heading);
+   const wrap=document.createElement('div');wrap.className='marketplace-product-view-photos';
+   group.items.forEach((p,i)=>{if(!p||!p.path)return;const card=document.createElement('div');card.className='marketplace-product-view-photo';const img=document.createElement('img');img.src=p.path;img.alt=group.title+' '+(i+1);const small=document.createElement('small');small.textContent=group.caption(p,i);card.append(img,small);wrap.append(card);});
+   if(!wrap.children.length){const empty=document.createElement('span');empty.className='marketplace-product-view-empty';empty.textContent='No photos available.';wrap.append(empty);}
+   sub.append(wrap);allPhotos.append(sub);
+  });
+  viewContent.append(allPhotos);
+  viewModal.hidden=false;
+  viewModal.querySelector('.marketplace-product-view-close')?.focus();
  };
  document.querySelectorAll('.marketplace-product-row-view summary').forEach(btn=>btn.addEventListener('click',event=>{event.preventDefault();const link=btn.closest('tr')?.querySelector('.marketplace-product-edit-open');if(link)openView(link);}));
  viewModal?.querySelectorAll('.marketplace-product-view-close').forEach(btn=>btn.addEventListener('click',()=>viewModal.hidden=true));
