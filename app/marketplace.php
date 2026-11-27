@@ -937,6 +937,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     'Batch Number' => [(string)($beforeInventory['batch_number'] ?? ''),$batchNumber],
                     'Supply Chain Type' => [(string)($beforeInventory['supply_chain_type'] ?? ''),$supplyEntity],
                     'Quantity on Hand' => [(float)($beforeInventory['stock_on_hand'] ?? 0),$stock],
+                    'Sold Quantity' => [(float)($beforeInventory['sold'] ?? 0),$sold],
                     'Storage Location' => [(string)($beforeInventory['storage_location'] ?? ''),$storageLocation],
                     'Reorder Point' => [(float)($beforeInventory['reorder_point'] ?? 0),$reorderPoint],
                     'Reorder Quantity' => [(float)($beforeInventory['reorder_quantity'] ?? 0),$reorderQuantity],
@@ -1269,16 +1270,13 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-inventory-table th,.marketplace-inventory-table td{padding:7px 4px!important;font-size:9px!important;line-height:1.4;overflow-wrap:anywhere;word-break:normal}
 .marketplace-inventory-table th{font-size:8px!important;letter-spacing:0!important;white-space:normal}
 .marketplace-inventory-table .marketplace-product-select-cell{width:3%;padding-left:3px!important;padding-right:3px!important}
-.marketplace-inventory-table th:nth-child(2),.marketplace-inventory-table td:nth-child(2){width:7%}
-.marketplace-inventory-table th:nth-child(3),.marketplace-inventory-table td:nth-child(3){width:19%}
-.marketplace-inventory-table th:nth-child(4),.marketplace-inventory-table td:nth-child(4){width:8%}
+.marketplace-inventory-table th:nth-child(2),.marketplace-inventory-table td:nth-child(2){width:24%}
+.marketplace-inventory-table th:nth-child(3),.marketplace-inventory-table td:nth-child(3){width:9%}
+.marketplace-inventory-table th:nth-child(4),.marketplace-inventory-table td:nth-child(4){width:10%}
 .marketplace-inventory-table th:nth-child(5),.marketplace-inventory-table td:nth-child(5){width:11%}
-.marketplace-inventory-table th:nth-child(6),.marketplace-inventory-table td:nth-child(6){width:7%}
-.marketplace-inventory-table th:nth-child(7),.marketplace-inventory-table td:nth-child(7){width:14%}
-.marketplace-inventory-table th:nth-child(8),.marketplace-inventory-table td:nth-child(8){width:8%}
-.marketplace-inventory-table th:nth-child(9),.marketplace-inventory-table td:nth-child(9){width:8%}
-.marketplace-inventory-table th:nth-child(10),.marketplace-inventory-table td:nth-child(10){width:7%}
-.marketplace-inventory-table th:nth-child(11),.marketplace-inventory-table td:nth-child(11){width:8%}
+.marketplace-inventory-table th:nth-child(6),.marketplace-inventory-table td:nth-child(6){width:17%}
+.marketplace-inventory-table th:nth-child(7),.marketplace-inventory-table td:nth-child(7){width:19%}
+.marketplace-inventory-table th:nth-child(8),.marketplace-inventory-table td:nth-child(8){width:10%}
 .marketplace-inventory-table .marketplace-photo{width:100%;max-width:44px;height:auto;aspect-ratio:1;object-fit:cover}
 .marketplace-inventory-product{min-width:0!important;max-width:none!important}
 .marketplace-inventory-product strong,.marketplace-inventory-product small,.marketplace-inventory-taxes small{white-space:normal!important;overflow-wrap:anywhere;word-break:break-word}
