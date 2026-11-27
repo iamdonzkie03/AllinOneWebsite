@@ -1479,7 +1479,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    const rawRetail=retail.value.trim();if(!rawRetail){selling.value='';return;}
    const base=parseNumeric(rawRetail),taxRate=taxFields.reduce((sum,field)=>sum+parseNumeric(field.value)/100,0);
    const discount=parseNumeric(discountValue.value),taxed=base*(1+taxRate);
-   const discountAmount=discountType.value==='percent'?taxed*discount:(discountType.value==='fixed'?discount:0);
+   const discountAmount=discountType.value==='percent'?taxed*(discount/100):(discountType.value==='fixed'?discount:0);
    selling.value=Math.max(0,taxed-discountAmount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   };
   [retail,...taxFields,discountValue].forEach(field=>{
