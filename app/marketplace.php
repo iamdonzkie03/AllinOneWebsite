@@ -1731,6 +1731,11 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   editSet('income_tax_rate[]',editPercent(d.productIncomeTaxRate));editSet('withholding_tax_rate[]',editPercent(d.productWithholdingTaxRate));editSet('other_tax_rate[]',editPercent(d.productOtherTaxRate));
   editSet('discount_type[]',d.productDiscountType||'none');
   editSet('discount_value[]',d.productDiscountType==='percent'?editPercent(d.productDiscountValue):editMoney(d.productDiscountValue));
+  // Recalculate the readonly Selling Price after all saved pricing fields have been populated.
+  // bindPricing() attaches the calculator before the Edit modal is opened, so changing
+  // Retail Price here must trigger its input handler to refresh the displayed result.
+  const editRetailField=row.querySelector('[name="retail_price[]"]');
+  editRetailField?.dispatchEvent(new Event('input',{bubbles:true}));
   editSet('product_status[]',d.productStatus||'Active');editSet('weight[]',d.productWeight);editSet('weight_unit[]',d.productWeightUnit);
   editSet('length[]',d.productLength);editSet('width[]',d.productWidth);editSet('dimension_unit[]',d.productDimensionUnit);editSet('batch_number[]',d.productBatchNumber);
   const category=row.querySelector('[name="category_id[]"]'),subcategory=row.querySelector('[name="subcategory_id[]"]');
