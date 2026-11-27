@@ -1047,7 +1047,7 @@ if ($marketplaceEditProductId > 0 || $marketplaceViewProductId > 0) {
 $marketplaceInventoryForm = null;
 if ($marketplaceEditInventoryId > 0 || $marketplaceViewInventoryId > 0) {
     $targetId=$marketplaceEditInventoryId > 0 ? $marketplaceEditInventoryId : $marketplaceViewInventoryId;
-    $stmt=$pdo->prepare('SELECT * FROM marketplace_inventory WHERE id=? LIMIT 1');$stmt->execute([$targetId]);$marketplaceInventoryForm=$stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $stmt=$pdo->prepare('SELECT i.*,p.product_name,p.product_code,p.manufacturer,p.supply_chain_entity,p.country_of_origin FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id WHERE i.id=? LIMIT 1');$stmt->execute([$targetId]);$marketplaceInventoryForm=$stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($marketplaceInventoryForm) {
         $inventoryProductMeta = $pdo->prepare('SELECT product_name,manufacturer,supply_chain_entity,country_of_origin FROM marketplace_products WHERE id=? LIMIT 1');
         $inventoryProductMeta->execute([(int)$marketplaceInventoryForm['product_id']]);
@@ -2281,6 +2281,9 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <label>Manufacturer's Name *<input name="manufacturer" required maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock *<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value=""></label>
+   <label>Storage Location<input type="text" name="storage_location" maxlength="180" placeholder="e.g. Warehouse A - Rack 03"></label>
+   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" min="0" value="0.00"></label>
+   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" min="0" value="0.00"></label>
    <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value=""></label>
    <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value=""></label>
    <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value=""></label>
@@ -2306,6 +2309,9 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="<?=((float)$marketplaceInventoryForm['stock_on_hand']>0)?e($quantityFormat($marketplaceInventoryForm['stock_on_hand'])):''?>"></label>
+   <label>Storage Location<input type="text" name="storage_location" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['storage_location']??''))?>" placeholder="e.g. Warehouse A - Rack 03"></label>
+   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" min="0" value="<?=e($quantityFormat($marketplaceInventoryForm['reorder_point']??0))?>"></label>
+   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" min="0" value="<?=e($quantityFormat($marketplaceInventoryForm['reorder_quantity']??0))?>"></label>
    <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value="<?=((float)($marketplaceInventoryForm['vat_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['vat_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
    <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['percentage_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['percentage_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
    <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['income_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['income_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
