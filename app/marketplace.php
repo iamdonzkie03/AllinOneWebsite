@@ -1791,6 +1791,17 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-product-view-field{min-width:0;font-size:12px;overflow-wrap:anywhere}
 .marketplace-product-view-field b{display:block;margin-bottom:3px;color:#fff;font-size:11px;font-weight:800}
 .marketplace-product-view-field span{display:block;color:#f3d34a;font-weight:400;white-space:pre-wrap}
+/* Coordinate field labels and record values with each pastel fieldset. */
+.marketplace-product-view-section.view-slot-a .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-a .marketplace-product-view-photo-group>strong{color:#8fc9f1}
+.marketplace-product-view-section.view-slot-a .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-item{color:#d5edff}
+.marketplace-product-view-section.view-slot-b .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-b .marketplace-product-view-photo-group>strong{color:#9bd8ad}
+.marketplace-product-view-section.view-slot-b .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-item{color:#ddf5e3}
+.marketplace-product-view-section.view-slot-c .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-c .marketplace-product-view-photo-group>strong{color:#e8bd85}
+.marketplace-product-view-section.view-slot-c .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-item{color:#ffebd1}
+.marketplace-product-view-section.view-slot-d .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-d .marketplace-product-view-photo-group>strong{color:#c6afe9}
+.marketplace-product-view-section.view-slot-d .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-item{color:#eee3ff}
+.marketplace-product-view-section.view-slot-e .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-e .marketplace-product-view-photo-group>strong{color:#e6aabd}
+.marketplace-product-view-section.view-slot-e .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-item{color:#ffe0e9}
 .marketplace-product-view-variation-list{display:grid;grid-template-columns:1fr;gap:10px}
 .marketplace-product-view-variation-group{display:grid;grid-template-columns:105px minmax(0,1fr);align-items:start;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(232,190,200,.1)}
 .marketplace-product-view-variation-group:last-child{border-bottom:0;padding-bottom:0}
@@ -1958,7 +1969,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   const details=viewSection('A. Product Details','view-slot-a');
   const detailsGrid=viewGrid(details);
   const category=[d.productCategoryName,d.productSubcategoryName].filter(Boolean).join(' / ');
-  [['Category',category],['Product Name',d.productName],['Brand',d.productBrand],['Model',d.productModel],['UOM',d.productUom]].forEach(x=>detailsGrid.append(viewField(x[0],x[1])));
+  [['Category',category],['Product Name',d.productName],['Brand',d.productBrand],['Model',d.productModel],['UOM',d.productUom],['Barcode',d.productBarcode]].forEach(x=>detailsGrid.append(viewField(x[0],x[1])));
   detailsGrid.append(viewField('Description',d.productDescription));
   viewContent.append(details);
 
