@@ -1800,9 +1800,11 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    });
   }
   const syncNewPhotoUploadLimit=()=>{
-   const marked=productEditForm?.querySelectorAll('input[name="remove_main_photo_ids[]"]:not(:disabled)').length||0;
-   const currentCount=previewList?.querySelectorAll('.marketplace-edit-photo-card').length||0;
-   const available=Math.max(0,5-(currentCount-marked));
+   const currentCards=previewList?Array.from(previewList.children).filter(card=>card.classList?.contains('marketplace-edit-photo-card')):[];
+   const marked=currentCards.filter(card=>card.querySelector('input[name="remove_main_photo_ids[]"]:not(:disabled)')).length;
+   const currentCount=currentCards.length;
+   const remainingCurrentCount=Math.max(0,currentCount-marked);
+   const available=Math.max(0,5-remainingCurrentCount);
    const uploadInput=productEditForm?.querySelector('.marketplace-product-main-photo-input');
    const guidance=productEditForm?.querySelector('.marketplace-product-main-photo-guidance');
    if(uploadInput){uploadInput.disabled=available===0;uploadInput.dataset.maxFiles=String(available);}
@@ -1829,7 +1831,27 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   const copy=overlay.querySelector('.marketplace-edit-photo-limit-copy');if(copy)copy.textContent=message;
   overlay.hidden=false;overlay.style.display='flex';overlay.querySelector('button')?.focus();
  };
- productEditForm?.querySelector('.marketplace-product-main-photo-input')?.addEventListener('change',event=>{const files=Array.from(event.target.files||[]),marked=productEditForm.querySelectorAll('input[name="remove_main_photo_ids[]"]:not(:disabled)').length,currentCount=productEditForm.querySelectorAll('#marketplace-product-edit-existing-photos .marketplace-edit-photo-card').length,available=Math.max(0,5-(currentCount-marked)),message='Upload up to '+available+' New Photo(s), based on the available spaces among the 5 Main Photos. Each photo must be no larger than 5 MB.';if(files.length>available||files.some(file=>file.size>5*1024*1024)){showMainPhotoLimitModal(message);event.target.value='';const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');preview?.replaceChildren();const names=productEditForm.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent='No new photos selected.';return;}const names=productEditForm.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent=files.length?files.map(file=>file.name).join(', '):'No new photos selected.';const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');if(preview){preview.replaceChildren();files.forEach(file=>{const card=document.createElement('div');card.className='marketplace-edit-new-photo-card';const image=document.createElement('img');image.src=URL.createObjectURL(file);image.alt='New photo preview';image.onload=()=>URL.revokeObjectURL(image.src);const caption=document.createElement('small');caption.textContent=file.name;card.append(image,caption);preview.append(card);});}if(files.length>0&&files.length===available)showMainPhotoLimitModal(message);});
+ productEditForm?.querySelector('.marketplace-product-main-photo-input')?.addEventListener('change',event=>{
+  const files=Array.from(event.target.files||[]);
+  const currentCards=Array.from(productEditForm.querySelectorAll('#marketplace-product-edit-existing-photos > .marketplace-edit-photo-card'));
+  const marked=currentCards.filter(card=>card.querySelector('input[name="remove_main_photo_ids[]"]:not(:disabled)')).length;
+  const currentCount=currentCards.length;
+  const remainingCurrentCount=Math.max(0,currentCount-marked);
+  const available=Math.max(0,5-remainingCurrentCount);
+  const totalAfterSelection=remainingCurrentCount+files.length;
+  const message='Upload up to '+available+' New Photo(s), based on the available spaces among the 5 Main Photos. Each photo must be no larger than 5 MB.';
+  if(files.length>available||files.some(file=>file.size>5*1024*1024)){
+   showMainPhotoLimitModal(message);event.target.value='';
+   const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');preview?.replaceChildren();
+   const names=productEditForm.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent='No new photos selected.';
+   return;
+  }
+  const names=productEditForm.querySelector('.marketplace-product-main-photo-names');
+  if(names)names.textContent=files.length?files.map(file=>file.name).join(', '):'No new photos selected.';
+  const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');
+  if(preview){preview.replaceChildren();files.forEach(file=>{const card=document.createElement('div');card.className='marketplace-edit-new-photo-card';const image=document.createElement('img');image.src=URL.createObjectURL(file);image.alt='New photo preview';image.onload=()=>URL.revokeObjectURL(image.src);const caption=document.createElement('small');caption.textContent=file.name;card.append(image,caption);preview.append(card);});}
+  if(files.length>0&&totalAfterSelection>=5)showMainPhotoLimitModal(message);
+ });
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&productEditModal&&!productEditModal.hidden)productEditModal.hidden=true;});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
  // Products filter and pagination: same client-side behavior as Registered User Accounts.
