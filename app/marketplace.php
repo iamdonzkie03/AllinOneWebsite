@@ -1932,9 +1932,10 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   return Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
  };
  const viewRate=value=>{
-  const n=Number(String(value??'').replace(/%/g,''));
-  if(!Number.isFinite(n))return '—';
-  return (Number.isInteger(n)?String(n):String(Number(n.toFixed(2))))+'%';
+  const storedFraction=Number(String(value??'').replace(/%/g,''));
+  if(!Number.isFinite(storedFraction))return '—';
+  const percentage=storedFraction*100;
+  return (Number.isInteger(percentage)?String(percentage):String(Number(percentage.toFixed(2))))+'%';
  };
  const openView=link=>{
   const d=link.dataset;let photos=[],variationPhotos=[],tags={};
