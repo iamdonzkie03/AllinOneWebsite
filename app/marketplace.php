@@ -2003,7 +2003,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   ].forEach(x=>physicalGrid.append(viewField(x[0],x[1])));
   viewContent.append(physical);
 
-  // E. Photos: every main and variation photo uploaded for this product.
+  // E. Photos: show only the uploaded main product photos.
   const allPhotos=viewSection('E. Photos','view-slot-e');
   const mainPhotoGroup=document.createElement('div');mainPhotoGroup.className='marketplace-product-view-photo-group';
   const mainPhotoHeading=document.createElement('strong');mainPhotoHeading.textContent='Main Photos';mainPhotoGroup.append(mainPhotoHeading);
