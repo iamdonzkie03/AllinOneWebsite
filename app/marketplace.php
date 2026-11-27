@@ -50,6 +50,7 @@ if (!$marketplaceSubcategoryColumn->fetch(PDO::FETCH_ASSOC)) $pdo->exec("ALTER T
 // which is not supported by several MySQL/MariaDB versions bundled with Laragon.
 $marketplaceProductColumns = [
     'product_code' => "VARCHAR(100) NULL AFTER product_name",
+    'barcode_value' => "VARCHAR(40) NULL AFTER product_code",
     'manufacturer' => "VARCHAR(180) NULL AFTER model",
     'supply_chain_entity' => "VARCHAR(180) NULL AFTER manufacturer",
     'country_of_origin' => "VARCHAR(120) NULL AFTER supply_chain_entity",
@@ -96,6 +97,8 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_product_tags (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $productCodeIndex = $pdo->query("SHOW INDEX FROM marketplace_products WHERE Key_name = 'uq_marketplace_product_code'")->fetch(PDO::FETCH_ASSOC);
 if (!$productCodeIndex) $pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY uq_marketplace_product_code (product_code)");
+$productBarcodeIndex = $pdo->query("SHOW INDEX FROM marketplace_products WHERE Key_name = 'uq_marketplace_product_barcode'")->fetch(PDO::FETCH_ASSOC);
+if (!$productBarcodeIndex) $pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY uq_marketplace_product_barcode (barcode_value)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_inventory (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  product_id BIGINT UNSIGNED NOT NULL UNIQUE,
@@ -802,6 +805,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     } while ($exists->fetchColumn() || in_array($generatedCode, $reservedCodes, true));
                     $row[1] = $generatedCode;
                     $reservedCodes[] = $generatedCode;
+                    do {
+                        $generatedBarcode = 'BC' . date('ymd') . str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                        $barcodeExists = $pdo->prepare('SELECT 1 FROM marketplace_products WHERE barcode_value = ? LIMIT 1');
+                        $barcodeExists->execute([$generatedBarcode]);
+                    } while ($barcodeExists->fetchColumn());
+                    $row[31] = $generatedBarcode;
                 }
                 unset($row);
                 $uploadedProductFiles = [];
@@ -832,12 +841,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 };
                 $pdo->beginTransaction();
                 try {
-                    $insert=$pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,uom,retail_price,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,discount_type,discount_value,selling_price,batch_number,weight,weight_unit,height,length,width,dimension_unit,depth,product_status,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)');
+                    $insert=$pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,barcode_value,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,uom,retail_price,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,discount_type,discount_value,selling_price,batch_number,weight,weight_unit,height,length,width,dimension_unit,depth,product_status,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)');
                     $photoUpdate=$pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?');
                     $photoInsert=$pdo->prepare('INSERT INTO marketplace_product_photos(product_id,photo_path,sort_order) VALUES(?,?,?)');
                     $tagInsert=$pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,?,?)');
                     foreach($rows as $index=>$row){
-                        $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[23]!==''?$row[23]:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[24]!==''?$row[24]:null,$row[25]]);
+                        $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[31],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[23]!==''?$row[23]:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[24]!==''?$row[24]:null,$row[25]]);
                         $newProductId=(int)$pdo->lastInsertId();$uploadIndex=(int)($row[10]??$index);
                         $safeName=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');if($safeName==='')$safeName='product';
                         $folderName=trim((string)$row[1]);if($folderName===''||!preg_match('/^[A-Za-z0-9_-]+$/',$folderName))throw new RuntimeException('The generated Product Code is invalid for its photo folder.');$folder=$uploadDirectory.'/'.$folderName;
@@ -874,7 +883,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     }
                     throw $insertError;
                 }
-                $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1], 'brand'=>$row[2] ?? '', 'model'=>$row[3] ?? ''], $rows);
+                $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1], 'barcode'=>$row[31] ?? '', 'brand'=>$row[2] ?? '', 'model'=>$row[3] ?? ''], $rows);
                 $marketplaceNotice = '';
                 $marketplaceTab = 'products';
                 $marketplaceEditProductId = 0;
@@ -1727,19 +1736,24 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   <?php if(count($marketplaceCreatedProducts)===1): $created=$marketplaceCreatedProducts[0]; ?>
    <div class="marketplace-product-created-details">
     <p>Product Name: <strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong></p>
-    <p>Product ID: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong></p>
+    <p>Product Code: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong></p>
+    <p>Barcode: <strong class="marketplace-product-id-highlight"><?=e($created['barcode'])?></strong></p>
+    <svg class="marketplace-generated-barcode" data-barcode-value="<?=e($created['barcode'])?>" role="img" aria-label="Barcode for <?=e($created['name'])?>"></svg>
     <p>Brand/Model: <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?></strong> / <strong class="marketplace-product-brand-model-highlight"><?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></p>
    </div>
   <?php else: ?>
    <p>The following products have been successfully added.</p>
-   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li><strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> · <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> · <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?> / <?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></li><?php endforeach; ?></ul>
+   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li><strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> · Product Code: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> · Barcode: <strong class="marketplace-product-id-highlight"><?=e($created['barcode'])?></strong> · <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?> / <?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></li><?php endforeach; ?></ul>
   <?php endif; ?>
   <button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-created-close">OK</button>
  </section>
 </div>
 <?php endif; ?>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}</style>
 <script>
 (()=>{
+ document.querySelectorAll('.marketplace-generated-barcode').forEach(function(svg){if(window.JsBarcode){try{window.JsBarcode(svg,svg.dataset.barcodeValue,{format:'CODE128',displayValue:true,fontSize:12,height:54,margin:4,lineColor:'#111',background:'#fff'});}catch(error){svg.outerHTML='<p class="marketplace-barcode-fallback">'+svg.dataset.barcodeValue+'</p>';}}});
  const modal=document.getElementById('marketplace-product-add-modal'),form=document.getElementById('marketplace-product-add-form'),duplicateModal=document.getElementById('marketplace-product-duplicate-modal');
  form?.addEventListener('submit',event=>{for(const row of form.querySelectorAll('.marketplace-product-entry-row')){const main=row.querySelector('.marketplace-product-main-photo-input');const mainFiles=Array.from(main?.files||[]);if(mainFiles.length<1||mainFiles.length>5||mainFiles.some(file=>file.size>5*1024*1024)){event.preventDefault();alert('Upload 1 to 5 main photos per product. Each photo must be no larger than 5 MB.');return;}for(const photo of row.querySelectorAll('.marketplace-product-tag-photo')){if(!photo.files?.length||photo.files[0].size>5*1024*1024){event.preventDefault();alert('Each product variation needs one photo no larger than 5 MB.');return;}}}});
  if(duplicateModal&&modal)document.getElementById('marketplace-product-duplicate-close')?.addEventListener('click',()=>{duplicateModal.hidden=true;modal.hidden=false;form?.querySelector('input[name="product_name[]"]')?.focus();});
