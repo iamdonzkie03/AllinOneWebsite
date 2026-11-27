@@ -2005,15 +2005,12 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
 
   // E. Photos: every main and variation photo uploaded for this product.
   const allPhotos=viewSection('E. Photos','view-slot-e');
-  const photoGroups=[{title:'Main Photos',items:photos,caption:(p,i)=>'Main Photo '+(i+1)},{title:'Variation Photos',items:variationPhotos,caption:p=>(p.type||'Variation')+': '+(p.value||'')}];
-  photoGroups.forEach(group=>{
-   const sub=document.createElement('div');sub.className='marketplace-product-view-photo-group';
-   const heading=document.createElement('strong');heading.textContent=group.title;sub.append(heading);
-   const wrap=document.createElement('div');wrap.className='marketplace-product-view-photos';
-   group.items.forEach((p,i)=>{if(!p||!p.path)return;const card=document.createElement('div');card.className='marketplace-product-view-photo';const img=document.createElement('img');img.src=p.path;img.alt=group.title+' '+(i+1);const small=document.createElement('small');small.textContent=group.caption(p,i);card.append(img,small);wrap.append(card);});
-   if(!wrap.children.length){const empty=document.createElement('span');empty.className='marketplace-product-view-empty';empty.textContent='No photos available.';wrap.append(empty);}
-   sub.append(wrap);allPhotos.append(sub);
-  });
+  const mainPhotoGroup=document.createElement('div');mainPhotoGroup.className='marketplace-product-view-photo-group';
+  const mainPhotoHeading=document.createElement('strong');mainPhotoHeading.textContent='Main Photos';mainPhotoGroup.append(mainPhotoHeading);
+  const mainPhotoWrap=document.createElement('div');mainPhotoWrap.className='marketplace-product-view-photos';
+  photos.forEach((p,i)=>{if(!p||!p.path)return;const card=document.createElement('div');card.className='marketplace-product-view-photo';const img=document.createElement('img');img.src=p.path;img.alt='Main product photo '+(i+1);card.append(img);mainPhotoWrap.append(card);});
+  if(!mainPhotoWrap.children.length){const empty=document.createElement('span');empty.className='marketplace-product-view-empty';empty.textContent='No main photos available.';mainPhotoWrap.append(empty);}
+  mainPhotoGroup.append(mainPhotoWrap);allPhotos.append(mainPhotoGroup);
   viewContent.append(allPhotos);
   viewModal.hidden=false;
   viewModal.querySelector('.marketplace-product-view-close')?.focus();
