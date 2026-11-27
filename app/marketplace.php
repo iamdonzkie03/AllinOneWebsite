@@ -1771,7 +1771,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}.marketplace-product-code-barcode-cell{min-width:190px}.marketplace-product-barcode-value{display:block;margin-top:5px;color:#666;font-size:10px}.marketplace-master-catalog-barcode{width:170px;max-width:100%;height:48px;margin:4px 0 0;padding:3px}.marketplace-products-table .marketplace-product-taxes-discounts-cell small,.marketplace-products-table .marketplace-product-taxes-discounts-cell small strong{display:block;margin:0 0 3px;font-size:11px;font-weight:400;line-height:1.4;color:inherit}
 /* Product Information view modal: five requested fieldsets and color hierarchy. */
-.marketplace-product-view-card{width:min(1100px,96vw)!important;max-width:1100px!important;max-height:90vh;overflow:auto!important}
+.marketplace-product-view-card{width:min(700px,96vw)!important;max-width:700px!important;max-height:90vh;overflow:auto!important}
 .marketplace-product-view-head h2{font-weight:800;color:#fff}
 .marketplace-product-view-content{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c" "d" "e";align-items:stretch;gap:14px}
 .marketplace-product-view-section{min-width:0;margin:0;padding:13px;border:1px solid rgba(232,190,200,.2);border-radius:10px;background:rgba(255,255,255,.025)}
