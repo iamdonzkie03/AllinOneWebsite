@@ -127,6 +127,10 @@ $marketplaceInventoryColumns = [
     'withholding_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER income_tax_rate",
     'other_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER withholding_tax_rate",
     'status' => "VARCHAR(30) NOT NULL DEFAULT 'Low Stock' AFTER selling_price",
+    'storage_location' => "VARCHAR(180) NULL AFTER status",
+    'reorder_point' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER storage_location",
+    'reorder_quantity' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER reorder_point",
+    'last_updated_details' => "TEXT NULL AFTER reorder_quantity",
 ];
 foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
     $columnCheck = $pdo->query("SHOW COLUMNS FROM marketplace_inventory LIKE " . $pdo->quote($columnName));
@@ -905,6 +909,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $sellingPrice = round($retailPrice * (1 + $tax), 2);
             $unitPrice = $sellingPrice;
             $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
+            $storageLocation = trim((string)($_POST['storage_location'] ?? ''));
+            $reorderPoint = max(0, (float)str_replace(',', '', (string)($_POST['reorder_point'] ?? 0)));
+            $reorderQuantity = max(0, (float)str_replace(',', '', (string)($_POST['reorder_quantity'] ?? 0)));
             $productCheck = $pdo->prepare('SELECT id,product_name,product_code FROM marketplace_products WHERE id=? LIMIT 1');
             $productCheck->execute([$productId]);
             $selectedInventoryProduct = $productCheck->fetch(PDO::FETCH_ASSOC);
@@ -922,16 +929,31 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
             $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
             if ($inventoryId > 0) {
-                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=? WHERE id=?');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$inventoryId]);
+                $beforeStmt = $pdo->prepare('SELECT batch_number,supply_chain_type,stock_on_hand,storage_location,reorder_point,reorder_quantity,status FROM marketplace_inventory WHERE id=? LIMIT 1');
+                $beforeStmt->execute([$inventoryId]);
+                $beforeInventory = $beforeStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                $changedInventoryFields = [];
+                $inventoryComparisons = [
+                    'Batch Number' => [(string)($beforeInventory['batch_number'] ?? ''),$batchNumber],
+                    'Supply Chain Type' => [(string)($beforeInventory['supply_chain_type'] ?? ''),$supplyEntity],
+                    'Quantity on Hand' => [(float)($beforeInventory['stock_on_hand'] ?? 0),$stock],
+                    'Storage Location' => [(string)($beforeInventory['storage_location'] ?? ''),$storageLocation],
+                    'Reorder Point' => [(float)($beforeInventory['reorder_point'] ?? 0),$reorderPoint],
+                    'Reorder Quantity' => [(float)($beforeInventory['reorder_quantity'] ?? 0),$reorderQuantity],
+                    'Reorder Status' => [(string)($beforeInventory['status'] ?? ''),$status],
+                ];
+                foreach ($inventoryComparisons as $fieldLabel => [$oldValue,$newValue]) if ($oldValue !== $newValue) $changedInventoryFields[] = $fieldLabel;
+                $lastUpdatedDetails = $changedInventoryFields ? 'Updated: ' . implode(', ', $changedInventoryFields) : 'Inventory record details reviewed; no tracked fields changed.';
+                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=?,storage_location=?,reorder_point=?,reorder_quantity=?,last_updated_details=? WHERE id=?');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,$lastUpdatedDetails,$inventoryId]);
                 $marketplaceNotice = '';
                 $marketplaceInventoryUpdateSuccess = [
                     'product_name' => (string)$selectedInventoryProduct['product_name'],
                     'product_id' => (string)($selectedInventoryProduct['product_code'] ?? '')
                 ];
             } else {
-                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status]);
+                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,storage_location,reorder_point,reorder_quantity,last_updated_details,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,'Initial inventory record created']);
                 $marketplaceNotice = '';
                 $marketplaceInventoryCreateSuccess = [
                     'product_name' => (string)$selectedInventoryProduct['product_name'],
@@ -944,8 +966,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $inventoryId = max(0, (int)($_POST['inventory_id'] ?? 0));
             $quantity = max(0, (float)str_replace(',', '', (string)($_POST['load_quantity'] ?? 0)));
             if ($quantity <= 0) throw new RuntimeException('Enter a loaded quantity greater than zero.');
-            $stmt = $pdo->prepare('UPDATE marketplace_inventory SET stock_on_hand=stock_on_hand+?,latest_loaded=NOW() WHERE id=?');
-            $stmt->execute([$quantity,$inventoryId]);
+            $stmt = $pdo->prepare("UPDATE marketplace_inventory SET stock_on_hand=stock_on_hand+?,latest_loaded=NOW(),last_updated_details=? WHERE id=?");
+            $stmt->execute([$quantity,'Quantity on Hand increased by ' . number_format($quantity,2,'.',','),$inventoryId]);
             if (!$stmt->rowCount()) throw new RuntimeException('The inventory record could not be found.');
             $marketplaceNotice = 'Stock successfully loaded.';
             $marketplaceTab = 'inventory';
@@ -1009,7 +1031,7 @@ if ($marketplaceAddInventoryProductId > 0) {
         }
     }
 }
-$marketplaceInventory = $pdo->query("SELECT p.id AS linked_product_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name,i.id,i.product_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at,i.updated_at FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY COALESCE(i.created_at,p.created_at) DESC,COALESCE(i.id,p.id) DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceInventory = $pdo->query("SELECT p.id AS linked_product_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name,i.id,i.product_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.storage_location,i.reorder_point,i.reorder_quantity,i.last_updated_details,i.latest_loaded,i.created_at,i.updated_at,p.barcode_value,p.retail_price AS product_retail_price,p.selling_price AS product_selling_price FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY COALESCE(i.created_at,p.created_at) DESC,COALESCE(i.id,p.id) DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceTotalIncome = (float)$pdo->query('SELECT COALESCE(SUM(net_income),0) FROM marketplace_purchases')->fetchColumn();
 $marketplaceProductCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_products')->fetchColumn();
 $marketplaceInventoryCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_inventory')->fetchColumn();
@@ -2180,20 +2202,24 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
  <?php if(!$marketplaceInventory): ?><div class="marketplace-empty">No inventory records have been created yet. Add an inventory record from the Products page.</div><?php else: ?>
  <div class="marketplace-products-controls"><label class="marketplace-products-filter">Filter inventory<input type="search" id="marketplace-inventory-filter" placeholder="Search inventory details..." aria-label="Search inventory"></label><label class="marketplace-products-page-size">Show<select id="marketplace-inventory-page-size" aria-label="Inventory records per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
  <div class="marketplace-products-pagination marketplace-products-pagination-top"><span class="muted" id="marketplace-inventory-page-info-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-inventory-first-top">First</button><button type="button" class="btn light" id="marketplace-inventory-prev-top">Previous</button><span id="marketplace-inventory-page-numbers-top" class="gallery-page-numbers" aria-label="Inventory page numbers"></span><button type="button" class="btn light" id="marketplace-inventory-next-top">Next</button><button type="button" class="btn light" id="marketplace-inventory-last-top">Last</button></div><div class="admin-panel-head marketplace-products-bulk-toolbar" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="button" id="marketplace-inventory-delete-selected" disabled aria-disabled="true">Delete Selected</button></div></div>
- <div class="table-wrap marketplace-inventory-table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-inventory-select-all" aria-label="Select all inventory records"></th><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer</th><th>Quantity in Stock</th><th>All Taxes</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-inventory-tbody">
+ <div class="table-wrap marketplace-inventory-table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-inventory-select-all" aria-label="Select all inventory records"></th><th>Product Information</th><th>Quantity on Hand</th><th>Stock Value</th><th>Storage Location</th><th>Reorder Details</th><th>Last Updated Details</th><th>Actions</th></tr></thead><tbody id="marketplace-inventory-tbody">
  <?php foreach($marketplaceInventory as $item): ?>
  <tr data-inventory-id="<?=!empty($item['id'])?(int)$item['id']:''?>" data-inventory-name="<?=e((string)$item['product_name'])?>" data-inventory-code="<?=e((string)($item['product_code']??''))?>">
   <td class="marketplace-product-select-cell"><?php if(!empty($item['id'])): ?><input type="checkbox" class="marketplace-inventory-select" name="selected_inventory[]" value="<?=(int)$item['id']?>" aria-label="Select <?=e((string)$item['product_name'])?> inventory record"><?php endif; ?></td>
-  <td><?php if($item['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$item['photo_path'])?>" alt="<?=e($item['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td>
-  <td class="marketplace-inventory-product"><strong><?=e($item['product_name'])?></strong><small>Product ID: <?=e((string)($item['product_code']??''))?></small><small>Category: <?=e((string)($item['category_name']??''))?></small><small>Subcategory: <?=e((string)($item['subcategory_name']??''))?></small><small>Brand: <?=e((string)($item['brand']??''))?></small><small>Model: <?=e((string)($item['model']??''))?></small><small>Description: <?=e((string)($item['description']??''))?></small></td>
-  <td><?=e((string)($item['batch_number']??$item['sku']??'—'))?></td>
-  <td><strong><?=e((string)($item['manufacturer']??'—'))?></strong><small style="display:block;margin-top:4px;line-height:1.45;color:var(--muted)">Supply Chain Type: <?=e((string)($item['supply_chain_type']??$item['supply_chain_entity']??'—'))?></small></td>
+  <td class="marketplace-inventory-product">
+   <strong><?=e((string)$item['product_name'])?></strong>
+   <small>Product Code: <?=e((string)($item['product_code']??'—'))?></small>
+   <small>Barcode: <?=e((string)($item['barcode_value']??'—'))?></small>
+   <small>Brand / Model: <?=e(trim((string)($item['brand']??'') . ' / ' . (string)($item['model']??''),' /') ?: '—')?></small>
+   <small>Retail Price: <?=$money($item['product_retail_price']??0)?></small>
+   <small>Selling Price: <?=$money($item['product_selling_price']??0)?></small>
+  </td>
   <td><?=isset($item['stock_on_hand'])?$quantityFormat($item['stock_on_hand']):'—'?></td>
-  <td class="marketplace-inventory-taxes"><small>Value-Added Tax: <?=$taxFormat($item['vat_rate']??0)?></small><small>Percentage Tax: <?=$taxFormat($item['percentage_tax_rate']??0)?></small><small>Income Tax: <?=$taxFormat($item['income_tax_rate']??0)?></small><small>Withholding Tax: <?=$taxFormat($item['withholding_tax_rate']??0)?></small><small>Other Taxes: <?=$taxFormat($item['other_tax_rate']??0)?></small></td>
-  <td><?=isset($item['retail_price'])?$money($item['retail_price']):'—'?></td>
-  <td><?=isset($item['selling_price'])?$money($item['selling_price']):((isset($item['unit_price']))?$money($item['unit_price']):'—')?></td>
-  <?php $inventoryStatusLabel=(string)($item['status']??'Not Set'); $inventoryStatusClass=strtolower(trim((string)preg_replace('/[^a-z0-9]+/i','-', $inventoryStatusLabel),'-')); ?>
-  <td><span class="marketplace-inventory-status marketplace-inventory-status-<?=e($inventoryStatusClass)?>"><?=e($inventoryStatusLabel)?></span></td>
+  <td><?=$money((float)($item['stock_on_hand']??0)*(float)($item['product_selling_price']??0))?></td>
+  <td><?=e((string)($item['storage_location']??'') ?: '—')?></td>
+  <?php $inventoryReorderPoint=(float)($item['reorder_point']??0); $inventoryReorderStatus=((float)($item['stock_on_hand']??0)<=$inventoryReorderPoint && $inventoryReorderPoint>0)?'Reorder Required':'Sufficient Stock'; $inventoryReorderClass=$inventoryReorderStatus==='Reorder Required'?'low-stock':'available'; ?>
+  <td><small>Reorder Point: <?=$quantityFormat($inventoryReorderPoint)?></small><small>Reorder Quantity: <?=$quantityFormat($item['reorder_quantity']??0)?></small><span class="marketplace-inventory-status marketplace-inventory-status-<?=e($inventoryReorderClass)?>"><?=e($inventoryReorderStatus)?></span></td>
+  <td><small><?=!empty($item['updated_at'])?e($date($item['updated_at'])):'—'?></small><small><?=e((string)($item['last_updated_details']??'') ?: 'No update details recorded')?></small></td>
   <td><div class="marketplace-actions marketplace-inventory-actions">
    <?php if(empty($item['id'])): ?><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;add_inventory_product=<?=(int)$item['linked_product_id']?>">Add</a><?php else: ?><form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="load_quantity" min="0" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form><?php endif; ?>
    <?php if(!empty($item['id'])): ?><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;edit_inventory=<?=(int)$item['id']?>">Edit</a><?php endif; ?>
