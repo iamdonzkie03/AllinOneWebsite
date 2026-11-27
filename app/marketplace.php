@@ -1453,7 +1453,15 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  <div class="marketplace-products-controls"><label class="marketplace-products-filter">Filter products<input type="search" id="marketplace-products-filter" placeholder="Search product details..." aria-label="Search products"></label><label class="marketplace-products-page-size">Show<select id="marketplace-products-page-size" aria-label="Products per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div><div class="marketplace-products-pagination marketplace-products-pagination-top"><span class="muted" id="marketplace-products-page-info-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-products-first-top">First</button><button type="button" class="btn light" id="marketplace-products-prev-top">Previous</button><span id="marketplace-products-page-numbers-top" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="marketplace-products-next-top">Next</button><button type="button" class="btn light" id="marketplace-products-last-top">Last</button></div><div class="admin-panel-head marketplace-products-bulk-toolbar" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="button" id="marketplace-products-delete-selected" disabled aria-disabled="true">Delete Selected</button></div><div class="table-wrap"><table class="marketplace-table marketplace-products-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-products-select-all" aria-label="Select all products"></th><th>Product Code / Barcode</th><th>Category</th><th>Product Name</th><th>UOM</th><th>Retail Price</th><th>All Taxes</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-products-tbody">
   <?php foreach($marketplaceProducts as $product): ?><tr data-product-id="<?=(int)$product['id']?>" data-product-name="<?=e($product['product_name'])?>" data-product-code="<?=e((string)($product['product_code']??''))?>" data-product-has-inventory="<?=!empty($product['inventory_id'])?'1':'0'?>">
   <td class="marketplace-product-select-cell"><input type="checkbox" class="marketplace-product-select" name="selected_products[]" value="<?=(int)$product['id']?>" aria-label="Select <?=e($product['product_name'])?>"></td>
-  <td><strong><?=e((string)($product['product_code']??''))?></strong></td>
+  <td class="marketplace-product-code-barcode-cell">
+    <strong><?=e((string)($product['product_code']??''))?></strong>
+    <?php if(!empty($product['barcode_value'])): ?>
+      <small class="marketplace-product-barcode-value">Barcode: <?=e((string)$product['barcode_value'])?></small>
+      <svg class="marketplace-generated-barcode marketplace-master-catalog-barcode" data-barcode-value="<?=e((string)$product['barcode_value'])?>" role="img" aria-label="Barcode for <?=e((string)$product['product_name'])?>"></svg>
+    <?php else: ?>
+      <small class="marketplace-product-barcode-value">Barcode not available</small>
+    <?php endif; ?>
+  </td>
   <td><?=e((string)($product['category_name']??'Uncategorized'))?><?php if(!empty($product['subcategory_name'])): ?><small><?=e($product['subcategory_name'])?></small><?php endif; ?></td>
   <td><strong><?=e($product['product_name'])?></strong></td>
   <td><?=e((string)($product['uom']??'—'))?></td>
@@ -1750,7 +1758,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 </div>
 <?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}</style>
+<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}.marketplace-product-code-barcode-cell{min-width:190px}.marketplace-product-barcode-value{display:block;margin-top:5px;color:#666;font-size:10px}.marketplace-master-catalog-barcode{width:170px;max-width:100%;height:48px;margin:4px 0 0;padding:3px}</style>
 <script>
 (()=>{
  document.querySelectorAll('.marketplace-generated-barcode').forEach(function(svg){if(window.JsBarcode){try{window.JsBarcode(svg,svg.dataset.barcodeValue,{format:'CODE128',displayValue:true,fontSize:12,height:54,margin:4,lineColor:'#111',background:'#fff'});}catch(error){svg.outerHTML='<p class="marketplace-barcode-fallback">'+svg.dataset.barcodeValue+'</p>';}}});
