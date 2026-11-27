@@ -1771,7 +1771,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 </div>
 <?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}.marketplace-product-code-barcode-cell{min-width:190px}.marketplace-product-barcode-value{display:block;margin-top:5px;color:#666;font-size:10px}.marketplace-barcode-sticker{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:0;width:auto;max-width:100%;margin:6px 0 2px;padding:0;box-sizing:border-box;border:0;border-radius:0;background:transparent;box-shadow:none}.marketplace-barcode-sticker-caption{display:none}.marketplace-master-catalog-barcode{display:block;width:100%;max-width:190px;height:48px;margin:0;padding:0;background:transparent}.marketplace-product-view-barcode-sticker{display:flex;width:142px;max-width:100%;margin:8px auto 2px;justify-content:center}.marketplace-product-view-barcode{display:block;width:100%;max-width:100%;height:38px;margin:0;padding:0;background:transparent}.marketplace-products-table .marketplace-product-taxes-discounts-cell small,.marketplace-products-table .marketplace-product-taxes-discounts-cell small strong{display:block;margin:0 0 3px;font-size:11px;font-weight:400;line-height:1.4;color:inherit}
+<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}.marketplace-product-code-barcode-cell{min-width:190px}.marketplace-product-barcode-value{display:block;margin-top:5px;color:#666;font-size:10px}.marketplace-barcode-sticker{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:0;width:auto;max-width:100%;margin:6px 0 2px;padding:0;box-sizing:border-box;border:0;border-radius:0;background:transparent;box-shadow:none}.marketplace-barcode-sticker-caption{display:none}.marketplace-master-catalog-barcode{display:block;width:100%;max-width:190px;height:48px;margin:0;padding:0;background:transparent}.marketplace-product-view-barcode-sticker{display:flex;width:142px;max-width:100%;margin:8px auto 2px;padding:3px 4px;justify-content:center;box-sizing:border-box;background:#fff}.marketplace-product-view-barcode{display:block;width:100%;max-width:100%;height:38px;margin:0;padding:0;background:#fff}.marketplace-products-table .marketplace-product-taxes-discounts-cell small,.marketplace-products-table .marketplace-product-taxes-discounts-cell small strong{display:block;margin:0 0 3px;font-size:11px;font-weight:400;line-height:1.4;color:inherit}
 /* Product Information view modal: five requested fieldsets and color hierarchy. */
 .marketplace-product-view-card{width:min(700px,96vw)!important;max-width:700px!important;max-height:90vh;overflow:auto!important}
 .marketplace-product-view-head h2{font-weight:800;color:#fff}
@@ -1985,7 +1985,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    const barcodeSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');barcodeSvg.classList.add('marketplace-generated-barcode','marketplace-product-view-barcode');
    barcodeSvg.setAttribute('role','img');barcodeSvg.setAttribute('aria-label','Scannable Code 128 barcode for '+String(d.productName||'product'));
    sticker.append(barcodeSvg);barcodeField.append(sticker);
-   if(window.JsBarcode){try{window.JsBarcode(barcodeSvg,barcodeValue,{format:'CODE128',displayValue:true,fontSize:9,height:34,margin:0,lineColor:'#111',background:'transparent'});}catch(error){const fallback=document.createElement('small');fallback.className='marketplace-barcode-fallback';fallback.textContent=barcodeValue;sticker.append(fallback);}}
+   if(window.JsBarcode){try{window.JsBarcode(barcodeSvg,barcodeValue,{format:'CODE128',displayValue:true,fontSize:9,height:34,margin:0,lineColor:'#111',background:'#fff'});}catch(error){const fallback=document.createElement('small');fallback.className='marketplace-barcode-fallback';fallback.textContent=barcodeValue;sticker.append(fallback);}}
   }
   detailsGrid.append(barcodeField);
   detailsGrid.append(viewField('Description',d.productDescription));
@@ -2052,7 +2052,12 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   mainPhotoGroup.append(mainPhotoWrap);allPhotos.append(mainPhotoGroup);
   viewContent.append(allPhotos);
   viewModal.hidden=false;
-  viewModal.querySelector('.marketplace-product-view-close')?.focus();
+  const viewCard=viewModal.querySelector('.marketplace-product-view-card');
+  // Start each opening at the heading and first fieldset, not at the previously focused Close button.
+  viewModal.scrollTop=0;
+  if(viewCard)viewCard.scrollTop=0;
+  viewModal.querySelector('.marketplace-product-view-close')?.focus({preventScroll:true});
+  requestAnimationFrame(()=>{viewModal.scrollTop=0;if(viewCard)viewCard.scrollTop=0;});
  };
  document.querySelectorAll('.marketplace-product-row-view summary').forEach(btn=>btn.addEventListener('click',event=>{event.preventDefault();const link=btn.closest('tr')?.querySelector('.marketplace-product-edit-open');if(link)openView(link);}));
  viewModal?.querySelectorAll('.marketplace-product-view-close').forEach(btn=>btn.addEventListener('click',()=>viewModal.hidden=true));
