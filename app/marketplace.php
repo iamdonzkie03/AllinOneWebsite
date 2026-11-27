@@ -1496,6 +1496,9 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 }
 
 
+/* Match Edit Product overlay width to the exact Add Product dialog width. */
+#marketplace-product-edit-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
+
 /* Final hidden-state rule overrides every panel layout declaration. */
 #marketplace-product-add-modal .marketplace-product-panel[hidden]{display:none!important}
 
