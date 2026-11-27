@@ -638,12 +638,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 }
                 $removedPhotoPaths=array_map(static fn($photo)=>(string)$photo['photo_path'],$removedMainPhotos);
                 $survivingPhotos=array_values(array_filter($currentMainPhotos,static fn($photo)=>!in_array((int)$photo['id'],$removePhotoIds,true)&&!((int)$photo['id']===0&&$removeLegacyPhoto)));
+                // Normalize retained legacy photos into the required product-ID Main Photos folder.
+                if($survivingPhotos){
+                    $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productId.'/Main Photos';
+                    if(!is_dir($mainPhotoDirectory)&&!mkdir($mainPhotoDirectory,0755,true)&&!is_dir($mainPhotoDirectory))throw new RuntimeException('The product Main Photos folder could not be created.');
+                    $publicRoot=realpath(dirname(__DIR__).'/public');$mainPhotoReal=realpath($mainPhotoDirectory);
+                    foreach($survivingPhotos as &$survivingPhoto){
+                        $oldRelative=(string)$survivingPhoto['photo_path'];$oldAbsolute=dirname(__DIR__).'/public/'.ltrim(str_replace('\\','/',$oldRelative),'/');$resolvedOld=realpath($oldAbsolute);
+                        if($publicRoot&&$resolvedOld&&str_starts_with($resolvedOld,$publicRoot.DIRECTORY_SEPARATOR)&&is_file($resolvedOld)&&dirname($resolvedOld)!==$mainPhotoReal){
+                            $extension=strtolower(pathinfo($resolvedOld,PATHINFO_EXTENSION));$migratedName='main_'.bin2hex(random_bytes(8)).($extension!==''?'.'.$extension:'');$migratedAbsolute=$mainPhotoDirectory.DIRECTORY_SEPARATOR.$migratedName;
+                            if(!rename($resolvedOld,$migratedAbsolute))throw new RuntimeException('A retained Main Photo could not be moved into the product photo folder.');
+                            $survivingPhoto['photo_path']='uploads/products/'.$productId.'/Main Photos/'.$migratedName;
+                        }
+                    }
+                    unset($survivingPhoto);
+                }
                 $finalMainPhotoPaths=array_merge(array_map(static fn($photo)=>(string)$photo['photo_path'],$survivingPhotos),$newMainPhotoPaths);
                 $newPhotoPath=$finalMainPhotoPaths[0]??null;$newPhotoFile=$uploadedEditMainFiles[0]??null;
                 try {
                     $update=$pdo->prepare('UPDATE marketplace_products SET category_id=?,subcategory_id=?,product_name=?,brand=?,model=?,description=?,photo_path=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,uom=?,retail_price=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,discount_type=?,discount_value=?,selling_price=?,batch_number=?,weight=?,weight_unit=?,length=?,width=?,dimension_unit=?,product_status=? WHERE id=?');
                     $update->execute([$newCategoryId,$newSubcategoryId,$row[0],$row[2]?:null,$row[3]?:null,$row[7]?:null,$newPhotoPath,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[25],$productId]);
                     if($removedMainPhotos){$deletePhoto=$pdo->prepare('DELETE FROM marketplace_product_photos WHERE id=? AND product_id=?');foreach($removedMainPhotos as $removedPhoto)if((int)$removedPhoto['id']>0)$deletePhoto->execute([(int)$removedPhoto['id'],$productId]);}
+                    $updatePhotoPath=$pdo->prepare('UPDATE marketplace_product_photos SET photo_path=?,sort_order=? WHERE id=? AND product_id=?');
+                    foreach($survivingPhotos as $photoOrder=>$survivingPhoto)if((int)$survivingPhoto['id']>0)$updatePhotoPath->execute([(string)$survivingPhoto['photo_path'],$photoOrder,(int)$survivingPhoto['id'],$productId]);
                     $insertPhoto=$pdo->prepare('INSERT INTO marketplace_product_photos(product_id,photo_path,sort_order) VALUES(?,?,?)');$photoOrder=count($survivingPhotos);
                     foreach($newMainPhotoPaths as $newPath)$insertPhoto->execute([$productId,$newPath,$photoOrder++]);
                     $pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?')->execute([$newPhotoPath,$productId]);
@@ -691,7 +708,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $nameChanged = (string)$existingProduct['product_name'] !== $row[0];
                 $modelChanged = (string)($existingProduct['model'] ?? '') !== $row[3];
                 $descriptionChanged = (string)($existingProduct['description'] ?? '') !== $row[7];
-                $photoChanged = $newPhotoFile !== null;
+                $photoChanged = !empty($removedMainPhotos) || !empty($newMainPhotoPaths);
                 $brandChanged = (string)($existingProduct['brand'] ?? '') !== $row[2];
                 $changedCount = (int)$categoryChanged + (int)$subcategoryChanged + (int)$nameChanged + (int)$modelChanged + (int)$descriptionChanged + (int)$photoChanged + (int)$brandChanged;
                 if (($categoryChanged || $subcategoryChanged) && $changedCount === (int)$categoryChanged + (int)$subcategoryChanged) {
@@ -779,7 +796,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                         $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[23]!==''?$row[23]:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[24]!==''?$row[24]:null,$row[25]]);
                         $newProductId=(int)$pdo->lastInsertId();$uploadIndex=(int)($row[10]??$index);
                         $safeName=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');if($safeName==='')$safeName='product';
-                        $folderName=$row[1];$folder=$uploadDirectory.'/'.$folderName;
+                        $folderName=(string)$newProductId;$folder=$uploadDirectory.'/'.$folderName;
                         if(!is_dir($folder)&&!mkdir($folder,0755,true)&&!is_dir($folder))throw new RuntimeException('The product-specific photo folder could not be created.');
                         $createdProductFolders[]=$folder;$submittedMainPhotoNames=$productPhotoUploads['name'][$uploadIndex]??[];if(is_array($submittedMainPhotoNames)&&count(array_filter($submittedMainPhotoNames,static fn($name):bool=>trim((string)$name)!==''))>5)throw new RuntimeException('You can upload a maximum of 5 main photos per product.');$count=0;$firstPath=null;
                         for($photoIndex=0;$photoIndex<5;$photoIndex++){
