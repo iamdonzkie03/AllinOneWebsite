@@ -636,6 +636,41 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     if ($newPhotoFile !== null && is_file($newPhotoFile)) @unlink($newPhotoFile);
                     throw $updateError;
                 }
+                // Synchronize variation values while preserving image paths for unchanged tags.
+                $existingTagQuery = $pdo->prepare('SELECT id,tag_type,tag_value,photo_path FROM marketplace_product_tags WHERE product_id=?');
+                $existingTagQuery->execute([$productId]);
+                $existingTagRows = $existingTagQuery->fetchAll(PDO::FETCH_ASSOC);
+                $existingTagMap = [];
+                foreach ($existingTagRows as $existingTagRow) {
+                    $tagKey = (string)$existingTagRow['tag_type'] . "\\0" . (string)$existingTagRow['tag_value'];
+                    $existingTagMap[$tagKey] = $existingTagRow;
+                }
+                $submittedTagMap = [];
+                foreach ($row[11] as $tagType => $tagValues) {
+                    foreach ($tagValues as $tagValue) {
+                        $tagKey = (string)$tagType . "\\0" . (string)$tagValue;
+                        $submittedTagMap[$tagKey] = [(string)$tagType,(string)$tagValue];
+                    }
+                }
+                foreach ($existingTagMap as $tagKey => $existingTagRow) {
+                    if (!isset($submittedTagMap[$tagKey])) {
+                        $deleteTag = $pdo->prepare('DELETE FROM marketplace_product_tags WHERE id=? AND product_id=?');
+                        $deleteTag->execute([(int)$existingTagRow['id'],$productId]);
+                        $oldTagPhoto = (string)($existingTagRow['photo_path'] ?? '');
+                        if ($oldTagPhoto !== '') {
+                            $tagPhotoFile = dirname(__DIR__) . '/public/' . ltrim($oldTagPhoto, '/\\\\');
+                            $publicRoot = realpath(dirname(__DIR__) . '/public');
+                            $resolvedTagPhoto = realpath($tagPhotoFile);
+                            if ($publicRoot && $resolvedTagPhoto && str_starts_with($resolvedTagPhoto, $publicRoot . DIRECTORY_SEPARATOR) && is_file($resolvedTagPhoto)) @unlink($resolvedTagPhoto);
+                        }
+                    }
+                }
+                foreach ($submittedTagMap as $tagKey => [$tagType,$tagValue]) {
+                    if (!isset($existingTagMap[$tagKey])) {
+                        $insertTag = $pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,NULL,0)');
+                        $insertTag->execute([$productId,$tagType,$tagValue]);
+                    }
+                }
                 if ($newPhotoFile !== null && $oldPhotoFile !== null && is_file($oldPhotoFile) && realpath($oldPhotoFile) !== realpath($newPhotoFile)) @unlink($oldPhotoFile);
                 $categoryChanged = (int)($existingProduct['category_id'] ?? 0) !== (int)($newCategoryId ?? 0);
                 $subcategoryChanged = (int)($existingProduct['subcategory_id'] ?? 0) !== (int)($newSubcategoryId ?? 0);
