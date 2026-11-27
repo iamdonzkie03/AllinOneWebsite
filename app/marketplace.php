@@ -929,7 +929,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
             $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
             if ($inventoryId > 0) {
-                $beforeStmt = $pdo->prepare('SELECT batch_number,supply_chain_type,stock_on_hand,storage_location,reorder_point,reorder_quantity,status FROM marketplace_inventory WHERE id=? LIMIT 1');
+                $beforeStmt = $pdo->prepare('SELECT i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.storage_location,i.reorder_point,i.reorder_quantity,i.status,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.retail_price,p.manufacturer,p.country_of_origin FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id WHERE i.id=? LIMIT 1');
                 $beforeStmt->execute([$inventoryId]);
                 $beforeInventory = $beforeStmt->fetch(PDO::FETCH_ASSOC) ?: [];
                 $changedInventoryFields = [];
@@ -942,6 +942,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     'Reorder Point' => [(float)($beforeInventory['reorder_point'] ?? 0),$reorderPoint],
                     'Reorder Quantity' => [(float)($beforeInventory['reorder_quantity'] ?? 0),$reorderQuantity],
                     'Reorder Status' => [(string)($beforeInventory['status'] ?? ''),$status],
+                    'Manufacturer' => [(string)($beforeInventory['manufacturer'] ?? ''),$manufacturer],
+                    'Country of Origin' => [(string)($beforeInventory['country_of_origin'] ?? ''),$country],
+                    'Retail Price' => [(float)($beforeInventory['retail_price'] ?? 0),$retailPrice],
+                    'VAT' => [(float)($beforeInventory['vat_rate'] ?? 0),$vatRate],
+                    'Percentage Tax' => [(float)($beforeInventory['percentage_tax_rate'] ?? 0),$percentageTaxRate],
+                    'Income Tax' => [(float)($beforeInventory['income_tax_rate'] ?? 0),$incomeTaxRate],
+                    'Withholding Tax' => [(float)($beforeInventory['withholding_tax_rate'] ?? 0),$withholdingTaxRate],
+                    'Other Taxes' => [(float)($beforeInventory['other_tax_rate'] ?? 0),$otherTaxRate],
                 ];
                 foreach ($inventoryComparisons as $fieldLabel => [$oldValue,$newValue]) if ($oldValue !== $newValue) $changedInventoryFields[] = $fieldLabel;
                 $lastUpdatedDetails = $changedInventoryFields ? 'Updated: ' . implode(', ', $changedInventoryFields) : 'Inventory record details reviewed; no tracked fields changed.';
