@@ -1773,7 +1773,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 /* Product Information view modal: five requested fieldsets and color hierarchy. */
 .marketplace-product-view-card{width:min(1100px,96vw)!important;max-width:1100px!important;max-height:90vh;overflow:auto!important}
 .marketplace-product-view-head h2{font-weight:800;color:#fff}
-.marketplace-product-view-content{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a c" "b d" "e e";align-items:start;gap:14px}
+.marketplace-product-view-content{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c" "d" "e";align-items:stretch;gap:14px}
 .marketplace-product-view-section{min-width:0;margin:0;padding:13px;border:1px solid rgba(232,190,200,.2);border-radius:10px;background:rgba(255,255,255,.025)}
 .marketplace-product-view-section legend{display:inline-block;padding:7px 12px;border-radius:7px;font-size:14px;font-weight:900;letter-spacing:.15px}
 .marketplace-product-view-section.view-slot-a{background:rgba(125,190,235,.12);border-color:rgba(125,190,235,.32)}
@@ -1791,18 +1791,22 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-product-view-field{min-width:0;font-size:12px;overflow-wrap:anywhere}
 .marketplace-product-view-field b{display:block;margin-bottom:3px;color:#fff;font-size:11px;font-weight:800}
 .marketplace-product-view-field span{display:block;color:#f3d34a;font-weight:400;white-space:pre-wrap}
-/* Coordinate field labels and record values with each pastel fieldset. */
-.marketplace-product-view-section.view-slot-a .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-a .marketplace-product-view-photo-group>strong{color:#8fc9f1}
-.marketplace-product-view-section.view-slot-a .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-item{color:#d5edff}
-.marketplace-product-view-section.view-slot-b .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-b .marketplace-product-view-photo-group>strong{color:#9bd8ad}
-.marketplace-product-view-section.view-slot-b .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-item{color:#ddf5e3}
-.marketplace-product-view-section.view-slot-c .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-c .marketplace-product-view-photo-group>strong{color:#e8bd85}
-.marketplace-product-view-section.view-slot-c .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-item{color:#ffebd1}
-.marketplace-product-view-section.view-slot-d .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-d .marketplace-product-view-photo-group>strong{color:#c6afe9}
-.marketplace-product-view-section.view-slot-d .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-item{color:#eee3ff}
-.marketplace-product-view-section.view-slot-e .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-e .marketplace-product-view-photo-group>strong{color:#e6aabd}
-.marketplace-product-view-section.view-slot-e .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-item{color:#ffe0e9}
-.marketplace-product-view-variation-list{display:grid;grid-template-columns:1fr;gap:10px}
+/* High-contrast, distinct label and value colors for every fieldset. */
+ .marketplace-product-view-section.view-slot-a .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-a .marketplace-product-view-photo-group>strong{color:#78caff}
+ .marketplace-product-view-section.view-slot-a .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-a .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-b .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-b .marketplace-product-view-photo-group>strong{color:#83e6a2}
+ .marketplace-product-view-section.view-slot-b .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-b .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-c .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-c .marketplace-product-view-photo-group>strong{color:#ffc477}
+ .marketplace-product-view-section.view-slot-c .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-c .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-d .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-d .marketplace-product-view-photo-group>strong{color:#c9a5ff}
+ .marketplace-product-view-section.view-slot-d .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-d .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-e .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-e .marketplace-product-view-photo-group>strong{color:#ff9fbd}
+ .marketplace-product-view-section.view-slot-e .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-e .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-field b{font-size:12px!important;font-weight:800!important}
+ .marketplace-product-view-field span{font-size:12px!important;line-height:1.55;color:#fff!important}
+ .marketplace-product-view-variation-item{font-size:12px!important}
+ .marketplace-product-view-variation-item small,.marketplace-product-view-empty{font-size:11px!important;color:#fff!important}
+ .marketplace-product-view-variation-list{display:grid;grid-template-columns:1fr;gap:10px}
 .marketplace-product-view-variation-group{display:grid;grid-template-columns:105px minmax(0,1fr);align-items:start;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(232,190,200,.1)}
 .marketplace-product-view-variation-group:last-child{border-bottom:0;padding-bottom:0}
 .marketplace-product-view-variation-group>strong,.marketplace-product-view-photo-group>strong{color:#fff;font-size:11px;font-weight:800}
