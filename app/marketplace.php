@@ -616,10 +616,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $uploadErrors = $newMainPhotoUploads['error'] ?? [];
                 if (!is_array($uploadErrors)) $uploadErrors = [$uploadErrors];
                 foreach ($uploadErrors as $uploadIndex=>$uploadError) if ((int)$uploadError !== UPLOAD_ERR_NO_FILE) $newMainPhotoFiles[] = ['name'=>$newMainPhotoUploads['name'][$uploadIndex]??'','type'=>$newMainPhotoUploads['type'][$uploadIndex]??'','tmp_name'=>$newMainPhotoUploads['tmp_name'][$uploadIndex]??'','error'=>(int)$uploadError,'size'=>$newMainPhotoUploads['size'][$uploadIndex]??0];
-                if ($newMainPhotoFiles && !$removedMainPhotos) throw new RuntimeException('Mark at least one Current Photo with X before uploading New Photos.');
-                if (count($newMainPhotoFiles)>count($removedMainPhotos)) throw new RuntimeException('You may upload only as many New Photos as the number of Current Photos marked for removal.');
                 $remainingPhotoCount=count($currentMainPhotos)-count($removedMainPhotos);
-                if ($remainingPhotoCount+count($newMainPhotoFiles)>5) throw new RuntimeException('A product may have no more than 5 Main Photos.');
+                $availableMainPhotoSlots=max(0,5-$remainingPhotoCount);
+                if (count($newMainPhotoFiles)>$availableMainPhotoSlots) throw new RuntimeException('You may upload up to '.$availableMainPhotoSlots.' New Photo(s), based on the available spaces among the 5 Main Photos.');
                 $newMainPhotoPaths=[];$uploadedEditMainFiles=[];
                 if ($newMainPhotoFiles) {
                     $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productId.'/Main Photos';
@@ -1802,10 +1801,12 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   }
   const syncNewPhotoUploadLimit=()=>{
    const marked=productEditForm?.querySelectorAll('input[name="remove_main_photo_ids[]"]:not(:disabled)').length||0;
+   const currentCount=previewList?.querySelectorAll('.marketplace-edit-photo-card').length||0;
+   const available=Math.max(0,5-(currentCount-marked));
    const uploadInput=productEditForm?.querySelector('.marketplace-product-main-photo-input');
    const guidance=productEditForm?.querySelector('.marketplace-product-main-photo-guidance');
-   if(uploadInput)uploadInput.disabled=marked===0;
-   if(guidance)guidance.textContent=marked>0?'You may upload up to '+marked+' New Photo(s), matching the number marked for removal.':'Mark one or more Current Photos with X to enable New Photos.';
+   if(uploadInput){uploadInput.disabled=available===0;uploadInput.dataset.maxFiles=String(available);}
+   if(guidance)guidance.textContent=available>0?'You may upload up to '+available+' New Photo(s), based on the available spaces among the 5 Main Photos.':'The product already has 5 Main Photos. Mark Current Photos with X to create replacement spaces.';
   };
   syncNewPhotoUploadLimit();
   productEditModal.hidden=false;row.querySelector('.marketplace-product-tab')?.click();row.querySelector('[name="product_name[]"]')?.focus();
@@ -1814,7 +1815,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
  document.querySelectorAll('.marketplace-product-edit-open').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();editPopulate(link);}));
  document.getElementById('marketplace-product-edit-cancel')?.addEventListener('click',()=>{if(productEditModal)productEditModal.hidden=true;});
  productEditForm?.addEventListener('submit',event=>{const invalid=Array.from(productEditForm.querySelectorAll('input,select,textarea')).find(field=>!field.disabled&&!field.checkValidity());if(invalid){event.preventDefault();const panels=Array.from(productEditRow.querySelectorAll(':scope > .marketplace-product-panel'));const index=panels.findIndex(panel=>panel.contains(invalid));if(index>=0)productEditRow.querySelectorAll('.marketplace-product-tab')[index]?.click();invalid.reportValidity();}});
- productEditForm?.querySelector('.marketplace-product-main-photo-input')?.addEventListener('change',event=>{const files=Array.from(event.target.files||[]),marked=productEditForm.querySelectorAll('input[name="remove_main_photo_ids[]"]:not(:disabled)').length;if(marked===0&&files.length){alert('Mark at least one Current Photo with X before uploading New Photos.');event.target.value='';return;}if(files.length>marked||files.some(file=>file.size>5*1024*1024)){alert('Upload no more New Photos than the number of Current Photos marked for removal. Each photo must be no larger than 5 MB.');event.target.value='';return;}const names=productEditForm.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent=files.length?files.map(file=>file.name).join(', '):'No new photos selected.';const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');if(preview){preview.replaceChildren();files.forEach(file=>{const card=document.createElement('div');card.className='marketplace-edit-new-photo-card';const image=document.createElement('img');image.src=URL.createObjectURL(file);image.alt='New photo preview';image.onload=()=>URL.revokeObjectURL(image.src);const caption=document.createElement('small');caption.textContent=file.name;card.append(image,caption);preview.append(card);});}});
+ productEditForm?.querySelector('.marketplace-product-main-photo-input')?.addEventListener('change',event=>{const files=Array.from(event.target.files||[]),marked=productEditForm.querySelectorAll('input[name="remove_main_photo_ids[]"]:not(:disabled)').length,currentCount=productEditForm.querySelectorAll('#marketplace-product-edit-existing-photos .marketplace-edit-photo-card').length,available=Math.max(0,5-(currentCount-marked));if(files.length>available||files.some(file=>file.size>5*1024*1024)){alert('Upload up to '+available+' New Photo(s), based on the available spaces among the 5 Main Photos. Each photo must be no larger than 5 MB.');event.target.value='';return;}const names=productEditForm.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent=files.length?files.map(file=>file.name).join(', '):'No new photos selected.';const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');if(preview){preview.replaceChildren();files.forEach(file=>{const card=document.createElement('div');card.className='marketplace-edit-new-photo-card';const image=document.createElement('img');image.src=URL.createObjectURL(file);image.alt='New photo preview';image.onload=()=>URL.revokeObjectURL(image.src);const caption=document.createElement('small');caption.textContent=file.name;card.append(image,caption);preview.append(card);});}});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&productEditModal&&!productEditModal.hidden)productEditModal.hidden=true;});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
  // Products filter and pagination: same client-side behavior as Registered User Accounts.
