@@ -1780,12 +1780,12 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-product-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
 .marketplace-product-view-field{min-width:0;font-size:12px;overflow-wrap:anywhere}
 .marketplace-product-view-field b{display:block;margin-bottom:3px;color:#fff;font-size:11px;font-weight:800}
-.marketplace-product-view-field span{display:block;color:#f3d34a;font-weight:600;white-space:pre-wrap}
+.marketplace-product-view-field span{display:block;color:#f3d34a;font-weight:400;white-space:pre-wrap}
 .marketplace-product-view-variation-list{display:grid;grid-template-columns:1fr;gap:10px}
 .marketplace-product-view-variation-group{display:grid;grid-template-columns:105px minmax(0,1fr);align-items:start;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(232,190,200,.1)}
 .marketplace-product-view-variation-group:last-child{border-bottom:0;padding-bottom:0}
 .marketplace-product-view-variation-group>strong,.marketplace-product-view-photo-group>strong{color:#fff;font-size:11px;font-weight:800}
-.marketplace-product-view-variation-item{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#f3d34a;font-size:11px;font-weight:600}
+.marketplace-product-view-variation-item{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#f3d34a;font-size:11px;font-weight:400}
 .marketplace-product-view-variation-item img{width:54px;height:48px;object-fit:cover;border-radius:6px;border:1px solid rgba(232,190,200,.2)}
 .marketplace-product-view-variation-item small,.marketplace-product-view-empty{color:#f3d34a;font-size:10px}
 .marketplace-product-view-photo-group+.marketplace-product-view-photo-group{margin-top:14px}
