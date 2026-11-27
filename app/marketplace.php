@@ -637,6 +637,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     }
                 }
                 $removedPhotoPaths=array_map(static fn($photo)=>(string)$photo['photo_path'],$removedMainPhotos);
+                $migratedOldPhotoFiles=[];
                 $survivingPhotos=array_values(array_filter($currentMainPhotos,static fn($photo)=>!in_array((int)$photo['id'],$removePhotoIds,true)&&!((int)$photo['id']===0&&$removeLegacyPhoto)));
                 // Normalize retained legacy photos into the required product-ID Main Photos folder.
                 if($survivingPhotos){
@@ -647,7 +648,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                         $oldRelative=(string)$survivingPhoto['photo_path'];$oldAbsolute=dirname(__DIR__).'/public/'.ltrim(str_replace('\\','/',$oldRelative),'/');$resolvedOld=realpath($oldAbsolute);
                         if($publicRoot&&$resolvedOld&&str_starts_with($resolvedOld,$publicRoot.DIRECTORY_SEPARATOR)&&is_file($resolvedOld)&&dirname($resolvedOld)!==$mainPhotoReal){
                             $extension=strtolower(pathinfo($resolvedOld,PATHINFO_EXTENSION));$migratedName='main_'.bin2hex(random_bytes(8)).($extension!==''?'.'.$extension:'');$migratedAbsolute=$mainPhotoDirectory.DIRECTORY_SEPARATOR.$migratedName;
-                            if(!rename($resolvedOld,$migratedAbsolute))throw new RuntimeException('A retained Main Photo could not be moved into the product photo folder.');
+                            if(!copy($resolvedOld,$migratedAbsolute))throw new RuntimeException('A retained Main Photo could not be copied into the product photo folder.');
+                            $migratedOldPhotoFiles[]=$resolvedOld;
                             $survivingPhoto['photo_path']='uploads/products/'.$productId.'/Main Photos/'.$migratedName;
                         }
                     }
@@ -703,6 +705,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 // Remove marked files only after their database rows have been removed.
                 $publicPhotoRoot=realpath(dirname(__DIR__).'/public');
                 foreach($removedPhotoPaths as $removedRelativePath){$candidatePhotoFile=dirname(__DIR__).'/public/'.ltrim(str_replace('\\','/',$removedRelativePath),'/');$resolvedPhotoFile=realpath($candidatePhotoFile);if($publicPhotoRoot&&$resolvedPhotoFile&&str_starts_with($resolvedPhotoFile,$publicPhotoRoot.DIRECTORY_SEPARATOR)&&is_file($resolvedPhotoFile))@unlink($resolvedPhotoFile);}
+                foreach($migratedOldPhotoFiles as $oldMigratedFile)if(is_file($oldMigratedFile))@unlink($oldMigratedFile);
                 $categoryChanged = (int)($existingProduct['category_id'] ?? 0) !== (int)($newCategoryId ?? 0);
                 $subcategoryChanged = (int)($existingProduct['subcategory_id'] ?? 0) !== (int)($newSubcategoryId ?? 0);
                 $nameChanged = (string)$existingProduct['product_name'] !== $row[0];
@@ -1781,7 +1784,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   let tags={};try{tags=JSON.parse(d.productTags||'{}');}catch(_){}
   tagTypes.forEach(type=>{const input=row.querySelector('[data-tag-type="'+type+'"]');if(input)input.dataset.values=JSON.stringify(Array.isArray(tags[type])?tags[type]:[]);renderTagChips(row,type);});
   syncTagsJson(row);
-  const photoLabel=row.querySelector('.marketplace-product-main-photo-names');if(photoLabel)photoLabel.textContent='No replacement photo selected.';
+  const photoLabel=row.querySelector('.marketplace-product-main-photo-names');if(photoLabel)photoLabel.textContent='No new photos selected.';
   const photoInput=row.querySelector('.marketplace-product-main-photo-input');if(photoInput)photoInput.value='';
   const previewList=document.getElementById('marketplace-product-edit-existing-photos');
   if(previewList){
