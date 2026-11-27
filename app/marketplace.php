@@ -1459,7 +1459,10 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
     <strong><?=e((string)($product['product_code']??''))?></strong>
     <?php if(!empty($product['barcode_value'])): ?>
       <small class="marketplace-product-barcode-value">Barcode: <?=e((string)$product['barcode_value'])?></small>
-      <svg class="marketplace-generated-barcode marketplace-master-catalog-barcode" data-barcode-value="<?=e((string)$product['barcode_value'])?>" role="img" aria-label="Barcode for <?=e((string)$product['product_name'])?>"></svg>
+      <div class="marketplace-barcode-sticker" aria-label="Printable barcode sticker for <?=e((string)$product['product_name'])?>">
+        <span class="marketplace-barcode-sticker-caption">PRODUCT BARCODE</span>
+        <svg class="marketplace-generated-barcode marketplace-master-catalog-barcode" data-barcode-value="<?=e((string)$product['barcode_value'])?>" role="img" aria-label="Scannable Code 128 barcode for <?=e((string)$product['product_name'])?>"></svg>
+      </div>
     <?php else: ?>
       <small class="marketplace-product-barcode-value">Barcode not available</small>
     <?php endif; ?>
@@ -1769,7 +1772,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 </div>
 <?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}.marketplace-product-code-barcode-cell{min-width:190px}.marketplace-product-barcode-value{display:block;margin-top:5px;color:#666;font-size:10px}.marketplace-master-catalog-barcode{width:170px;max-width:100%;height:48px;margin:4px 0 0;padding:3px}.marketplace-products-table .marketplace-product-taxes-discounts-cell small,.marketplace-products-table .marketplace-product-taxes-discounts-cell small strong{display:block;margin:0 0 3px;font-size:11px;font-weight:400;line-height:1.4;color:inherit}
+<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}.marketplace-product-code-barcode-cell{min-width:190px}.marketplace-product-barcode-value{display:block;margin-top:5px;color:#666;font-size:10px}.marketplace-barcode-sticker{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:184px;max-width:100%;margin:6px 0 2px;padding:7px 8px 4px;box-sizing:border-box;border:1px solid #d5d9df;border-radius:4px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.14)}.marketplace-barcode-sticker-caption{display:block;width:100%;color:#20242a;font-size:8px;font-weight:800;letter-spacing:1px;text-align:center}.marketplace-master-catalog-barcode{width:100%;max-width:100%;height:54px;margin:0;padding:2px;background:#fff}.marketplace-products-table .marketplace-product-taxes-discounts-cell small,.marketplace-products-table .marketplace-product-taxes-discounts-cell small strong{display:block;margin:0 0 3px;font-size:11px;font-weight:400;line-height:1.4;color:inherit}
 /* Product Information view modal: five requested fieldsets and color hierarchy. */
 .marketplace-product-view-card{width:min(700px,96vw)!important;max-width:700px!important;max-height:90vh;overflow:auto!important}
 .marketplace-product-view-head h2{font-weight:800;color:#fff}
