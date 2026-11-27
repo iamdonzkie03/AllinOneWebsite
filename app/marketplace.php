@@ -1743,7 +1743,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
    </div>
   <?php else: ?>
    <p>The following products have been successfully added.</p>
-   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li><strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> · Product Code: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> · Barcode: <strong class="marketplace-product-id-highlight"><?=e($created['barcode'])?></strong> · <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?> / <?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></li><?php endforeach; ?></ul>
+   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li><strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> · Product Code: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> · Barcode: <strong class="marketplace-product-id-highlight"><?=e($created['barcode'])?></strong><svg class="marketplace-generated-barcode" data-barcode-value="<?=e($created['barcode'])?>" role="img" aria-label="Barcode for <?=e($created['name'])?>"></svg> · <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?> / <?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></li><?php endforeach; ?></ul>
   <?php endif; ?>
   <button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-created-close">OK</button>
  </section>
