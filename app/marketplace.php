@@ -1276,7 +1276,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-inventory-table-wrap{width:100%;max-width:100%;overflow-x:hidden!important;overflow-y:visible;box-sizing:border-box}
 .marketplace-inventory-table{width:100%!important;min-width:0!important;max-width:100%;table-layout:fixed;border-collapse:collapse}
 .marketplace-inventory-table th,.marketplace-inventory-table td{padding:7px 4px!important;font-size:9px!important;line-height:1.4;overflow-wrap:anywhere;word-break:normal}
-.marketplace-inventory-table th{font-size:12px!important;letter-spacing:0!important;white-space:normal}
+.marketplace-inventory-table th{font-size:10px!important;letter-spacing:0!important;white-space:normal}
 .marketplace-inventory-table .marketplace-product-select-cell{width:3%;padding-left:3px!important;padding-right:3px!important}
 .marketplace-inventory-table th:nth-child(2),.marketplace-inventory-table td:nth-child(2){width:24%}
 .marketplace-inventory-table th:nth-child(3),.marketplace-inventory-table td:nth-child(3){width:9%}
