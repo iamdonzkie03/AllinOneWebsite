@@ -1775,7 +1775,17 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-product-view-head h2{font-weight:800;color:#fff}
 .marketplace-product-view-content{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a c" "b d" "e e";align-items:start;gap:14px}
 .marketplace-product-view-section{min-width:0;margin:0;padding:13px;border:1px solid rgba(232,190,200,.2);border-radius:10px;background:rgba(255,255,255,.025)}
-.marketplace-product-view-section legend{padding:0 7px;color:#4b9dff;font-size:14px;font-weight:900}
+.marketplace-product-view-section legend{display:inline-block;padding:7px 12px;border-radius:7px;font-size:14px;font-weight:900;letter-spacing:.15px}
+.marketplace-product-view-section.view-slot-a{background:rgba(125,190,235,.12);border-color:rgba(125,190,235,.32)}
+.marketplace-product-view-section.view-slot-a legend{background:rgba(125,190,235,.88);color:#102b42}
+.marketplace-product-view-section.view-slot-b{background:rgba(151,205,170,.12);border-color:rgba(151,205,170,.32)}
+.marketplace-product-view-section.view-slot-b legend{background:rgba(151,205,170,.88);color:#173b27}
+.marketplace-product-view-section.view-slot-c{background:rgba(235,190,132,.12);border-color:rgba(235,190,132,.32)}
+.marketplace-product-view-section.view-slot-c legend{background:rgba(235,190,132,.9);color:#4a2d12}
+.marketplace-product-view-section.view-slot-d{background:rgba(190,165,225,.12);border-color:rgba(190,165,225,.32)}
+.marketplace-product-view-section.view-slot-d legend{background:rgba(190,165,225,.9);color:#35244d}
+.marketplace-product-view-section.view-slot-e{background:rgba(225,165,185,.12);border-color:rgba(225,165,185,.32)}
+.marketplace-product-view-section.view-slot-e legend{background:rgba(225,165,185,.9);color:#4b2433}
 .marketplace-product-view-section.view-slot-a{grid-area:a}.marketplace-product-view-section.view-slot-b{grid-area:b}.marketplace-product-view-section.view-slot-c{grid-area:c}.marketplace-product-view-section.view-slot-d{grid-area:d}.marketplace-product-view-section.view-slot-e{grid-area:e}
 .marketplace-product-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
 .marketplace-product-view-field{min-width:0;font-size:12px;overflow-wrap:anywhere}
