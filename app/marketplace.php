@@ -677,9 +677,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 }
                 $submittedTagMap = [];
                 foreach ($row[11] as $tagType => $tagValues) {
-                    foreach ($tagValues as $tagValue) {
+                    foreach ($tagValues as $tagIndex => $tagValue) {
                         $tagKey = (string)$tagType . "\\0" . (string)$tagValue;
-                        $submittedTagMap[$tagKey] = [(string)$tagType,(string)$tagValue];
+                        $submittedTagMap[$tagKey] = [(string)$tagType,(string)$tagValue,(int)$tagIndex];
                     }
                 }
                 foreach ($existingTagMap as $tagKey => $existingTagRow) {
@@ -695,10 +695,50 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                         }
                     }
                 }
-                foreach ($submittedTagMap as $tagKey => [$tagType,$tagValue]) {
-                    if (!isset($existingTagMap[$tagKey])) {
-                        $insertTag = $pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,NULL,0)');
-                        $insertTag->execute([$productId,$tagType,$tagValue]);
+                $variationPhotoUploads = $_FILES['product_tag_photos'] ?? [];
+                $variationUploadField = static function(array $files, array $keys): array {
+                    $entry=[];
+                    foreach(['name','type','tmp_name','error','size'] as $field){
+                        $value=$files[$field]??null;
+                        foreach($keys as $key){if(!is_array($value)||!array_key_exists($key,$value)){$value=null;break;}$value=$value[$key];}
+                        $entry[$field]=$value;
+                    }
+                    return $entry;
+                };
+                $variationPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productId.'/Variation Photos';
+                foreach ($submittedTagMap as $tagKey => [$tagType,$tagValue,$tagIndex]) {
+                    $tagFile=$variationUploadField($variationPhotoUploads,[0,$tagType,$tagIndex]);
+                    $hasNewUpload=(int)($tagFile['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE;
+                    $tagPhotoPath=(string)($existingTagMap[$tagKey]['photo_path']??'');
+                    if(!isset($existingTagMap[$tagKey])&&!$hasNewUpload)throw new RuntimeException('Upload at least one photo for every new product variation ('.$tagValue.').');
+                    if($hasNewUpload){
+                        if((int)$tagFile['error']!==UPLOAD_ERR_OK)throw new RuntimeException('A variation photo could not be uploaded.');
+                        $tmp=(string)$tagFile['tmp_name'];$size=(int)$tagFile['size'];
+                        if($size<1||$size>5*1024*1024||!is_uploaded_file($tmp))throw new RuntimeException('Each variation photo must be a valid image no larger than 5 MB.');
+                        $imageInfo=@getimagesize($tmp);$mime=strtolower((string)($imageInfo['mime']??''));$ext=strtolower(pathinfo((string)$tagFile['name'],PATHINFO_EXTENSION));
+                        $allowed=['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'image/avif'=>['avif']];
+                        if(!isset($allowed[$mime])||!in_array($ext,$allowed[$mime],true))throw new RuntimeException('Variation photos must be JPG, JPEG, WEBP, PNG, or AVIF images no larger than 5 MB.');
+                        if(!is_dir($variationPhotoDirectory)&&!mkdir($variationPhotoDirectory,0755,true)&&!is_dir($variationPhotoDirectory))throw new RuntimeException('The product Variation Photos folder could not be created.');
+                        $tagSlug=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$tagValue),'_');if($tagSlug==='')$tagSlug='variation';
+                        $filename='variation_'.strtolower($tagType).'_'.$tagSlug.'_'.bin2hex(random_bytes(6)).'.'.$ext;
+                        $destination=$variationPhotoDirectory.DIRECTORY_SEPARATOR.$filename;
+                        if(!move_uploaded_file($tmp,$destination))throw new RuntimeException('A variation photo could not be saved.');
+                        $tagPhotoPath='uploads/products/'.$productId.'/Variation Photos/'.$filename;
+                    }
+                    if(isset($existingTagMap[$tagKey])){
+                        if($hasNewUpload){
+                            $updateTagPhoto=$pdo->prepare('UPDATE marketplace_product_tags SET photo_path=? WHERE id=? AND product_id=?');
+                            $updateTagPhoto->execute([$tagPhotoPath,(int)$existingTagMap[$tagKey]['id'],$productId]);
+                            $oldPath=(string)($existingTagMap[$tagKey]['photo_path']??'');
+                            if($oldPath!==''){
+                                $oldAbsolute=dirname(__DIR__).'/public/'.ltrim(str_replace('\\\\','/',$oldPath),'/');
+                                $publicRoot=realpath(dirname(__DIR__).'/public');$oldReal=realpath($oldAbsolute);
+                                if($publicRoot&&$oldReal&&str_starts_with($oldReal,$publicRoot.DIRECTORY_SEPARATOR)&&is_file($oldReal))@unlink($oldReal);
+                            }
+                        }
+                    }else{
+                        $insertTag=$pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,?,?)');
+                        $insertTag->execute([$productId,$tagType,$tagValue,$tagPhotoPath,count($existingTagMap)+$tagIndex]);
                     }
                 }
                 // Remove marked files only after their database rows have been removed.
