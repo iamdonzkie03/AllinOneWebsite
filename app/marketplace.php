@@ -582,6 +582,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $existingProductQuery->execute([$productId]);
                 $existingProduct = $existingProductQuery->fetch(PDO::FETCH_ASSOC);
                 if (!$existingProduct) throw new RuntimeException('The product to update could not be found.');
+                $productCodeFolder = trim((string)($existingProduct['product_code'] ?? ''));
+                if ($productCodeFolder === '' || !preg_match('/^[A-Za-z0-9_-]+$/', $productCodeFolder)) throw new RuntimeException('The product has an invalid Product Code. Please correct the Product Code before uploading photos.');
                 $row = $rows[0];
                 $newCategoryId = $row[8] > 0 ? $row[8] : null;
                 $newSubcategoryId = $row[9] > 0 ? $row[9] : null;
@@ -621,7 +623,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 if (count($newMainPhotoFiles)>$availableMainPhotoSlots) throw new RuntimeException('You may upload up to '.$availableMainPhotoSlots.' New Photo(s), based on the available spaces among the 5 Main Photos.');
                 $newMainPhotoPaths=[];$uploadedEditMainFiles=[];
                 if ($newMainPhotoFiles) {
-                    $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productId.'/Main Photos';
+                    $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productCodeFolder.'/Main Photos';
                     if(!is_dir($mainPhotoDirectory)&&!mkdir($mainPhotoDirectory,0755,true)&&!is_dir($mainPhotoDirectory))throw new RuntimeException('The product Main Photos folder could not be created.');
                     foreach($newMainPhotoFiles as $photoUpload){
                         if((int)$photoUpload['error']!==UPLOAD_ERR_OK)throw new RuntimeException('A New Photo could not be uploaded.');
@@ -632,7 +634,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                         if(!isset($allowedImageTypes[$mime])||!in_array($extension,$allowedImageTypes[$mime],true))throw new RuntimeException('New Photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
                         $photoFilename='main_'.bin2hex(random_bytes(8)).'.'.$extension;$destinationPath=$mainPhotoDirectory.DIRECTORY_SEPARATOR.$photoFilename;
                         if(!move_uploaded_file($temporaryPath,$destinationPath))throw new RuntimeException('A New Photo could not be saved.');
-                        $uploadedEditMainFiles[]=$destinationPath;$newMainPhotoPaths[]='uploads/products/'.$productId.'/Main Photos/'.$photoFilename;
+                        $uploadedEditMainFiles[]=$destinationPath;$newMainPhotoPaths[]='uploads/products/'.$productCodeFolder.'/Main Photos/'.$photoFilename;
                     }
                 }
                 $removedPhotoPaths=array_map(static fn($photo)=>(string)$photo['photo_path'],$removedMainPhotos);
@@ -640,7 +642,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $survivingPhotos=array_values(array_filter($currentMainPhotos,static fn($photo)=>!in_array((int)$photo['id'],$removePhotoIds,true)&&!((int)$photo['id']===0&&$removeLegacyPhoto)));
                 // Normalize retained legacy photos into the required product-ID Main Photos folder.
                 if($survivingPhotos){
-                    $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productId.'/Main Photos';
+                    $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productCodeFolder.'/Main Photos';
                     if(!is_dir($mainPhotoDirectory)&&!mkdir($mainPhotoDirectory,0755,true)&&!is_dir($mainPhotoDirectory))throw new RuntimeException('The product Main Photos folder could not be created.');
                     $publicRoot=realpath(dirname(__DIR__).'/public');$mainPhotoReal=realpath($mainPhotoDirectory);
                     foreach($survivingPhotos as &$survivingPhoto){
@@ -649,7 +651,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                             $extension=strtolower(pathinfo($resolvedOld,PATHINFO_EXTENSION));$migratedName='main_'.bin2hex(random_bytes(8)).($extension!==''?'.'.$extension:'');$migratedAbsolute=$mainPhotoDirectory.DIRECTORY_SEPARATOR.$migratedName;
                             if(!copy($resolvedOld,$migratedAbsolute))throw new RuntimeException('A retained Main Photo could not be copied into the product photo folder.');
                             $migratedOldPhotoFiles[]=$resolvedOld;
-                            $survivingPhoto['photo_path']='uploads/products/'.$productId.'/Main Photos/'.$migratedName;
+                            $survivingPhoto['photo_path']='uploads/products/'.$productCodeFolder.'/Main Photos/'.$migratedName;
                         }
                     }
                     unset($survivingPhoto);
@@ -705,7 +707,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     }
                     return $entry;
                 };
-                $variationPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productId.'/Variation Photos';
+                $variationPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productCodeFolder.'/Variation Photos';
                 foreach ($submittedTagMap as $tagKey => [$tagType,$tagValue,$tagIndex]) {
                     $tagFile=$variationUploadField($variationPhotoUploads,[0,$tagType,$tagIndex]);
                     $hasNewUpload=(int)($tagFile['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE;
@@ -723,7 +725,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                         $filename='variation_'.strtolower($tagType).'_'.$tagSlug.'_'.bin2hex(random_bytes(6)).'.'.$ext;
                         $destination=$variationPhotoDirectory.DIRECTORY_SEPARATOR.$filename;
                         if(!move_uploaded_file($tmp,$destination))throw new RuntimeException('A variation photo could not be saved.');
-                        $tagPhotoPath='uploads/products/'.$productId.'/Variation Photos/'.$filename;
+                        $tagPhotoPath='uploads/products/'.$productCodeFolder.'/Variation Photos/'.$filename;
                     }
                     if(isset($existingTagMap[$tagKey])){
                         if($hasNewUpload){
@@ -838,7 +840,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                         $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[23]!==''?$row[23]:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[24]!==''?$row[24]:null,$row[25]]);
                         $newProductId=(int)$pdo->lastInsertId();$uploadIndex=(int)($row[10]??$index);
                         $safeName=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');if($safeName==='')$safeName='product';
-                        $folderName=(string)$newProductId;$folder=$uploadDirectory.'/'.$folderName;
+                        $folderName=trim((string)$row[1]);if($folderName===''||!preg_match('/^[A-Za-z0-9_-]+$/',$folderName))throw new RuntimeException('The generated Product Code is invalid for its photo folder.');$folder=$uploadDirectory.'/'.$folderName;
                         if(!is_dir($folder)&&!mkdir($folder,0755,true)&&!is_dir($folder))throw new RuntimeException('The product-specific photo folder could not be created.');
                         $createdProductFolders[]=$folder;$submittedMainPhotoNames=$productPhotoUploads['name'][$uploadIndex]??[];if(is_array($submittedMainPhotoNames)&&count(array_filter($submittedMainPhotoNames,static fn($name):bool=>trim((string)$name)!==''))>5)throw new RuntimeException('You can upload a maximum of 5 main photos per product.');$count=0;$firstPath=null;
                         for($photoIndex=0;$photoIndex<5;$photoIndex++){
