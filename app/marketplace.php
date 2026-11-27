@@ -1520,7 +1520,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-products-table .marketplace-product-row-view summary{list-style:none;cursor:pointer}
 .marketplace-products-table .marketplace-actions{display:flex;align-items:center;gap:6px;min-width:0}
 .marketplace-products-table .marketplace-actions .btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 11px;font-size:10px;text-decoration:none;white-space:nowrap}
-.marketplace-products-table .marketplace-product-row-view>div{min-width:240px;max-width:min(320px,80vw);white-space:normal}.marketplace-products-table td small{display:block;white-space:normal;line-height:1.45;margin-top:3px}@media(max-width:700px){.marketplace-product-commercial-grid{grid-template-columns:1fr}}
+.marketplace-products-table .marketplace-product-row-view>div{min-width:240px;max-width:min(320px,80vw);white-space:normal}.marketplace-products-table td small{display:block;white-space:normal;line-height:1.45;margin-top:3px}.marketplace-products-table td.marketplace-product-taxes-discounts-cell,.marketplace-products-table td.marketplace-product-taxes-discounts-cell *{font-size:10px!important;font-weight:400!important}@media(max-width:700px){.marketplace-product-commercial-grid{grid-template-columns:1fr}}
 .marketplace-product-tag-field{display:flex;flex-direction:column;gap:7px;min-width:0}
 .marketplace-product-tag-field input[type=text]{width:100%}
 .marketplace-product-tag-chips{display:flex;flex-wrap:wrap;gap:7px}
