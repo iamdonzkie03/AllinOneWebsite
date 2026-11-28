@@ -1188,6 +1188,18 @@ $numberToWords = static function(int $number): string {
 .marketplace-inventory-table .marketplace-inventory-actions > form.marketplace-add-stock-form > button:hover{
  border-color:rgba(57,184,117,.7)!important;background:rgba(27,155,89,.28)!important;color:#e2f8e9!important;transform:translateY(-1px)!important;
 }
+.marketplace-inventory-table .marketplace-inventory-actions > a.marketplace-inventory-view-open{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ width:54px!important;min-width:54px!important;max-width:54px!important;min-height:28px!important;height:28px!important;box-sizing:border-box!important;
+ padding:5px 8px!important;border:1px solid rgba(208,139,158,.38)!important;border-radius:999px!important;
+ background:rgba(125,45,67,.16)!important;color:#f0c4cf!important;
+ font:600 10px Ubuntu,sans-serif!important;letter-spacing:.02em!important;line-height:1!important;
+ text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+ transition:background .18s ease,border-color .18s ease,transform .18s ease!important;
+}
+.marketplace-inventory-table .marketplace-inventory-actions > a.marketplace-inventory-view-open:hover{
+ background:rgba(154,55,81,.28)!important;border-color:rgba(226,157,175,.7)!important;transform:translateY(-1px)!important;
+}
 .marketplace-inventory-table .marketplace-inventory-actions > a:focus-visible,
 .marketplace-inventory-table .marketplace-inventory-actions > form > button:focus-visible{outline:2px solid #e17a8d!important;outline-offset:2px!important}
 table.marketplace-table .marketplace-actions > a.marketplace-product-edit-open{
@@ -2234,7 +2246,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
   <td><small>Reorder Point: <?=$quantityFormat($inventoryReorderPoint)?></small><small>Reorder Quantity: <?=$quantityFormat($item['reorder_quantity']??0)?></small><span class="marketplace-inventory-status marketplace-inventory-status-<?=e($inventoryReorderClass)?>"><?=e($inventoryReorderStatus)?></span></td>
   <td><small><?=!empty($item['updated_at'])?e($date($item['updated_at'])):'—'?></small><small><?=e((string)($item['last_updated_details']??'') ?: 'No update details recorded')?></small></td>
   <td><div class="marketplace-actions marketplace-inventory-actions">
-   <?php if(empty($item['id'])): ?><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;add_inventory_product=<?=(int)$item['linked_product_id']?>">Add</a><?php else: ?><form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="load_quantity" min="0" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form><?php endif; ?>
+   <?php if(empty($item['id'])): ?><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;add_inventory_product=<?=(int)$item['linked_product_id']?>">Add</a><?php else: ?><form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="load_quantity" min="0" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form><a class="btn light marketplace-inventory-view-open" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;view_inventory=<?=(int)$item['id']?>">View</a><?php endif; ?>
    <?php if(!empty($item['id'])): ?><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;edit_inventory=<?=(int)$item['id']?>">Edit</a><?php endif; ?>
   </div></td>
  </tr><?php endforeach; ?>
