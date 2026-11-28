@@ -1151,6 +1151,11 @@ $numberToWords = static function(int $number): string {
 #marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select{display:block;width:100%;box-sizing:border-box;margin:0}
 #marketplace-inventory-add-modal .marketplace-form input[readonly]{background:#29252a!important;color:#d8d1d7!important;cursor:not-allowed}
 #marketplace-inventory-add-modal .marketplace-form>.wide{grid-column:1/-1}
+#marketplace-inventory-add-modal .marketplace-inventory-date-wrap{display:flex;align-items:center;gap:6px;position:relative}
+#marketplace-inventory-add-modal .marketplace-inventory-date-wrap>input[type="text"]{flex:1;min-width:0}
+#marketplace-inventory-add-modal .marketplace-inventory-date-trigger{width:38px;min-width:38px;height:38px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.07);color:inherit;cursor:pointer}
+#marketplace-inventory-add-modal #marketplace-expiration-date-picker{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;right:0;bottom:0}
+
 @media(max-width:850px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:1fr}}
 /* Keep Edit Inventory visually consistent with the Add Inventory modal. */
@@ -2326,22 +2331,22 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_inventory"><input type="hidden" name="inventory_id" value="0">
    <input type="hidden" name="inventory_product_id" value="<?=(int)$marketplaceAddInventoryProduct['id']?>">
    <input type="hidden" name="sold" value="0">
-   <label>Quantity to Add *<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="quantity_to_add" id="marketplace-quantity-to-add" required value="0.00"></label>
+   <label>Quantity to Add *<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="quantity_to_add" id="marketplace-quantity-to-add" required value=""></label>
    <label>Storage Location<input type="text" name="storage_location" maxlength="180" placeholder="e.g. Warehouse A - Rack 03"></label>
-   <label>Stock on Hand<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" id="marketplace-stock-on-hand" readonly value="0.00"></label>
-   <label>Stock Value<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" id="marketplace-stock-value" readonly value="0.00"></label>
+   <label>Stock on Hand<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" id="marketplace-stock-on-hand" readonly value=""></label>
+   <label>Stock Value<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" id="marketplace-stock-value" readonly value=""></label>
    <label>Batch No. / Lot No. *<input name="batch_number" required maxlength="100" value=""></label>
-   <label>Average Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_daily_usage" id="marketplace-average-daily-usage" value="0.00"></label>
-   <label>Max Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_daily_usage" id="marketplace-max-daily-usage" value="0.00"></label>
-   <label>Average Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_lead_time" id="marketplace-average-lead-time" value="0.00"></label>
-   <label>Max Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_lead_time" id="marketplace-max-lead-time" value="0.00"></label>
-   <label>Safety Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="safety_stock_level" id="marketplace-safety-stock-level" readonly value="0.00"></label>
-   <label>Target Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="target_stock_level" id="marketplace-target-stock-level" value="0.00"></label>
-   <label>On Order Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="on_order_stock" id="marketplace-on-order-stock" value="0.00"></label>
-   <label>Backorders<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="backorders" id="marketplace-backorders" value="0.00"></label>
-   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" id="marketplace-reorder-point" readonly value="0.00"></label>
-   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" id="marketplace-reorder-quantity" readonly value="0.00"></label>
-   <label>Expiration Date<input type="text" name="expiration_date" id="marketplace-expiration-date" placeholder="July 10, 2026" autocomplete="off"></label>
+   <label>Average Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_daily_usage" id="marketplace-average-daily-usage" value=""></label>
+   <label>Max Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_daily_usage" id="marketplace-max-daily-usage" value=""></label>
+   <label>Average Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_lead_time" id="marketplace-average-lead-time" value=""></label>
+   <label>Max Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_lead_time" id="marketplace-max-lead-time" value=""></label>
+   <label>Safety Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="safety_stock_level" id="marketplace-safety-stock-level" readonly value=""></label>
+   <label>Target Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="target_stock_level" id="marketplace-target-stock-level" value=""></label>
+   <label>On Order Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="on_order_stock" id="marketplace-on-order-stock" value=""></label>
+   <label>Backorders<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="backorders" id="marketplace-backorders" value=""></label>
+   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" id="marketplace-reorder-point" readonly value=""></label>
+   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" id="marketplace-reorder-quantity" readonly value=""></label>
+   <label>Expiration Date<div class="marketplace-inventory-date-wrap"><input type="text" id="marketplace-expiration-date-display" placeholder="MMMM dd, YYYY" readonly autocomplete="off" aria-label="Expiration Date, formatted as Month day, year"><button type="button" class="marketplace-inventory-date-trigger" id="marketplace-expiration-date-trigger" aria-label="Choose expiration date"><span aria-hidden="true">▦</span></button><input type="date" id="marketplace-expiration-date-picker" aria-hidden="true" tabindex="-1"></div><input type="hidden" name="expiration_date" id="marketplace-expiration-date"></label>
    <label>Reorder Status<select name="inventory_status" required><option value="Sufficient">Sufficient</option><option value="Low Stock">Low Stock</option><option value="Critical">Critical</option><option value="On Order">On Order</option><option value="Overstocked">Overstocked</option></select></label>
    <label>Stock Status<select name="stock_status" required><option>Available</option><option>On Hand</option><option>Reserved</option><option>In Transit</option><option>Expired</option><option>Damaged</option><option>Quarantined</option><option>Out of Stock</option></select></label>
    <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save</button></div>
@@ -2353,25 +2358,70 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
  const form=document.getElementById('marketplace-add-inventory-form');
  if(!form)return;
  const $=selector=>form.querySelector(selector.startsWith('#')?selector:'[name="'+selector+'"]');
- const num=name=>{const value=parseFloat(String($(name)?.value||'0').replace(/,/g,''));return Number.isFinite(value)?value:0;};
+ const raw=name=>String($(name)?.value||'').replace(/,/g,'').trim();
+ const num=name=>{const value=parseFloat(raw(name));return Number.isFinite(value)?value:0;};
  const fmt=value=>Math.max(0,value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  const productPrice=<?=json_encode((float)($marketplaceAddInventoryProduct['selling_price']??$marketplaceAddInventoryProduct['retail_price']??0))?>;
  const originalStock=0;
  const refresh=()=>{
+   const quantityEntered=raw('quantity_to_add')!=='';
+   const averageUsageEntered=raw('average_daily_usage')!==''||raw('average_lead_time')!=='';
+   const maxUsageEntered=raw('max_daily_usage')!==''||raw('max_lead_time')!=='';
+   const safetyInputsEntered=averageUsageEntered||maxUsageEntered;
+   const targetInputsEntered=raw('target_stock_level')!==''||raw('on_order_stock')!==''||raw('backorders')!=='';
    const quantity=num('quantity_to_add');
    const stock=originalStock+quantity;
    const safety=Math.max(0,(num('max_daily_usage')*num('max_lead_time'))-(num('average_daily_usage')*num('average_lead_time')));
    const reorderPoint=(num('average_daily_usage')*num('average_lead_time'))+safety;
    const reorderQty=Math.max(0,num('target_stock_level')-(stock+num('on_order_stock')-num('backorders')));
-   $('#marketplace-stock-on-hand').value=fmt(stock);
-   $('#marketplace-stock-value').value=fmt(stock*productPrice);
-   $('#marketplace-safety-stock-level').value=fmt(safety);
-   $('#marketplace-reorder-point').value=fmt(reorderPoint);
-   $('#marketplace-reorder-quantity').value=fmt(reorderQty);
+   $('#marketplace-stock-on-hand').value=quantityEntered?fmt(stock):'';
+   $('#marketplace-stock-value').value=quantityEntered?fmt(stock*productPrice):'';
+   $('#marketplace-safety-stock-level').value=safetyInputsEntered?fmt(safety):'';
+   $('#marketplace-reorder-point').value=safetyInputsEntered?fmt(reorderPoint):'';
+   $('#marketplace-reorder-quantity').value=(quantityEntered||targetInputsEntered)?fmt(reorderQty):'';
  };
- form.querySelectorAll('input').forEach(input=>{
-   if(input.matches('[data-decimals]'))input.addEventListener('input',()=>{const raw=input.value.replace(/,/g,'').replace(/[^0-9.]/g,'');const parts=raw.split('.');input.value=parts.shift()+(parts.length?'.'+parts.join('').slice(0,2):'');refresh();});
-   input.addEventListener('blur',()=>{if(input.matches('[data-decimals]'))input.value=fmt(parseFloat(input.value)||0);refresh();});
+ const groupInteger=value=>value.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+ form.querySelectorAll('input[data-decimals]').forEach(input=>{
+   input.addEventListener('input',()=>{
+     const start=input.selectionStart??input.value.length;
+     const before=input.value.slice(0,start);
+     const clean=input.value.replace(/,/g,'').replace(/[^0-9.]/g,'');
+     const pieces=clean.split('.');
+     const integer=pieces.shift();
+     const decimals=pieces.join('').slice(0,2);
+     const formatted=groupInteger(integer)+(clean.includes('.')?'.'+decimals:'');
+     const commasBefore=(before.match(/,/g)||[]).length;
+     input.value=formatted;
+     const commasAfter=(formatted.slice(0,Math.max(0,start+((formatted.match(/,/g)||[]).length-commasBefore))).match(/,/g)||[]).length;
+     const newPosition=Math.min(formatted.length,start+(commasAfter-commasBefore));
+     try{input.setSelectionRange(newPosition,newPosition);}catch(e){}
+     refresh();
+   });
+   input.addEventListener('blur',()=>{
+     const value=raw(input.name);
+     input.value=value===''?'':fmt(parseFloat(value)||0);
+     refresh();
+   });
+ });
+ const display=$('#marketplace-expiration-date-display');
+ const picker=$('#marketplace-expiration-date-picker');
+ const hidden=$('#marketplace-expiration-date');
+ const openPicker=()=>{
+   if(typeof picker.showPicker==='function'){try{picker.showPicker();return;}catch(e){}}
+   picker.focus();picker.click();
+ };
+ display.addEventListener('click',openPicker);
+ $('#marketplace-expiration-date-trigger').addEventListener('click',openPicker);
+ picker.addEventListener('change',()=>{
+   if(!picker.value){display.value='';hidden.value='';return;}
+   const [year,month,day]=picker.value.split('-').map(Number);
+   const selected=new Date(year,month-1,day);
+   display.value=selected.toLocaleDateString('en-US',{month:'long',day:'2-digit',year:'numeric'});
+   hidden.value=display.value;
+ });
+ form.addEventListener('submit',()=>{
+   // The visible date is always submitted in the required Month dd, YYYY format.
+   hidden.value=display.value;
  });
  refresh();
 })();
