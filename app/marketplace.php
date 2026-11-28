@@ -926,8 +926,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $stockValue = 0.0;
             $status = trim((string)($_POST['inventory_status'] ?? 'Sufficient'));
             $stockStatus = trim((string)($_POST['stock_status'] ?? 'Available'));
-            $expirationDate = trim((string)($_POST['expiration_date'] ?? ''));
-            if ($expirationDate !== '' && !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $expirationDate)) throw new RuntimeException('Enter a valid expiration date.');
+            $expirationDateInput = trim((string)($_POST['expiration_date'] ?? ''));
+            $expirationDate = '';
+            if ($expirationDateInput !== '') {
+                $parsedExpirationDate = DateTime::createFromFormat('!F j, Y', $expirationDateInput);
+                $dateErrors = DateTime::getLastErrors();
+                if (!$parsedExpirationDate || ($dateErrors && ($dateErrors['warning_count'] || $dateErrors['error_count']))) throw new RuntimeException('Enter the expiration date in the format July 10, 2026.');
+                $expirationDate = $parsedExpirationDate->format('Y-m-d');
+            }
             if ($batchNumber === '') throw new RuntimeException('Please enter a Batch / Lot Number.');
             $reorderStatuses = ['Sufficient','Low Stock','Critical','On Order','Overstocked'];
             $stockStatuses = ['Available','On Hand','Reserved','In Transit','Expired','Damaged','Quarantined','Out of Stock'];
@@ -2335,7 +2341,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <label>Backorders<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="backorders" id="marketplace-backorders" value="0.00"></label>
    <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" id="marketplace-reorder-point" readonly value="0.00"></label>
    <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" id="marketplace-reorder-quantity" readonly value="0.00"></label>
-   <label>Expiration Date<input type="date" name="expiration_date" id="marketplace-expiration-date"></label>
+   <label>Expiration Date<input type="text" name="expiration_date" id="marketplace-expiration-date" placeholder="July 10, 2026" autocomplete="off"></label>
    <label>Reorder Status<select name="inventory_status" required><option value="Sufficient">Sufficient</option><option value="Low Stock">Low Stock</option><option value="Critical">Critical</option><option value="On Order">On Order</option><option value="Overstocked">Overstocked</option></select></label>
    <label>Stock Status<select name="stock_status" required><option>Available</option><option>On Hand</option><option>Reserved</option><option>In Transit</option><option>Expired</option><option>Damaged</option><option>Quarantined</option><option>Out of Stock</option></select></label>
    <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save</button></div>
