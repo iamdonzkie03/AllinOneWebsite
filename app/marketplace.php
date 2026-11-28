@@ -1172,14 +1172,20 @@ $numberToWords = static function(int $number): string {
 .marketplace-inventory-table .marketplace-inventory-actions > form > button:hover{
  background:rgba(154,55,81,.28)!important;border-color:rgba(226,157,175,.7)!important;transform:translateY(-1px)!important;
 }
-/* Inventory Add is green; Edit retains the Products Edit button theme. */
+/* Inventory Add buttons match the Master Catalog Edit button shape, using green. */
 .marketplace-inventory-table .marketplace-inventory-actions > a[href*="add_inventory_product"],
 .marketplace-inventory-table .marketplace-inventory-actions > form.marketplace-add-stock-form > button{
- border:1px solid #24965b!important;background:#16834b!important;color:#fff!important;
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ min-height:28px!important;height:28px!important;box-sizing:border-box!important;
+ padding:5px 13px!important;border:1px solid #24965b!important;border-radius:999px!important;
+ background:#16834b!important;color:#fff!important;
+ font:600 10px Ubuntu,sans-serif!important;letter-spacing:.02em!important;line-height:1!important;
+ text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+ transition:background .18s ease,border-color .18s ease,transform .18s ease!important;
 }
 .marketplace-inventory-table .marketplace-inventory-actions > a[href*="add_inventory_product"]:hover,
 .marketplace-inventory-table .marketplace-inventory-actions > form.marketplace-add-stock-form > button:hover{
- border-color:#39b875!important;background:#1b9b59!important;color:#fff!important;
+ border-color:#39b875!important;background:#1b9b59!important;color:#fff!important;transform:translateY(-1px)!important;
 }
 .marketplace-inventory-table .marketplace-inventory-actions > a:focus-visible,
 .marketplace-inventory-table .marketplace-inventory-actions > form > button:focus-visible{outline:2px solid #e17a8d!important;outline-offset:2px!important}
