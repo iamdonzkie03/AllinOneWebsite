@@ -50,6 +50,7 @@ if (!$marketplaceSubcategoryColumn->fetch(PDO::FETCH_ASSOC)) $pdo->exec("ALTER T
 // which is not supported by several MySQL/MariaDB versions bundled with Laragon.
 $marketplaceProductColumns = [
     'product_code' => "VARCHAR(100) NULL AFTER product_name",
+    'barcode_value' => "VARCHAR(40) NULL AFTER product_code",
     'manufacturer' => "VARCHAR(180) NULL AFTER model",
     'supply_chain_entity' => "VARCHAR(180) NULL AFTER manufacturer",
     'country_of_origin' => "VARCHAR(120) NULL AFTER supply_chain_entity",
@@ -96,6 +97,8 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_product_tags (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $productCodeIndex = $pdo->query("SHOW INDEX FROM marketplace_products WHERE Key_name = 'uq_marketplace_product_code'")->fetch(PDO::FETCH_ASSOC);
 if (!$productCodeIndex) $pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY uq_marketplace_product_code (product_code)");
+$productBarcodeIndex = $pdo->query("SHOW INDEX FROM marketplace_products WHERE Key_name = 'uq_marketplace_product_barcode'")->fetch(PDO::FETCH_ASSOC);
+if (!$productBarcodeIndex) $pdo->exec("ALTER TABLE marketplace_products ADD UNIQUE KEY uq_marketplace_product_barcode (barcode_value)");
 $pdo->exec("CREATE TABLE IF NOT EXISTS marketplace_inventory (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
  product_id BIGINT UNSIGNED NOT NULL UNIQUE,
@@ -118,12 +121,27 @@ $marketplaceInventoryColumns = [
     'batch_number' => "VARCHAR(100) NULL AFTER sku",
     'supply_chain_type' => "VARCHAR(40) NULL AFTER batch_number",
     'selling_price' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER retail_price",
+    'stock_value' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER selling_price",
     'vat_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER tax_rate",
     'percentage_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER vat_rate",
     'income_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER percentage_tax_rate",
     'withholding_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER income_tax_rate",
     'other_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER withholding_tax_rate",
     'status' => "VARCHAR(30) NOT NULL DEFAULT 'Low Stock' AFTER selling_price",
+    'storage_location' => "VARCHAR(180) NULL AFTER status",
+    'reorder_point' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER storage_location",
+    'reorder_quantity' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER reorder_point",
+    'average_daily_usage' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER reorder_quantity",
+    'max_daily_usage' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER average_daily_usage",
+    'average_lead_time' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER max_daily_usage",
+    'max_lead_time' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER average_lead_time",
+    'safety_stock_level' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER max_lead_time",
+    'target_stock_level' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER safety_stock_level",
+    'on_order_stock' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER target_stock_level",
+    'backorders' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER on_order_stock",
+    'expiration_date' => "DATE NULL AFTER backorders",
+    'stock_status' => "VARCHAR(30) NOT NULL DEFAULT 'Available' AFTER expiration_date",
+    'last_updated_details' => "TEXT NULL AFTER stock_status",
 ];
 foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
     $columnCheck = $pdo->query("SHOW COLUMNS FROM marketplace_inventory LIKE " . $pdo->quote($columnName));
@@ -582,6 +600,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $existingProductQuery->execute([$productId]);
                 $existingProduct = $existingProductQuery->fetch(PDO::FETCH_ASSOC);
                 if (!$existingProduct) throw new RuntimeException('The product to update could not be found.');
+                $productCodeFolder = trim((string)($existingProduct['product_code'] ?? ''));
+                if ($productCodeFolder === '' || !preg_match('/^[A-Za-z0-9_-]+$/', $productCodeFolder)) throw new RuntimeException('The product has an invalid Product Code. Please correct the Product Code before uploading photos.');
                 $row = $rows[0];
                 $newCategoryId = $row[8] > 0 ? $row[8] : null;
                 $newSubcategoryId = $row[9] > 0 ? $row[9] : null;
@@ -599,50 +619,158 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     $newSubcategoryName = $subcategoryNameQuery->fetchColumn() ?: null;
                     if ($newSubcategoryName === null) throw new RuntimeException('Choose a subcategory that belongs to the selected category.');
                 }
-                $photoUploads = $_FILES['product_photo'] ?? [];
-                $photoError = (int)($photoUploads['error'] ?? UPLOAD_ERR_NO_FILE);
-                $newPhotoPath = (string)($existingProduct['photo_path'] ?? '');
-                $newPhotoFile = null;
-                $oldPhotoFile = null;
-                if ($photoError !== UPLOAD_ERR_NO_FILE) {
-                    if ($photoError !== UPLOAD_ERR_OK) throw new RuntimeException('The product photo could not be uploaded.');
-                    $temporaryPath = (string)($photoUploads['tmp_name'] ?? '');
-                    $fileSize = (int)($photoUploads['size'] ?? 0);
-                    if ($fileSize < 1 || $fileSize > 5 * 1024 * 1024 || !is_uploaded_file($temporaryPath)) throw new RuntimeException('The product photo must be a valid image no larger than 5 MB.');
-                    $imageInfo = @getimagesize($temporaryPath);
-                    $mime = strtolower((string)($imageInfo['mime'] ?? ''));
-                    $extension = strtolower(pathinfo((string)($photoUploads['name'] ?? ''), PATHINFO_EXTENSION));
-                    $allowedImageTypes = ['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'image/avif'=>['avif']];
-                    if (!isset($allowedImageTypes[$mime]) || !in_array($extension, $allowedImageTypes[$mime], true)) throw new RuntimeException('Product photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
-                    $uploadDirectory = dirname(__DIR__) . '/public/uploads/products';
-                    if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory,0755,true) && !is_dir($uploadDirectory)) throw new RuntimeException('The product photo upload folder could not be created.');
-                    $safeProductName = trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');
-                    if ($safeProductName === '') $safeProductName = 'product';
-                    $photoFilename = (string)$existingProduct['product_code'] . '_' . $safeProductName . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
-                    $destinationPath = $uploadDirectory . '/' . $photoFilename;
-                    if (!move_uploaded_file($temporaryPath,$destinationPath)) throw new RuntimeException('The new product photo could not be saved.');
-                    $newPhotoFile = $destinationPath;
-                    $newPhotoPath = 'uploads/products/' . $photoFilename;
-                    $oldPhotoRelative = (string)($existingProduct['photo_path'] ?? '');
-                    if ($oldPhotoRelative !== '') {
-                        $oldFilename = basename(str_replace('\\','/',$oldPhotoRelative));
-                        $oldPhotoFile = $uploadDirectory . DIRECTORY_SEPARATOR . $oldFilename;
+                // Load every current main photo and support the legacy single-photo field.
+                $currentPhotoQuery = $pdo->prepare('SELECT id,photo_path,sort_order FROM marketplace_product_photos WHERE product_id=? ORDER BY sort_order ASC,id ASC');
+                $currentPhotoQuery->execute([$productId]);
+                $currentMainPhotos = $currentPhotoQuery->fetchAll(PDO::FETCH_ASSOC);
+                if (!$currentMainPhotos && !empty($existingProduct['photo_path'])) $currentMainPhotos[] = ['id'=>0,'photo_path'=>(string)$existingProduct['photo_path'],'sort_order'=>0];
+                $currentPhotoIds = array_map(static fn($photo)=>(int)$photo['id'],$currentMainPhotos);
+                $submittedRemovePhotoIds = array_map('strval',(array)($_POST['remove_main_photo_ids']??[]));
+                $removePhotoIds = array_values(array_unique(array_filter(array_map('intval',$submittedRemovePhotoIds),static fn($id)=>$id>0)));
+                $removeLegacyPhoto = in_array('legacy',$submittedRemovePhotoIds,true);
+                foreach ($removePhotoIds as $removeId) if (!in_array($removeId,$currentPhotoIds,true)) throw new RuntimeException('One of the selected current photos is invalid. Please reopen Edit Product and try again.');
+                if ($removeLegacyPhoto && !in_array(0,$currentPhotoIds,true)) throw new RuntimeException('The selected legacy photo is invalid. Please reopen Edit Product and try again.');
+                $removedMainPhotos = array_values(array_filter($currentMainPhotos,static fn($photo)=>((int)$photo['id']>0 && in_array((int)$photo['id'],$removePhotoIds,true)) || ((int)$photo['id']===0 && $removeLegacyPhoto)));
+                $newMainPhotoUploads = $_FILES['new_main_photos'] ?? [];
+                $newMainPhotoFiles = [];
+                $uploadErrors = $newMainPhotoUploads['error'] ?? [];
+                if (!is_array($uploadErrors)) $uploadErrors = [$uploadErrors];
+                foreach ($uploadErrors as $uploadIndex=>$uploadError) if ((int)$uploadError !== UPLOAD_ERR_NO_FILE) $newMainPhotoFiles[] = ['name'=>$newMainPhotoUploads['name'][$uploadIndex]??'','type'=>$newMainPhotoUploads['type'][$uploadIndex]??'','tmp_name'=>$newMainPhotoUploads['tmp_name'][$uploadIndex]??'','error'=>(int)$uploadError,'size'=>$newMainPhotoUploads['size'][$uploadIndex]??0];
+                $remainingPhotoCount=count($currentMainPhotos)-count($removedMainPhotos);
+                $availableMainPhotoSlots=max(0,5-$remainingPhotoCount);
+                if (count($newMainPhotoFiles)>$availableMainPhotoSlots) throw new RuntimeException('You may upload up to '.$availableMainPhotoSlots.' New Photo(s), based on the available spaces among the 5 Main Photos.');
+                $newMainPhotoPaths=[];$uploadedEditMainFiles=[];
+                if ($newMainPhotoFiles) {
+                    $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productCodeFolder.'/Main Photos';
+                    if(!is_dir($mainPhotoDirectory)&&!mkdir($mainPhotoDirectory,0755,true)&&!is_dir($mainPhotoDirectory))throw new RuntimeException('The product Main Photos folder could not be created.');
+                    foreach($newMainPhotoFiles as $photoUpload){
+                        if((int)$photoUpload['error']!==UPLOAD_ERR_OK)throw new RuntimeException('A New Photo could not be uploaded.');
+                        $temporaryPath=(string)$photoUpload['tmp_name'];$fileSize=(int)$photoUpload['size'];
+                        if($fileSize<1||$fileSize>5*1024*1024||!is_uploaded_file($temporaryPath))throw new RuntimeException('Each New Photo must be a valid image no larger than 5 MB.');
+                        $imageInfo=@getimagesize($temporaryPath);$mime=strtolower((string)($imageInfo['mime']??''));$extension=strtolower(pathinfo((string)$photoUpload['name'],PATHINFO_EXTENSION));
+                        $allowedImageTypes=['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'image/avif'=>['avif']];
+                        if(!isset($allowedImageTypes[$mime])||!in_array($extension,$allowedImageTypes[$mime],true))throw new RuntimeException('New Photos must be JPG, JPEG, WEBP, PNG, or AVIF images smaller than 5 MB.');
+                        $photoFilename='main_'.bin2hex(random_bytes(8)).'.'.$extension;$destinationPath=$mainPhotoDirectory.DIRECTORY_SEPARATOR.$photoFilename;
+                        if(!move_uploaded_file($temporaryPath,$destinationPath))throw new RuntimeException('A New Photo could not be saved.');
+                        $uploadedEditMainFiles[]=$destinationPath;$newMainPhotoPaths[]='uploads/products/'.$productCodeFolder.'/Main Photos/'.$photoFilename;
                     }
                 }
-                try {
-                    $update = $pdo->prepare('UPDATE marketplace_products SET category_id=?,subcategory_id=?,product_name=?,brand=?,model=?,description=?,photo_path=? WHERE id=?');
-                    $update->execute([$newCategoryId,$newSubcategoryId,$row[0],$row[2] ?: null,$row[3] ?: null,$row[7] ?: null,$newPhotoPath !== '' ? $newPhotoPath : null,$productId]);
-                } catch (Throwable $updateError) {
-                    if ($newPhotoFile !== null && is_file($newPhotoFile)) @unlink($newPhotoFile);
-                    throw $updateError;
+                $removedPhotoPaths=array_map(static fn($photo)=>(string)$photo['photo_path'],$removedMainPhotos);
+                $migratedOldPhotoFiles=[];
+                $survivingPhotos=array_values(array_filter($currentMainPhotos,static fn($photo)=>!in_array((int)$photo['id'],$removePhotoIds,true)&&!((int)$photo['id']===0&&$removeLegacyPhoto)));
+                // Normalize retained legacy photos into the required product-ID Main Photos folder.
+                if($survivingPhotos){
+                    $mainPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productCodeFolder.'/Main Photos';
+                    if(!is_dir($mainPhotoDirectory)&&!mkdir($mainPhotoDirectory,0755,true)&&!is_dir($mainPhotoDirectory))throw new RuntimeException('The product Main Photos folder could not be created.');
+                    $publicRoot=realpath(dirname(__DIR__).'/public');$mainPhotoReal=realpath($mainPhotoDirectory);
+                    foreach($survivingPhotos as &$survivingPhoto){
+                        $oldRelative=(string)$survivingPhoto['photo_path'];$oldAbsolute=dirname(__DIR__).'/public/'.ltrim(str_replace('\\','/',$oldRelative),'/');$resolvedOld=realpath($oldAbsolute);
+                        if($publicRoot&&$resolvedOld&&str_starts_with($resolvedOld,$publicRoot.DIRECTORY_SEPARATOR)&&is_file($resolvedOld)&&dirname($resolvedOld)!==$mainPhotoReal){
+                            $extension=strtolower(pathinfo($resolvedOld,PATHINFO_EXTENSION));$migratedName='main_'.bin2hex(random_bytes(8)).($extension!==''?'.'.$extension:'');$migratedAbsolute=$mainPhotoDirectory.DIRECTORY_SEPARATOR.$migratedName;
+                            if(!copy($resolvedOld,$migratedAbsolute))throw new RuntimeException('A retained Main Photo could not be copied into the product photo folder.');
+                            $migratedOldPhotoFiles[]=$resolvedOld;
+                            $survivingPhoto['photo_path']='uploads/products/'.$productCodeFolder.'/Main Photos/'.$migratedName;
+                        }
+                    }
+                    unset($survivingPhoto);
                 }
-                if ($newPhotoFile !== null && $oldPhotoFile !== null && is_file($oldPhotoFile) && realpath($oldPhotoFile) !== realpath($newPhotoFile)) @unlink($oldPhotoFile);
+                $finalMainPhotoPaths=array_merge(array_map(static fn($photo)=>(string)$photo['photo_path'],$survivingPhotos),$newMainPhotoPaths);
+                $newPhotoPath=$finalMainPhotoPaths[0]??null;$newPhotoFile=$uploadedEditMainFiles[0]??null;
+                try {
+                    $update=$pdo->prepare('UPDATE marketplace_products SET category_id=?,subcategory_id=?,product_name=?,brand=?,model=?,description=?,photo_path=?,manufacturer=?,supply_chain_entity=?,country_of_origin=?,uom=?,retail_price=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,discount_type=?,discount_value=?,selling_price=?,batch_number=?,weight=?,weight_unit=?,length=?,width=?,dimension_unit=?,product_status=? WHERE id=?');
+                    $update->execute([$newCategoryId,$newSubcategoryId,$row[0],$row[2]?:null,$row[3]?:null,$row[7]?:null,$newPhotoPath,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[25],$productId]);
+                    if($removedMainPhotos){$deletePhoto=$pdo->prepare('DELETE FROM marketplace_product_photos WHERE id=? AND product_id=?');foreach($removedMainPhotos as $removedPhoto)if((int)$removedPhoto['id']>0)$deletePhoto->execute([(int)$removedPhoto['id'],$productId]);}
+                    $updatePhotoPath=$pdo->prepare('UPDATE marketplace_product_photos SET photo_path=?,sort_order=? WHERE id=? AND product_id=?');
+                    foreach($survivingPhotos as $photoOrder=>$survivingPhoto)if((int)$survivingPhoto['id']>0)$updatePhotoPath->execute([(string)$survivingPhoto['photo_path'],$photoOrder,(int)$survivingPhoto['id'],$productId]);
+                    $insertPhoto=$pdo->prepare('INSERT INTO marketplace_product_photos(product_id,photo_path,sort_order) VALUES(?,?,?)');$photoOrder=count($survivingPhotos);
+                    foreach($newMainPhotoPaths as $newPath)$insertPhoto->execute([$productId,$newPath,$photoOrder++]);
+                    $pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?')->execute([$newPhotoPath,$productId]);
+                } catch(Throwable $updateError){foreach($uploadedEditMainFiles as $uploadedFile)if(is_file($uploadedFile))@unlink($uploadedFile);throw $updateError;}
+                // Synchronize variation values while preserving image paths for unchanged tags.
+                $existingTagQuery = $pdo->prepare('SELECT id,tag_type,tag_value,photo_path FROM marketplace_product_tags WHERE product_id=?');
+                $existingTagQuery->execute([$productId]);
+                $existingTagRows = $existingTagQuery->fetchAll(PDO::FETCH_ASSOC);
+                $existingTagMap = [];
+                foreach ($existingTagRows as $existingTagRow) {
+                    $tagKey = (string)$existingTagRow['tag_type'] . "\\0" . (string)$existingTagRow['tag_value'];
+                    $existingTagMap[$tagKey] = $existingTagRow;
+                }
+                $submittedTagMap = [];
+                foreach ($row[11] as $tagType => $tagValues) {
+                    foreach ($tagValues as $tagIndex => $tagValue) {
+                        $tagKey = (string)$tagType . "\\0" . (string)$tagValue;
+                        $submittedTagMap[$tagKey] = [(string)$tagType,(string)$tagValue,(int)$tagIndex];
+                    }
+                }
+                foreach ($existingTagMap as $tagKey => $existingTagRow) {
+                    if (!isset($submittedTagMap[$tagKey])) {
+                        $deleteTag = $pdo->prepare('DELETE FROM marketplace_product_tags WHERE id=? AND product_id=?');
+                        $deleteTag->execute([(int)$existingTagRow['id'],$productId]);
+                        $oldTagPhoto = (string)($existingTagRow['photo_path'] ?? '');
+                        if ($oldTagPhoto !== '') {
+                            $tagPhotoFile = dirname(__DIR__) . '/public/' . ltrim($oldTagPhoto, '/\\\\');
+                            $publicRoot = realpath(dirname(__DIR__) . '/public');
+                            $resolvedTagPhoto = realpath($tagPhotoFile);
+                            if ($publicRoot && $resolvedTagPhoto && str_starts_with($resolvedTagPhoto, $publicRoot . DIRECTORY_SEPARATOR) && is_file($resolvedTagPhoto)) @unlink($resolvedTagPhoto);
+                        }
+                    }
+                }
+                $variationPhotoUploads = $_FILES['product_tag_photos'] ?? [];
+                $variationUploadField = static function(array $files, array $keys): array {
+                    $entry=[];
+                    foreach(['name','type','tmp_name','error','size'] as $field){
+                        $value=$files[$field]??null;
+                        foreach($keys as $key){if(!is_array($value)||!array_key_exists($key,$value)){$value=null;break;}$value=$value[$key];}
+                        $entry[$field]=$value;
+                    }
+                    return $entry;
+                };
+                $variationPhotoDirectory=dirname(__DIR__).'/public/uploads/products/'.$productCodeFolder.'/Variation Photos';
+                foreach ($submittedTagMap as $tagKey => [$tagType,$tagValue,$tagIndex]) {
+                    $tagFile=$variationUploadField($variationPhotoUploads,[0,$tagType,$tagIndex]);
+                    $hasNewUpload=(int)($tagFile['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE;
+                    $tagPhotoPath=(string)($existingTagMap[$tagKey]['photo_path']??'');
+                    if(!isset($existingTagMap[$tagKey])&&!$hasNewUpload)throw new RuntimeException('Upload at least one photo for every new product variation ('.$tagValue.').');
+                    if($hasNewUpload){
+                        if((int)$tagFile['error']!==UPLOAD_ERR_OK)throw new RuntimeException('A variation photo could not be uploaded.');
+                        $tmp=(string)$tagFile['tmp_name'];$size=(int)$tagFile['size'];
+                        if($size<1||$size>5*1024*1024||!is_uploaded_file($tmp))throw new RuntimeException('Each variation photo must be a valid image no larger than 5 MB.');
+                        $imageInfo=@getimagesize($tmp);$mime=strtolower((string)($imageInfo['mime']??''));$ext=strtolower(pathinfo((string)$tagFile['name'],PATHINFO_EXTENSION));
+                        $allowed=['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'image/avif'=>['avif']];
+                        if(!isset($allowed[$mime])||!in_array($ext,$allowed[$mime],true))throw new RuntimeException('Variation photos must be JPG, JPEG, WEBP, PNG, or AVIF images no larger than 5 MB.');
+                        if(!is_dir($variationPhotoDirectory)&&!mkdir($variationPhotoDirectory,0755,true)&&!is_dir($variationPhotoDirectory))throw new RuntimeException('The product Variation Photos folder could not be created.');
+                        $tagSlug=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$tagValue),'_');if($tagSlug==='')$tagSlug='variation';
+                        $filename='variation_'.strtolower($tagType).'_'.$tagSlug.'_'.bin2hex(random_bytes(6)).'.'.$ext;
+                        $destination=$variationPhotoDirectory.DIRECTORY_SEPARATOR.$filename;
+                        if(!move_uploaded_file($tmp,$destination))throw new RuntimeException('A variation photo could not be saved.');
+                        $tagPhotoPath='uploads/products/'.$productCodeFolder.'/Variation Photos/'.$filename;
+                    }
+                    if(isset($existingTagMap[$tagKey])){
+                        if($hasNewUpload){
+                            $updateTagPhoto=$pdo->prepare('UPDATE marketplace_product_tags SET photo_path=? WHERE id=? AND product_id=?');
+                            $updateTagPhoto->execute([$tagPhotoPath,(int)$existingTagMap[$tagKey]['id'],$productId]);
+                            $oldPath=(string)($existingTagMap[$tagKey]['photo_path']??'');
+                            if($oldPath!==''){
+                                $oldAbsolute=dirname(__DIR__).'/public/'.ltrim(str_replace('\\\\','/',$oldPath),'/');
+                                $publicRoot=realpath(dirname(__DIR__).'/public');$oldReal=realpath($oldAbsolute);
+                                if($publicRoot&&$oldReal&&str_starts_with($oldReal,$publicRoot.DIRECTORY_SEPARATOR)&&is_file($oldReal))@unlink($oldReal);
+                            }
+                        }
+                    }else{
+                        $insertTag=$pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,?,?)');
+                        $insertTag->execute([$productId,$tagType,$tagValue,$tagPhotoPath,count($existingTagMap)+$tagIndex]);
+                    }
+                }
+                // Remove marked files only after their database rows have been removed.
+                $publicPhotoRoot=realpath(dirname(__DIR__).'/public');
+                foreach($removedPhotoPaths as $removedRelativePath){$candidatePhotoFile=dirname(__DIR__).'/public/'.ltrim(str_replace('\\','/',$removedRelativePath),'/');$resolvedPhotoFile=realpath($candidatePhotoFile);if($publicPhotoRoot&&$resolvedPhotoFile&&str_starts_with($resolvedPhotoFile,$publicPhotoRoot.DIRECTORY_SEPARATOR)&&is_file($resolvedPhotoFile))@unlink($resolvedPhotoFile);}
+                foreach($migratedOldPhotoFiles as $oldMigratedFile)if(is_file($oldMigratedFile))@unlink($oldMigratedFile);
                 $categoryChanged = (int)($existingProduct['category_id'] ?? 0) !== (int)($newCategoryId ?? 0);
                 $subcategoryChanged = (int)($existingProduct['subcategory_id'] ?? 0) !== (int)($newSubcategoryId ?? 0);
                 $nameChanged = (string)$existingProduct['product_name'] !== $row[0];
                 $modelChanged = (string)($existingProduct['model'] ?? '') !== $row[3];
                 $descriptionChanged = (string)($existingProduct['description'] ?? '') !== $row[7];
-                $photoChanged = $newPhotoFile !== null;
+                $photoChanged = !empty($removedMainPhotos) || !empty($newMainPhotoPaths);
                 $brandChanged = (string)($existingProduct['brand'] ?? '') !== $row[2];
                 $changedCount = (int)$categoryChanged + (int)$subcategoryChanged + (int)$nameChanged + (int)$modelChanged + (int)$descriptionChanged + (int)$photoChanged + (int)$brandChanged;
                 if (($categoryChanged || $subcategoryChanged) && $changedCount === (int)$categoryChanged + (int)$subcategoryChanged) {
@@ -692,6 +820,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     } while ($exists->fetchColumn() || in_array($generatedCode, $reservedCodes, true));
                     $row[1] = $generatedCode;
                     $reservedCodes[] = $generatedCode;
+                    do {
+                        $generatedBarcode = 'BC' . date('ymd') . str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                        $barcodeExists = $pdo->prepare('SELECT 1 FROM marketplace_products WHERE barcode_value = ? LIMIT 1');
+                        $barcodeExists->execute([$generatedBarcode]);
+                    } while ($barcodeExists->fetchColumn());
+                    $row[31] = $generatedBarcode;
                 }
                 unset($row);
                 $uploadedProductFiles = [];
@@ -722,15 +856,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 };
                 $pdo->beginTransaction();
                 try {
-                    $insert=$pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,uom,retail_price,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,discount_type,discount_value,selling_price,batch_number,weight,weight_unit,height,length,width,dimension_unit,depth,product_status,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)');
+                    $insert=$pdo->prepare('INSERT INTO marketplace_products(category_id,subcategory_id,product_name,product_code,barcode_value,brand,model,manufacturer,supply_chain_entity,country_of_origin,description,uom,retail_price,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,discount_type,discount_value,selling_price,batch_number,weight,weight_unit,height,length,width,dimension_unit,depth,product_status,photo_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)');
                     $photoUpdate=$pdo->prepare('UPDATE marketplace_products SET photo_path=? WHERE id=?');
                     $photoInsert=$pdo->prepare('INSERT INTO marketplace_product_photos(product_id,photo_path,sort_order) VALUES(?,?,?)');
                     $tagInsert=$pdo->prepare('INSERT INTO marketplace_product_tags(product_id,tag_type,tag_value,photo_path,sort_order) VALUES(?,?,?,?,?)');
                     foreach($rows as $index=>$row){
-                        $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[23]!==''?$row[23]:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[24]!==''?$row[24]:null,$row[25]]);
+                        $insert->execute([$row[8]?:null,$row[9]?:null,$row[0],$row[1],$row[31],$row[2]?:null,$row[3]?:null,$row[4]?:null,$row[5]?:null,$row[6]?:null,$row[7]?:null,$row[12]?:null,$row[13],$row[14],$row[26],$row[15],$row[16],$row[17],$row[18],$row[19],$row[20],$row[21]?:null,$row[22]!==''?$row[22]:null,$row[27]?:null,$row[23]!==''?$row[23]:null,$row[28]!==''?$row[28]:null,$row[29]!==''?$row[29]:null,$row[30]?:null,$row[24]!==''?$row[24]:null,$row[25]]);
                         $newProductId=(int)$pdo->lastInsertId();$uploadIndex=(int)($row[10]??$index);
                         $safeName=trim((string)preg_replace('/[^A-Za-z0-9]+/','_',$row[0]),'_');if($safeName==='')$safeName='product';
-                        $folderName=$row[1];$folder=$uploadDirectory.'/'.$folderName;
+                        $folderName=trim((string)$row[1]);if($folderName===''||!preg_match('/^[A-Za-z0-9_-]+$/',$folderName))throw new RuntimeException('The generated Product Code is invalid for its photo folder.');$folder=$uploadDirectory.'/'.$folderName;
                         if(!is_dir($folder)&&!mkdir($folder,0755,true)&&!is_dir($folder))throw new RuntimeException('The product-specific photo folder could not be created.');
                         $createdProductFolders[]=$folder;$submittedMainPhotoNames=$productPhotoUploads['name'][$uploadIndex]??[];if(is_array($submittedMainPhotoNames)&&count(array_filter($submittedMainPhotoNames,static fn($name):bool=>trim((string)$name)!==''))>5)throw new RuntimeException('You can upload a maximum of 5 main photos per product.');$count=0;$firstPath=null;
                         for($photoIndex=0;$photoIndex<5;$photoIndex++){
@@ -764,7 +898,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                     }
                     throw $insertError;
                 }
-                $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1], 'brand'=>$row[2] ?? '', 'model'=>$row[3] ?? ''], $rows);
+                $marketplaceCreatedProducts = array_map(static fn($row) => ['name'=>$row[0], 'code'=>$row[1], 'barcode'=>$row[31] ?? '', 'brand'=>$row[2] ?? '', 'model'=>$row[3] ?? ''], $rows);
                 $marketplaceNotice = '';
                 $marketplaceTab = 'products';
                 $marketplaceEditProductId = 0;
@@ -776,62 +910,122 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $sku = $batchNumber;
             $stock = max(0, (float)str_replace(',', '', (string)($_POST['stock_on_hand'] ?? 0)));
             $sold = max(0, (int)($_POST['sold'] ?? 0));
-            $vatRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['vat_rate'] ?? 0)))) / 100;
-            $percentageTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['percentage_tax_rate'] ?? 0)))) / 100;
-            $incomeTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['income_tax_rate'] ?? 0)))) / 100;
-            $withholdingTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['withholding_tax_rate'] ?? 0)))) / 100;
-            $otherTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['other_tax_rate'] ?? 0)))) / 100;
-            $tax = $vatRate + $percentageTaxRate + $incomeTaxRate + $withholdingTaxRate + $otherTaxRate;
-            $retailPrice = max(0, (float)str_replace(',', '', (string)($_POST['retail_price'] ?? 0)));
-            $sellingPrice = round($retailPrice * (1 + $tax), 2);
-            $unitPrice = $sellingPrice;
-            $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
-            $productCheck = $pdo->prepare('SELECT id,product_name,product_code FROM marketplace_products WHERE id=? LIMIT 1');
+            $storageLocation = trim((string)($_POST['storage_location'] ?? ''));
+            $number = static fn($key) => max(0, (float)str_replace(',', '', (string)($_POST[$key] ?? 0)));
+            if ($inventoryId === 0) $stock = $number('quantity_to_add');
+            $averageDailyUsage = $number('average_daily_usage');
+            $maxDailyUsage = $number('max_daily_usage');
+            $averageLeadTime = $number('average_lead_time');
+            $maxLeadTime = $number('max_lead_time');
+            $safetyStockLevel = max(0, ($maxDailyUsage * $maxLeadTime) - ($averageDailyUsage * $averageLeadTime));
+            $targetStockLevel = $number('target_stock_level');
+            $onOrderStock = $number('on_order_stock');
+            $backorders = $number('backorders');
+            $reorderPoint = ($averageDailyUsage * $averageLeadTime) + $safetyStockLevel;
+            $reorderQuantity = max(0, $targetStockLevel - ($stock + $onOrderStock - $backorders));
+            $stockValue = 0.0;
+            $status = trim((string)($_POST['inventory_status'] ?? 'Sufficient'));
+            $stockStatus = trim((string)($_POST['stock_status'] ?? 'Available'));
+            $expirationDateInput = trim((string)($_POST['expiration_date'] ?? ''));
+            $expirationDate = '';
+            if ($expirationDateInput !== '') {
+                $parsedExpirationDate = DateTime::createFromFormat('!F j, Y', $expirationDateInput);
+                $dateErrors = DateTime::getLastErrors();
+                if (!$parsedExpirationDate || ($dateErrors && ($dateErrors['warning_count'] || $dateErrors['error_count']))) throw new RuntimeException('Enter the expiration date in the format July 10, 2026.');
+                $expirationDate = $parsedExpirationDate->format('Y-m-d');
+            }
+            if ($batchNumber === '') throw new RuntimeException('Please enter a Batch / Lot Number.');
+            $reorderStatuses = ['Sufficient','Low Stock','Critical','On Order','Overstocked'];
+            $stockStatuses = ['Available','On Hand','Reserved','In Transit','Expired','Damaged','Quarantined','Out of Stock'];
+            if ($inventoryId === 0) {
+                // Reorder Status is derived server-side; awaiting delivery takes priority.
+                if ($onOrderStock > 0) $status = 'On Order';
+                elseif ($reorderPoint > 0 && $stock < ($reorderPoint * 0.20)) $status = 'Critical';
+                elseif ($reorderPoint > 0 && $stock < $reorderPoint) $status = 'Low Stock';
+                elseif ($reorderPoint > 0 && $stock > ($reorderPoint * 1.20)) $status = 'Overstocked';
+                else $status = 'Sufficient';
+            }
+            if ($inventoryId === 0 && !in_array($stockStatus, $stockStatuses, true)) throw new RuntimeException('Choose a valid Stock Status.');
+            if ($sold > $stock) throw new RuntimeException('Sold quantity cannot exceed Stock on Hand.');
+            $productCheck = $pdo->prepare('SELECT id,product_name,product_code,manufacturer,supply_chain_entity,retail_price,selling_price FROM marketplace_products WHERE id=? LIMIT 1');
             $productCheck->execute([$productId]);
             $selectedInventoryProduct = $productCheck->fetch(PDO::FETCH_ASSOC);
             if (!$selectedInventoryProduct) throw new RuntimeException('Select a valid product before saving inventory.');
-            if ($batchNumber === '') throw new RuntimeException('Please enter a Batch Number.');
-            if (!in_array($status, $marketplaceInventoryStatuses, true)) throw new RuntimeException('Choose a valid inventory status.');
-            if ($sold > $stock) throw new RuntimeException('Sold quantity cannot exceed Stock on Hand.');
-            $manufacturer = trim((string)($_POST['manufacturer'] ?? ''));
-            $supplyEntity = trim((string)($_POST['supply_chain_type'] ?? ''));
-            $country = trim((string)($_POST['country_of_origin'] ?? ''));
-            if ($inventoryId === 0 && $manufacturer === '') throw new RuntimeException("Please enter the Manufacturer's Name.");
-            if ($inventoryId === 0 && trim((string)($_POST['stock_on_hand'] ?? '')) === '') throw new RuntimeException('Please enter Quantity in Stock.');
-            if ($inventoryId === 0 && trim((string)($_POST['retail_price'] ?? '')) === '') throw new RuntimeException('Please enter the Retail Price.');
-            if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Type.');
-            $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
-            $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
-            if ($inventoryId > 0) {
-                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=? WHERE id=?');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$inventoryId]);
-                $marketplaceNotice = '';
-                $marketplaceInventoryUpdateSuccess = [
-                    'product_name' => (string)$selectedInventoryProduct['product_name'],
-                    'product_id' => (string)($selectedInventoryProduct['product_code'] ?? '')
-                ];
+
+            if ($inventoryId === 0) {
+                $supplyEntity = trim((string)($selectedInventoryProduct['supply_chain_entity'] ?? ''));
+                if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) $supplyEntity = 'Manufacturer';
+                $retailPrice = max(0, (float)($selectedInventoryProduct['selling_price'] ?? $selectedInventoryProduct['retail_price'] ?? 0));
+                $sellingPrice = $retailPrice;
+                $unitPrice = $sellingPrice;
+                $stockValue = round($stock * $sellingPrice, 2);
+                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,stock_value,status,storage_location,reorder_point,reorder_quantity,average_daily_usage,max_daily_usage,average_lead_time,max_lead_time,safety_stock_level,target_stock_level,on_order_stock,backorders,expiration_date,stock_status,last_updated_details,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,0,0,0,0,0,0,$unitPrice,$retailPrice,$sellingPrice,$stockValue,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,$averageDailyUsage,$maxDailyUsage,$averageLeadTime,$maxLeadTime,$safetyStockLevel,$targetStockLevel,$onOrderStock,$backorders,$expirationDate ?: null,$stockStatus,'Initial inventory record created']);
+                $marketplaceInventoryCreateSuccess = ['product_name'=>(string)$selectedInventoryProduct['product_name'],'product_id'=>(string)($selectedInventoryProduct['product_code'] ?? '')];
             } else {
-                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status]);
-                $marketplaceNotice = '';
-                $marketplaceInventoryCreateSuccess = [
-                    'product_name' => (string)$selectedInventoryProduct['product_name'],
-                    'product_id' => (string)($selectedInventoryProduct['product_code'] ?? '')
+                // Preserve the established Edit Inventory workflow and its existing tax / metadata fields.
+                $vatRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['vat_rate'] ?? 0)))) / 100;
+                $percentageTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['percentage_tax_rate'] ?? 0)))) / 100;
+                $incomeTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['income_tax_rate'] ?? 0)))) / 100;
+                $withholdingTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['withholding_tax_rate'] ?? 0)))) / 100;
+                $otherTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['other_tax_rate'] ?? 0)))) / 100;
+                $tax = $vatRate + $percentageTaxRate + $incomeTaxRate + $withholdingTaxRate + $otherTaxRate;
+                $retailPrice = max(0, (float)str_replace(',', '', (string)($_POST['retail_price'] ?? 0)));
+                $sellingPrice = round($retailPrice * (1 + $tax), 2);
+                $unitPrice = $sellingPrice;
+                $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
+                if (!in_array($status, $marketplaceInventoryStatuses, true)) throw new RuntimeException('Choose a valid inventory status.');
+                $reorderPoint = max(0, (float)str_replace(',', '', (string)($_POST['reorder_point'] ?? 0)));
+                $reorderQuantity = max(0, (float)str_replace(',', '', (string)($_POST['reorder_quantity'] ?? 0)));
+                $manufacturer = trim((string)($_POST['manufacturer'] ?? ''));
+                $supplyEntity = trim((string)($_POST['supply_chain_type'] ?? ''));
+                $country = trim((string)($_POST['country_of_origin'] ?? ''));
+                if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Type.');
+                $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
+                $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
+                $beforeStmt = $pdo->prepare('SELECT i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.storage_location,i.reorder_point,i.reorder_quantity,i.status,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.retail_price,p.manufacturer,p.country_of_origin FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id WHERE i.id=? LIMIT 1');
+                $beforeStmt->execute([$inventoryId]);
+                $beforeInventory = $beforeStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                $changedInventoryFields = [];
+                $inventoryComparisons = [
+                    'Batch Number' => [(string)($beforeInventory['batch_number'] ?? ''),$batchNumber],
+                    'Supply Chain Type' => [(string)($beforeInventory['supply_chain_type'] ?? ''),$supplyEntity],
+                    'Quantity on Hand' => [(float)($beforeInventory['stock_on_hand'] ?? 0),$stock],
+                    'Sold Quantity' => [(float)($beforeInventory['sold'] ?? 0),$sold],
+                    'Storage Location' => [(string)($beforeInventory['storage_location'] ?? ''),$storageLocation],
+                    'Reorder Point' => [(float)($beforeInventory['reorder_point'] ?? 0),$reorderPoint],
+                    'Reorder Quantity' => [(float)($beforeInventory['reorder_quantity'] ?? 0),$reorderQuantity],
+                    'Reorder Status' => [(string)($beforeInventory['status'] ?? ''),$status],
+                    'Manufacturer' => [(string)($beforeInventory['manufacturer'] ?? ''),$manufacturer],
+                    'Country of Origin' => [(string)($beforeInventory['country_of_origin'] ?? ''),$country],
+                    'Retail Price' => [(float)($beforeInventory['retail_price'] ?? 0),$retailPrice],
+                    'VAT' => [(float)($beforeInventory['vat_rate'] ?? 0),$vatRate],
+                    'Percentage Tax' => [(float)($beforeInventory['percentage_tax_rate'] ?? 0),$percentageTaxRate],
+                    'Income Tax' => [(float)($beforeInventory['income_tax_rate'] ?? 0),$incomeTaxRate],
+                    'Withholding Tax' => [(float)($beforeInventory['withholding_tax_rate'] ?? 0),$withholdingTaxRate],
+                    'Other Taxes' => [(float)($beforeInventory['other_tax_rate'] ?? 0),$otherTaxRate],
                 ];
+                foreach ($inventoryComparisons as $fieldLabel => [$oldValue,$newValue]) if ($oldValue !== $newValue) $changedInventoryFields[] = $fieldLabel;
+                $lastUpdatedDetails = $changedInventoryFields ? 'Updated: ' . implode(', ', $changedInventoryFields) : 'Inventory record details reviewed; no tracked fields changed.';
+                $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=?,storage_location=?,reorder_point=?,reorder_quantity=?,last_updated_details=? WHERE id=?');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,$lastUpdatedDetails,$inventoryId]);
+                $marketplaceInventoryUpdateSuccess = ['product_name'=>(string)($selectedInventoryProduct['product_name'] ?? ''),'product_id'=>(string)($selectedInventoryProduct['product_code'] ?? '')];
             }
+            $marketplaceNotice = '';
             $marketplaceTab = 'inventory';
             $marketplaceEditInventoryId = 0;
         } elseif ($action === 'marketplace_add_stock') {
             $inventoryId = max(0, (int)($_POST['inventory_id'] ?? 0));
             $quantity = max(0, (float)str_replace(',', '', (string)($_POST['load_quantity'] ?? 0)));
             if ($quantity <= 0) throw new RuntimeException('Enter a loaded quantity greater than zero.');
-            $stmt = $pdo->prepare('UPDATE marketplace_inventory SET stock_on_hand=stock_on_hand+?,latest_loaded=NOW() WHERE id=?');
-            $stmt->execute([$quantity,$inventoryId]);
+            $stmt = $pdo->prepare("UPDATE marketplace_inventory SET stock_on_hand=stock_on_hand+?,latest_loaded=NOW(),last_updated_details=? WHERE id=?");
+            $stmt->execute([$quantity,'Quantity on Hand increased by ' . number_format($quantity,2,'.',','),$inventoryId]);
             if (!$stmt->rowCount()) throw new RuntimeException('The inventory record could not be found.');
             $marketplaceNotice = 'Stock successfully loaded.';
             $marketplaceTab = 'inventory';
         }
     } catch (Throwable $exception) {
+        if(isset($uploadedEditMainFiles)&&is_array($uploadedEditMainFiles))foreach($uploadedEditMainFiles as $uploadedEditFile)if(is_file($uploadedEditFile))@unlink($uploadedEditFile);
         if (($action ?? '') === 'marketplace_save_product' && $exception instanceof RuntimeException && $exception->getMessage() === 'DUPLICATE_PRODUCT_MATCH') {
             $marketplaceDuplicateProduct = true;
             if (!$marketplaceProductInputRows) $marketplaceProductInputRows = [[
@@ -866,6 +1060,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
 
 $marketplaceCategories = $pdo->query('SELECT id,parent_id,name,description,icon,created_at FROM marketplace_categories ORDER BY COALESCE(parent_id,id) DESC, (parent_id IS NULL) DESC, created_at DESC, id DESC')->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceProducts = $pdo->query("SELECT p.*,c.name AS category_name,sc.name AS subcategory_name,i.id AS inventory_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate AS inventory_tax_rate,i.vat_rate AS inventory_vat_rate,i.percentage_tax_rate AS inventory_percentage_tax_rate,i.income_tax_rate AS inventory_income_tax_rate,i.withholding_tax_rate AS inventory_withholding_tax_rate,i.other_tax_rate AS inventory_other_tax_rate,i.unit_price AS inventory_unit_price,i.retail_price AS inventory_retail_price,i.selling_price AS inventory_selling_price,i.status AS inventory_status,i.latest_loaded,i.created_at AS inventory_created_at,i.updated_at AS inventory_updated_at FROM marketplace_products p LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id LEFT JOIN marketplace_inventory i ON i.product_id=p.id ORDER BY p.id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceProductPhotosByProduct = [];
+$marketplacePhotoRows = $pdo->query('SELECT id,product_id,photo_path,sort_order FROM marketplace_product_photos ORDER BY product_id ASC,sort_order ASC,id ASC')->fetchAll(PDO::FETCH_ASSOC);
+foreach ($marketplacePhotoRows as $photoRow) { $photoProductId=(int)$photoRow['product_id']; if(!isset($marketplaceProductPhotosByProduct[$photoProductId]))$marketplaceProductPhotosByProduct[$photoProductId]=[]; $marketplaceProductPhotosByProduct[$photoProductId][]=['id'=>(int)$photoRow['id'],'path'=>(string)$photoRow['photo_path']]; }
+foreach($marketplaceProducts as $productRow){$photoProductId=(int)$productRow['id'];if(empty($marketplaceProductPhotosByProduct[$photoProductId])&&!empty($productRow['photo_path']))$marketplaceProductPhotosByProduct[$photoProductId]=[['id'=>0,'path'=>(string)$productRow['photo_path']]];}
+$marketplaceProductTagsByProduct = [];
+$marketplaceProductVariationPhotosByProduct = [];
+$marketplaceTagRows = $pdo->query('SELECT product_id,tag_type,tag_value,photo_path FROM marketplace_product_tags ORDER BY sort_order ASC,id ASC')->fetchAll(PDO::FETCH_ASSOC);
+foreach ($marketplaceTagRows as $tagRow) {
+    $tagProductId = (int)$tagRow['product_id'];
+    $tagType = (string)$tagRow['tag_type'];
+    if (!isset($marketplaceProductTagsByProduct[$tagProductId])) $marketplaceProductTagsByProduct[$tagProductId] = ['colors'=>[],'sizes'=>[],'storage'=>[],'type'=>[],'others'=>[]];
+    if (isset($marketplaceProductTagsByProduct[$tagProductId][$tagType])) $marketplaceProductTagsByProduct[$tagProductId][$tagType][] = (string)$tagRow['tag_value'];
+    if (!empty($tagRow['photo_path'])) { if (!isset($marketplaceProductVariationPhotosByProduct[$tagProductId])) $marketplaceProductVariationPhotosByProduct[$tagProductId] = []; $marketplaceProductVariationPhotosByProduct[$tagProductId][] = ['type'=>$tagType,'value'=>(string)$tagRow['tag_value'],'path'=>(string)$tagRow['photo_path']]; }
+}
 $marketplaceAddInventoryProduct = null;
 if ($marketplaceAddInventoryProductId > 0) {
     foreach ($marketplaceProducts as $candidateProduct) {
@@ -875,7 +1083,7 @@ if ($marketplaceAddInventoryProductId > 0) {
         }
     }
 }
-$marketplaceInventory = $pdo->query("SELECT p.id AS linked_product_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name,i.id,i.product_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.latest_loaded,i.created_at,i.updated_at FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY COALESCE(i.created_at,p.created_at) DESC,COALESCE(i.id,p.id) DESC")->fetchAll(PDO::FETCH_ASSOC);
+$marketplaceInventory = $pdo->query("SELECT p.id AS linked_product_id,p.product_name,p.product_code,p.brand,p.model,p.description,p.photo_path,p.manufacturer,p.supply_chain_entity,p.country_of_origin,c.name AS category_name,sc.name AS subcategory_name,i.id,i.product_id,i.sku,i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.tax_rate,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.unit_price,i.retail_price,i.selling_price,i.status,i.storage_location,i.reorder_point,i.reorder_quantity,i.last_updated_details,i.latest_loaded,i.created_at,i.updated_at,p.barcode_value,p.retail_price AS product_retail_price,p.selling_price AS product_selling_price FROM marketplace_products p LEFT JOIN marketplace_inventory i ON i.product_id=p.id LEFT JOIN marketplace_categories c ON c.id=p.category_id LEFT JOIN marketplace_categories sc ON sc.id=p.subcategory_id ORDER BY COALESCE(i.created_at,p.created_at) DESC,COALESCE(i.id,p.id) DESC")->fetchAll(PDO::FETCH_ASSOC);
 $marketplaceTotalIncome = (float)$pdo->query('SELECT COALESCE(SUM(net_income),0) FROM marketplace_purchases')->fetchColumn();
 $marketplaceProductCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_products')->fetchColumn();
 $marketplaceInventoryCount = (int)$pdo->query('SELECT COUNT(*) FROM marketplace_inventory')->fetchColumn();
@@ -891,7 +1099,7 @@ if ($marketplaceEditProductId > 0 || $marketplaceViewProductId > 0) {
 $marketplaceInventoryForm = null;
 if ($marketplaceEditInventoryId > 0 || $marketplaceViewInventoryId > 0) {
     $targetId=$marketplaceEditInventoryId > 0 ? $marketplaceEditInventoryId : $marketplaceViewInventoryId;
-    $stmt=$pdo->prepare('SELECT * FROM marketplace_inventory WHERE id=? LIMIT 1');$stmt->execute([$targetId]);$marketplaceInventoryForm=$stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    $stmt=$pdo->prepare('SELECT i.*,p.product_name,p.product_code,p.manufacturer,p.supply_chain_entity,p.country_of_origin FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id WHERE i.id=? LIMIT 1');$stmt->execute([$targetId]);$marketplaceInventoryForm=$stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     if ($marketplaceInventoryForm) {
         $inventoryProductMeta = $pdo->prepare('SELECT product_name,manufacturer,supply_chain_entity,country_of_origin FROM marketplace_products WHERE id=? LIMIT 1');
         $inventoryProductMeta->execute([(int)$marketplaceInventoryForm['product_id']]);
@@ -942,29 +1150,22 @@ $numberToWords = static function(int $number): string {
 @media(max-width:700px){.marketplace-form{grid-template-columns:1fr}.marketplace-form .wide{grid-column:auto}}
 .marketplace-product-add-card{width:min(1600px,96vw)!important;max-width:1600px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto}
 #marketplace-inventory-add-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;box-sizing:border-box}
-#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+#marketplace-inventory-add-modal .marketplace-product-add-card{width:min(1050px,96vw)!important;max-width:1050px!important;box-sizing:border-box}
+#marketplace-inventory-add-modal .marketplace-inventory-product-summary{margin:0 0 16px;padding:10px 12px;border:1px solid rgba(225,185,55,.28);border-radius:9px;background:rgba(225,185,55,.07);color:var(--text);font-size:12px;line-height:1.6}
+#marketplace-inventory-add-modal .marketplace-inventory-product-summary strong{color:#f0c94a;font-weight:700}
+#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 #marketplace-inventory-add-modal .marketplace-form>label{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:6px!important;text-align:left!important;min-width:0}
-#marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select,#marketplace-inventory-add-modal .marketplace-form>label>textarea{display:block;width:100%;box-sizing:border-box;margin:0}
-/* Add Inventory: keep Product Name, Product ID, and Batch Number on row one. */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(1){grid-column:1/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(2){grid-column:3/4}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(3){grid-column:4/6}
-/* Row two: Manufacturer (2 columns), Supply Chain Type (2), Quantity (1). */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(4){grid-column:1/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(5){grid-column:3/5}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(6){grid-column:5/6}
-/* Row three: five equally sized tax fields. */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(7){grid-column:1/2}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(8){grid-column:2/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(9){grid-column:3/4}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(10){grid-column:4/5}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(11){grid-column:5/6}
-/* Final row: Retail Price, Selling Price, Status. */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(12){grid-column:1/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(13){grid-column:3/5}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(14){grid-column:5/6}
-#marketplace-inventory-add-modal .marketplace-form input[readonly]{background:#29252a!important;color:#999!important;cursor:not-allowed}
+#marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select{display:block;width:100%;box-sizing:border-box;margin:0}
+#marketplace-inventory-add-modal .marketplace-form input[readonly]{background:#29252a!important;color:#d8d1d7!important;cursor:not-allowed}
+#marketplace-inventory-add-modal #marketplace-reorder-status-display:disabled{filter:saturate(.82);opacity:.78!important;color:#f4f0f2!important;-webkit-text-fill-color:#f4f0f2!important}
 #marketplace-inventory-add-modal .marketplace-form>.wide{grid-column:1/-1}
+#marketplace-inventory-add-modal .marketplace-inventory-date-wrap{display:flex;align-items:center;gap:6px;position:relative}
+#marketplace-inventory-add-modal .marketplace-inventory-date-wrap>input[type="text"]{flex:1;min-width:0}
+#marketplace-inventory-add-modal .marketplace-inventory-date-trigger{width:38px;min-width:38px;height:38px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.07);color:inherit;cursor:pointer}
+#marketplace-inventory-add-modal #marketplace-expiration-date-picker{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;right:0;bottom:0}
+
+@media(max-width:850px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:1fr}}
 /* Keep Edit Inventory visually consistent with the Add Inventory modal. */
 #marketplace-inventory-edit-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;box-sizing:border-box}
 #marketplace-inventory-edit-modal .marketplace-form{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
@@ -987,7 +1188,8 @@ $numberToWords = static function(int $number): string {
 #marketplace-inventory-edit-modal .marketplace-form input[readonly]{background:#29252a!important;color:#999!important;cursor:not-allowed}
 #marketplace-inventory-edit-modal .marketplace-form>.wide{grid-column:1/-1}
 @media(max-width:700px){#marketplace-inventory-edit-modal .marketplace-form{grid-template-columns:1fr}#marketplace-inventory-edit-modal .marketplace-form>label{grid-column:1/-1!important}}
-@media(max-width:700px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:1fr}#marketplace-inventory-add-modal .marketplace-form>label{grid-column:1/-1!important}}.marketplace-product-entry-row{display:grid;grid-template-columns:minmax(155px,1.45fr) minmax(135px,1.25fr) minmax(100px,.9fr) minmax(90px,.8fr) minmax(150px,1.35fr) minmax(190px,1.7fr) auto;align-items:end;gap:8px;min-width:0;width:100%;max-width:100%;box-sizing:border-box;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}.marketplace-product-entry-row label{display:grid;gap:6px;min-width:0;max-width:100%;overflow:hidden;color:#d7cbd0;font:12px Ubuntu,sans-serif}.marketplace-product-entry-row label.wide{grid-column:auto;min-width:0}.marketplace-product-entry-row input,.marketplace-product-entry-row select,.marketplace-product-entry-row textarea{box-sizing:border-box;width:100%;min-width:0;max-width:100%;height:36px;min-height:36px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:#171317;color:#fff;font:12px Ubuntu,sans-serif}.marketplace-product-entry-row input[type=file]{padding:7px 5px;font-size:10px}.marketplace-product-entry-row textarea{padding:9px 10px;resize:vertical}.marketplace-product-category-group{min-width:0;display:grid;gap:6px}.marketplace-product-category-selects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0;width:100%}.marketplace-product-category-selects select{min-width:0;width:100%}.marketplace-product-edit-photo-preview-wrap{display:flex;align-items:center;justify-content:center;min-height:132px;padding:10px;border:1px dashed rgba(208,139,158,.45);border-radius:10px;background:rgba(255,255,255,.025);color:#bfaeb5;font:12px Ubuntu,sans-serif}.marketplace-product-edit-photo-preview{display:block;max-width:100%;max-height:190px;object-fit:contain;border-radius:7px}.marketplace-product-edit-photo-preview[hidden]{display:none!important}.marketplace-product-edit-card{width:min(600px,94vw)!important;max-width:600px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;padding:20px!important;box-sizing:border-box}.marketplace-product-edit-card h2{margin:0 0 14px}.marketplace-product-edit-form{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:0;margin:0;border:0;background:transparent}.marketplace-product-edit-form>.marketplace-product-category-group{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:center;gap:10px;min-width:0;width:100%;box-sizing:border-box}.marketplace-product-edit-form .marketplace-product-category-label,.marketplace-product-edit-form .marketplace-edit-row-label{display:block;margin:0;color:#d7cbd0;font:12px Ubuntu,sans-serif;line-height:1.4}.marketplace-product-edit-form .marketplace-product-category-selects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0;width:100%}.marketplace-product-edit-form .marketplace-product-category-selects select{width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-edit-row{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:center;gap:10px;min-width:0;margin:0;color:#d7cbd0;font:12px Ubuntu,sans-serif}.marketplace-product-edit-form .marketplace-edit-row>span{display:block}.marketplace-product-edit-form .marketplace-edit-row input,.marketplace-product-edit-form .marketplace-edit-row textarea{width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-edit-row input[readonly]{background:#29252a!important;color:#999!important;cursor:not-allowed}.marketplace-product-edit-form .marketplace-edit-description-row{align-items:start}.marketplace-product-edit-form .marketplace-edit-description-row textarea{min-height:66px}.marketplace-product-edit-form>.marketplace-product-edit-photo-layout{display:block;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-field{display:grid;gap:8px;min-width:0}.marketplace-product-edit-form .marketplace-edit-upload-row{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:start;gap:10px;min-width:0}.marketplace-product-edit-form .marketplace-edit-upload-control{display:grid;gap:6px;min-width:0}.marketplace-product-edit-form .marketplace-edit-upload-control input[type=file]{width:100%;max-width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-edit-upload-control small{color:#c7b7be;font:11px Ubuntu,sans-serif}.marketplace-product-edit-form .marketplace-product-edit-photo-previews{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-current{display:grid;gap:7px;min-width:0}.marketplace-product-edit-form>.marketplace-category-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}@media(max-width:480px){.marketplace-product-edit-card{width:94vw!important;padding:16px!important}.marketplace-product-edit-form>.marketplace-product-category-group,.marketplace-product-edit-form .marketplace-edit-row,.marketplace-product-edit-form .marketplace-edit-upload-row{grid-template-columns:1fr;gap:6px}.marketplace-product-edit-form .marketplace-product-edit-photo-previews{grid-template-columns:1fr}}.marketplace-product-edit-photo-field input[type=file]{grid-column:1;width:100%;max-width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-product-edit-photo-field small{grid-column:1;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-previews{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-current{display:grid;gap:8px;min-width:0}.marketplace-product-edit-form>.marketplace-category-modal-actions{grid-column:1/-1}@media(max-width:700px){.marketplace-product-edit-form{grid-template-columns:1fr}.marketplace-product-edit-form>.marketplace-product-category-group,.marketplace-product-edit-form>.marketplace-product-edit-photo-layout,.marketplace-product-edit-form>.marketplace-category-modal-actions{grid-column:1}.marketplace-product-edit-form .marketplace-product-category-selects,.marketplace-product-edit-form .marketplace-product-edit-photo-previews{grid-template-columns:1fr}}.marketplace-product-edit-photo-field input[type=file]{box-sizing:border-box;width:100%;max-width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:#171317;color:#fff;font:11px Ubuntu,sans-serif}.marketplace-product-edit-photo-field small{color:#c7b7be;font:11px Ubuntu,sans-serif}.marketplace-product-row-actions{display:flex;align-items:end;justify-content:flex-end}.marketplace-product-row-actions .btn{white-space:nowrap;padding-left:10px;padding-right:10px}@media(max-width:1100px){.marketplace-product-entry-row{grid-template-columns:repeat(3,minmax(0,1fr))}.marketplace-product-category-group{grid-column:span 2}.marketplace-product-entry-row label:nth-of-type(4){grid-column:span 1}.marketplace-product-row-actions{justify-content:flex-start}}@media(max-width:650px){.marketplace-product-edit-photo-field,.marketplace-product-edit-photo-previews{grid-template-columns:1fr}.marketplace-product-category-label{max-width:100%}.marketplace-product-entry-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.marketplace-product-category-group{grid-column:1/-1}.marketplace-product-category-selects{grid-template-columns:repeat(2,minmax(0,1fr))}.marketplace-product-entry-row label:nth-of-type(5),.marketplace-product-entry-row label:nth-of-type(6){grid-column:1/-1}.marketplace-product-row-actions{grid-column:1/-1}}.marketplace-product-modal-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px}.marketplace-product-name-highlight{color:#e34b62;font-weight:900}.marketplace-product-id-highlight{color:#f2d35e;font-weight:900}.marketplace-product-brand-model-highlight{color:#87cefa;font-weight:900}.marketplace-product-created-details{width:100%;margin:18px 0 8px;text-align:left}.marketplace-product-created-details p{margin:7px 0;line-height:1.7}.marketplace-product-created-list{width:100%;box-sizing:border-box;margin:22px 0;padding-left:24px;text-align:left;color:#e9dce1;font:14px/1.9 Ubuntu,sans-serif}.marketplace-product-created-card{max-height:85vh;overflow:auto}.marketplace-category-modal[hidden]{display:none!important}@media(max-width:560px){.marketplace-product-modal-footer{align-items:flex-start;flex-direction:column}.marketplace-product-modal-footer>div{display:flex;gap:8px;align-self:flex-end}}.marketplace-category-panel>.admin-panel-head{margin-bottom:20px}
+@media(max-width:700px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:1fr}#marketplace-inventory-add-modal .marketplace-form>label{grid-column:1/-1!important}}.marketplace-product-entry-row{display:grid;grid-template-columns:minmax(155px,1.45fr) minmax(135px,1.25fr) minmax(100px,.9fr) minmax(90px,.8fr) minmax(150px,1.35fr) minmax(190px,1.7fr) auto;align-items:end;gap:8px;min-width:0;width:100%;max-width:100%;box-sizing:border-box;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}.marketplace-product-entry-row label{display:grid;gap:6px;min-width:0;max-width:100%;overflow:hidden;color:#d7cbd0;font:12px Ubuntu,sans-serif}.marketplace-product-entry-row label.wide{grid-column:auto;min-width:0}.marketplace-product-entry-row input,.marketplace-product-entry-row select,.marketplace-product-entry-row textarea{box-sizing:border-box;width:100%;min-width:0;max-width:100%;height:36px;min-height:36px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:#171317;color:#fff;font:12px Ubuntu,sans-serif}.marketplace-product-entry-row input[type=file]{padding:7px 5px;font-size:10px}.marketplace-product-entry-row textarea{padding:9px 10px;resize:vertical}.marketplace-product-category-group{min-width:0;display:grid;gap:6px}.marketplace-product-category-selects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0;width:100%}.marketplace-product-category-selects select{min-width:0;width:100%}.marketplace-product-edit-photo-preview-wrap{display:flex;align-items:center;justify-content:center;min-height:132px;padding:10px;border:1px dashed rgba(208,139,158,.45);border-radius:10px;background:rgba(255,255,255,.025);color:#bfaeb5;font:12px Ubuntu,sans-serif}.marketplace-product-edit-photo-preview{display:block;max-width:100%;max-height:190px;object-fit:contain;border-radius:7px}.marketplace-product-edit-photo-preview[hidden]{display:none!important}.marketplace-product-edit-card{width:min(800px,94vw)!important;max-width:800px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;padding:20px!important;box-sizing:border-box}.marketplace-product-edit-card h2{margin:0 0 14px}.marketplace-product-edit-form{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:0;margin:0;border:0;background:transparent}.marketplace-product-edit-form>.marketplace-product-category-group{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:center;gap:10px;min-width:0;width:100%;box-sizing:border-box}.marketplace-product-edit-form .marketplace-product-category-label,.marketplace-product-edit-form .marketplace-edit-row-label{display:block;margin:0;color:#d7cbd0;font:12px Ubuntu,sans-serif;line-height:1.4}.marketplace-product-edit-form .marketplace-product-category-selects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0;width:100%}.marketplace-product-edit-form .marketplace-product-category-selects select{width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-edit-row{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:center;gap:10px;min-width:0;margin:0;color:#d7cbd0;font:12px Ubuntu,sans-serif}.marketplace-product-edit-form .marketplace-edit-row>span{display:block}.marketplace-product-edit-form .marketplace-edit-row input,.marketplace-product-edit-form .marketplace-edit-row textarea{width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-edit-row input[readonly]{background:#29252a!important;color:#999!important;cursor:not-allowed}.marketplace-product-edit-form .marketplace-edit-description-row{align-items:start}.marketplace-product-edit-form .marketplace-edit-description-row textarea{min-height:66px}.marketplace-product-edit-form>.marketplace-product-edit-photo-layout{display:block;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-field{display:grid;gap:8px;min-width:0}.marketplace-product-edit-form .marketplace-edit-upload-row{display:grid;grid-template-columns:118px minmax(0,1fr);align-items:start;gap:10px;min-width:0}.marketplace-product-edit-form .marketplace-edit-upload-control{display:grid;gap:6px;min-width:0}.marketplace-product-edit-form .marketplace-edit-upload-control input[type=file]{width:100%;max-width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-edit-upload-control small{color:#c7b7be;font:11px Ubuntu,sans-serif}.marketplace-product-edit-form .marketplace-product-edit-photo-previews{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-current{display:grid;gap:7px;min-width:0}.marketplace-product-edit-form>.marketplace-category-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}@media(max-width:480px){.marketplace-product-edit-card{width:94vw!important;padding:16px!important}.marketplace-product-edit-form>.marketplace-product-category-group,.marketplace-product-edit-form .marketplace-edit-row,.marketplace-product-edit-form .marketplace-edit-upload-row{grid-template-columns:1fr;gap:6px}.marketplace-product-edit-form .marketplace-product-edit-photo-previews{grid-template-columns:1fr}}.marketplace-product-edit-photo-field input[type=file]{grid-column:1;width:100%;max-width:100%;min-width:0;box-sizing:border-box}.marketplace-product-edit-form .marketplace-product-edit-photo-field small{grid-column:1;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-previews{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}.marketplace-product-edit-form .marketplace-product-edit-photo-current{display:grid;gap:8px;min-width:0}.marketplace-product-edit-form>.marketplace-category-modal-actions{grid-column:1/-1}@media(max-width:700px){.marketplace-product-edit-form{grid-template-columns:1fr}.marketplace-product-edit-form>.marketplace-product-category-group,.marketplace-product-edit-form>.marketplace-product-edit-photo-layout,.marketplace-product-edit-form>.marketplace-category-modal-actions{grid-column:1}.marketplace-product-edit-form .marketplace-product-category-selects,.marketplace-product-edit-form .marketplace-product-edit-photo-previews{grid-template-columns:1fr}}.marketplace-product-edit-photo-field input[type=file]{box-sizing:border-box;width:100%;max-width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:#171317;color:#fff;font:11px Ubuntu,sans-serif}.marketplace-product-edit-photo-field small{color:#c7b7be;font:11px Ubuntu,sans-serif}
+.marketplace-product-edit-main-photos{display:grid;grid-template-columns:1fr;gap:18px}.marketplace-edit-current-photos,.marketplace-edit-new-photos{display:grid;gap:9px;padding:12px;border:1px solid rgba(218,174,185,.18);border-radius:10px}.marketplace-edit-current-photos>strong{color:#f2dce3;font:600 13px Ubuntu,sans-serif}.marketplace-edit-current-photos>small,.marketplace-edit-new-photos>small{color:#c7b7be;font:11px Ubuntu,sans-serif}.marketplace-product-edit-existing-photos{display:flex;flex-wrap:wrap;gap:12px}.marketplace-edit-photo-card{position:relative;width:112px;height:112px;border:2px solid rgba(218,174,185,.22);border-radius:10px;padding:4px;box-sizing:border-box}.marketplace-edit-photo-card img{width:100%;height:100%;object-fit:cover;border-radius:6px}.marketplace-edit-photo-card.is-marked{opacity:.48;border-color:#e34b62}.marketplace-edit-new-photo-previews{display:flex;flex-wrap:wrap;gap:12px}.marketplace-edit-new-photo-card{display:grid;gap:5px;width:112px;min-width:0;color:#c7b7be;font:10px Ubuntu,sans-serif}.marketplace-edit-new-photo-card img{width:112px;height:112px;object-fit:cover;border:1px solid rgba(218,174,185,.22);border-radius:9px;box-sizing:border-box}.marketplace-edit-new-photo-card small{overflow-wrap:anywhere}.marketplace-edit-photo-remove{position:absolute;top:-9px;right:-9px;width:26px;height:26px;border:0;border-radius:50%;background:#b51f3d;color:#fff;font:700 12px Ubuntu,sans-serif;cursor:pointer;box-shadow:0 2px 7px #0008}.marketplace-edit-photo-card.is-marked .marketplace-edit-photo-remove{width:auto;min-width:42px;border-radius:14px;padding:0 7px;background:#315b56}.marketplace-edit-new-photos label{display:grid;gap:7px;color:#d7cbd0;font:12px Ubuntu,sans-serif}.marketplace-edit-new-photos input[type=file]{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:#171317;color:#fff}.marketplace-edit-new-photos input[type=file]:disabled{opacity:.45;cursor:not-allowed}.marketplace-product-row-actions{display:flex;align-items:end;justify-content:flex-end}.marketplace-product-row-actions .btn{white-space:nowrap;padding-left:10px;padding-right:10px}@media(max-width:1100px){.marketplace-product-entry-row{grid-template-columns:repeat(3,minmax(0,1fr))}.marketplace-product-category-group{grid-column:span 2}.marketplace-product-entry-row label:nth-of-type(4){grid-column:span 1}.marketplace-product-row-actions{justify-content:flex-start}}@media(max-width:650px){.marketplace-product-edit-photo-field,.marketplace-product-edit-photo-previews{grid-template-columns:1fr}.marketplace-product-category-label{max-width:100%}.marketplace-product-entry-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.marketplace-product-category-group{grid-column:1/-1}.marketplace-product-category-selects{grid-template-columns:repeat(2,minmax(0,1fr))}.marketplace-product-entry-row label:nth-of-type(5),.marketplace-product-entry-row label:nth-of-type(6){grid-column:1/-1}.marketplace-product-row-actions{grid-column:1/-1}}.marketplace-product-modal-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px}.marketplace-product-name-highlight{color:#e34b62;font-weight:900}.marketplace-product-id-highlight{color:#f2d35e;font-weight:900}.marketplace-product-brand-model-highlight{color:#87cefa;font-weight:900}.marketplace-product-created-details{width:100%;margin:18px 0 8px;text-align:left}.marketplace-product-created-details p{margin:7px 0;line-height:1.7}.marketplace-product-created-list{width:100%;box-sizing:border-box;margin:22px 0;padding-left:24px;text-align:left;color:#e9dce1;font:14px/1.9 Ubuntu,sans-serif}.marketplace-product-created-card{max-height:85vh;overflow:auto}.marketplace-category-modal[hidden]{display:none!important}@media(max-width:560px){.marketplace-product-modal-footer{align-items:flex-start;flex-direction:column}.marketplace-product-modal-footer>div{display:flex;gap:8px;align-self:flex-end}}.marketplace-category-panel>.admin-panel-head{margin-bottom:20px}
  .marketplace-category-page-actions,.marketplace-product-page-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.marketplace-category-page-actions .btn,.marketplace-product-page-actions .btn{white-space:nowrap}
 
 /* Match the Products Edit action to the My Account Edit control. */
@@ -1006,14 +1208,33 @@ $numberToWords = static function(int $number): string {
 .marketplace-inventory-table .marketplace-inventory-actions > form > button:hover{
  background:rgba(154,55,81,.28)!important;border-color:rgba(226,157,175,.7)!important;transform:translateY(-1px)!important;
 }
-/* Inventory Add is green; Edit retains the Products Edit button theme. */
+/* Inventory Add controls mirror the Master Catalog Edit control's geometry,
+   typography, opacity levels, hover response, and focus treatment, with green accents. */
 .marketplace-inventory-table .marketplace-inventory-actions > a[href*="add_inventory_product"],
 .marketplace-inventory-table .marketplace-inventory-actions > form.marketplace-add-stock-form > button{
- border:1px solid #24965b!important;background:#16834b!important;color:#fff!important;
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ width:54px!important;min-width:54px!important;max-width:54px!important;min-height:28px!important;height:28px!important;box-sizing:border-box!important;
+ padding:5px 8px!important;border:1px solid rgba(36,150,91,.38)!important;border-radius:999px!important;
+ background:rgba(22,131,75,.16)!important;color:#c8f0d7!important;
+ font:600 10px Ubuntu,sans-serif!important;letter-spacing:.02em!important;line-height:1!important;
+ text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+ transition:background .18s ease,border-color .18s ease,transform .18s ease!important;
 }
 .marketplace-inventory-table .marketplace-inventory-actions > a[href*="add_inventory_product"]:hover,
 .marketplace-inventory-table .marketplace-inventory-actions > form.marketplace-add-stock-form > button:hover{
- border-color:#39b875!important;background:#1b9b59!important;color:#fff!important;
+ border-color:rgba(57,184,117,.7)!important;background:rgba(27,155,89,.28)!important;color:#e2f8e9!important;transform:translateY(-1px)!important;
+}
+.marketplace-inventory-table .marketplace-inventory-actions > a.marketplace-inventory-view-open{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ width:54px!important;min-width:54px!important;max-width:54px!important;min-height:28px!important;height:28px!important;box-sizing:border-box!important;
+ padding:5px 8px!important;border:1px solid rgba(208,139,158,.38)!important;border-radius:999px!important;
+ background:rgba(125,45,67,.16)!important;color:#f0c4cf!important;
+ font:600 10px Ubuntu,sans-serif!important;letter-spacing:.02em!important;line-height:1!important;
+ text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
+ transition:background .18s ease,border-color .18s ease,transform .18s ease!important;
+}
+.marketplace-inventory-table .marketplace-inventory-actions > a.marketplace-inventory-view-open:hover{
+ background:rgba(154,55,81,.28)!important;border-color:rgba(226,157,175,.7)!important;transform:translateY(-1px)!important;
 }
 .marketplace-inventory-table .marketplace-inventory-actions > a:focus-visible,
 .marketplace-inventory-table .marketplace-inventory-actions > form > button:focus-visible{outline:2px solid #e17a8d!important;outline-offset:2px!important}
@@ -1110,18 +1331,15 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-inventory-table-wrap{width:100%;max-width:100%;overflow-x:hidden!important;overflow-y:visible;box-sizing:border-box}
 .marketplace-inventory-table{width:100%!important;min-width:0!important;max-width:100%;table-layout:fixed;border-collapse:collapse}
 .marketplace-inventory-table th,.marketplace-inventory-table td{padding:7px 4px!important;font-size:9px!important;line-height:1.4;overflow-wrap:anywhere;word-break:normal}
-.marketplace-inventory-table th{font-size:8px!important;letter-spacing:0!important;white-space:normal}
+.marketplace-inventory-table th{font-size:10px!important;letter-spacing:0!important;white-space:normal}
 .marketplace-inventory-table .marketplace-product-select-cell{width:3%;padding-left:3px!important;padding-right:3px!important}
-.marketplace-inventory-table th:nth-child(2),.marketplace-inventory-table td:nth-child(2){width:7%}
-.marketplace-inventory-table th:nth-child(3),.marketplace-inventory-table td:nth-child(3){width:19%}
-.marketplace-inventory-table th:nth-child(4),.marketplace-inventory-table td:nth-child(4){width:8%}
+.marketplace-inventory-table th:nth-child(2),.marketplace-inventory-table td:nth-child(2){width:24%}
+.marketplace-inventory-table th:nth-child(3),.marketplace-inventory-table td:nth-child(3){width:9%}
+.marketplace-inventory-table th:nth-child(4),.marketplace-inventory-table td:nth-child(4){width:10%}
 .marketplace-inventory-table th:nth-child(5),.marketplace-inventory-table td:nth-child(5){width:11%}
-.marketplace-inventory-table th:nth-child(6),.marketplace-inventory-table td:nth-child(6){width:7%}
-.marketplace-inventory-table th:nth-child(7),.marketplace-inventory-table td:nth-child(7){width:14%}
-.marketplace-inventory-table th:nth-child(8),.marketplace-inventory-table td:nth-child(8){width:8%}
-.marketplace-inventory-table th:nth-child(9),.marketplace-inventory-table td:nth-child(9){width:8%}
-.marketplace-inventory-table th:nth-child(10),.marketplace-inventory-table td:nth-child(10){width:7%}
-.marketplace-inventory-table th:nth-child(11),.marketplace-inventory-table td:nth-child(11){width:8%}
+.marketplace-inventory-table th:nth-child(6),.marketplace-inventory-table td:nth-child(6){width:17%}
+.marketplace-inventory-table th:nth-child(7),.marketplace-inventory-table td:nth-child(7){width:19%}
+.marketplace-inventory-table th:nth-child(8),.marketplace-inventory-table td:nth-child(8){width:10%}
 .marketplace-inventory-table .marketplace-photo{width:100%;max-width:44px;height:auto;aspect-ratio:1;object-fit:cover}
 .marketplace-inventory-product{min-width:0!important;max-width:none!important}
 .marketplace-inventory-product strong,.marketplace-inventory-product small,.marketplace-inventory-taxes small{white-space:normal!important;overflow-wrap:anywhere;word-break:break-word}
@@ -1317,24 +1535,66 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  <div class="admin-panel-head"><h2>Master Catalog</h2></div>
  <div class="marketplace-toolbar"><span class="muted">Manage product details and photos.</span><div class="marketplace-product-page-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=category">View Category</a><button class="btn" type="button" id="marketplace-product-add-open">+ Add Product</button></div></div>
  <?php if(!$marketplaceProducts): ?><div class="marketplace-empty">No products have been added yet.</div><?php else: ?><form id="marketplace-bulk-products" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=products"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_delete_products">
- <div class="marketplace-products-controls"><label class="marketplace-products-filter">Filter products<input type="search" id="marketplace-products-filter" placeholder="Search product details..." aria-label="Search products"></label><label class="marketplace-products-page-size">Show<select id="marketplace-products-page-size" aria-label="Products per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div><div class="marketplace-products-pagination marketplace-products-pagination-top"><span class="muted" id="marketplace-products-page-info-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-products-first-top">First</button><button type="button" class="btn light" id="marketplace-products-prev-top">Previous</button><span id="marketplace-products-page-numbers-top" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="marketplace-products-next-top">Next</button><button type="button" class="btn light" id="marketplace-products-last-top">Last</button></div><div class="admin-panel-head marketplace-products-bulk-toolbar" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="button" id="marketplace-products-delete-selected" disabled aria-disabled="true">Delete Selected</button></div><div class="table-wrap"><table class="marketplace-table marketplace-products-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-products-select-all" aria-label="Select all products"></th><th>Product ID</th><th>Category</th><th>Product Name</th><th>UOM</th><th>Retail Price</th><th>All Taxes</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-products-tbody">
+ <div class="marketplace-products-controls"><label class="marketplace-products-filter">Filter products<input type="search" id="marketplace-products-filter" placeholder="Search product details..." aria-label="Search products"></label><label class="marketplace-products-page-size">Show<select id="marketplace-products-page-size" aria-label="Products per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div><div class="marketplace-products-pagination marketplace-products-pagination-top"><span class="muted" id="marketplace-products-page-info-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-products-first-top">First</button><button type="button" class="btn light" id="marketplace-products-prev-top">Previous</button><span id="marketplace-products-page-numbers-top" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="marketplace-products-next-top">Next</button><button type="button" class="btn light" id="marketplace-products-last-top">Last</button></div><div class="admin-panel-head marketplace-products-bulk-toolbar" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="button" id="marketplace-products-delete-selected" disabled aria-disabled="true">Delete Selected</button></div><div class="table-wrap"><table class="marketplace-table marketplace-products-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-products-select-all" aria-label="Select all products"></th><th>Product Code / Barcode</th><th>Category</th><th>Product Name</th><th>UOM</th><th>Retail Price</th><th>All Taxes / Discounts</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-products-tbody">
   <?php foreach($marketplaceProducts as $product): ?><tr data-product-id="<?=(int)$product['id']?>" data-product-name="<?=e($product['product_name'])?>" data-product-code="<?=e((string)($product['product_code']??''))?>" data-product-has-inventory="<?=!empty($product['inventory_id'])?'1':'0'?>">
   <td class="marketplace-product-select-cell"><input type="checkbox" class="marketplace-product-select" name="selected_products[]" value="<?=(int)$product['id']?>" aria-label="Select <?=e($product['product_name'])?>"></td>
-  <td><strong><?=e((string)($product['product_code']??''))?></strong></td>
+  <td class="marketplace-product-code-barcode-cell">
+    <strong><?=e((string)($product['product_code']??''))?></strong>
+    <?php if(!empty($product['barcode_value'])): ?>
+      <small class="marketplace-product-barcode-value">Barcode: <?=e((string)$product['barcode_value'])?></small>
+      <div class="marketplace-barcode-sticker" aria-label="Printable barcode sticker for <?=e((string)$product['product_name'])?>">
+        <svg class="marketplace-generated-barcode marketplace-master-catalog-barcode" data-barcode-value="<?=e((string)$product['barcode_value'])?>" role="img" aria-label="Scannable Code 128 barcode for <?=e((string)$product['product_name'])?>"></svg>
+      </div>
+    <?php else: ?>
+      <small class="marketplace-product-barcode-value">Barcode not available</small>
+    <?php endif; ?>
+  </td>
   <td><?=e((string)($product['category_name']??'Uncategorized'))?><?php if(!empty($product['subcategory_name'])): ?><small><?=e($product['subcategory_name'])?></small><?php endif; ?></td>
   <td><strong><?=e($product['product_name'])?></strong></td>
   <td><?=e((string)($product['uom']??'—'))?></td>
   <td><?=$money($product['retail_price']??0)?></td>
-  <td><small>Value-Added Tax: <?=number_format((float)($product['vat_rate']??0)*100,2)?>%</small><small>Percentage Tax: <?=number_format((float)($product['percentage_tax_rate']??0)*100,2)?>%</small><small>Income Tax: <?=number_format((float)($product['income_tax_rate']??0)*100,2)?>%</small><small>Withholding Tax: <?=number_format((float)($product['withholding_tax_rate']??0)*100,2)?>%</small><small>Other Taxes: <?=number_format((float)($product['other_tax_rate']??0)*100,2)?>%</small></td>
+  <td class="marketplace-product-taxes-discounts-cell">
+    <small>Value-Added Tax: <?=number_format((float)($product['vat_rate']??0)*100,2)?>%</small>
+    <small>Percentage Tax: <?=number_format((float)($product['percentage_tax_rate']??0)*100,2)?>%</small>
+    <small>Income Tax: <?=number_format((float)($product['income_tax_rate']??0)*100,2)?>%</small>
+    <small>Withholding Tax: <?=number_format((float)($product['withholding_tax_rate']??0)*100,2)?>%</small>
+    <small>Other Taxes: <?=number_format((float)($product['other_tax_rate']??0)*100,2)?>%</small>
+    <small><strong>Discount Type:</strong> <?php $discountType=(string)($product['discount_type']??'none'); echo e($discountType==='percent'?'Percentage (%)':($discountType==='fixed'?'Fixed Peso (₱)':'No Discount')); ?></small>
+    <small><strong>Discount Amount:</strong> <?php if($discountType==='percent'): ?><?=number_format((float)($product['discount_value']??0),2)?>%<?php elseif($discountType==='fixed'): ?><?=$money($product['discount_value']??0)?><?php else: ?>—<?php endif; ?></small>
+  </td>
   <td><strong><?=$money($product['selling_price']??0)?></strong></td>
   <td><span class="marketplace-product-master-status status-<?=e(strtolower((string)($product['product_status']??'active')))?>"><?=e((string)($product['product_status']??'Active'))?></span></td>
-  <td><div class="marketplace-actions"><details class="marketplace-product-row-view"><summary class="btn light">View</summary><div><strong><?=e($product['product_name'])?></strong><p><?=e((string)($product['description']??'—'))?></p><p>Product ID: <?=e((string)($product['product_code']??''))?></p><p>Category: <?=e((string)($product['category_name']??'Uncategorized'))?><?php if(!empty($product['subcategory_name'])): ?> / <?=e($product['subcategory_name'])?><?php endif; ?></p><p>Brand: <?=e((string)($product['brand']??'—'))?> · Model: <?=e((string)($product['model']??'—'))?></p><p>UOM: <?=e((string)($product['uom']??'—'))?> · Retail: <?=$money($product['retail_price']??0)?> · Selling: <?=$money($product['selling_price']??0)?></p></div></details><a href="#" class="btn marketplace-product-edit-open" data-product-id="<?=(int)$product['id']?>" data-product-name="<?=e($product['product_name'])?>" data-product-brand="<?=e((string)$product['brand'])?>" data-product-model="<?=e((string)$product['model'])?>" data-product-manufacturer="<?=e((string)($product['manufacturer']??''))?>" data-product-supply-entity="<?=e((string)($product['supply_chain_entity']??''))?>" data-product-country="<?=e((string)($product['country_of_origin']??''))?>" data-product-description="<?=e((string)$product['description'])?>" data-product-photo="<?=e((string)($product['photo_path']??''))?>" data-product-category-id="<?=(int)($product['category_id']??0)?>" data-product-subcategory-id="<?=(int)($product['subcategory_id']??0)?>">Edit</a></div></td></tr><?php endforeach; ?>
+  <td><div class="marketplace-actions"><details class="marketplace-product-row-view"><summary class="btn light">View</summary><div><strong><?=e($product['product_name'])?></strong><p><?=e((string)($product['description']??'—'))?></p><p>Product ID: <?=e((string)($product['product_code']??''))?></p><p>Category: <?=e((string)($product['category_name']??'Uncategorized'))?><?php if(!empty($product['subcategory_name'])): ?> / <?=e($product['subcategory_name'])?><?php endif; ?></p><p>Brand: <?=e((string)($product['brand']??'—'))?> · Model: <?=e((string)($product['model']??'—'))?></p><p>UOM: <?=e((string)($product['uom']??'—'))?> · Retail: <?=$money($product['retail_price']??0)?> · Selling: <?=$money($product['selling_price']??0)?></p></div></details><a href="#" class="btn marketplace-product-edit-open" data-product-id="<?=(int)$product['id']?>" data-product-name="<?=e($product['product_name'])?>" data-product-brand="<?=e((string)$product['brand'])?>" data-product-model="<?=e((string)$product['model'])?>" data-product-manufacturer="<?=e((string)($product['manufacturer']??''))?>" data-product-supply-entity="<?=e((string)($product['supply_chain_entity']??''))?>" data-product-country="<?=e((string)($product['country_of_origin']??''))?>" data-product-description="<?=e((string)$product['description'])?>" data-product-photo="<?=e((string)($product['photo_path']??''))?>" data-product-photos="<?=e(json_encode($marketplaceProductPhotosByProduct[(int)$product['id']]??[],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?>" data-product-variation-photos="<?=e(json_encode($marketplaceProductVariationPhotosByProduct[(int)$product['id']]??[],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?>" data-product-barcode="<?=e((string)($product['barcode_value']??''))?>" data-product-category-name="<?=e((string)($product['category_name']??'Uncategorized'))?>" data-product-subcategory-name="<?=e((string)($product['subcategory_name']??''))?>" data-product-selling-price="<?=e((string)($product['selling_price']??0))?>" data-product-category-id="<?=(int)($product['category_id']??0)?>" data-product-subcategory-id="<?=(int)($product['subcategory_id']??0)?>" data-product-uom="<?=e((string)($product['uom']??''))?>" data-product-retail-price="<?=e((string)($product['retail_price']??0))?>" data-product-vat-rate="<?=e((string)($product['vat_rate']??0))?>" data-product-percentage-tax-rate="<?=e((string)($product['percentage_tax_rate']??0))?>" data-product-income-tax-rate="<?=e((string)($product['income_tax_rate']??0))?>" data-product-withholding-tax-rate="<?=e((string)($product['withholding_tax_rate']??0))?>" data-product-other-tax-rate="<?=e((string)($product['other_tax_rate']??0))?>" data-product-discount-type="<?=e((string)($product['discount_type']??'none'))?>" data-product-discount-value="<?=e((string)($product['discount_value']??0))?>" data-product-status="<?=e((string)($product['product_status']??'Active'))?>" data-product-weight="<?=e((string)($product['weight']??''))?>" data-product-weight-unit="<?=e((string)($product['weight_unit']??''))?>" data-product-length="<?=e((string)($product['length']??''))?>" data-product-width="<?=e((string)($product['width']??''))?>" data-product-dimension-unit="<?=e((string)($product['dimension_unit']??''))?>" data-product-batch-number="<?=e((string)($product['batch_number']??''))?>" data-product-tags="<?=e(json_encode($marketplaceProductTagsByProduct[(int)$product['id']]??['colors'=>[],'sizes'=>[],'storage'=>[],'type'=>[],'others'=>[]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES))?>">Edit</a></div></td></tr><?php endforeach; ?>
  </tbody></table></div><div class="marketplace-products-pagination marketplace-products-pagination-bottom"><span class="muted" id="marketplace-products-page-info-bottom" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-products-first-bottom">First</button><button type="button" class="btn light" id="marketplace-products-prev-bottom">Previous</button><span id="marketplace-products-page-numbers-bottom" class="gallery-page-numbers" aria-label="Page numbers"></span><button type="button" class="btn light" id="marketplace-products-next-bottom">Next</button><button type="button" class="btn light" id="marketplace-products-last-bottom">Last</button></div></div></form><?php endif; ?>
 </section>
-<div class="account-status-modal users-delete-confirm-modal marketplace-product-delete-confirm-overlay" id="marketplace-products-delete-confirm-modal" hidden><div class="account-status-modal-card marketplace-product-delete-confirm-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="marketplace-products-delete-confirm-title">Delete Confirmation Notice</h2><div id="marketplace-products-delete-confirm-copy"><p>Are you sure you want to delete the selected product?</p></div><div id="marketplace-products-delete-confirm-list" class="marketplace-product-delete-list"></div><div class="users-delete-modal-actions"><button type="button" class="btn light" id="marketplace-products-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="marketplace-products-delete-confirm">Delete</button></div></div></div><?php if($marketplaceDeletedProductCount>0): ?><div class="account-status-modal users-delete-success-modal marketplace-product-delete-success-overlay" id="marketplace-products-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-success-title"><div class="account-status-modal-card marketplace-product-delete-success-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="marketplace-products-delete-success-title">Delete Product Successful</h2><p><?php if($marketplaceDeletedProductCount===1): $deletedProduct=$marketplaceDeletedProductDetails[0]; ?>The product <strong class="marketplace-delete-name"><?=e((string)$deletedProduct['product_name'])?></strong> with product ID <strong class="marketplace-delete-code"><?=e((string)($deletedProduct['product_code']??''))?></strong> has been successfully deleted<?php else: ?><strong class="marketplace-delete-count"><?=e($numberToWords($marketplaceDeletedProductCount))?> (<?=number_format($marketplaceDeletedProductCount)?>)</strong> selected products have been successfully deleted<?php endif; ?>.</p><button type="button" class="btn" id="marketplace-products-delete-success-close">OK</button></div></div><?php endif; ?><div class="account-status-modal marketplace-category-modal" id="marketplace-product-edit-modal" hidden><div class="account-status-modal-card marketplace-product-add-card marketplace-product-edit-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-title"><h2 id="marketplace-product-edit-title">Edit Product</h2><form class="marketplace-form marketplace-product-edit-form" id="marketplace-product-edit-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product"><input type="hidden" name="product_id" id="marketplace-product-edit-id"><div class="marketplace-product-category-group"><div class="marketplace-product-category-label">Category *</div><div class="marketplace-product-category-selects"><select name="category_id" id="marketplace-product-edit-category" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>"><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id" id="marketplace-product-edit-subcategory" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select Subcategory</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>"><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div><label class="marketplace-edit-row"><span>Product Name *</span><input name="product_name" id="marketplace-product-edit-name" required maxlength="220"></label><label class="marketplace-edit-row"><span>Product ID</span><input id="marketplace-product-edit-code" readonly aria-readonly="true" style="background:#29252a;color:#999;cursor:not-allowed"></label><label class="marketplace-edit-row"><span>Brand *</span><input name="brand" id="marketplace-product-edit-brand" required maxlength="140"></label><label class="marketplace-edit-row"><span>Model *</span><input name="model" id="marketplace-product-edit-model" required maxlength="140"></label><label class="marketplace-edit-row marketplace-edit-description-row"><span>Description</span><textarea name="description" id="marketplace-product-edit-description"></textarea></label><div class="marketplace-product-edit-photo-layout"><div class="marketplace-product-edit-photo-field"><div class="marketplace-edit-upload-row"><span class="marketplace-edit-row-label">Upload Photo</span><div class="marketplace-edit-upload-control"><input type="file" name="product_photo" id="marketplace-product-edit-photo-input" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif"><small>Upload Photo (JPG, JPEG, WEBP, PNG, AVIF · under 5 MB)</small><small id="marketplace-product-edit-current-photo"></small></div></div><div class="marketplace-product-edit-photo-previews"><div class="marketplace-product-edit-photo-current"><span class="marketplace-field-label">Current Photo Preview</span><div class="marketplace-product-edit-photo-preview-wrap"><img id="marketplace-product-edit-current-preview" class="marketplace-product-edit-photo-preview" alt="Current product photo" hidden><span id="marketplace-product-edit-current-empty">No current photo.</span></div></div><div class="marketplace-product-edit-photo-current"><span class="marketplace-field-label">New Photo Preview</span><div class="marketplace-product-edit-photo-preview-wrap"><img id="marketplace-product-edit-photo-preview" class="marketplace-product-edit-photo-preview" alt="New photo preview" hidden><span id="marketplace-product-edit-photo-empty">No new photo selected.</span></div></div></div></div></div><div class="wide marketplace-category-modal-actions"><button class="btn light" type="button" id="marketplace-product-edit-cancel">Cancel</button><button class="btn" type="submit">Update Product</button></div></form></div></div>
-<?php if($marketplaceProductEditSuccess !== null): ?><div class="marketplace-category-delete-success-overlay" id="marketplace-product-edit-success-modal"><section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-success-title"><div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div><h2 id="marketplace-product-edit-success-title">Edit Product Successful</h2><p><?php if($marketplaceProductEditSuccess['type']==='category'): ?>The category <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['old_category'])?></strong> has been successfully changed to <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceProductEditSuccess['new_category'])?></strong>. The subcategory has been reselected to <strong style="color:#22a565;font-weight:900"><?=e($marketplaceProductEditSuccess['subcategory'])?></strong>.<?php elseif($marketplaceProductEditSuccess['type']==='name'): ?>The product name <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['old_name'])?></strong> has been successfully changed to <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceProductEditSuccess['new_name'])?></strong>.<?php elseif($marketplaceProductEditSuccess['type']==='model'): ?>The model <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['old_model'])?></strong> of <strong style="color:#22a565;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> has been successfully changed to <strong style="color:#e7c94b;font-weight:900"><?=e($marketplaceProductEditSuccess['new_model'])?></strong>.<?php elseif($marketplaceProductEditSuccess['type']==='description'): ?>The description of <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> has been successfully updated.<?php elseif($marketplaceProductEditSuccess['type']==='photo'): ?>The photo of <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> has been successfully updated.<?php else: ?>The product <strong style="color:#e34b62;font-weight:900"><?=e($marketplaceProductEditSuccess['product_name'])?></strong> and its details have been successfully updated.<?php endif; ?></p><button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-edit-success-close">OK</button></section></div><?php endif; ?>
+<div class="account-status-modal users-delete-confirm-modal marketplace-product-delete-confirm-overlay" id="marketplace-products-delete-confirm-modal" hidden><div class="account-status-modal-card marketplace-product-delete-confirm-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-confirm-title"><div class="account-status-modal-icon" aria-hidden="true">!</div><h2 id="marketplace-products-delete-confirm-title">Delete Confirmation Notice</h2><div id="marketplace-products-delete-confirm-copy"><p>Are you sure you want to delete the selected product?</p></div><div id="marketplace-products-delete-confirm-list" class="marketplace-product-delete-list"></div><div class="users-delete-modal-actions"><button type="button" class="btn light" id="marketplace-products-delete-cancel">Cancel</button><button type="button" class="btn bulk-delete" id="marketplace-products-delete-confirm">Delete</button></div></div></div><?php if($marketplaceDeletedProductCount>0): ?><div class="account-status-modal users-delete-success-modal marketplace-product-delete-success-overlay" id="marketplace-products-delete-success-modal" role="dialog" aria-modal="true" aria-labelledby="marketplace-products-delete-success-title"><div class="account-status-modal-card marketplace-product-delete-success-card"><div class="account-status-modal-icon" aria-hidden="true">✓</div><h2 id="marketplace-products-delete-success-title">Delete Product Successful</h2><p><?php if($marketplaceDeletedProductCount===1): $deletedProduct=$marketplaceDeletedProductDetails[0]; ?>The product <strong class="marketplace-delete-name"><?=e((string)$deletedProduct['product_name'])?></strong> with product ID <strong class="marketplace-delete-code"><?=e((string)($deletedProduct['product_code']??''))?></strong> has been successfully deleted<?php else: ?><strong class="marketplace-delete-count"><?=e($numberToWords($marketplaceDeletedProductCount))?> (<?=number_format($marketplaceDeletedProductCount)?>)</strong> selected products have been successfully deleted<?php endif; ?>.</p><button type="button" class="btn" id="marketplace-products-delete-success-close">OK</button></div></div><?php endif; ?><div class="account-status-modal marketplace-category-modal" id="marketplace-product-view-modal" hidden><div class="account-status-modal-card marketplace-product-view-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-view-title"><div class="marketplace-product-view-head"><h2 id="marketplace-product-view-title">Product Information</h2></div><div id="marketplace-product-view-content" class="marketplace-product-view-content"></div><div class="marketplace-product-view-actions"><button type="button" class="btn light marketplace-product-view-close">Close</button></div></div></div>
+<div class="account-status-modal marketplace-category-modal" id="marketplace-product-edit-modal" hidden>
+<div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-title">
+<h2 id="marketplace-product-edit-title">Edit Product</h2>
+<form id="marketplace-product-edit-form" method="post" enctype="multipart/form-data" action="admin.php?section=marketplace&amp;marketplace_tab=products">
+<input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_product"><input type="hidden" name="product_id" id="marketplace-product-edit-id" value="">
+<div id="marketplace-product-edit-entry-rows"><div class="marketplace-product-entry-row" data-row-index="0">
+<div class="marketplace-product-panel" data-panel-index="0">
+<div class="wide marketplace-product-category-group"><span class="marketplace-field-label">Category *</span><div class="marketplace-product-category-selects"><select name="category_id[]" class="marketplace-product-category" aria-label="Select Category" required><option value="">Select Category</option><?php foreach($marketplaceCategories as $category): if(empty($category['parent_id'])): ?><option value="<?=(int)$category['id']?>" <?=((int)($marketplaceProductInputRows[0]['category_id']??0)===(int)$category['id'])?'selected':''?>><?=e($category['name'])?></option><?php endif; endforeach; ?></select><select name="subcategory_id[]" class="marketplace-product-subcategory" aria-label="Select Subcategory" disabled><option value="">Select category first</option><?php foreach($marketplaceCategories as $subcategory): if(!empty($subcategory['parent_id'])): ?><option value="<?=(int)$subcategory['id']?>" data-parent-id="<?=(int)$subcategory['parent_id']?>"><?=e($subcategory['name'])?></option><?php endif; endforeach; ?></select></div></div>
+<label>Product Name *<input name="product_name[]" maxlength="220" required value="<?=e((string)($marketplaceProductInputRows[0]['product_name']??''))?>"></label>
+<label>Brand *<input name="brand[]" maxlength="140" required value="<?=e((string)($marketplaceProductInputRows[0]['brand']??''))?>"></label>
+<label>Model<input name="model[]" maxlength="140" value="<?=e((string)($marketplaceProductInputRows[0]['model']??''))?>"></label><label>UOM<select name="uom[]"><option value="">Select UOM</option><?php foreach($marketplaceUoms as $uomOption): ?><option value="<?=e($uomOption)?>"><?=e($uomOption)?></option><?php endforeach; ?></select></label>
+<label class="wide">Description<textarea name="description[]"><?=e((string)($marketplaceProductInputRows[0]['description']??''))?></textarea></label></div>
+<div class="marketplace-product-panel" data-panel-index="1">
+<div class="wide marketplace-product-attribute-grid"><?php foreach(['colors'=>'Colors','sizes'=>'Sizes','storage'=>'Storage','type'=>'Type','others'=>'Others'] as $tagKey=>$tagLabel): ?><div class="marketplace-product-tag-field" data-tag-field="<?=$tagKey?>"><label><?=$tagLabel?><input type="text" class="marketplace-product-tag-input" data-tag-type="<?=$tagKey?>" placeholder="Enter a variation value" autocomplete="off"></label><button type="button" class="btn light marketplace-add-variation" data-variation-type="<?=$tagKey?>">+ Add <?=e(rtrim($tagLabel, 's'))?></button><div class="marketplace-product-tag-chips" aria-live="polite"></div></div><?php endforeach; ?></div>
+</div>
+<div class="marketplace-product-panel" data-panel-index="2"><div class="wide marketplace-product-commercial-grid"><label>Retail Price (₱) *<input class="marketplace-price-input" name="retail_price[]" type="text" inputmode="decimal" data-format="currency" autocomplete="off" required></label><label>Value-Added Tax (%)<input class="marketplace-rate-input" name="vat_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Withholding Tax (%)<input class="marketplace-rate-input" name="withholding_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Percentage Tax (%)<input class="marketplace-rate-input" name="percentage_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Income Tax (%)<input class="marketplace-rate-input" name="income_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Other Tax (%)<input class="marketplace-rate-input" name="other_tax_rate[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Discount<select name="discount_type[]" class="marketplace-discount-type"><option value="none">No Discount</option><option value="percent">Percentage (%)</option><option value="fixed">Fixed Peso (₱)</option></select></label><label>Discount Value<input class="marketplace-discount-value" name="discount_value[]" type="text" inputmode="decimal" data-format="rate" autocomplete="off"></label><label>Selling Price (₱) *<input class="marketplace-add-selling-price" type="text" value="" readonly required aria-readonly="true" tabindex="-1" style="background:#eeeeee!important;color:#666!important;cursor:not-allowed"></label><label>Status *<select name="product_status[]" required><option>Active</option><option>Discontinued</option><option>Draft</option></select></label></div>
+</div>
+<div class="marketplace-product-panel" data-panel-index="3"><div class="wide marketplace-product-commercial-grid"><label>Weight<input name="weight[]" type="number" min="0" step="0.001"></label><label>Weight Measurement<select name="weight_unit[]"><option value="">Select unit</option><?php foreach($marketplaceWeightUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Length<input name="length[]" type="number" min="0" step="0.001"></label><label>Width<input name="width[]" type="number" min="0" step="0.001"></label><label>Dimension Measurement<select name="dimension_unit[]"><option value="">Select unit</option><?php foreach($marketplaceDimensionUnits as $unitOption): ?><option value="<?=e($unitOption)?>"><?=e($unitOption)?></option><?php endforeach; ?></select></label><label>Lot No. / Batch No.<input name="batch_number[]" maxlength="100"></label></div>
+</div><input type="hidden" name="product_tags[]" class="marketplace-product-tags-json" value="{&quot;colors&quot;:[],&quot;sizes&quot;:[],&quot;storage&quot;:[],&quot;type&quot;:[],&quot;others&quot;:[]}">
+<div class="marketplace-product-panel" data-panel-index="4"><div class="wide marketplace-product-main-photos marketplace-product-edit-main-photos"><section class="marketplace-edit-current-photos"><strong>Current Photos</strong><small>Click X on each photo you want to remove. You may undo a mark before updating.</small><div id="marketplace-product-edit-existing-photos" class="marketplace-product-edit-existing-photos"></div></section><section class="marketplace-edit-new-photos"><label>New Photos<input type="file" name="new_main_photos[]" class="marketplace-product-main-photo-input" accept=".jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif" multiple disabled></label><small class="marketplace-product-main-photo-guidance">Mark Current Photos with X to enable New Photos. Each photo must be no larger than 5 MB.</small><small class="marketplace-product-main-photo-names">No new photos selected.</small><div class="marketplace-product-edit-new-photo-previews" aria-live="polite"></div></section></div>
+</div>
+</div></div>
+<div class="marketplace-product-modal-footer"><div><button type="button" class="btn light" id="marketplace-product-edit-cancel">Cancel</button> <button type="submit" class="btn">Update Product</button></div></div>
+</form></div></div>
+<?php if($marketplaceProductEditSuccess !== null): ?><div class="marketplace-category-delete-success-overlay" id="marketplace-product-edit-success-modal"><section class="marketplace-category-delete-success-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-edit-success-title"><div class="marketplace-category-delete-success-mark" aria-hidden="true">✓</div><h2 id="marketplace-product-edit-success-title">Edit Product Successful</h2><p>Product data have been successfully updated. Redirecting you to the Master Catalog page.</p><button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-edit-success-close">OK</button></section></div><?php endif; ?>
 <style>
-.marketplace-product-attribute-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.marketplace-product-commercial-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;grid-column:1/-1;padding:14px;border:1px solid rgba(232,190,200,.18);border-radius:12px;background:rgba(255,255,255,.025)}.marketplace-product-commercial-grid label{display:flex;flex-direction:column;gap:6px;color:#e8dce1;font-size:12px}.marketplace-product-commercial-grid input,.marketplace-product-commercial-grid select{width:100%;box-sizing:border-box}.marketplace-product-row-view{position:relative;display:inline-block}.marketplace-product-row-view summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif}.marketplace-product-row-view summary::-webkit-details-marker{display:none}.marketplace-product-row-view>div{position:absolute;z-index:20;right:0;top:calc(100% + 6px);width:280px;padding:12px;border:1px solid rgba(208,139,158,.35);border-radius:10px;background:#21171c;box-shadow:0 12px 30px #0008;white-space:normal;color:#f2e7eb;font-size:11px}.marketplace-product-row-view p{margin:6px 0;line-height:1.45}.marketplace-product-master-status{display:inline-block;padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}.marketplace-product-master-status.status-active{background:#166534;color:#dcfce7}.marketplace-product-master-status.status-discontinued{background:#7f1d1d;color:#fee2e2}.marketplace-product-master-status.status-draft{background:#854d0e;color:#fef3c7}.marketplace-products-table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important}
+.marketplace-product-view-card{width:min(900px,94vw)!important;max-width:900px!important;max-height:88vh;overflow:auto!important}.marketplace-product-view-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(232,190,200,.18);padding-bottom:12px;margin-bottom:16px}.marketplace-product-view-head h2{margin:0}.marketplace-product-view-close{border:0;background:transparent;color:#f0c4cf;font-size:25px;cursor:pointer}.marketplace-product-view-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.marketplace-product-view-section{padding:13px;border:1px solid rgba(232,190,200,.18);border-radius:10px;background:rgba(255,255,255,.025);min-width:0}.marketplace-product-view-section.wide{grid-column:1/-1}.marketplace-product-view-section h3{font-size:13px;margin:0 0 10px;color:#f0c4cf}.marketplace-product-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}.marketplace-product-view-field{font-size:11px;overflow-wrap:anywhere}.marketplace-product-view-field b{display:block;color:#bdaab1;font-size:10px;margin-bottom:2px}.marketplace-product-view-photos{display:flex;flex-wrap:wrap;gap:10px}.marketplace-product-view-photo{width:112px}.marketplace-product-view-photo img{width:112px;height:100px;object-fit:cover;border-radius:7px}.marketplace-product-view-photo small{display:block;font-size:10px;margin-top:4px;overflow-wrap:anywhere}.marketplace-product-view-actions{display:flex;justify-content:flex-end;margin-top:16px}@media(max-width:640px){.marketplace-product-view-content,.marketplace-product-view-grid{grid-template-columns:1fr}.marketplace-product-view-section.wide{grid-column:auto}}.marketplace-product-attribute-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.marketplace-product-commercial-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;grid-column:1/-1;padding:14px;border:1px solid rgba(232,190,200,.18);border-radius:12px;background:rgba(255,255,255,.025)}.marketplace-product-commercial-grid label{display:flex;flex-direction:column;gap:6px;color:#e8dce1;font-size:12px}.marketplace-product-commercial-grid input,.marketplace-product-commercial-grid select{width:100%;box-sizing:border-box}.marketplace-product-row-view{position:relative;display:inline-block}.marketplace-product-row-view summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif}.marketplace-product-row-view summary::-webkit-details-marker{display:none}.marketplace-product-row-view>div{position:absolute;z-index:20;right:0;top:calc(100% + 6px);width:280px;padding:12px;border:1px solid rgba(208,139,158,.35);border-radius:10px;background:#21171c;box-shadow:0 12px 30px #0008;white-space:normal;color:#f2e7eb;font-size:11px}.marketplace-product-row-view p{margin:6px 0;line-height:1.45}.marketplace-product-master-status{display:inline-block;padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}.marketplace-product-master-status.status-active{background:#166534;color:#dcfce7}.marketplace-product-master-status.status-discontinued{background:#7f1d1d;color:#fee2e2}.marketplace-product-master-status.status-draft{background:#854d0e;color:#fef3c7}.marketplace-products-table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important}
 .marketplace-products-table th:nth-child(1),.marketplace-products-table td:nth-child(1){width:3%;padding-left:3px!important;padding-right:3px!important}
 .marketplace-products-table th:nth-child(2),.marketplace-products-table td:nth-child(2){width:13%}
 .marketplace-products-table th:nth-child(3),.marketplace-products-table td:nth-child(3){width:12%}
@@ -1348,7 +1608,7 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 .marketplace-products-table .marketplace-product-row-view summary{list-style:none;cursor:pointer}
 .marketplace-products-table .marketplace-actions{display:flex;align-items:center;gap:6px;min-width:0}
 .marketplace-products-table .marketplace-actions .btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 11px;font-size:10px;text-decoration:none;white-space:nowrap}
-.marketplace-products-table .marketplace-product-row-view>div{min-width:240px;max-width:min(320px,80vw);white-space:normal}.marketplace-products-table td small{display:block;white-space:normal;line-height:1.45;margin-top:3px}@media(max-width:700px){.marketplace-product-commercial-grid{grid-template-columns:1fr}}
+.marketplace-products-table .marketplace-product-row-view>div{min-width:240px;max-width:min(320px,80vw);white-space:normal}.marketplace-products-table td small{display:block;white-space:normal;line-height:1.45;margin-top:3px}.marketplace-products-table td.marketplace-product-taxes-discounts-cell,.marketplace-products-table td.marketplace-product-taxes-discounts-cell *{font-size:10px!important;font-weight:400!important}@media(max-width:700px){.marketplace-product-commercial-grid{grid-template-columns:1fr}}
 .marketplace-product-tag-field{display:flex;flex-direction:column;gap:7px;min-width:0}
 .marketplace-product-tag-field input[type=text]{width:100%}
 .marketplace-product-tag-chips{display:flex;flex-wrap:wrap;gap:7px}
@@ -1430,8 +1690,113 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
 }
 
 
+/* Match Edit Product overlay width to the exact Add Product dialog width. */
+#marketplace-product-edit-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
+
 /* Final hidden-state rule overrides every panel layout declaration. */
 #marketplace-product-add-modal .marketplace-product-panel[hidden]{display:none!important}
+
+/* Edit Product mirrors the Add Product five-tab layout. */
+
+.marketplace-product-attribute-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.marketplace-product-commercial-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;grid-column:1/-1;padding:14px;border:1px solid rgba(232,190,200,.18);border-radius:12px;background:rgba(255,255,255,.025)}.marketplace-product-commercial-grid label{display:flex;flex-direction:column;gap:6px;color:#e8dce1;font-size:12px}.marketplace-product-commercial-grid input,.marketplace-product-commercial-grid select{width:100%;box-sizing:border-box}.marketplace-product-row-view{position:relative;display:inline-block}.marketplace-product-row-view summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:5px 13px;border:1px solid rgba(208,139,158,.38);border-radius:999px;background:rgba(125,45,67,.16);color:#f0c4cf;font:600 10px Ubuntu,sans-serif}.marketplace-product-row-view summary::-webkit-details-marker{display:none}.marketplace-product-row-view>div{position:absolute;z-index:20;right:0;top:calc(100% + 6px);width:280px;padding:12px;border:1px solid rgba(208,139,158,.35);border-radius:10px;background:#21171c;box-shadow:0 12px 30px #0008;white-space:normal;color:#f2e7eb;font-size:11px}.marketplace-product-row-view p{margin:6px 0;line-height:1.45}.marketplace-product-master-status{display:inline-block;padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap}.marketplace-product-master-status.status-active{background:#166534;color:#dcfce7}.marketplace-product-master-status.status-discontinued{background:#7f1d1d;color:#fee2e2}.marketplace-product-master-status.status-draft{background:#854d0e;color:#fef3c7}.marketplace-products-table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important}
+.marketplace-products-table th:nth-child(1),.marketplace-products-table td:nth-child(1){width:3%;padding-left:3px!important;padding-right:3px!important}
+.marketplace-products-table th:nth-child(2),.marketplace-products-table td:nth-child(2){width:13%}
+.marketplace-products-table th:nth-child(3),.marketplace-products-table td:nth-child(3){width:12%}
+.marketplace-products-table th:nth-child(4),.marketplace-products-table td:nth-child(4){width:14%}
+.marketplace-products-table th:nth-child(5),.marketplace-products-table td:nth-child(5){width:6%}
+.marketplace-products-table th:nth-child(6),.marketplace-products-table td:nth-child(6){width:10%}
+.marketplace-products-table th:nth-child(7),.marketplace-products-table td:nth-child(7){width:18%}
+.marketplace-products-table th:nth-child(8),.marketplace-products-table td:nth-child(8){width:10%}
+.marketplace-products-table th:nth-child(9),.marketplace-products-table td:nth-child(9){width:7%}
+.marketplace-products-table th:nth-child(10),.marketplace-products-table td:nth-child(10){width:12%}
+.marketplace-products-table .marketplace-product-row-view summary{list-style:none;cursor:pointer}
+.marketplace-products-table .marketplace-actions{display:flex;align-items:center;gap:6px;min-width:0}
+.marketplace-products-table .marketplace-actions .btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 11px;font-size:10px;text-decoration:none;white-space:nowrap}
+.marketplace-products-table .marketplace-product-row-view>div{min-width:240px;max-width:min(320px,80vw);white-space:normal}.marketplace-products-table td small{display:block;white-space:normal;line-height:1.45;margin-top:3px}@media(max-width:700px){.marketplace-product-commercial-grid{grid-template-columns:1fr}}
+.marketplace-product-tag-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.marketplace-product-tag-field input[type=text]{width:100%}
+.marketplace-product-tag-chips{display:flex;flex-wrap:wrap;gap:7px}
+.marketplace-product-tag-chip{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(232,190,200,.2);border-radius:9px;background:rgba(126,34,53,.18);color:#f8eaf0;font-size:12px}
+.marketplace-product-tag-chip button{border:0;background:transparent;color:#f3a5b5;cursor:pointer;font-size:15px;line-height:1}
+.marketplace-product-tag-photo{display:block;max-width:190px;font-size:11px;color:#cdbdc2}
+.marketplace-product-main-photos{display:flex;flex-direction:column;gap:7px}
+.marketplace-product-main-photos small{color:#cdbdc2}
+@media(max-width:700px){.marketplace-product-attribute-grid{grid-template-columns:1fr}}
+/* Add Product: arrange related fieldsets in paired columns. */
+#marketplace-product-edit-modal .marketplace-product-entry-row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:start!important;gap:14px!important}
+#marketplace-product-edit-modal .marketplace-product-panel{display:block!important;box-sizing:border-box;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;border:0!important;border-radius:0!important;padding:0!important;background:transparent!important}
+#marketplace-product-edit-modal .marketplace-product-row-actions{grid-column:1/-1}
+#marketplace-product-edit-modal .marketplace-product-category-group>.marketplace-field-label{font:12px Ubuntu,sans-serif;color:#d7cbd0;line-height:normal}
+#marketplace-product-edit-modal .marketplace-product-panel>.wide{width:100%;max-width:100%;box-sizing:border-box}
+#marketplace-product-edit-modal .marketplace-product-attribute-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr))}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr));box-sizing:border-box}
+#marketplace-product-edit-modal .marketplace-add-variation{margin-top:4px}
+#marketplace-product-edit-modal .marketplace-product-tag-field{padding:10px;border:1px solid rgba(218,174,185,.12);border-radius:10px}
+
+#marketplace-product-edit-modal .marketplace-product-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;grid-column:1/-1;width:100%;padding:0 0 12px;border-bottom:1px solid rgba(218,174,185,.2)}
+#marketplace-product-edit-modal .marketplace-product-tab{min-width:0;min-height:42px;border:1px solid transparent;border-radius:8px;padding:7px 5px;color:#fff;font:600 11px/1.25 Ubuntu,sans-serif;white-space:normal;text-align:center;cursor:pointer;overflow-wrap:anywhere}
+#marketplace-product-edit-modal .marketplace-product-tab:nth-child(1){background:#713047;border-color:#a75c72}
+#marketplace-product-edit-modal .marketplace-product-tab:nth-child(2){background:#315b56;border-color:#57877e}
+#marketplace-product-edit-modal .marketplace-product-tab:nth-child(3){background:#70552b;border-color:#a98a50}
+#marketplace-product-edit-modal .marketplace-product-tab:nth-child(4){background:#394d70;border-color:#607da9}
+#marketplace-product-edit-modal .marketplace-product-tab:nth-child(5){background:#594276;border-color:#8b6aaa}
+#marketplace-product-edit-modal .marketplace-product-tab[aria-selected="true"]{filter:brightness(1.25);outline:2px solid rgba(255,255,255,.8);outline-offset:1px;box-shadow:0 4px 14px #0003}
+#marketplace-product-edit-modal .marketplace-product-panel[hidden]{display:none!important}
+#marketplace-product-edit-modal .marketplace-product-panel:not([hidden]){grid-column:1/-1!important}
+#marketplace-product-edit-modal .marketplace-product-modal-footer{display:flex;justify-content:flex-end;width:100%;padding-top:14px}
+#marketplace-product-edit-modal .marketplace-product-modal-footer>div{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:600px){#marketplace-product-edit-modal .marketplace-product-tabs{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}#marketplace-product-edit-modal .marketplace-product-tab{font-size:9px;padding:6px 2px;min-height:44px}}
+@media(max-width:700px){#marketplace-product-edit-modal .marketplace-product-entry-row{grid-template-columns:minmax(0,1fr)!important}#marketplace-product-edit-modal .marketplace-product-row-actions{grid-column:1}#marketplace-product-edit-modal .marketplace-product-attribute-grid,#marketplace-product-edit-modal .marketplace-product-commercial-grid{grid-template-columns:1fr}}
+
+/* Add Product fieldset field placement. */
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]:not([hidden]){display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;gap:12px}
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]>.marketplace-product-category-group,
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(1),
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]>label.wide{grid-column:1/-1}
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(2),
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(3),
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]>label:nth-of-type(4){grid-column:auto}
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"] textarea[name="description[]"]{min-height:140px;height:140px;resize:vertical}
+#marketplace-product-edit-modal .marketplace-product-attribute-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#marketplace-product-edit-modal .marketplace-product-tag-field[data-tag-type="type"]{order:3}
+#marketplace-product-edit-modal .marketplace-product-tag-field[data-tag-type="storage"]{order:4}
+#marketplace-product-edit-modal .marketplace-product-tag-field[data-tag-type="others"]{order:5}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(1){grid-column:1;grid-row:1}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(2){grid-column:2;grid-row:1}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(4){grid-column:3;grid-row:1}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(3){grid-column:4;grid-row:1}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(5){grid-column:1;grid-row:2}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(6){grid-column:2;grid-row:2}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(7){grid-column:3;grid-row:2}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(8){grid-column:4;grid-row:2}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(9){grid-column:1/3;grid-row:3}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(10){grid-column:3/5;grid-row:3}
+@media(max-width:900px){
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]:not([hidden]){grid-template-columns:repeat(2,minmax(0,1fr))}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(1){grid-column:1;grid-row:1}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(2){grid-column:2;grid-row:1}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(4){grid-column:1;grid-row:2}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(3){grid-column:2;grid-row:2}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(5){grid-column:1;grid-row:3}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(6){grid-column:2;grid-row:3}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(7){grid-column:1;grid-row:4}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(8){grid-column:2;grid-row:4}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(9){grid-column:1;grid-row:5}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label:nth-child(10){grid-column:2;grid-row:5}
+}
+@media(max-width:700px){
+#marketplace-product-edit-modal .marketplace-product-panel[data-panel-index="0"]:not([hidden]){grid-template-columns:minmax(0,1fr)}
+#marketplace-product-edit-modal .marketplace-product-attribute-grid{grid-template-columns:1fr!important}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid{grid-template-columns:1fr!important}
+#marketplace-product-edit-modal .marketplace-product-commercial-grid>label{grid-column:1!important;grid-row:auto!important}
+}
+
+
+/* Final hidden-state rule overrides every panel layout declaration. */
+#marketplace-product-edit-modal .marketplace-product-panel[hidden]{display:none!important}
+
 </style>
 <div class="account-status-modal marketplace-category-modal" id="marketplace-product-add-modal" hidden>
 <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-product-add-title">
@@ -1475,19 +1840,74 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
   <?php if(count($marketplaceCreatedProducts)===1): $created=$marketplaceCreatedProducts[0]; ?>
    <div class="marketplace-product-created-details">
     <p>Product Name: <strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong></p>
-    <p>Product ID: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong></p>
+    <p>Product Code: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong></p>
+    <p>Barcode: <strong class="marketplace-product-id-highlight"><?=e($created['barcode'])?></strong></p>
+    <svg class="marketplace-generated-barcode" data-barcode-value="<?=e($created['barcode'])?>" role="img" aria-label="Barcode for <?=e($created['name'])?>"></svg>
     <p>Brand/Model: <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?></strong> / <strong class="marketplace-product-brand-model-highlight"><?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></p>
    </div>
   <?php else: ?>
    <p>The following products have been successfully added.</p>
-   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li><strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> · <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> · <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?> / <?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></li><?php endforeach; ?></ul>
+   <ul class="marketplace-product-created-list"><?php foreach($marketplaceCreatedProducts as $created): ?><li><strong class="marketplace-product-name-highlight"><?=e($created['name'])?></strong> · Product Code: <strong class="marketplace-product-id-highlight"><?=e($created['code'])?></strong> · Barcode: <strong class="marketplace-product-id-highlight"><?=e($created['barcode'])?></strong><svg class="marketplace-generated-barcode" data-barcode-value="<?=e($created['barcode'])?>" role="img" aria-label="Barcode for <?=e($created['name'])?>"></svg> · <strong class="marketplace-product-brand-model-highlight"><?=e((string)$created['brand'])?> / <?=e((string)($created['model'] !== '' ? $created['model'] : '—'))?></strong></li><?php endforeach; ?></ul>
   <?php endif; ?>
   <button class="marketplace-category-delete-success-ok" type="button" id="marketplace-product-created-close">OK</button>
  </section>
 </div>
 <?php endif; ?>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>.marketplace-generated-barcode{display:block;width:min(100%,420px);height:92px;margin:10px auto 16px;background:#fff;padding:8px;box-sizing:border-box}.marketplace-product-created-list .marketplace-generated-barcode{max-width:260px;height:65px;margin:6px 0}.marketplace-product-code-barcode-cell{min-width:190px}.marketplace-product-barcode-value{display:block;margin-top:5px;color:#666;font-size:10px}.marketplace-barcode-sticker{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:0;width:auto;max-width:100%;margin:6px 0 2px;padding:0;box-sizing:border-box;border:0;border-radius:0;background:transparent;box-shadow:none}.marketplace-barcode-sticker-caption{display:none}.marketplace-master-catalog-barcode{display:block;width:100%;max-width:190px;height:48px;margin:0;padding:0;background:transparent}.marketplace-product-view-barcode-sticker{display:flex;width:142px;max-width:100%;margin:8px auto 2px;padding:3px 4px;justify-content:center;box-sizing:border-box;background:#fff}.marketplace-product-view-barcode{display:block;width:100%;max-width:100%;height:38px;margin:0;padding:0;background:#fff}.marketplace-products-table .marketplace-product-taxes-discounts-cell small,.marketplace-products-table .marketplace-product-taxes-discounts-cell small strong{display:block;margin:0 0 3px;font-size:11px;font-weight:400;line-height:1.4;color:inherit}
+/* Product Information view modal: five requested fieldsets and color hierarchy. */
+.marketplace-product-view-card{width:min(700px,96vw)!important;max-width:700px!important;max-height:90vh;overflow:auto!important}
+.marketplace-product-view-head h2{font-weight:800;color:#fff}
+.marketplace-product-view-content{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c" "d" "e";align-items:stretch;gap:14px}
+.marketplace-product-view-section{min-width:0;margin:0;padding:13px;border:1px solid rgba(232,190,200,.2);border-radius:10px;background:rgba(255,255,255,.025)}
+.marketplace-product-view-section legend{display:inline-block;padding:7px 12px;border-radius:7px;font-size:14px;font-weight:900;letter-spacing:.15px}
+.marketplace-product-view-section.view-slot-a{background:rgba(125,190,235,.12);border-color:rgba(125,190,235,.32)}
+.marketplace-product-view-section.view-slot-a legend{background:rgba(125,190,235,.88);color:#102b42}
+.marketplace-product-view-section.view-slot-b{background:rgba(151,205,170,.12);border-color:rgba(151,205,170,.32)}
+.marketplace-product-view-section.view-slot-b legend{background:rgba(151,205,170,.88);color:#173b27}
+.marketplace-product-view-section.view-slot-c{background:rgba(235,190,132,.12);border-color:rgba(235,190,132,.32)}
+.marketplace-product-view-section.view-slot-c legend{background:rgba(235,190,132,.9);color:#4a2d12}
+.marketplace-product-view-section.view-slot-d{background:rgba(190,165,225,.12);border-color:rgba(190,165,225,.32)}
+.marketplace-product-view-section.view-slot-d legend{background:rgba(190,165,225,.9);color:#35244d}
+.marketplace-product-view-section.view-slot-e{background:rgba(225,165,185,.12);border-color:rgba(225,165,185,.32)}
+.marketplace-product-view-section.view-slot-e legend{background:rgba(225,165,185,.9);color:#4b2433}
+.marketplace-product-view-section.view-slot-a{grid-area:a}.marketplace-product-view-section.view-slot-b{grid-area:b}.marketplace-product-view-section.view-slot-c{grid-area:c}.marketplace-product-view-section.view-slot-d{grid-area:d}.marketplace-product-view-section.view-slot-e{grid-area:e}
+.marketplace-product-view-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.marketplace-product-view-field{min-width:0;font-size:12px;overflow-wrap:anywhere}
+.marketplace-product-view-field b{display:block;margin-bottom:3px;color:#fff;font-size:11px;font-weight:800}
+.marketplace-product-view-field span{display:block;color:#f3d34a;font-weight:400;white-space:pre-wrap}
+/* High-contrast, distinct label and value colors for every fieldset. */
+ .marketplace-product-view-section.view-slot-a .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-a .marketplace-product-view-photo-group>strong{color:#78caff}
+ .marketplace-product-view-section.view-slot-a .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-a .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-a .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-b .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-b .marketplace-product-view-photo-group>strong{color:#83e6a2}
+ .marketplace-product-view-section.view-slot-b .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-b .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-b .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-c .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-c .marketplace-product-view-photo-group>strong{color:#ffc477}
+ .marketplace-product-view-section.view-slot-c .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-c .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-c .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-d .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-d .marketplace-product-view-photo-group>strong{color:#c9a5ff}
+ .marketplace-product-view-section.view-slot-d .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-d .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-d .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-section.view-slot-e .marketplace-product-view-field b,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-group>strong,.marketplace-product-view-section.view-slot-e .marketplace-product-view-photo-group>strong{color:#ff9fbd}
+ .marketplace-product-view-section.view-slot-e .marketplace-product-view-field span,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-item,.marketplace-product-view-section.view-slot-e .marketplace-product-view-empty,.marketplace-product-view-section.view-slot-e .marketplace-product-view-variation-item small{color:#fff}
+ .marketplace-product-view-field b{font-size:12px!important;font-weight:800!important}
+ .marketplace-product-view-field span{font-size:12px!important;line-height:1.55;color:#fff!important}
+ .marketplace-product-view-variation-item{font-size:12px!important}
+ .marketplace-product-view-variation-item small,.marketplace-product-view-empty{font-size:11px!important;color:#fff!important}
+ .marketplace-product-view-variation-list{display:grid;grid-template-columns:1fr;gap:10px}
+.marketplace-product-view-variation-group{display:grid;grid-template-columns:105px minmax(0,1fr);align-items:start;gap:8px;padding-bottom:9px;border-bottom:1px solid rgba(232,190,200,.1)}
+.marketplace-product-view-variation-group:last-child{border-bottom:0;padding-bottom:0}
+.marketplace-product-view-variation-group>strong,.marketplace-product-view-photo-group>strong{color:#fff;font-size:11px;font-weight:800}
+.marketplace-product-view-variation-item{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#f3d34a;font-size:11px;font-weight:400}
+.marketplace-product-view-variation-item img{width:54px;height:48px;object-fit:cover;border-radius:6px;border:1px solid rgba(232,190,200,.2)}
+.marketplace-product-view-variation-item small,.marketplace-product-view-empty{color:#f3d34a;font-size:10px}
+.marketplace-product-view-photo-group+.marketplace-product-view-photo-group{margin-top:14px}
+.marketplace-product-view-photos{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.marketplace-product-view-photo{width:112px}.marketplace-product-view-photo img{display:block;width:112px;height:100px;object-fit:cover;border-radius:7px}
+.marketplace-product-view-photo small{display:block;margin-top:4px;color:#f3d34a;font-size:10px;overflow-wrap:anywhere}
+.marketplace-product-view-actions{display:flex;justify-content:flex-end;margin-top:16px}
+@media(max-width:700px){.marketplace-product-view-content{grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c" "d" "e"}.marketplace-product-view-grid{grid-template-columns:1fr}.marketplace-product-view-variation-group{grid-template-columns:90px minmax(0,1fr)}}
+</style>
 <script>
 (()=>{
+ document.querySelectorAll('.marketplace-generated-barcode').forEach(function(svg){if(window.JsBarcode){try{window.JsBarcode(svg,svg.dataset.barcodeValue,{format:'CODE128',displayValue:true,fontSize:12,height:54,margin:4,lineColor:'#111',background:'#fff'});}catch(error){svg.outerHTML='<p class="marketplace-barcode-fallback">'+svg.dataset.barcodeValue+'</p>';}}});
  const modal=document.getElementById('marketplace-product-add-modal'),form=document.getElementById('marketplace-product-add-form'),duplicateModal=document.getElementById('marketplace-product-duplicate-modal');
  form?.addEventListener('submit',event=>{for(const row of form.querySelectorAll('.marketplace-product-entry-row')){const main=row.querySelector('.marketplace-product-main-photo-input');const mainFiles=Array.from(main?.files||[]);if(mainFiles.length<1||mainFiles.length>5||mainFiles.some(file=>file.size>5*1024*1024)){event.preventDefault();alert('Upload 1 to 5 main photos per product. Each photo must be no larger than 5 MB.');return;}for(const photo of row.querySelectorAll('.marketplace-product-tag-photo')){if(!photo.files?.length||photo.files[0].size>5*1024*1024){event.preventDefault();alert('Each product variation needs one photo no larger than 5 MB.');return;}}}});
  if(duplicateModal&&modal)document.getElementById('marketplace-product-duplicate-close')?.addEventListener('click',()=>{duplicateModal.hidden=true;modal.hidden=false;form?.querySelector('input[name="product_name[]"]')?.focus();});
@@ -1530,12 +1950,12 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  form?.setAttribute('novalidate','novalidate');
  form?.addEventListener('submit',event=>{const invalid=Array.from(form.querySelectorAll('input,select,textarea')).find(field=>!field.disabled&&!field.checkValidity());if(invalid){event.preventDefault();const row=invalid.closest('.marketplace-product-entry-row');if(row){const panels=Array.from(row.querySelectorAll(':scope > .marketplace-product-panel'));const index=panels.findIndex(panel=>panel.contains(invalid));if(index>=0){const tab=row.querySelectorAll('.marketplace-product-tab')[index];tab?.click();}}invalid.reportValidity();}},true);
  const syncTagsJson=row=>{const data={};tagTypes.forEach(type=>{const input=row.querySelector('[data-tag-type="'+type+'"]');try{data[type]=JSON.parse(input?.dataset.values||'[]');}catch(_){data[type]=[];}});const hidden=row.querySelector('.marketplace-product-tags-json');if(hidden)hidden.value=JSON.stringify(data);};
- const renderTagChips=(row,type)=>{const field=row.querySelector('[data-tag-field="'+type+'"]'),input=field?.querySelector('.marketplace-product-tag-input'),list=field?.querySelector('.marketplace-product-tag-chips');if(!input||!list)return;let values=[];try{values=JSON.parse(input.dataset.values||'[]');}catch(_){}list.innerHTML='';values.forEach((value,index)=>{const chip=document.createElement('span');chip.className='marketplace-product-tag-chip';const label=document.createElement('span');label.textContent=value;chip.append(label);const photo=document.createElement('input');photo.type='file';photo.accept='.jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif';photo.className='marketplace-product-tag-photo';photo.required=true;photo.title='Required photo for '+value;photo.name='product_tag_photos['+Number(row.dataset.rowIndex||0)+']['+type+']['+index+']';chip.append(photo);const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='Remove '+value;remove.addEventListener('click',()=>{input.dataset.values=JSON.stringify(values.filter((_,i)=>i!==index));renderTagChips(row,type);syncTagsJson(row);});chip.append(remove);list.append(chip);});};
+ const renderTagChips=(row,type)=>{const field=row.querySelector('[data-tag-field="'+type+'"]'),input=field?.querySelector('.marketplace-product-tag-input'),list=field?.querySelector('.marketplace-product-tag-chips');if(!input||!list)return;let values=[];try{values=JSON.parse(input.dataset.values||'[]');}catch(_){}list.innerHTML='';values.forEach((value,index)=>{const chip=document.createElement('span');chip.className='marketplace-product-tag-chip';const label=document.createElement('span');label.textContent=value;chip.append(label);const photo=document.createElement('input');photo.type='file';photo.accept='.jpg,.jpeg,.webp,.png,.avif,image/jpeg,image/png,image/webp,image/avif';photo.className='marketplace-product-tag-photo';photo.required=!row.closest("#marketplace-product-edit-modal");photo.title='Required photo for '+value;photo.name='product_tag_photos['+Number(row.dataset.rowIndex||0)+']['+type+']['+index+']';chip.append(photo);const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='Remove '+value;remove.addEventListener('click',()=>{input.dataset.values=JSON.stringify(values.filter((_,i)=>i!==index));renderTagChips(row,type);syncTagsJson(row);});chip.append(remove);list.append(chip);});};
  const addTag=(row,input,value)=>{const clean=value.trim().replace(/,/g,'');if(!clean)return;let values=[];try{values=JSON.parse(input.dataset.values||'[]');}catch(_){}if(!values.some(item=>item.toLowerCase()===clean.toLowerCase()))values.push(clean);input.dataset.values=JSON.stringify(values);renderTagChips(row,input.dataset.tagType);syncTagsJson(row);};
  const bindTags=row=>{row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>{input.dataset.values=input.dataset.values||'[]';input.addEventListener('input',()=>{if(input.value.includes(',')){const parts=input.value.split(',');parts.slice(0,-1).forEach(value=>addTag(row,input,value));input.value=parts[parts.length-1];}});input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addTag(row,input,input.value);input.value='';}});const addButton=input.closest('[data-tag-field]')?.querySelector('.marketplace-add-variation');addButton?.addEventListener('click',()=>{addTag(row,input,input.value);input.value='';input.focus();});input.addEventListener('blur',()=>{if(input.value.trim()){addTag(row,input,input.value);input.value='';}});renderTagChips(row,input.dataset.tagType);});syncTagsJson(row);};
  const reindexRows=()=>{Array.from(rows?.querySelectorAll('.marketplace-product-entry-row')||[]).forEach((row,index)=>{row.dataset.rowIndex=String(index);const photos=row.querySelector('.marketplace-product-main-photo-input');if(photos)photos.name='product_photos['+index+'][]';row.querySelectorAll('.marketplace-product-tag-field').forEach(field=>{const type=field.dataset.tagField;field.querySelectorAll('.marketplace-product-tag-chip').forEach((chip,tagIndex)=>{const photo=chip.querySelector('input[type="file"]');if(photo)photo.name='product_tag_photos['+index+']['+type+']['+tagIndex+']';});});});};
  const bindSubcategory=row=>{const category=row.querySelector('.marketplace-product-category'),subcategory=row.querySelector('.marketplace-product-subcategory');if(!category||!subcategory)return;const sync=()=>{const parentId=category.value;let available=0;Array.from(subcategory.options).forEach(option=>{if(!option.value){option.hidden=false;return;}const matches=option.dataset.parentId===parentId;option.hidden=!matches;if(matches)available++;});if(!parentId||available===0){subcategory.value='';subcategory.disabled=true;subcategory.required=false;subcategory.options[0].textContent=parentId?'No subcategories available':'Select category first';}else{subcategory.disabled=false;subcategory.required=true;subcategory.options[0].textContent='Select subcategory';if(subcategory.selectedOptions[0]?.dataset.parentId!==parentId)subcategory.value='';}};category.addEventListener('change',sync);sync();};
- const bindProductRow=row=>{initProductTabs(row);bindSubcategory(row);bindTags(row);bindPricing(row);const photos=row.querySelector('.marketplace-product-main-photo-input');photos?.addEventListener('change',()=>{const files=Array.from(photos.files||[]),names=row.querySelector('.marketplace-product-main-photo-names');if(files.length>5){photos.setCustomValidity('You can upload a maximum of 5 main photos.');photos.reportValidity();photos.value='';if(names)names.textContent='No photos selected.';return;}photos.setCustomValidity(files.length?'':'At least one main photo is required.');if(names)names.textContent=files.length?files.length+' photo(s): '+files.map(file=>file.name).join(', '):'No photos selected.';});};
+ const bindProductRow=row=>{initProductTabs(row);bindSubcategory(row);bindTags(row);bindPricing(row);const photos=row.querySelector('.marketplace-product-main-photo-input');photos?.addEventListener('change',()=>{const files=Array.from(photos.files||[]),names=row.querySelector('.marketplace-product-main-photo-names'),isEdit=!!row.closest('#marketplace-product-edit-modal'),maxFiles=5;if(files.length>maxFiles||files.some(file=>file.size>5*1024*1024)){photos.setCustomValidity('Upload no more than 5 main photos, each no larger than 5 MB.');photos.reportValidity();photos.value='';if(names)names.textContent=isEdit?'No replacement photo selected.':'No photos selected.';return;}photos.setCustomValidity(isEdit?'':(files.length?'':'At least one main photo is required.'));if(names)names.textContent=files.length?(isEdit?'Replacement photo: ':'')+files.map(file=>file.name).join(', '):(isEdit?'No new photos selected.':'No photos selected.');});};
  const resetForm=()=>{if(!rows)return;form?.reset();rows.innerHTML=initialRowMarkup;rows.querySelectorAll('.marketplace-product-entry-row').forEach((row,index)=>{row.dataset.rowIndex=String(index);row.querySelectorAll('.marketplace-product-tag-input').forEach(input=>input.dataset.values='[]');bindProductRow(row);});reindexRows();};
  const close=()=>{resetForm();if(modal)modal.hidden=true;};
  document.getElementById('marketplace-product-add-open')?.addEventListener('click',()=>{resetForm();if(modal)modal.hidden=false;});
@@ -1543,7 +1963,226 @@ table.marketplace-table .marketplace-actions{display:flex!important;align-items:
  rows?.querySelectorAll('.marketplace-product-entry-row').forEach(bindProductRow);
  rows?.querySelectorAll('.marketplace-product-entry-row').forEach(initProductTabs);
 document.getElementById('marketplace-product-created-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});document.getElementById('marketplace-product-edit-success-close')?.addEventListener('click',()=>{window.location.href='admin.php?section=marketplace&marketplace_tab=products';});
- const productEditModal=document.getElementById('marketplace-product-edit-modal');const productEditFields={id:document.getElementById('marketplace-product-edit-id'),name:document.getElementById('marketplace-product-edit-name'),code:document.getElementById('marketplace-product-edit-code'),brand:document.getElementById('marketplace-product-edit-brand'),model:document.getElementById('marketplace-product-edit-model'),description:document.getElementById('marketplace-product-edit-description'),photo:document.getElementById('marketplace-product-edit-current-photo'),photoInput:document.getElementById('marketplace-product-edit-photo-input'),photoPreview:document.getElementById('marketplace-product-edit-photo-preview'),photoEmpty:document.getElementById('marketplace-product-edit-photo-empty'),currentPreview:document.getElementById('marketplace-product-edit-current-preview'),currentEmpty:document.getElementById('marketplace-product-edit-current-empty'),category:document.getElementById('marketplace-product-edit-category'),subcategory:document.getElementById('marketplace-product-edit-subcategory')};document.querySelectorAll('.marketplace-product-edit-open').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();const d=link.dataset;productEditFields.id.value=d.productId||'';productEditFields.name.value=d.productName||'';productEditFields.code.value=link.closest('tr')?.dataset.productCode||'';productEditFields.brand.value=d.productBrand||'';productEditFields.model.value=d.productModel||'';productEditFields.description.value=d.productDescription||'';productEditFields.photo.textContent=d.productPhoto?'Current photo: '+d.productPhoto.split('/').pop():'No photo currently uploaded.';productEditFields.photoInput.value='';if(d.productPhoto){productEditFields.currentPreview.src=d.productPhoto;productEditFields.currentPreview.hidden=false;productEditFields.currentEmpty.hidden=true;}else{productEditFields.currentPreview.removeAttribute('src');productEditFields.currentPreview.hidden=true;productEditFields.currentEmpty.hidden=false;}productEditFields.photoPreview.removeAttribute('src');productEditFields.photoPreview.hidden=true;productEditFields.photoEmpty.hidden=false;productEditFields.category.value=link.dataset.productCategoryId||'';productEditFields.subcategory.value=link.dataset.productSubcategoryId||'';const syncEditSubcategory=()=>{const parentId=productEditFields.category.value;let count=0;Array.from(productEditFields.subcategory.options).forEach(option=>{if(!option.value){option.hidden=false;return;}const match=option.dataset.parentId===parentId;option.hidden=!match;if(match)count++;});productEditFields.subcategory.disabled=!parentId||count===0;if(!parentId||count===0){productEditFields.subcategory.value='';productEditFields.subcategory.options[0].textContent=parentId?'No subcategories available':'Select category first';}else{productEditFields.subcategory.options[0].textContent='Select subcategory';if(productEditFields.subcategory.selectedOptions[0]?.dataset.parentId!==parentId)productEditFields.subcategory.value='';}};syncEditSubcategory();productEditFields.category.onchange=syncEditSubcategory;productEditModal.hidden=false;productEditFields.name.focus();}));document.getElementById('marketplace-product-edit-cancel')?.addEventListener('click',()=>{if(productEditModal)productEditModal.hidden=true;});productEditFields.photoInput?.addEventListener('change',()=>{const file=productEditFields.photoInput.files?.[0];if(!file)return;const previewUrl=URL.createObjectURL(file);productEditFields.photoPreview.src=previewUrl;productEditFields.photoPreview.hidden=false;productEditFields.photoEmpty.hidden=true;});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&productEditModal&&!productEditModal.hidden)productEditModal.hidden=true;});
+ const productEditModal=document.getElementById('marketplace-product-edit-modal');
+ const productEditForm=document.getElementById('marketplace-product-edit-form');
+ const productEditRow=productEditForm?.querySelector('.marketplace-product-entry-row');
+ const editSet=(name,value)=>{const field=productEditRow?.querySelector('[name="'+name+'"]');if(field)field.value=value??'';};
+ const editPercent=value=>{const number=Number(value||0)*100;return number?number.toFixed(2)+'%':'';};
+ const editMoney=value=>Number(value||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const editPopulate=link=>{
+  const d=link.dataset,row=productEditRow;if(!row)return;
+  document.getElementById('marketplace-product-edit-id').value=d.productId||'';
+  editSet('product_name[]',d.productName);editSet('brand[]',d.productBrand);editSet('model[]',d.productModel);
+  editSet('manufacturer[]',d.productManufacturer);editSet('supply_chain_entity[]',d.productSupplyEntity);editSet('country_of_origin[]',d.productCountry);
+  editSet('description[]',d.productDescription);editSet('uom[]',d.productUom);
+  editSet('retail_price[]',editMoney(d.productRetailPrice));
+  editSet('vat_rate[]',editPercent(d.productVatRate));editSet('percentage_tax_rate[]',editPercent(d.productPercentageTaxRate));
+  editSet('income_tax_rate[]',editPercent(d.productIncomeTaxRate));editSet('withholding_tax_rate[]',editPercent(d.productWithholdingTaxRate));editSet('other_tax_rate[]',editPercent(d.productOtherTaxRate));
+  editSet('discount_type[]',d.productDiscountType||'none');
+  editSet('discount_value[]',d.productDiscountType==='percent'?editPercent(d.productDiscountValue):editMoney(d.productDiscountValue));
+  // Recalculate the readonly Selling Price after all saved pricing fields have been populated.
+  // bindPricing() attaches the calculator before the Edit modal is opened, so changing
+  // Retail Price here must trigger its input handler to refresh the displayed result.
+  const editRetailField=row.querySelector('[name="retail_price[]"]');
+  editRetailField?.dispatchEvent(new Event('input',{bubbles:true}));
+  editSet('product_status[]',d.productStatus||'Active');editSet('weight[]',d.productWeight);editSet('weight_unit[]',d.productWeightUnit);
+  editSet('length[]',d.productLength);editSet('width[]',d.productWidth);editSet('dimension_unit[]',d.productDimensionUnit);editSet('batch_number[]',d.productBatchNumber);
+  const category=row.querySelector('[name="category_id[]"]'),subcategory=row.querySelector('[name="subcategory_id[]"]');
+  if(category){category.value=d.productCategoryId||'';category.dispatchEvent(new Event('change',{bubbles:true}));}
+  if(subcategory)subcategory.value=d.productSubcategoryId||'';
+  let tags={};try{tags=JSON.parse(d.productTags||'{}');}catch(_){}
+  tagTypes.forEach(type=>{const input=row.querySelector('[data-tag-type="'+type+'"]');if(input)input.dataset.values=JSON.stringify(Array.isArray(tags[type])?tags[type]:[]);renderTagChips(row,type);});
+  syncTagsJson(row);
+  const photoLabel=row.querySelector('.marketplace-product-main-photo-names');if(photoLabel)photoLabel.textContent='No new photos selected.';
+  const newPhotoPreview=row.querySelector('.marketplace-product-edit-new-photo-previews');if(newPhotoPreview)newPhotoPreview.replaceChildren();
+  const photoInput=row.querySelector('.marketplace-product-main-photo-input');if(photoInput)photoInput.value='';
+  const previewList=document.getElementById('marketplace-product-edit-existing-photos');
+  if(previewList){
+   previewList.replaceChildren();let currentPhotos=[];try{currentPhotos=JSON.parse(d.productPhotos||'[]');}catch(_){}
+   if(!Array.isArray(currentPhotos)||!currentPhotos.length)currentPhotos=d.productPhoto?[{id:0,path:d.productPhoto}]:[];
+   if(!currentPhotos.length){const empty=document.createElement('small');empty.textContent='No current main photos.';previewList.append(empty);}
+   currentPhotos.forEach(photo=>{
+    const card=document.createElement('div');card.className='marketplace-edit-photo-card';const image=document.createElement('img');image.src=photo.path;image.alt='Current main photo';card.append(image);
+    const remove=document.createElement('button');remove.type='button';remove.className='marketplace-edit-photo-remove';remove.textContent='X';remove.title='Mark this photo for removal';
+    const hidden=document.createElement('input');hidden.type='hidden';hidden.name='remove_main_photo_ids[]';hidden.value=Number(photo.id)>0?String(photo.id):'legacy';hidden.disabled=true;
+    remove.addEventListener('click',()=>{const marked=card.classList.toggle('is-marked');hidden.disabled=!marked;remove.textContent=marked?'Undo':'X';remove.title=marked?'Undo photo removal':'Mark this photo for removal';syncNewPhotoUploadLimit();});
+    card.append(remove,hidden);previewList.append(card);
+   });
+  }
+  const syncNewPhotoUploadLimit=()=>{
+   const currentCards=previewList?Array.from(previewList.children).filter(card=>card.classList?.contains('marketplace-edit-photo-card')):[];
+   const marked=currentCards.filter(card=>card.querySelector('input[name="remove_main_photo_ids[]"]:not(:disabled)')).length;
+   const currentCount=currentCards.length;
+   const remainingCurrentCount=Math.max(0,currentCount-marked);
+   const available=Math.max(0,5-remainingCurrentCount);
+   const uploadInput=productEditForm?.querySelector('.marketplace-product-main-photo-input');
+   const guidance=productEditForm?.querySelector('.marketplace-product-main-photo-guidance');
+   if(uploadInput){uploadInput.disabled=available===0;uploadInput.dataset.maxFiles=String(available);}
+   if(guidance)guidance.textContent=available>0?'You may upload up to '+available+' New Photo(s), based on the available spaces among the 5 Main Photos.':'The product already has 5 Main Photos. Mark Current Photos with X to create replacement spaces.';
+  };
+  syncNewPhotoUploadLimit();
+  productEditModal.hidden=false;row.querySelector('.marketplace-product-tab')?.click();row.querySelector('[name="product_name[]"]')?.focus();
+ };
+ if(productEditRow){productEditRow.dataset.rowIndex='0';bindProductRow(productEditRow);}
+ const viewModal=document.getElementById('marketplace-product-view-modal');
+ const viewContent=document.getElementById('marketplace-product-view-content');
+ const viewField=(label,value)=>{
+  const el=document.createElement('div');el.className='marketplace-product-view-field';
+  const b=document.createElement('b');b.textContent=label;
+  const v=document.createElement('span');v.textContent=String(value??'').trim()||'—';
+  el.append(b,v);return el;
+ };
+ const viewSection=(title,slot)=>{
+  const el=document.createElement('fieldset');el.className='marketplace-product-view-section'+(slot?' '+slot:'');
+  const legend=document.createElement('legend');legend.textContent=title;el.append(legend);return el;
+ };
+ const viewGrid=section=>{const el=document.createElement('div');el.className='marketplace-product-view-grid';section.append(el);return el;};
+ const viewNumber=value=>{
+  const n=Number(String(value??'').replace(/,/g,''));
+  return Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+ };
+ const viewRate=value=>{
+  const storedFraction=Number(String(value??'').replace(/%/g,''));
+  if(!Number.isFinite(storedFraction))return '—';
+  const percentage=storedFraction*100;
+  return (Number.isInteger(percentage)?String(percentage):String(Number(percentage.toFixed(2))))+'%';
+ };
+ const openView=link=>{
+  const d=link.dataset;let photos=[],variationPhotos=[],tags={};
+  try{photos=JSON.parse(d.productPhotos||'[]');}catch(e){}
+  try{variationPhotos=JSON.parse(d.productVariationPhotos||'[]');}catch(e){}
+  try{tags=JSON.parse(d.productTags||'{}');}catch(e){}
+  viewContent.replaceChildren();
+
+  // A. Product details (upper-left)
+  const details=viewSection('A. Product Details','view-slot-a');
+  const detailsGrid=viewGrid(details);
+  const category=[d.productCategoryName,d.productSubcategoryName].filter(Boolean).join(' / ');
+  [['Category',category],['Product Name',d.productName],['Brand',d.productBrand],['Model',d.productModel],['UOM',d.productUom]].forEach(x=>detailsGrid.append(viewField(x[0],x[1])));
+  const barcodeField=viewField('Barcode',d.productBarcode);
+  const barcodeValue=String(d.productBarcode||'').trim();
+  if(barcodeValue){
+   const sticker=document.createElement('div');sticker.className='marketplace-barcode-sticker marketplace-product-view-barcode-sticker';
+   sticker.setAttribute('aria-label','Printable barcode sticker for '+String(d.productName||'product'));
+   const caption=document.createElement('span');caption.className='marketplace-barcode-sticker-caption';caption.textContent='PRODUCT BARCODE';
+   const barcodeSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');barcodeSvg.classList.add('marketplace-generated-barcode','marketplace-product-view-barcode');
+   barcodeSvg.setAttribute('role','img');barcodeSvg.setAttribute('aria-label','Scannable Code 128 barcode for '+String(d.productName||'product'));
+   sticker.append(barcodeSvg);barcodeField.append(sticker);
+   if(window.JsBarcode){try{window.JsBarcode(barcodeSvg,barcodeValue,{format:'CODE128',displayValue:true,fontSize:9,height:34,margin:0,lineColor:'#111',background:'#fff'});}catch(error){const fallback=document.createElement('small');fallback.className='marketplace-barcode-fallback';fallback.textContent=barcodeValue;sticker.append(fallback);}}
+  }
+  detailsGrid.append(barcodeField);
+  detailsGrid.append(viewField('Description',d.productDescription));
+  viewContent.append(details);
+
+  // B. Variations (lower-left), with the photo assigned to each variation value.
+  const variations=viewSection('B. Product Variations','view-slot-b');
+  const variationList=document.createElement('div');variationList.className='marketplace-product-view-variation-list';
+  [['sizes','Sizes'],['colors','Colors'],['type','Type'],['storage','Storage'],['others','Others']].forEach(([key,label])=>{
+   const group=document.createElement('div');group.className='marketplace-product-view-variation-group';
+   const heading=document.createElement('strong');heading.textContent=label;group.append(heading);
+   const values=Array.isArray(tags[key])?tags[key]:[];
+   if(!values.length){const empty=document.createElement('span');empty.className='marketplace-product-view-empty';empty.textContent='—';group.append(empty);}
+   values.forEach(value=>{
+    const item=document.createElement('div');item.className='marketplace-product-view-variation-item';
+    const name=document.createElement('span');name.textContent=String(value);item.append(name);
+    const photo=variationPhotos.find(p=>String(p.type||'').toLowerCase()===key&&String(p.value||'')===String(value));
+    if(photo&&photo.path){const img=document.createElement('img');img.src=photo.path;img.alt=label+' '+String(value);item.append(img);}
+    else {const noPhoto=document.createElement('small');noPhoto.textContent='No photo';item.append(noPhoto);}
+    group.append(item);
+   });
+   variationList.append(group);
+  });
+  variations.append(variationList);viewContent.append(variations);
+
+  // C. Pricing, taxes and discounts (upper-right)
+  const pricing=viewSection('C. Pricing, Taxes, and Discounts','view-slot-c');
+  const pricingGrid=viewGrid(pricing);
+  const discountType=d.productDiscountType||'none';
+  const discountValue=discountType==='percent'?viewRate(d.productDiscountValue):discountType==='fixed'?'₱'+viewNumber(d.productDiscountValue):'—';
+  [
+   ['Retail Price',d.productRetailPrice?'₱'+viewNumber(d.productRetailPrice):'—'],
+   ['Value-Added Tax (%)',viewRate(d.productVatRate)],
+   ['Percentage Tax (%)',viewRate(d.productPercentageTaxRate)],
+   ['Withholding Tax (%)',viewRate(d.productWithholdingTaxRate)],
+   ['Income Tax (%)',viewRate(d.productIncomeTaxRate)],
+   ['Other Tax (%)',viewRate(d.productOtherTaxRate)],
+   ['Discount Type',discountType==='percent'?'Percentage (%)':discountType==='fixed'?'Fixed Peso (₱)':'No Discount'],
+   ['Discount Value',discountValue],
+   ['Selling Price',d.productSellingPrice?'₱'+viewNumber(d.productSellingPrice):'—'],
+   ['Status',d.productStatus]
+  ].forEach(x=>pricingGrid.append(viewField(x[0],x[1])));
+  viewContent.append(pricing);
+
+  // D. Physical and tracking attributes (lower-right)
+  const physical=viewSection('D. Physical and Tracking Attributes','view-slot-d');
+  const physicalGrid=viewGrid(physical);
+  [
+   ['Weight',[d.productWeight,d.productWeightUnit].filter(Boolean).join(' ')],
+   ['Width',d.productWidth],
+   ['Length',d.productLength],
+   ['Dimension Measurement',d.productDimensionUnit],
+   ['Lot No. / Batch No.',d.productBatchNumber]
+  ].forEach(x=>physicalGrid.append(viewField(x[0],x[1])));
+  viewContent.append(physical);
+
+  // E. Photos: show only the uploaded main product photos.
+  const allPhotos=viewSection('E. Photos','view-slot-e');
+  const mainPhotoGroup=document.createElement('div');mainPhotoGroup.className='marketplace-product-view-photo-group';
+  const mainPhotoHeading=document.createElement('strong');mainPhotoHeading.textContent='Main Photos';mainPhotoGroup.append(mainPhotoHeading);
+  const mainPhotoWrap=document.createElement('div');mainPhotoWrap.className='marketplace-product-view-photos';
+  photos.forEach((p,i)=>{if(!p||!p.path)return;const card=document.createElement('div');card.className='marketplace-product-view-photo';const img=document.createElement('img');img.src=p.path;img.alt='Main product photo '+(i+1);card.append(img);mainPhotoWrap.append(card);});
+  if(!mainPhotoWrap.children.length){const empty=document.createElement('span');empty.className='marketplace-product-view-empty';empty.textContent='No main photos available.';mainPhotoWrap.append(empty);}
+  mainPhotoGroup.append(mainPhotoWrap);allPhotos.append(mainPhotoGroup);
+  viewContent.append(allPhotos);
+  viewModal.hidden=false;
+  const viewCard=viewModal.querySelector('.marketplace-product-view-card');
+  // Start each opening at the heading and first fieldset, not at the previously focused Close button.
+  viewModal.scrollTop=0;
+  if(viewCard)viewCard.scrollTop=0;
+  viewModal.querySelector('.marketplace-product-view-close')?.focus({preventScroll:true});
+  requestAnimationFrame(()=>{viewModal.scrollTop=0;if(viewCard)viewCard.scrollTop=0;});
+ };
+ document.querySelectorAll('.marketplace-product-row-view summary').forEach(btn=>btn.addEventListener('click',event=>{event.preventDefault();const link=btn.closest('tr')?.querySelector('.marketplace-product-edit-open');if(link)openView(link);}));
+ viewModal?.querySelectorAll('.marketplace-product-view-close').forEach(btn=>btn.addEventListener('click',()=>viewModal.hidden=true));
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&viewModal&&!viewModal.hidden)viewModal.hidden=true;});
+ document.querySelectorAll('.marketplace-product-edit-open').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();editPopulate(link);}));
+ document.getElementById('marketplace-product-edit-cancel')?.addEventListener('click',()=>{if(productEditModal)productEditModal.hidden=true;});
+ productEditForm?.addEventListener('submit',event=>{const invalid=Array.from(productEditForm.querySelectorAll('input,select,textarea')).find(field=>!field.disabled&&!field.checkValidity());if(invalid){event.preventDefault();const panels=Array.from(productEditRow.querySelectorAll(':scope > .marketplace-product-panel'));const index=panels.findIndex(panel=>panel.contains(invalid));if(index>=0)productEditRow.querySelectorAll('.marketplace-product-tab')[index]?.click();invalid.reportValidity();}});
+ const showMainPhotoLimitModal=message=>{
+  let overlay=document.getElementById('marketplace-edit-photo-limit-modal');
+  if(!overlay){
+   overlay=document.createElement('div');overlay.id='marketplace-edit-photo-limit-modal';overlay.className='marketplace-category-delete-success-overlay';overlay.hidden=true;
+   const card=document.createElement('section');card.className='marketplace-category-delete-success-card';card.setAttribute('role','dialog');card.setAttribute('aria-modal','true');card.setAttribute('aria-labelledby','marketplace-edit-photo-limit-title');
+   const mark=document.createElement('div');mark.className='marketplace-category-delete-success-mark marketplace-category-duplicate-mark';mark.setAttribute('aria-hidden','true');mark.textContent='!';
+   const title=document.createElement('h2');title.id='marketplace-edit-photo-limit-title';title.textContent='Photo Upload Limit Reached';
+   const copy=document.createElement('p');copy.className='marketplace-edit-photo-limit-copy';
+   const ok=document.createElement('button');ok.type='button';ok.className='marketplace-category-delete-success-ok';ok.textContent='OK';ok.addEventListener('click',()=>{overlay.hidden=true;overlay.style.display='none';if(productEditModal){productEditModal.hidden=false;productEditModal.style.display='';}const photosTab=productEditRow?.querySelectorAll('.marketplace-product-tab')[4];if(photosTab){photosTab.click();photosTab.focus();}const uploadInput=productEditForm?.querySelector('.marketplace-product-main-photo-input');if(uploadInput&&!uploadInput.disabled){uploadInput.focus();}else{productEditForm?.querySelector('.marketplace-product-main-photo-guidance')?.focus?.();}});
+   card.append(mark,title,copy,ok);overlay.append(card);document.body.append(overlay);
+  }
+  const copy=overlay.querySelector('.marketplace-edit-photo-limit-copy');if(copy)copy.textContent=message;
+  overlay.hidden=false;overlay.style.display='flex';overlay.querySelector('button')?.focus();
+ };
+ productEditForm?.querySelector('.marketplace-product-main-photo-input')?.addEventListener('change',event=>{
+  const files=Array.from(event.target.files||[]);
+  const currentCards=Array.from(productEditForm.querySelectorAll('#marketplace-product-edit-existing-photos > .marketplace-edit-photo-card'));
+  const marked=currentCards.filter(card=>card.querySelector('input[name="remove_main_photo_ids[]"]:not(:disabled)')).length;
+  const currentCount=currentCards.length;
+  const remainingCurrentCount=Math.max(0,currentCount-marked);
+  const available=Math.max(0,5-remainingCurrentCount);
+  const totalAfterSelection=remainingCurrentCount+files.length;
+  const message='Upload up to '+available+' New Photo(s), based on the available spaces among the 5 Main Photos. Each photo must be no larger than 5 MB.';
+  if(files.length>available||files.some(file=>file.size>5*1024*1024)){
+   showMainPhotoLimitModal(message);event.target.value='';
+   const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');preview?.replaceChildren();
+   const names=productEditForm.querySelector('.marketplace-product-main-photo-names');if(names)names.textContent='No new photos selected.';
+   return;
+  }
+  const names=productEditForm.querySelector('.marketplace-product-main-photo-names');
+  if(names)names.textContent=files.length?files.map(file=>file.name).join(', '):'No new photos selected.';
+  const preview=productEditForm.querySelector('.marketplace-product-edit-new-photo-previews');
+  if(preview){preview.replaceChildren();files.forEach(file=>{const card=document.createElement('div');card.className='marketplace-edit-new-photo-card';const image=document.createElement('img');image.src=URL.createObjectURL(file);image.alt='New photo preview';image.onload=()=>URL.revokeObjectURL(image.src);const caption=document.createElement('small');caption.textContent=file.name;card.append(image,caption);preview.append(card);});}
+ });
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&productEditModal&&!productEditModal.hidden)productEditModal.hidden=true;});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal&&!modal.hidden)close();});
  // Products filter and pagination: same client-side behavior as Registered User Accounts.
  const productBulkForm=document.getElementById('marketplace-bulk-products');
@@ -1624,22 +2263,26 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
  <?php if(!$marketplaceInventory): ?><div class="marketplace-empty">No inventory records have been created yet. Add an inventory record from the Products page.</div><?php else: ?>
  <div class="marketplace-products-controls"><label class="marketplace-products-filter">Filter inventory<input type="search" id="marketplace-inventory-filter" placeholder="Search inventory details..." aria-label="Search inventory"></label><label class="marketplace-products-page-size">Show<select id="marketplace-inventory-page-size" aria-label="Inventory records per page"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select> entries</label></div>
  <div class="marketplace-products-pagination marketplace-products-pagination-top"><span class="muted" id="marketplace-inventory-page-info-top" aria-live="polite"></span><div class="gallery-page-controls"><button type="button" class="btn light" id="marketplace-inventory-first-top">First</button><button type="button" class="btn light" id="marketplace-inventory-prev-top">Previous</button><span id="marketplace-inventory-page-numbers-top" class="gallery-page-numbers" aria-label="Inventory page numbers"></span><button type="button" class="btn light" id="marketplace-inventory-next-top">Next</button><button type="button" class="btn light" id="marketplace-inventory-last-top">Last</button></div><div class="admin-panel-head marketplace-products-bulk-toolbar" style="margin:0 0 14px;justify-content:flex-end"><button class="btn bulk-delete" type="button" id="marketplace-inventory-delete-selected" disabled aria-disabled="true">Delete Selected</button></div></div>
- <div class="table-wrap marketplace-inventory-table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-inventory-select-all" aria-label="Select all inventory records"></th><th>Product Photo</th><th>Product Name</th><th>Batch Number</th><th>Manufacturer</th><th>Quantity in Stock</th><th>All Taxes</th><th>Retail Price</th><th>Selling Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="marketplace-inventory-tbody">
+ <div class="table-wrap marketplace-inventory-table-wrap"><table class="marketplace-table marketplace-inventory-table"><thead><tr><th class="marketplace-product-select-cell"><input type="checkbox" id="marketplace-inventory-select-all" aria-label="Select all inventory records"></th><th>Product Information</th><th>Quantity on Hand</th><th>Stock Value</th><th>Storage Location</th><th>Reorder Details</th><th>Last Updated Details</th><th>Actions</th></tr></thead><tbody id="marketplace-inventory-tbody">
  <?php foreach($marketplaceInventory as $item): ?>
  <tr data-inventory-id="<?=!empty($item['id'])?(int)$item['id']:''?>" data-inventory-name="<?=e((string)$item['product_name'])?>" data-inventory-code="<?=e((string)($item['product_code']??''))?>">
   <td class="marketplace-product-select-cell"><?php if(!empty($item['id'])): ?><input type="checkbox" class="marketplace-inventory-select" name="selected_inventory[]" value="<?=(int)$item['id']?>" aria-label="Select <?=e((string)$item['product_name'])?> inventory record"><?php endif; ?></td>
-  <td><?php if($item['photo_path']): ?><img class="marketplace-photo" src="<?=e((string)$item['photo_path'])?>" alt="<?=e($item['product_name'])?>"><?php else: ?><div class="marketplace-photo"></div><?php endif; ?></td>
-  <td class="marketplace-inventory-product"><strong><?=e($item['product_name'])?></strong><small>Product ID: <?=e((string)($item['product_code']??''))?></small><small>Category: <?=e((string)($item['category_name']??''))?></small><small>Subcategory: <?=e((string)($item['subcategory_name']??''))?></small><small>Brand: <?=e((string)($item['brand']??''))?></small><small>Model: <?=e((string)($item['model']??''))?></small><small>Description: <?=e((string)($item['description']??''))?></small></td>
-  <td><?=e((string)($item['batch_number']??$item['sku']??'—'))?></td>
-  <td><strong><?=e((string)($item['manufacturer']??'—'))?></strong><small style="display:block;margin-top:4px;line-height:1.45;color:var(--muted)">Supply Chain Type: <?=e((string)($item['supply_chain_type']??$item['supply_chain_entity']??'—'))?></small></td>
+  <td class="marketplace-inventory-product">
+   <strong><?=e((string)$item['product_name'])?></strong>
+   <small>Product Code: <?=e((string)($item['product_code']??'—'))?></small>
+   <small>Barcode: <?=e((string)($item['barcode_value']??'—'))?></small>
+   <small>Brand / Model: <?=e(trim((string)($item['brand']??'') . ' / ' . (string)($item['model']??''),' /') ?: '—')?></small>
+   <small>Retail Price: <?=$money($item['product_retail_price']??0)?></small>
+   <small>Selling Price: <?=$money($item['product_selling_price']??0)?></small>
+  </td>
   <td><?=isset($item['stock_on_hand'])?$quantityFormat($item['stock_on_hand']):'—'?></td>
-  <td class="marketplace-inventory-taxes"><small>Value-Added Tax: <?=$taxFormat($item['vat_rate']??0)?></small><small>Percentage Tax: <?=$taxFormat($item['percentage_tax_rate']??0)?></small><small>Income Tax: <?=$taxFormat($item['income_tax_rate']??0)?></small><small>Withholding Tax: <?=$taxFormat($item['withholding_tax_rate']??0)?></small><small>Other Taxes: <?=$taxFormat($item['other_tax_rate']??0)?></small></td>
-  <td><?=isset($item['retail_price'])?$money($item['retail_price']):'—'?></td>
-  <td><?=isset($item['selling_price'])?$money($item['selling_price']):((isset($item['unit_price']))?$money($item['unit_price']):'—')?></td>
-  <?php $inventoryStatusLabel=(string)($item['status']??'Not Set'); $inventoryStatusClass=strtolower(trim((string)preg_replace('/[^a-z0-9]+/i','-', $inventoryStatusLabel),'-')); ?>
-  <td><span class="marketplace-inventory-status marketplace-inventory-status-<?=e($inventoryStatusClass)?>"><?=e($inventoryStatusLabel)?></span></td>
+  <td><?=$money((float)($item['stock_on_hand']??0)*(float)($item['product_selling_price']??0))?></td>
+  <td><?=e((string)($item['storage_location']??'') ?: '—')?></td>
+  <?php $inventoryReorderPoint=(float)($item['reorder_point']??0); $inventoryReorderStatus=((float)($item['stock_on_hand']??0)<=$inventoryReorderPoint && $inventoryReorderPoint>0)?'Reorder Required':'Sufficient Stock'; $inventoryReorderClass=$inventoryReorderStatus==='Reorder Required'?'low-stock':'available'; ?>
+  <td><small>Reorder Point: <?=$quantityFormat($inventoryReorderPoint)?></small><small>Reorder Quantity: <?=$quantityFormat($item['reorder_quantity']??0)?></small><span class="marketplace-inventory-status marketplace-inventory-status-<?=e($inventoryReorderClass)?>"><?=e($inventoryReorderStatus)?></span></td>
+  <td><small><?=!empty($item['updated_at'])?e($date($item['updated_at'])):'—'?></small><small><?=e((string)($item['last_updated_details']??'') ?: 'No update details recorded')?></small></td>
   <td><div class="marketplace-actions marketplace-inventory-actions">
-   <?php if(empty($item['id'])): ?><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;add_inventory_product=<?=(int)$item['linked_product_id']?>">Add</a><?php else: ?><form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="load_quantity" min="0" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form><?php endif; ?>
+   <?php if(empty($item['id'])): ?><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;add_inventory_product=<?=(int)$item['linked_product_id']?>">Add</a><?php else: ?><form method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory" class="marketplace-add-stock-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_add_stock"><input type="hidden" name="inventory_id" value="<?=(int)$item['id']?>"><input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="load_quantity" min="0" required placeholder="Qty" aria-label="Quantity to add"><button class="btn light" type="submit">Add</button></form><a class="btn light marketplace-inventory-view-open" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;view_inventory=<?=(int)$item['id']?>">View</a><?php endif; ?>
    <?php if(!empty($item['id'])): ?><a class="btn" href="admin.php?section=marketplace&amp;marketplace_tab=inventory&amp;edit_inventory=<?=(int)$item['id']?>">Edit</a><?php endif; ?>
   </div></td>
  </tr><?php endforeach; ?>
@@ -1691,27 +2334,138 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
 <div class="account-status-modal marketplace-category-modal" id="marketplace-inventory-add-modal">
  <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-inventory-add-title">
   <h2 id="marketplace-inventory-add-title">Add Inventory</h2>
-  <form class="marketplace-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory">
+  <p class="marketplace-inventory-product-summary">You are about to add inventory records for the Product Name: <strong><?=e((string)$marketplaceAddInventoryProduct['product_name'])?></strong> / <strong><?=e((string)($marketplaceAddInventoryProduct['brand']??'—'))?></strong> / <strong><?=e((string)($marketplaceAddInventoryProduct['model']??'—'))?></strong> with Product ID: <strong><?=e((string)($marketplaceAddInventoryProduct['product_code']??''))?></strong>.</p>
+  <form class="marketplace-form" id="marketplace-add-inventory-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory">
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_inventory"><input type="hidden" name="inventory_id" value="0">
-   <label>Product Name *<input type="text" value="<?=e($marketplaceAddInventoryProduct['product_name'])?>" readonly aria-readonly="true"><input type="hidden" name="inventory_product_id" value="<?=(int)$marketplaceAddInventoryProduct['id']?>"></label>
-   <label>Product ID<input type="text" value="<?=e((string)($marketplaceAddInventoryProduct['product_code']??''))?>" readonly aria-readonly="true"></label>
-   <label>Batch Number *<input name="batch_number" required maxlength="100" value=""></label>
-   <label>Manufacturer's Name *<input name="manufacturer" required maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
-   <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
-   <label>Quantity in Stock *<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value=""></label>
-   <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value=""></label>
-   <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value=""></label>
-   <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value=""></label>
-   <label>Withholding Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="withholding_tax_rate" min="0" value=""></label>
-   <label>Other Taxes (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="other_tax_rate" min="0" value=""></label>
-   <label>Retail Price (₱) — Before Taxes<input class="marketplace-retail-price marketplace-formatted-number" type="text" inputmode="decimal" data-decimals="2" name="retail_price" min="0" value=""></label>
-   <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="0.00" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
-   <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=($statusOption==='Low Stock')?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
+   <input type="hidden" name="inventory_product_id" value="<?=(int)$marketplaceAddInventoryProduct['id']?>">
    <input type="hidden" name="sold" value="0">
-   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save Changes</button></div>
+   <label>Quantity to Add *<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="quantity_to_add" id="marketplace-quantity-to-add" required value=""></label>
+   <label>Storage Location<input type="text" name="storage_location" maxlength="180" placeholder="e.g. Warehouse A - Rack 03"></label>
+   <label>Stock on Hand<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" id="marketplace-stock-on-hand" readonly value=""></label>
+   <label>Stock Value<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" id="marketplace-stock-value" readonly value=""></label>
+   <label>Batch No. / Lot No. *<input name="batch_number" required maxlength="100" value=""></label>
+   <label>Average Daily Usage (quantity/day)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_daily_usage" id="marketplace-average-daily-usage" value=""></label>
+   <label>Max Daily Usage (quantity/day)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_daily_usage" id="marketplace-max-daily-usage" value=""></label>
+   <label>Average Lead Time (number of days)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_lead_time" id="marketplace-average-lead-time" value=""></label>
+   <label>Max Lead Time (number of days)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_lead_time" id="marketplace-max-lead-time" value=""></label>
+   <label>Safety Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="safety_stock_level" id="marketplace-safety-stock-level" readonly value=""></label>
+   <label>Target Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="target_stock_level" id="marketplace-target-stock-level" value=""></label>
+   <label>On Order Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="on_order_stock" id="marketplace-on-order-stock" value=""></label>
+   <label>Backorders<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="backorders" id="marketplace-backorders" value=""></label>
+   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" id="marketplace-reorder-point" readonly value=""></label>
+   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" id="marketplace-reorder-quantity" readonly value=""></label>
+   <label>Expiration Date<div class="marketplace-inventory-date-wrap"><input type="text" id="marketplace-expiration-date-display" placeholder="MMMM dd, YYYY" readonly autocomplete="off" aria-label="Expiration Date, formatted as Month day, year"><button type="button" class="marketplace-inventory-date-trigger" id="marketplace-expiration-date-trigger" aria-label="Choose expiration date"><span aria-hidden="true">▦</span></button><input type="date" id="marketplace-expiration-date-picker" aria-hidden="true" tabindex="-1"></div><input type="hidden" name="expiration_date" id="marketplace-expiration-date"></label>
+   <label>Reorder Status<select id="marketplace-reorder-status-display" disabled aria-disabled="true" tabindex="-1" style="background:#3b393b!important;color:#d8d1d7!important;opacity:.78;cursor:not-allowed"><option value="Sufficient">Sufficient</option><option value="Low Stock">Low Stock</option><option value="Critical">Critical</option><option value="On Order">On Order</option><option value="Overstocked">Overstocked</option></select><input type="hidden" name="inventory_status" id="marketplace-reorder-status" value="Sufficient"></label>
+   <label>Stock Status<select name="stock_status" required><option>Available</option><option>On Hand</option><option>Reserved</option><option>In Transit</option><option>Expired</option><option>Damaged</option><option>Quarantined</option><option>Out of Stock</option></select></label>
+   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save</button></div>
   </form>
  </div>
 </div>
+<script>
+(()=> {
+ const form=document.getElementById('marketplace-add-inventory-form');
+ if(!form)return;
+ const $=selector=>form.querySelector(selector.startsWith('#')?selector:'[name="'+selector+'"]');
+ const raw=name=>String($(name)?.value||'').replace(/,/g,'').trim();
+ const num=name=>{const value=parseFloat(raw(name));return Number.isFinite(value)?value:0;};
+ const fmt=value=>Math.max(0,value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const reorderStatusDisplay=$('#marketplace-reorder-status-display');
+ const reorderStatusHidden=$('#marketplace-reorder-status');
+ const statusColors={'Sufficient':'#23864f','Low Stock':'#c47a20','Critical':'#b8323b','Overstocked':'#b59a24','On Order':'#75c9e8'};
+ const updateReorderStatus=(stock,reorderPoint,onOrder)=>{
+   let status='Sufficient';
+   if(onOrder>0)status='On Order';
+   else if(reorderPoint>0 && stock<reorderPoint*0.20)status='Critical';
+   else if(reorderPoint>0 && stock<reorderPoint)status='Low Stock';
+   else if(reorderPoint>0 && stock>reorderPoint*1.20)status='Overstocked';
+   reorderStatusDisplay.value=status;
+   reorderStatusHidden.value=status;
+   reorderStatusDisplay.style.setProperty('background-color',statusColors[status],'important');
+   reorderStatusDisplay.style.setProperty('border-color',statusColors[status],'important');
+   reorderStatusDisplay.style.setProperty('color','#fff','important');
+ };
+ const productPrice=<?=json_encode((float)($marketplaceAddInventoryProduct['selling_price']??$marketplaceAddInventoryProduct['retail_price']??0))?>;
+ const originalStock=0;
+ const refresh=()=>{
+   // Always read the current raw values (not formatted display strings) before recalculating.
+   const quantityEntered=raw('quantity_to_add')!=='';
+   const safetyInputsEntered=['average_daily_usage','max_daily_usage','average_lead_time','max_lead_time'].some(name=>raw(name)!=='');
+   const reorderInputsEntered=['quantity_to_add','target_stock_level','on_order_stock','backorders'].some(name=>raw(name)!=='');
+   const quantity=num('quantity_to_add');
+   const stock=originalStock+quantity;
+   const averageDemand=num('average_daily_usage');
+   const maximumDemand=num('max_daily_usage');
+   const averageLeadDays=num('average_lead_time');
+   const maximumLeadDays=num('max_lead_time');
+   // Safety Stock = (Maximum Daily Usage × Maximum Lead Time)
+   //              - (Average Daily Usage × Average Lead Time).
+   const safetyStock=(maximumDemand*maximumLeadDays)-(averageDemand*averageLeadDays);
+   const safety=Math.max(0,safetyStock);
+   const reorderPoint=(averageDemand*averageLeadDays)+safety;
+   // Reorder Quantity = Target Stock - (Stock on Hand + On Order - Backorders).
+   const reorderQty=Math.max(0,num('target_stock_level')-(stock+num('on_order_stock')-num('backorders')));
+   $('#marketplace-stock-on-hand').value=quantityEntered?fmt(stock):'';
+   $('#marketplace-stock-value').value=quantityEntered?fmt(stock*productPrice):'';
+   $('#marketplace-safety-stock-level').value=safetyInputsEntered?fmt(safety):'';
+   $('#marketplace-reorder-point').value=safetyInputsEntered?fmt(reorderPoint):'';
+   $('#marketplace-reorder-quantity').value=reorderInputsEntered?fmt(reorderQty):'';
+   updateReorderStatus(stock,reorderPoint,num('on_order_stock'));
+ };
+ const groupInteger=value=>value.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+ form.querySelectorAll('input[data-decimals]').forEach(input=>{
+   input.addEventListener('input',()=>{
+     const start=input.selectionStart??input.value.length;
+     const before=input.value.slice(0,start);
+     const clean=input.value.replace(/,/g,'').replace(/[^0-9.]/g,'');
+     const pieces=clean.split('.');
+     const integer=pieces.shift();
+     const decimals=pieces.join('').slice(0,2);
+     const formatted=groupInteger(integer)+(clean.includes('.')?'.'+decimals:'');
+     const commasBefore=(before.match(/,/g)||[]).length;
+     input.value=formatted;
+     const commasAfter=(formatted.slice(0,Math.max(0,start+((formatted.match(/,/g)||[]).length-commasBefore))).match(/,/g)||[]).length;
+     const newPosition=Math.min(formatted.length,start+(commasAfter-commasBefore));
+     try{input.setSelectionRange(newPosition,newPosition);}catch(e){}
+     refresh();
+   });
+   input.addEventListener('blur',()=>{
+     const value=raw(input.name);
+     input.value=value===''?'':fmt(parseFloat(value)||0);
+     refresh();
+   });
+ });
+ // Explicitly recalculate whenever any formula input changes. This also covers
+ // keyboard, paste, autofill, and native input/change interactions.
+ ['quantity_to_add','average_daily_usage','max_daily_usage','average_lead_time','max_lead_time','target_stock_level','on_order_stock','backorders'].forEach(name=>{
+   const field=$(name);
+   if(!field)return;
+   field.addEventListener('input',refresh);
+   field.addEventListener('change',refresh);
+   field.addEventListener('keyup',refresh);
+ });
+ const display=$('#marketplace-expiration-date-display');
+ const picker=$('#marketplace-expiration-date-picker');
+ const hidden=$('#marketplace-expiration-date');
+ const openPicker=()=>{
+   if(typeof picker.showPicker==='function'){try{picker.showPicker();return;}catch(e){}}
+   picker.focus();picker.click();
+ };
+ display.addEventListener('click',openPicker);
+ $('#marketplace-expiration-date-trigger').addEventListener('click',openPicker);
+ picker.addEventListener('change',()=>{
+   if(!picker.value){display.value='';hidden.value='';return;}
+   const [year,month,day]=picker.value.split('-').map(Number);
+   const selected=new Date(year,month-1,day);
+   display.value=selected.toLocaleDateString('en-US',{month:'long',day:'2-digit',year:'numeric'});
+   hidden.value=display.value;
+ });
+ form.addEventListener('submit',()=>{
+   // The visible date is always submitted in the required Month dd, YYYY format.
+   hidden.value=display.value;
+ });
+ refresh();
+})();
+</script>
 <?php endif; ?>
 <?php if($marketplaceEditInventoryId > 0 && $marketplaceInventoryForm): ?>
 <div class="account-status-modal marketplace-category-modal" id="marketplace-inventory-edit-modal">
@@ -1724,6 +2478,9 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <label>Manufacturer's Name<input name="manufacturer" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['manufacturer']??''))?>"></label>
    <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceInventoryForm['supply_chain_type']??$marketplaceInventoryForm['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
    <label>Quantity in Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value="<?=((float)$marketplaceInventoryForm['stock_on_hand']>0)?e($quantityFormat($marketplaceInventoryForm['stock_on_hand'])):''?>"></label>
+   <label>Storage Location<input type="text" name="storage_location" maxlength="180" value="<?=e((string)($marketplaceInventoryForm['storage_location']??''))?>" placeholder="e.g. Warehouse A - Rack 03"></label>
+   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" min="0" value="<?=e($quantityFormat($marketplaceInventoryForm['reorder_point']??0))?>"></label>
+   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" min="0" value="<?=e($quantityFormat($marketplaceInventoryForm['reorder_quantity']??0))?>"></label>
    <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value="<?=((float)($marketplaceInventoryForm['vat_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['vat_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
    <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['percentage_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['percentage_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
    <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value="<?=((float)($marketplaceInventoryForm['income_tax_rate']??0)>0)?e(number_format((float)$marketplaceInventoryForm['income_tax_rate'] * 100, 2, '.', '') . '%'):''?>"></label>
