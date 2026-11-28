@@ -1177,8 +1177,8 @@ $numberToWords = static function(int $number): string {
 .marketplace-inventory-table .marketplace-inventory-actions > a[href*="add_inventory_product"],
 .marketplace-inventory-table .marketplace-inventory-actions > form.marketplace-add-stock-form > button{
  display:inline-flex!important;align-items:center!important;justify-content:center!important;
- min-width:0!important;min-height:28px!important;height:28px!important;box-sizing:border-box!important;
- padding:5px 13px!important;border:1px solid rgba(36,150,91,.38)!important;border-radius:999px!important;
+ width:54px!important;min-width:54px!important;max-width:54px!important;min-height:28px!important;height:28px!important;box-sizing:border-box!important;
+ padding:5px 8px!important;border:1px solid rgba(36,150,91,.38)!important;border-radius:999px!important;
  background:rgba(22,131,75,.16)!important;color:#c8f0d7!important;
  font:600 10px Ubuntu,sans-serif!important;letter-spacing:.02em!important;line-height:1!important;
  text-decoration:none!important;white-space:nowrap!important;cursor:pointer!important;
