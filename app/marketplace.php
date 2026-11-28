@@ -930,15 +930,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             if ($batchNumber === '') throw new RuntimeException('Please enter a Batch / Lot Number.');
             $reorderStatuses = ['Sufficient','Low Stock','Critical','On Order','Overstocked'];
             $stockStatuses = ['Available','On Hand','Reserved','In Transit','Expired','Damaged','Quarantined','Out of Stock'];
-            if (!in_array($status, $reorderStatuses, true)) throw new RuntimeException('Choose a valid Reorder Status.');
-            if (!in_array($stockStatus, $stockStatuses, true)) throw new RuntimeException('Choose a valid Stock Status.');
+            if ($inventoryId === 0 && !in_array($status, $reorderStatuses, true)) throw new RuntimeException('Choose a valid Reorder Status.');
+            if ($inventoryId === 0 && !in_array($stockStatus, $stockStatuses, true)) throw new RuntimeException('Choose a valid Stock Status.');
             if ($sold > $stock) throw new RuntimeException('Sold quantity cannot exceed Stock on Hand.');
+            $productCheck = $pdo->prepare('SELECT id,product_name,product_code,manufacturer,supply_chain_entity,retail_price,selling_price FROM marketplace_products WHERE id=? LIMIT 1');
+            $productCheck->execute([$productId]);
+            $selectedInventoryProduct = $productCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$selectedInventoryProduct) throw new RuntimeException('Select a valid product before saving inventory.');
 
             if ($inventoryId === 0) {
-                $productCheck = $pdo->prepare('SELECT id,product_name,product_code,manufacturer,supply_chain_entity,retail_price,selling_price FROM marketplace_products WHERE id=? LIMIT 1');
-                $productCheck->execute([$productId]);
-                $selectedInventoryProduct = $productCheck->fetch(PDO::FETCH_ASSOC);
-                if (!$selectedInventoryProduct) throw new RuntimeException('Select a valid product before saving inventory.');
                 $supplyEntity = trim((string)($selectedInventoryProduct['supply_chain_entity'] ?? ''));
                 if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) $supplyEntity = 'Manufacturer';
                 $retailPrice = max(0, (float)($selectedInventoryProduct['selling_price'] ?? $selectedInventoryProduct['retail_price'] ?? 0));
