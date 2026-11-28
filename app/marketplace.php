@@ -937,7 +937,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             if ($batchNumber === '') throw new RuntimeException('Please enter a Batch / Lot Number.');
             $reorderStatuses = ['Sufficient','Low Stock','Critical','On Order','Overstocked'];
             $stockStatuses = ['Available','On Hand','Reserved','In Transit','Expired','Damaged','Quarantined','Out of Stock'];
-            if ($inventoryId === 0 && !in_array($status, $reorderStatuses, true)) throw new RuntimeException('Choose a valid Reorder Status.');
+            if ($inventoryId === 0) {
+                // Reorder Status is derived server-side; awaiting delivery takes priority.
+                if ($onOrderStock > 0) $status = 'On Order';
+                elseif ($reorderPoint > 0 && $stock < ($reorderPoint * 0.20)) $status = 'Critical';
+                elseif ($reorderPoint > 0 && $stock < $reorderPoint) $status = 'Low Stock';
+                elseif ($reorderPoint > 0 && $stock > ($reorderPoint * 1.20)) $status = 'Overstocked';
+                else $status = 'Sufficient';
+            }
             if ($inventoryId === 0 && !in_array($stockStatus, $stockStatuses, true)) throw new RuntimeException('Choose a valid Stock Status.');
             if ($sold > $stock) throw new RuntimeException('Sold quantity cannot exceed Stock on Hand.');
             $productCheck = $pdo->prepare('SELECT id,product_name,product_code,manufacturer,supply_chain_entity,retail_price,selling_price FROM marketplace_products WHERE id=? LIMIT 1');
@@ -1150,6 +1157,7 @@ $numberToWords = static function(int $number): string {
 #marketplace-inventory-add-modal .marketplace-form>label{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:6px!important;text-align:left!important;min-width:0}
 #marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select{display:block;width:100%;box-sizing:border-box;margin:0}
 #marketplace-inventory-add-modal .marketplace-form input[readonly]{background:#29252a!important;color:#d8d1d7!important;cursor:not-allowed}
+#marketplace-inventory-add-modal #marketplace-reorder-status-display:disabled{filter:saturate(.82);opacity:.78!important;color:#f4f0f2!important;-webkit-text-fill-color:#f4f0f2!important}
 #marketplace-inventory-add-modal .marketplace-form>.wide{grid-column:1/-1}
 #marketplace-inventory-add-modal .marketplace-inventory-date-wrap{display:flex;align-items:center;gap:6px;position:relative}
 #marketplace-inventory-add-modal .marketplace-inventory-date-wrap>input[type="text"]{flex:1;min-width:0}
@@ -2336,10 +2344,10 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <label>Stock on Hand<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" id="marketplace-stock-on-hand" readonly value=""></label>
    <label>Stock Value<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" id="marketplace-stock-value" readonly value=""></label>
    <label>Batch No. / Lot No. *<input name="batch_number" required maxlength="100" value=""></label>
-   <label>Average Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_daily_usage" id="marketplace-average-daily-usage" value=""></label>
-   <label>Max Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_daily_usage" id="marketplace-max-daily-usage" value=""></label>
-   <label>Average Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_lead_time" id="marketplace-average-lead-time" value=""></label>
-   <label>Max Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_lead_time" id="marketplace-max-lead-time" value=""></label>
+   <label>Average Daily Usage (quantity/day)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_daily_usage" id="marketplace-average-daily-usage" value=""></label>
+   <label>Max Daily Usage (quantity/day)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_daily_usage" id="marketplace-max-daily-usage" value=""></label>
+   <label>Average Lead Time (number of days)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_lead_time" id="marketplace-average-lead-time" value=""></label>
+   <label>Max Lead Time (number of days)<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_lead_time" id="marketplace-max-lead-time" value=""></label>
    <label>Safety Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="safety_stock_level" id="marketplace-safety-stock-level" readonly value=""></label>
    <label>Target Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="target_stock_level" id="marketplace-target-stock-level" value=""></label>
    <label>On Order Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="on_order_stock" id="marketplace-on-order-stock" value=""></label>
@@ -2347,7 +2355,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" id="marketplace-reorder-point" readonly value=""></label>
    <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" id="marketplace-reorder-quantity" readonly value=""></label>
    <label>Expiration Date<div class="marketplace-inventory-date-wrap"><input type="text" id="marketplace-expiration-date-display" placeholder="MMMM dd, YYYY" readonly autocomplete="off" aria-label="Expiration Date, formatted as Month day, year"><button type="button" class="marketplace-inventory-date-trigger" id="marketplace-expiration-date-trigger" aria-label="Choose expiration date"><span aria-hidden="true">▦</span></button><input type="date" id="marketplace-expiration-date-picker" aria-hidden="true" tabindex="-1"></div><input type="hidden" name="expiration_date" id="marketplace-expiration-date"></label>
-   <label>Reorder Status<select name="inventory_status" required><option value="Sufficient">Sufficient</option><option value="Low Stock">Low Stock</option><option value="Critical">Critical</option><option value="On Order">On Order</option><option value="Overstocked">Overstocked</option></select></label>
+   <label>Reorder Status<select id="marketplace-reorder-status-display" disabled aria-disabled="true" tabindex="-1" style="background:#3b393b!important;color:#d8d1d7!important;opacity:.78;cursor:not-allowed"><option value="Sufficient">Sufficient</option><option value="Low Stock">Low Stock</option><option value="Critical">Critical</option><option value="On Order">On Order</option><option value="Overstocked">Overstocked</option></select><input type="hidden" name="inventory_status" id="marketplace-reorder-status" value="Sufficient"></label>
    <label>Stock Status<select name="stock_status" required><option>Available</option><option>On Hand</option><option>Reserved</option><option>In Transit</option><option>Expired</option><option>Damaged</option><option>Quarantined</option><option>Out of Stock</option></select></label>
    <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save</button></div>
   </form>
@@ -2361,6 +2369,21 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
  const raw=name=>String($(name)?.value||'').replace(/,/g,'').trim();
  const num=name=>{const value=parseFloat(raw(name));return Number.isFinite(value)?value:0;};
  const fmt=value=>Math.max(0,value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const reorderStatusDisplay=$('#marketplace-reorder-status-display');
+ const reorderStatusHidden=$('#marketplace-reorder-status');
+ const statusColors={'Sufficient':'#23864f','Low Stock':'#c47a20','Critical':'#b8323b','Overstocked':'#b59a24','On Order':'#75c9e8'};
+ const updateReorderStatus=(stock,reorderPoint,onOrder)=>{
+   let status='Sufficient';
+   if(onOrder>0)status='On Order';
+   else if(reorderPoint>0 && stock<reorderPoint*0.20)status='Critical';
+   else if(reorderPoint>0 && stock<reorderPoint)status='Low Stock';
+   else if(reorderPoint>0 && stock>reorderPoint*1.20)status='Overstocked';
+   reorderStatusDisplay.value=status;
+   reorderStatusHidden.value=status;
+   reorderStatusDisplay.style.setProperty('background-color',statusColors[status],'important');
+   reorderStatusDisplay.style.setProperty('border-color',statusColors[status],'important');
+   reorderStatusDisplay.style.setProperty('color','#fff','important');
+ };
  const productPrice=<?=json_encode((float)($marketplaceAddInventoryProduct['selling_price']??$marketplaceAddInventoryProduct['retail_price']??0))?>;
  const originalStock=0;
  const refresh=()=>{
@@ -2379,6 +2402,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
    $('#marketplace-safety-stock-level').value=safetyInputsEntered?fmt(safety):'';
    $('#marketplace-reorder-point').value=safetyInputsEntered?fmt(reorderPoint):'';
    $('#marketplace-reorder-quantity').value=(quantityEntered||targetInputsEntered)?fmt(reorderQty):'';
+   updateReorderStatus(stock,reorderPoint,num('on_order_stock'));
  };
  const groupInteger=value=>value.replace(/\B(?=(\d{3})+(?!\d))/g,',');
  form.querySelectorAll('input[data-decimals]').forEach(input=>{
