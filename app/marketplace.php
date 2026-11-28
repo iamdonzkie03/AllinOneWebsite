@@ -130,7 +130,17 @@ $marketplaceInventoryColumns = [
     'storage_location' => "VARCHAR(180) NULL AFTER status",
     'reorder_point' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER storage_location",
     'reorder_quantity' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER reorder_point",
-    'last_updated_details' => "TEXT NULL AFTER reorder_quantity",
+    'average_daily_usage' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER reorder_quantity",
+    'max_daily_usage' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER average_daily_usage",
+    'average_lead_time' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER max_daily_usage",
+    'max_lead_time' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER average_lead_time",
+    'safety_stock_level' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER max_lead_time",
+    'target_stock_level' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER safety_stock_level",
+    'on_order_stock' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER target_stock_level",
+    'backorders' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER on_order_stock",
+    'expiration_date' => "DATE NULL AFTER backorders",
+    'stock_status' => "VARCHAR(30) NOT NULL DEFAULT 'Available' AFTER expiration_date",
+    'last_updated_details' => "TEXT NULL AFTER stock_status",
 ];
 foreach ($marketplaceInventoryColumns as $columnName => $columnDefinition) {
     $columnCheck = $pdo->query("SHOW COLUMNS FROM marketplace_inventory LIKE " . $pdo->quote($columnName));
@@ -899,36 +909,64 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $sku = $batchNumber;
             $stock = max(0, (float)str_replace(',', '', (string)($_POST['stock_on_hand'] ?? 0)));
             $sold = max(0, (int)($_POST['sold'] ?? 0));
-            $vatRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['vat_rate'] ?? 0)))) / 100;
-            $percentageTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['percentage_tax_rate'] ?? 0)))) / 100;
-            $incomeTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['income_tax_rate'] ?? 0)))) / 100;
-            $withholdingTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['withholding_tax_rate'] ?? 0)))) / 100;
-            $otherTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['other_tax_rate'] ?? 0)))) / 100;
-            $tax = $vatRate + $percentageTaxRate + $incomeTaxRate + $withholdingTaxRate + $otherTaxRate;
-            $retailPrice = max(0, (float)str_replace(',', '', (string)($_POST['retail_price'] ?? 0)));
-            $sellingPrice = round($retailPrice * (1 + $tax), 2);
-            $unitPrice = $sellingPrice;
-            $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
             $storageLocation = trim((string)($_POST['storage_location'] ?? ''));
-            $reorderPoint = max(0, (float)str_replace(',', '', (string)($_POST['reorder_point'] ?? 0)));
-            $reorderQuantity = max(0, (float)str_replace(',', '', (string)($_POST['reorder_quantity'] ?? 0)));
-            $productCheck = $pdo->prepare('SELECT id,product_name,product_code FROM marketplace_products WHERE id=? LIMIT 1');
-            $productCheck->execute([$productId]);
-            $selectedInventoryProduct = $productCheck->fetch(PDO::FETCH_ASSOC);
-            if (!$selectedInventoryProduct) throw new RuntimeException('Select a valid product before saving inventory.');
-            if ($batchNumber === '') throw new RuntimeException('Please enter a Batch Number.');
-            if (!in_array($status, $marketplaceInventoryStatuses, true)) throw new RuntimeException('Choose a valid inventory status.');
+            $number = static fn($key) => max(0, (float)str_replace(',', '', (string)($_POST[$key] ?? 0)));
+            $averageDailyUsage = $number('average_daily_usage');
+            $maxDailyUsage = $number('max_daily_usage');
+            $averageLeadTime = $number('average_lead_time');
+            $maxLeadTime = $number('max_lead_time');
+            $safetyStockLevel = max(0, ($maxDailyUsage * $maxLeadTime) - ($averageDailyUsage * $averageLeadTime));
+            $targetStockLevel = $number('target_stock_level');
+            $onOrderStock = $number('on_order_stock');
+            $backorders = $number('backorders');
+            $reorderPoint = ($averageDailyUsage * $averageLeadTime) + $safetyStockLevel;
+            $reorderQuantity = max(0, $targetStockLevel - ($stock + $onOrderStock - $backorders));
+            $stockValue = 0.0;
+            $status = trim((string)($_POST['inventory_status'] ?? 'Sufficient'));
+            $stockStatus = trim((string)($_POST['stock_status'] ?? 'Available'));
+            $expirationDate = trim((string)($_POST['expiration_date'] ?? ''));
+            if ($expirationDate !== '' && !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $expirationDate)) throw new RuntimeException('Enter a valid expiration date.');
+            if ($batchNumber === '') throw new RuntimeException('Please enter a Batch / Lot Number.');
+            $reorderStatuses = ['Sufficient','Low Stock','Critical','On Order','Overstocked'];
+            $stockStatuses = ['Available','On Hand','Reserved','In Transit','Expired','Damaged','Quarantined','Out of Stock'];
+            if (!in_array($status, $reorderStatuses, true)) throw new RuntimeException('Choose a valid Reorder Status.');
+            if (!in_array($stockStatus, $stockStatuses, true)) throw new RuntimeException('Choose a valid Stock Status.');
             if ($sold > $stock) throw new RuntimeException('Sold quantity cannot exceed Stock on Hand.');
-            $manufacturer = trim((string)($_POST['manufacturer'] ?? ''));
-            $supplyEntity = trim((string)($_POST['supply_chain_type'] ?? ''));
-            $country = trim((string)($_POST['country_of_origin'] ?? ''));
-            if ($inventoryId === 0 && $manufacturer === '') throw new RuntimeException("Please enter the Manufacturer's Name.");
-            if ($inventoryId === 0 && trim((string)($_POST['stock_on_hand'] ?? '')) === '') throw new RuntimeException('Please enter Quantity in Stock.');
-            if ($inventoryId === 0 && trim((string)($_POST['retail_price'] ?? '')) === '') throw new RuntimeException('Please enter the Retail Price.');
-            if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Type.');
-            $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
-            $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
-            if ($inventoryId > 0) {
+
+            if ($inventoryId === 0) {
+                $productCheck = $pdo->prepare('SELECT id,product_name,product_code,manufacturer,supply_chain_entity,retail_price,selling_price FROM marketplace_products WHERE id=? LIMIT 1');
+                $productCheck->execute([$productId]);
+                $selectedInventoryProduct = $productCheck->fetch(PDO::FETCH_ASSOC);
+                if (!$selectedInventoryProduct) throw new RuntimeException('Select a valid product before saving inventory.');
+                $supplyEntity = trim((string)($selectedInventoryProduct['supply_chain_entity'] ?? ''));
+                if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) $supplyEntity = 'Manufacturer';
+                $retailPrice = max(0, (float)($selectedInventoryProduct['selling_price'] ?? $selectedInventoryProduct['retail_price'] ?? 0));
+                $sellingPrice = $retailPrice;
+                $unitPrice = $sellingPrice;
+                $stockValue = round($stock * $sellingPrice, 2);
+                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,storage_location,reorder_point,reorder_quantity,average_daily_usage,max_daily_usage,average_lead_time,max_lead_time,safety_stock_level,target_stock_level,on_order_stock,backorders,expiration_date,stock_status,last_updated_details,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,0,0,0,0,0,0,$unitPrice,$retailPrice,$sellingPrice,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,$averageDailyUsage,$maxDailyUsage,$averageLeadTime,$maxLeadTime,$safetyStockLevel,$targetStockLevel,$onOrderStock,$backorders,$expirationDate ?: null,$stockStatus,'Initial inventory record created']);
+                $marketplaceInventoryCreateSuccess = ['product_name'=>(string)$selectedInventoryProduct['product_name'],'product_id'=>(string)($selectedInventoryProduct['product_code'] ?? '')];
+            } else {
+                // Preserve the established Edit Inventory workflow and its existing tax / metadata fields.
+                $vatRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['vat_rate'] ?? 0)))) / 100;
+                $percentageTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['percentage_tax_rate'] ?? 0)))) / 100;
+                $incomeTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['income_tax_rate'] ?? 0)))) / 100;
+                $withholdingTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['withholding_tax_rate'] ?? 0)))) / 100;
+                $otherTaxRate = max(0, (float)str_replace(',', '', str_replace('%', '', (string)($_POST['other_tax_rate'] ?? 0)))) / 100;
+                $tax = $vatRate + $percentageTaxRate + $incomeTaxRate + $withholdingTaxRate + $otherTaxRate;
+                $retailPrice = max(0, (float)str_replace(',', '', (string)($_POST['retail_price'] ?? 0)));
+                $sellingPrice = round($retailPrice * (1 + $tax), 2);
+                $unitPrice = $sellingPrice;
+                $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
+                $reorderPoint = max(0, (float)str_replace(',', '', (string)($_POST['reorder_point'] ?? 0)));
+                $reorderQuantity = max(0, (float)str_replace(',', '', (string)($_POST['reorder_quantity'] ?? 0)));
+                $manufacturer = trim((string)($_POST['manufacturer'] ?? ''));
+                $supplyEntity = trim((string)($_POST['supply_chain_type'] ?? ''));
+                $country = trim((string)($_POST['country_of_origin'] ?? ''));
+                if (!in_array($supplyEntity, $marketplaceSupplyEntities, true)) throw new RuntimeException('Choose a valid Supply Chain Type.');
+                $productMetaUpdate = $pdo->prepare('UPDATE marketplace_products SET manufacturer=?,supply_chain_entity=?,country_of_origin=? WHERE id=?');
+                $productMetaUpdate->execute([$manufacturer ?: null,$supplyEntity ?: null,$country ?: null,$productId]);
                 $beforeStmt = $pdo->prepare('SELECT i.batch_number,i.supply_chain_type,i.stock_on_hand,i.sold,i.storage_location,i.reorder_point,i.reorder_quantity,i.status,i.vat_rate,i.percentage_tax_rate,i.income_tax_rate,i.withholding_tax_rate,i.other_tax_rate,i.retail_price,p.manufacturer,p.country_of_origin FROM marketplace_inventory i INNER JOIN marketplace_products p ON p.id=i.product_id WHERE i.id=? LIMIT 1');
                 $beforeStmt->execute([$inventoryId]);
                 $beforeInventory = $beforeStmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -955,20 +993,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $lastUpdatedDetails = $changedInventoryFields ? 'Updated: ' . implode(', ', $changedInventoryFields) : 'Inventory record details reviewed; no tracked fields changed.';
                 $stmt = $pdo->prepare('UPDATE marketplace_inventory SET product_id=?,sku=?,batch_number=?,supply_chain_type=?,stock_on_hand=?,sold=?,tax_rate=?,vat_rate=?,percentage_tax_rate=?,income_tax_rate=?,withholding_tax_rate=?,other_tax_rate=?,unit_price=?,retail_price=?,selling_price=?,status=?,storage_location=?,reorder_point=?,reorder_quantity=?,last_updated_details=? WHERE id=?');
                 $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,$lastUpdatedDetails,$inventoryId]);
-                $marketplaceNotice = '';
-                $marketplaceInventoryUpdateSuccess = [
-                    'product_name' => (string)$selectedInventoryProduct['product_name'],
-                    'product_id' => (string)($selectedInventoryProduct['product_code'] ?? '')
-                ];
-            } else {
-                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,storage_location,reorder_point,reorder_quantity,last_updated_details,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,$tax,$vatRate,$percentageTaxRate,$incomeTaxRate,$withholdingTaxRate,$otherTaxRate,$unitPrice,$retailPrice,$sellingPrice,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,'Initial inventory record created']);
-                $marketplaceNotice = '';
-                $marketplaceInventoryCreateSuccess = [
-                    'product_name' => (string)$selectedInventoryProduct['product_name'],
-                    'product_id' => (string)($selectedInventoryProduct['product_code'] ?? '')
-                ];
+                $marketplaceInventoryUpdateSuccess = ['product_name'=>(string)($selectedInventoryProduct['product_name'] ?? ''),'product_id'=>(string)($selectedInventoryProduct['product_code'] ?? '')];
             }
+            $marketplaceNotice = '';
             $marketplaceTab = 'inventory';
             $marketplaceEditInventoryId = 0;
         } elseif ($action === 'marketplace_add_stock') {
@@ -1107,29 +1134,16 @@ $numberToWords = static function(int $number): string {
 @media(max-width:700px){.marketplace-form{grid-template-columns:1fr}.marketplace-form .wide{grid-column:auto}}
 .marketplace-product-add-card{width:min(1600px,96vw)!important;max-width:1600px!important;max-height:88vh;overflow-x:hidden;overflow-y:auto}
 #marketplace-inventory-add-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;box-sizing:border-box}
-#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+#marketplace-inventory-add-modal .marketplace-product-add-card{width:min(1050px,96vw)!important;max-width:1050px!important;box-sizing:border-box}
+#marketplace-inventory-add-modal .marketplace-inventory-product-summary{margin:0 0 16px;padding:10px 12px;border:1px solid rgba(225,185,55,.28);border-radius:9px;background:rgba(225,185,55,.07);color:var(--text);font-size:12px;line-height:1.6}
+#marketplace-inventory-add-modal .marketplace-inventory-product-summary strong{color:#f0c94a;font-weight:700}
+#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 #marketplace-inventory-add-modal .marketplace-form>label{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:6px!important;text-align:left!important;min-width:0}
-#marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select,#marketplace-inventory-add-modal .marketplace-form>label>textarea{display:block;width:100%;box-sizing:border-box;margin:0}
-/* Add Inventory: keep Product Name, Product ID, and Batch Number on row one. */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(1){grid-column:1/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(2){grid-column:3/4}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(3){grid-column:4/6}
-/* Row two: Manufacturer (2 columns), Supply Chain Type (2), Quantity (1). */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(4){grid-column:1/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(5){grid-column:3/5}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(6){grid-column:5/6}
-/* Row three: five equally sized tax fields. */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(7){grid-column:1/2}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(8){grid-column:2/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(9){grid-column:3/4}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(10){grid-column:4/5}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(11){grid-column:5/6}
-/* Final row: Retail Price, Selling Price, Status. */
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(12){grid-column:1/3}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(13){grid-column:3/5}
-#marketplace-inventory-add-modal .marketplace-form>label:nth-of-type(14){grid-column:5/6}
-#marketplace-inventory-add-modal .marketplace-form input[readonly]{background:#29252a!important;color:#999!important;cursor:not-allowed}
+#marketplace-inventory-add-modal .marketplace-form>label>input,#marketplace-inventory-add-modal .marketplace-form>label>select{display:block;width:100%;box-sizing:border-box;margin:0}
+#marketplace-inventory-add-modal .marketplace-form input[readonly]{background:#29252a!important;color:#d8d1d7!important;cursor:not-allowed}
 #marketplace-inventory-add-modal .marketplace-form>.wide{grid-column:1/-1}
+@media(max-width:850px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#marketplace-inventory-add-modal .marketplace-form{grid-template-columns:1fr}}
 /* Keep Edit Inventory visually consistent with the Add Inventory modal. */
 #marketplace-inventory-edit-modal .marketplace-product-add-card{width:min(800px,94vw)!important;max-width:800px!important;box-sizing:border-box}
 #marketplace-inventory-edit-modal .marketplace-form{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
@@ -2298,30 +2312,61 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
 <div class="account-status-modal marketplace-category-modal" id="marketplace-inventory-add-modal">
  <div class="account-status-modal-card marketplace-product-add-card" role="dialog" aria-modal="true" aria-labelledby="marketplace-inventory-add-title">
   <h2 id="marketplace-inventory-add-title">Add Inventory</h2>
-  <form class="marketplace-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory">
+  <p class="marketplace-inventory-product-summary">You are about to add inventory records for the Product Name: <strong><?=e((string)$marketplaceAddInventoryProduct['product_name'])?></strong> / <strong><?=e((string)($marketplaceAddInventoryProduct['brand']??'—'))?></strong> / <strong><?=e((string)($marketplaceAddInventoryProduct['model']??'—'))?></strong> with Product ID: <strong><?=e((string)($marketplaceAddInventoryProduct['product_code']??''))?></strong>.</p>
+  <form class="marketplace-form" id="marketplace-add-inventory-form" method="post" action="admin.php?section=marketplace&amp;marketplace_tab=inventory">
    <input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="marketplace_save_inventory"><input type="hidden" name="inventory_id" value="0">
-   <label>Product Name *<input type="text" value="<?=e($marketplaceAddInventoryProduct['product_name'])?>" readonly aria-readonly="true"><input type="hidden" name="inventory_product_id" value="<?=(int)$marketplaceAddInventoryProduct['id']?>"></label>
-   <label>Product ID<input type="text" value="<?=e((string)($marketplaceAddInventoryProduct['product_code']??''))?>" readonly aria-readonly="true"></label>
-   <label>Batch Number *<input name="batch_number" required maxlength="100" value=""></label>
-   <label>Manufacturer's Name *<input name="manufacturer" required maxlength="180" value="<?=e((string)($marketplaceAddInventoryProduct['manufacturer']??''))?>"></label>
-   <label>Supply Chain Type *<select name="supply_chain_type" required><option value="">Select type</option><?php foreach($marketplaceSupplyEntities as $entity): ?><option value="<?=e($entity)?>" <?=((string)($marketplaceAddInventoryProduct['supply_chain_entity']??'')===$entity)?'selected':''?>><?=e($entity)?></option><?php endforeach; ?></select></label>
-   <label>Quantity in Stock *<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" min="0" required value=""></label>
-   <label>Storage Location<input type="text" name="storage_location" maxlength="180" placeholder="e.g. Warehouse A - Rack 03"></label>
-   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" min="0" value="0.00"></label>
-   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" min="0" value="0.00"></label>
-   <label>Value-Added Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="vat_rate" min="0" value=""></label>
-   <label>Percentage Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="percentage_tax_rate" min="0" value=""></label>
-   <label>Income Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="income_tax_rate" min="0" value=""></label>
-   <label>Withholding Tax (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="withholding_tax_rate" min="0" value=""></label>
-   <label>Other Taxes (%)<input type="text" inputmode="decimal" class="marketplace-tax-formatted" data-decimals="2" name="other_tax_rate" min="0" value=""></label>
-   <label>Retail Price (₱) — Before Taxes<input class="marketplace-retail-price marketplace-formatted-number" type="text" inputmode="decimal" data-decimals="2" name="retail_price" min="0" value=""></label>
-   <label>Selling Price (₱)<input class="marketplace-selling-price" type="text" inputmode="decimal" name="selling_price" value="0.00" readonly aria-readonly="true" style="background:#29252a!important;color:#999!important;cursor:not-allowed"></label>
-   <label>Status<select name="inventory_status" required><?php foreach($marketplaceInventoryStatuses as $statusOption): ?><option value="<?=e($statusOption)?>" <?=($statusOption==='Low Stock')?'selected':''?>><?=e($statusOption)?></option><?php endforeach; ?></select></label>
+   <input type="hidden" name="inventory_product_id" value="<?=(int)$marketplaceAddInventoryProduct['id']?>">
    <input type="hidden" name="sold" value="0">
-   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save Changes</button></div>
+   <label>Quantity to Add *<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="quantity_to_add" id="marketplace-quantity-to-add" required value="0.00"></label>
+   <label>Storage Location<input type="text" name="storage_location" maxlength="180" placeholder="e.g. Warehouse A - Rack 03"></label>
+   <label>Stock on Hand<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="stock_on_hand" id="marketplace-stock-on-hand" readonly value="0.00"></label>
+   <label>Stock Value<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" id="marketplace-stock-value" readonly value="0.00"></label>
+   <label>Batch No. / Lot No. *<input name="batch_number" required maxlength="100" value=""></label>
+   <label>Average Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_daily_usage" id="marketplace-average-daily-usage" value="0.00"></label>
+   <label>Max Daily Usage<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_daily_usage" id="marketplace-max-daily-usage" value="0.00"></label>
+   <label>Average Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="average_lead_time" id="marketplace-average-lead-time" value="0.00"></label>
+   <label>Max Lead Time<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="max_lead_time" id="marketplace-max-lead-time" value="0.00"></label>
+   <label>Safety Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="safety_stock_level" id="marketplace-safety-stock-level" readonly value="0.00"></label>
+   <label>Target Stock Level<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="target_stock_level" id="marketplace-target-stock-level" value="0.00"></label>
+   <label>On Order Stock<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="on_order_stock" id="marketplace-on-order-stock" value="0.00"></label>
+   <label>Backorders<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="backorders" id="marketplace-backorders" value="0.00"></label>
+   <label>Reorder Point<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_point" id="marketplace-reorder-point" readonly value="0.00"></label>
+   <label>Reorder Quantity<input type="text" inputmode="decimal" class="marketplace-formatted-number" data-decimals="2" name="reorder_quantity" id="marketplace-reorder-quantity" readonly value="0.00"></label>
+   <label>Expiration Date<input type="date" name="expiration_date" id="marketplace-expiration-date"></label>
+   <label>Reorder Status<select name="inventory_status" required><option value="Sufficient">Sufficient</option><option value="Low Stock">Low Stock</option><option value="Critical">Critical</option><option value="On Order">On Order</option><option value="Overstocked">Overstocked</option></select></label>
+   <label>Stock Status<select name="stock_status" required><option>Available</option><option>On Hand</option><option>Reserved</option><option>In Transit</option><option>Expired</option><option>Damaged</option><option>Quarantined</option><option>Out of Stock</option></select></label>
+   <div class="wide marketplace-category-modal-actions"><a class="btn light" href="admin.php?section=marketplace&amp;marketplace_tab=inventory">Cancel</a><button class="btn" type="submit">Save</button></div>
   </form>
  </div>
 </div>
+<script>
+(()=> {
+ const form=document.getElementById('marketplace-add-inventory-form');
+ if(!form)return;
+ const $=name=>form.querySelector('[name="'+name+'"]');
+ const num=name=>{const value=parseFloat(String($(name)?.value||'0').replace(/,/g,''));return Number.isFinite(value)?value:0;};
+ const fmt=value=>Math.max(0,value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const productPrice=<?=json_encode((float)($marketplaceAddInventoryProduct['selling_price']??$marketplaceAddInventoryProduct['retail_price']??0))?>;
+ const originalStock=0;
+ const refresh=()=>{
+   const quantity=num('quantity_to_add');
+   const stock=originalStock+quantity;
+   const safety=Math.max(0,(num('max_daily_usage')*num('max_lead_time'))-(num('average_daily_usage')*num('average_lead_time')));
+   const reorderPoint=(num('average_daily_usage')*num('average_lead_time'))+safety;
+   const reorderQty=Math.max(0,num('target_stock_level')-(stock+num('on_order_stock')-num('backorders')));
+   $('#marketplace-stock-on-hand').value=fmt(stock);
+   $('#marketplace-stock-value').value=fmt(stock*productPrice);
+   $('#marketplace-safety-stock-level').value=fmt(safety);
+   $('#marketplace-reorder-point').value=fmt(reorderPoint);
+   $('#marketplace-reorder-quantity').value=fmt(reorderQty);
+ };
+ form.querySelectorAll('input').forEach(input=>{
+   if(input.matches('[data-decimals]'))input.addEventListener('input',()=>{const raw=input.value.replace(/,/g,'').replace(/[^0-9.]/g,'');const parts=raw.split('.');input.value=parts.shift()+(parts.length?'.'+parts.join('').slice(0,2):'');refresh();});
+   input.addEventListener('blur',()=>{if(input.matches('[data-decimals]'))input.value=fmt(parseFloat(input.value)||0);refresh();});
+ });
+ refresh();
+})();
+</script>
 <?php endif; ?>
 <?php if($marketplaceEditInventoryId > 0 && $marketplaceInventoryForm): ?>
 <div class="account-status-modal marketplace-category-modal" id="marketplace-inventory-edit-modal">
