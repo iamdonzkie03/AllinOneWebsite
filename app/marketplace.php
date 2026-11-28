@@ -2387,21 +2387,28 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
  const productPrice=<?=json_encode((float)($marketplaceAddInventoryProduct['selling_price']??$marketplaceAddInventoryProduct['retail_price']??0))?>;
  const originalStock=0;
  const refresh=()=>{
+   // Always read the current raw values (not formatted display strings) before recalculating.
    const quantityEntered=raw('quantity_to_add')!=='';
-   const averageUsageEntered=raw('average_daily_usage')!==''||raw('average_lead_time')!=='';
-   const maxUsageEntered=raw('max_daily_usage')!==''||raw('max_lead_time')!=='';
-   const safetyInputsEntered=averageUsageEntered||maxUsageEntered;
-   const targetInputsEntered=raw('target_stock_level')!==''||raw('on_order_stock')!==''||raw('backorders')!=='';
+   const safetyInputsEntered=['average_daily_usage','max_daily_usage','average_lead_time','max_lead_time'].some(name=>raw(name)!=='');
+   const reorderInputsEntered=['quantity_to_add','target_stock_level','on_order_stock','backorders'].some(name=>raw(name)!=='');
    const quantity=num('quantity_to_add');
    const stock=originalStock+quantity;
-   const safety=Math.max(0,(num('max_daily_usage')*num('max_lead_time'))-(num('average_daily_usage')*num('average_lead_time')));
-   const reorderPoint=(num('average_daily_usage')*num('average_lead_time'))+safety;
+   const averageDemand=num('average_daily_usage');
+   const maximumDemand=num('max_daily_usage');
+   const averageLeadDays=num('average_lead_time');
+   const maximumLeadDays=num('max_lead_time');
+   // Safety Stock = (Maximum Daily Usage × Maximum Lead Time)
+   //              - (Average Daily Usage × Average Lead Time).
+   const safetyStock=(maximumDemand*maximumLeadDays)-(averageDemand*averageLeadDays);
+   const safety=Math.max(0,safetyStock);
+   const reorderPoint=(averageDemand*averageLeadDays)+safety;
+   // Reorder Quantity = Target Stock - (Stock on Hand + On Order - Backorders).
    const reorderQty=Math.max(0,num('target_stock_level')-(stock+num('on_order_stock')-num('backorders')));
    $('#marketplace-stock-on-hand').value=quantityEntered?fmt(stock):'';
    $('#marketplace-stock-value').value=quantityEntered?fmt(stock*productPrice):'';
    $('#marketplace-safety-stock-level').value=safetyInputsEntered?fmt(safety):'';
    $('#marketplace-reorder-point').value=safetyInputsEntered?fmt(reorderPoint):'';
-   $('#marketplace-reorder-quantity').value=(quantityEntered||targetInputsEntered)?fmt(reorderQty):'';
+   $('#marketplace-reorder-quantity').value=reorderInputsEntered?fmt(reorderQty):'';
    updateReorderStatus(stock,reorderPoint,num('on_order_stock'));
  };
  const groupInteger=value=>value.replace(/\B(?=(\d{3})+(?!\d))/g,',');
@@ -2426,6 +2433,15 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
      input.value=value===''?'':fmt(parseFloat(value)||0);
      refresh();
    });
+ });
+ // Explicitly recalculate whenever any formula input changes. This also covers
+ // keyboard, paste, autofill, and native input/change interactions.
+ ['quantity_to_add','average_daily_usage','max_daily_usage','average_lead_time','max_lead_time','target_stock_level','on_order_stock','backorders'].forEach(name=>{
+   const field=$(name);
+   if(!field)return;
+   field.addEventListener('input',refresh);
+   field.addEventListener('change',refresh);
+   field.addEventListener('keyup',refresh);
  });
  const display=$('#marketplace-expiration-date-display');
  const picker=$('#marketplace-expiration-date-picker');
