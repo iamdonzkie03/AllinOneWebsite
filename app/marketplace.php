@@ -121,6 +121,7 @@ $marketplaceInventoryColumns = [
     'batch_number' => "VARCHAR(100) NULL AFTER sku",
     'supply_chain_type' => "VARCHAR(40) NULL AFTER batch_number",
     'selling_price' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER retail_price",
+    'stock_value' => "DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER selling_price",
     'vat_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER tax_rate",
     'percentage_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER vat_rate",
     'income_tax_rate' => "DECIMAL(7,3) NOT NULL DEFAULT 0 AFTER percentage_tax_rate",
@@ -945,8 +946,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $sellingPrice = $retailPrice;
                 $unitPrice = $sellingPrice;
                 $stockValue = round($stock * $sellingPrice, 2);
-                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,status,storage_location,reorder_point,reorder_quantity,average_daily_usage,max_daily_usage,average_lead_time,max_lead_time,safety_stock_level,target_stock_level,on_order_stock,backorders,expiration_date,stock_status,last_updated_details,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
-                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,0,0,0,0,0,0,$unitPrice,$retailPrice,$sellingPrice,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,$averageDailyUsage,$maxDailyUsage,$averageLeadTime,$maxLeadTime,$safetyStockLevel,$targetStockLevel,$onOrderStock,$backorders,$expirationDate ?: null,$stockStatus,'Initial inventory record created']);
+                $stmt = $pdo->prepare('INSERT INTO marketplace_inventory(product_id,sku,batch_number,supply_chain_type,stock_on_hand,sold,tax_rate,vat_rate,percentage_tax_rate,income_tax_rate,withholding_tax_rate,other_tax_rate,unit_price,retail_price,selling_price,stock_value,status,storage_location,reorder_point,reorder_quantity,average_daily_usage,max_daily_usage,average_lead_time,max_lead_time,safety_stock_level,target_stock_level,on_order_stock,backorders,expiration_date,stock_status,last_updated_details,latest_loaded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
+                $stmt->execute([$productId,$sku,$batchNumber,$supplyEntity,$stock,$sold,0,0,0,0,0,0,$unitPrice,$retailPrice,$sellingPrice,$stockValue,$status,$storageLocation ?: null,$reorderPoint,$reorderQuantity,$averageDailyUsage,$maxDailyUsage,$averageLeadTime,$maxLeadTime,$safetyStockLevel,$targetStockLevel,$onOrderStock,$backorders,$expirationDate ?: null,$stockStatus,'Initial inventory record created']);
                 $marketplaceInventoryCreateSuccess = ['product_name'=>(string)$selectedInventoryProduct['product_name'],'product_id'=>(string)($selectedInventoryProduct['product_code'] ?? '')];
             } else {
                 // Preserve the established Edit Inventory workflow and its existing tax / metadata fields.
@@ -960,6 +961,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
                 $sellingPrice = round($retailPrice * (1 + $tax), 2);
                 $unitPrice = $sellingPrice;
                 $status = trim((string)($_POST['inventory_status'] ?? 'Low Stock'));
+                if (!in_array($status, $marketplaceInventoryStatuses, true)) throw new RuntimeException('Choose a valid inventory status.');
                 $reorderPoint = max(0, (float)str_replace(',', '', (string)($_POST['reorder_point'] ?? 0)));
                 $reorderQuantity = max(0, (float)str_replace(',', '', (string)($_POST['reorder_quantity'] ?? 0)));
                 $manufacturer = trim((string)($_POST['manufacturer'] ?? ''));
