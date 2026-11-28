@@ -911,6 +911,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && str_starts_with((string)($_
             $sold = max(0, (int)($_POST['sold'] ?? 0));
             $storageLocation = trim((string)($_POST['storage_location'] ?? ''));
             $number = static fn($key) => max(0, (float)str_replace(',', '', (string)($_POST[$key] ?? 0)));
+            if ($inventoryId === 0) $stock = $number('quantity_to_add');
             $averageDailyUsage = $number('average_daily_usage');
             $maxDailyUsage = $number('max_daily_usage');
             $averageLeadTime = $number('average_lead_time');
@@ -2343,7 +2344,7 @@ document.getElementById('marketplace-product-created-close')?.addEventListener('
 (()=> {
  const form=document.getElementById('marketplace-add-inventory-form');
  if(!form)return;
- const $=name=>form.querySelector('[name="'+name+'"]');
+ const $=selector=>form.querySelector(selector.startsWith('#')?selector:'[name="'+selector+'"]');
  const num=name=>{const value=parseFloat(String($(name)?.value||'0').replace(/,/g,''));return Number.isFinite(value)?value:0;};
  const fmt=value=>Math.max(0,value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
  const productPrice=<?=json_encode((float)($marketplaceAddInventoryProduct['selling_price']??$marketplaceAddInventoryProduct['retail_price']??0))?>;
